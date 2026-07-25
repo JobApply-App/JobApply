@@ -13,7 +13,6 @@ import { ControlsSheet }        from '@/components/ControlsSheet'
 import { Overview }             from '@/components/Overview'
 import { JobFeed }              from '@/components/JobFeed'
 import { ApplicationsTab }      from '@/components/ApplicationsTab'
-import { LinkedInJobsTab }      from '@/components/LinkedInJobsTab'
 import { AgentStatusCenter }    from '@/components/AgentStatusCenter'
 import { ApplierPreview }       from '@/components/ApplierPreview'
 import AuthGuard                from '@/components/AuthGuard'
@@ -151,7 +150,7 @@ function MigrationGate({ children }: { children: React.ReactNode }) {
 
 // ── Preferences & navigation helpers ─────────────────────────────────────────
 
-const VALID_TABS: Tab[] = ['overview', 'feed', 'apps', 'linkedin']
+const VALID_TABS: Tab[] = ['overview', 'feed', 'apps']
 const LS_KEY     = 'jobapply_prefs'
 const LS_TAB_KEY = 'jobapply_active_tab'
 
@@ -349,8 +348,6 @@ function HomePageContent() {
         {tab === 'feed' && <JobFeed key={feedKey} preferences={settings} expandJobId={expandJobId} userId={user?.id ?? ''} />}
 
         {tab === 'apps'  && <ApplicationsTab />}
-
-        {tab === 'linkedin' && <LinkedInJobsTab />}
       </main>
 
       <Footer />
