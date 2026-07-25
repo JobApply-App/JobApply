@@ -42,7 +42,7 @@ class TestInitDbFreshDeployment:
         that has never existed before must not raise sqlite3.OperationalError
         (or anything else).
         """
-        import backend.services.db as db_module
+        import backend.core.migrations as db_module
 
         db_path = _fresh_sqlite_path()
         assert not db_path.exists()
@@ -75,7 +75,7 @@ class TestInitDbFreshDeployment:
     def test_init_db_is_idempotent_on_fresh_file(self, monkeypatch):
         """Calling init_db() twice against the same fresh file must not raise
         the second time either, and must leave the schema unchanged."""
-        import backend.services.db as db_module
+        import backend.core.migrations as db_module
 
         db_path = _fresh_sqlite_path()
         fresh_engine = create_engine(
@@ -101,8 +101,8 @@ class TestInitDbFreshDeployment:
         a second init_db() call untouched (JOB-91 requirement #4 — no
         breakage of existing, incrementally-ALTERed databases).
         """
-        import backend.services.db as db_module
-        from backend.services.db import EvidenceRecordRow
+        import backend.core.migrations as db_module
+        from backend.models.profile import EvidenceRecordRow
 
         db_path = _fresh_sqlite_path()
         fresh_engine = create_engine(

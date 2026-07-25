@@ -21,7 +21,8 @@ from pathlib import Path
 # Ensure project root is on the path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from backend.services.db import ENGINE, JobRow
+from backend.core.database import ENGINE
+from backend.models.job import JobRow
 from sqlalchemy.orm import Session
 
 _MIN_LEN     = 50

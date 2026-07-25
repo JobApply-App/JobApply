@@ -28,7 +28,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from backend.agents.company_culture import build_profile_from_payload, save_cached_profile
-from backend.services.db import Base, JobFeedbackRow, MasterProfileRow
+from backend.core.database import Base
+from backend.models.application import JobFeedbackRow
+from backend.models.profile import MasterProfileRow
+from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
 from backend.services.feedback_service import (
     EVIDENCE_THRESHOLD,
     MIN_CULTURE_EVENTS,

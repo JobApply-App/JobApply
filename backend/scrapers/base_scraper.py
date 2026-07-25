@@ -19,7 +19,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Optional
 
-from models.job import DetailedAnalysis, JobMatch
+from backend.schemas.job import DetailedAnalysis, JobMatch
 from backend.scrapers.proxy_manager import ProxyManager
 from backend.scrapers.parsing_engine import ParsingEngine
 

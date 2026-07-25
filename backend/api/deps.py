@@ -49,6 +49,7 @@ _bearer = HTTPBearer(auto_error=False)
 class CurrentUser:
     user_id:  str
     email:    str  = field(default="")
+    name:     str  = field(default="")
     is_admin: bool = field(default=False)
 
 
@@ -56,7 +57,7 @@ def _load_is_admin(user_id: str) -> bool:
     """Cheap master_profiles lookup; absent row (or any DB error) → False."""
     try:
         from sqlalchemy import text as _text
-        from backend.services.db import ENGINE
+        from backend.core.database import ENGINE
         with ENGINE.connect() as conn:
             row = conn.execute(
                 _text("SELECT is_admin FROM master_profiles WHERE user_id = :uid"),
@@ -111,7 +112,7 @@ async def get_current_user(
         # ── HS256 fallback ────────────────────────────────────────────────────
         identity = _verify_hs256_identity(token, jwt, JWTError)
 
-    user = CurrentUser(user_id=identity.user_id, email=identity.email)
+    user = CurrentUser(user_id=identity.user_id, email=identity.email, name=identity.name)
     user.is_admin = _load_is_admin(user.user_id)
     return user
 

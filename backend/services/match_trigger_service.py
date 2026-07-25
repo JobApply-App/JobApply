@@ -101,28 +101,17 @@ def _insert_trigger_row(
 
     Runs inside asyncio.to_thread() — must stay free of event-loop touching.
     """
-    from sqlalchemy.exc import IntegrityError
-    from sqlalchemy.orm import Session
+    from backend.repositories import match_trigger_repository
 
-    from backend.services.db import MatchTriggerRow
-
-    row = MatchTriggerRow(
-        user_id      = user_id,
+    return match_trigger_repository.insert(
         job_id       = job_id,
+        user_id      = user_id,
         score        = round(float(score_data.get("total", 0.0)), 1),
         threshold    = round(float(threshold), 1),
         payload_json = json.dumps(payload, ensure_ascii=False),
-        status       = "pending",
         created_at   = datetime.now(timezone.utc).isoformat(),
+        engine       = engine,
     )
-    with Session(engine) as s:
-        s.add(row)
-        try:
-            s.commit()
-        except IntegrityError:
-            s.rollback()
-            return False
-    return True
 
 
 # ── Async trigger evaluation ──────────────────────────────────────────────────
@@ -160,7 +149,7 @@ async def evaluate_match_trigger(
         return False
 
     if engine is None:
-        from backend.services.db import ENGINE
+        from backend.core.database import ENGINE
         engine = ENGINE
 
     # Compact payload for the notification channels — enough to render an
@@ -251,67 +240,19 @@ def fetch_pending_triggers(user_id: str, engine=None, limit: int = 50) -> list[d
     mark_triggers_consumed() — never by deleting rows (the row is the dedup
     record).
     """
-    if engine is None:
-        from backend.services.db import ENGINE
-        engine = ENGINE
+    from backend.repositories import match_trigger_repository
 
-    from sqlalchemy.orm import Session
-
-    from backend.services.db import MatchTriggerRow
-
-    with Session(engine) as s:
-        rows = (
-            s.query(MatchTriggerRow)
-            .filter(
-                MatchTriggerRow.user_id == user_id,
-                MatchTriggerRow.status  == "pending",
-            )
-            .order_by(MatchTriggerRow.id.desc())
-            .limit(limit)
-            .all()
-        )
-        out: list[dict] = []
-        for r in rows:
-            try:
-                payload = json.loads(r.payload_json or "{}")
-            except json.JSONDecodeError:
-                payload = {}
-            out.append({
-                "id":         r.id,
-                "job_id":     r.job_id,
-                "score":      r.score,
-                "created_at": r.created_at,
-                **payload,
-            })
-        return out
+    return match_trigger_repository.fetch_pending(user_id, limit=limit, engine=engine)
 
 
 def mark_triggers_consumed(trigger_ids: list[int], engine=None) -> int:
     """Acknowledge delivered triggers. Returns the number of rows updated."""
     if not trigger_ids:
         return 0
-    if engine is None:
-        from backend.services.db import ENGINE
-        engine = ENGINE
+    from backend.repositories import match_trigger_repository
 
-    from sqlalchemy.orm import Session
-
-    from backend.services.db import MatchTriggerRow
-
-    with Session(engine) as s:
-        updated = (
-            s.query(MatchTriggerRow)
-            .filter(
-                MatchTriggerRow.id.in_(trigger_ids),
-                MatchTriggerRow.status == "pending",
-            )
-            .update(
-                {
-                    "status":      "consumed",
-                    "consumed_at": datetime.now(timezone.utc).isoformat(),
-                },
-                synchronize_session=False,
-            )
-        )
-        s.commit()
-        return int(updated)
+    return match_trigger_repository.mark_consumed(
+        trigger_ids,
+        consumed_at = datetime.now(timezone.utc).isoformat(),
+        engine      = engine,
+    )

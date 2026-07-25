@@ -6,6 +6,10 @@ Nothing may be asserted about the candidate that is not present here.
 """
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 USER_PROFILE: dict = {
     # "personal" is legacy single-user scaffolding (see the multi-tenant note
     # near get_profile() below) — placeholders only. Real values are loaded
@@ -708,11 +712,53 @@ def get_narrative(key: str) -> dict:
 def _onboarding_row_profile(user_id: str) -> dict:
     """Load the onboarding profile dict from master_profiles for user_id ({} if absent)."""
     try:
-        from sqlalchemy.orm import Session
-        from backend.services.db import ENGINE, MasterProfileRow
-        with Session(ENGINE) as s:
-            row = s.get(MasterProfileRow, user_id)
-            return dict(row.master_profile or {}) if row else {}
+        from backend.repositories import master_profile_repository
+        return master_profile_repository.get_profile_json(user_id)
+    except Exception:
+        return {}
+
+
+def _master_profile_verified_email(user_id: str) -> str:
+    """
+    The verified-email COLUMN on master_profiles (set from the Supabase JWT
+    at /api/auth/sync-user — see backend/api/routes/auth.py), not the
+    master_profile JSON blob. Reliable for every real account regardless of
+    whether onboarding ever asked for contact info, so this is the primary
+    email source — the JSON blob's personal.email (if ever set some other
+    way) is checked first by get_profile() and this is only the fallback.
+    """
+    try:
+        from backend.repositories import master_profile_repository
+        row = master_profile_repository.get(user_id)
+        return (row.email or "") if row else ""
+    except Exception:
+        return ""
+
+
+def _metrics_doc_personal(user_id: str) -> dict:
+    """
+    Contact fields from master_profiles.master_profile["metrics_doc"]["personal"]
+    (backend/services/master_profile_service.py's `load(user_id)` — the B2C
+    onboarding/CV-import flow's own document, keyed "full_name"/"linkedin_url"
+    rather than the "name"/"linkedin" keys get_profile() returns). This is
+    frequently the ONLY place real contact data ends up for an account created
+    via CV import, since the plain onboarding `personal` dict
+    (_onboarding_row_profile) is a separate, often-empty field on the same
+    row. Normalizes key names to the get_profile() shape here so callers never
+    need to know about this second document.
+    """
+    try:
+        from backend.services.master_profile_service import load as _load_metrics_doc
+        personal = (_load_metrics_doc(user_id) or {}).get("personal", {})
+        if not isinstance(personal, dict):
+            return {}
+        return {
+            "name":     str(personal.get("full_name", "") or "").strip(),
+            "email":    str(personal.get("email", "") or "").strip(),
+            "phone":    str(personal.get("phone", "") or "").strip(),
+            "linkedin": str(personal.get("linkedin_url", "") or "").strip(),
+            "location": str(personal.get("location", "") or "").strip(),
+        }
     except Exception:
         return {}
 
@@ -742,13 +788,47 @@ def get_profile(user_id: str) -> dict:
             "end":     e.get("end", ""),
             "details": " ".join(str(b) for b in e.get("bullets", [])),
         })
+    # Real per-user contact data, resolved with a fallback chain across every
+    # place this app can have written it — previously hardcoded to "" for
+    # every field except name, even when data existed:
+    #   1. onboarding["personal"] (master_profile top-level "personal" key) —
+    #      set by /api/auth/sync-user for name, the missing-data wizard for
+    #      phone/location. Often empty — most accounts never populate this.
+    #   2. metrics_doc["personal"] (_metrics_doc_personal) — the B2C
+    #      onboarding/CV-import flow's OWN document, keyed full_name/
+    #      linkedin_url. This is where a CV-imported account's real contact
+    #      details usually actually live.
+    #   3. Verified email column (master_profiles.email) — email only, always
+    #      populated for a real account regardless of onboarding progress.
+    onboarding_personal = onboarding.get("personal", {})
+    if not isinstance(onboarding_personal, dict):
+        onboarding_personal = {}
+    metrics_personal = _metrics_doc_personal(user_id)
+
+    personal = {
+        "name":     onboarding_personal.get("name", "")     or metrics_personal.get("name", ""),
+        "title":    "",
+        "email":    onboarding_personal.get("email", "")    or metrics_personal.get("email", "")
+                    or _master_profile_verified_email(user_id),
+        "phone":    onboarding_personal.get("phone", "")    or metrics_personal.get("phone", ""),
+        "linkedin": onboarding_personal.get("linkedin", "") or metrics_personal.get("linkedin", ""),
+        "location": onboarding_personal.get("location", "") or metrics_personal.get("location", ""),
+    }
+
+    # Missing-data guard — never fail CV generation over this (a CV with a
+    # gap is still usable; a 500 isn't), but make an incomplete header loud
+    # in the logs instead of silently shipping it, per every source checked.
+    missing = [k for k in ("name", "phone", "linkedin", "location") if not personal[k]]
+    if missing:
+        logger.warning(
+            "[user_profile] get_profile(%s): contact field(s) %s are blank in every source "
+            "checked (onboarding.personal, metrics_doc.personal) — CV header will render "
+            "without them.",
+            user_id, missing,
+        )
+
     return {
-        "personal": {
-            "name":     onboarding.get("personal", {}).get("name", "")
-                        if isinstance(onboarding.get("personal"), dict) else "",
-            "title":    "",
-            "email":    "", "phone": "", "linkedin": "", "location": "",
-        },
+        "personal":       personal,
         "summary":        onboarding.get("professional_summary", ""),
         "education":      onboarding.get("education", []),
         "experience":     experience,
@@ -757,6 +837,33 @@ def get_profile(user_id: str) -> dict:
         "key_narratives": {},
         "volunteering":   "",
     }
+
+
+def resolve_profile(user_id: str = "default") -> dict:
+    """
+    get_profile(user_id) that degrades instead of raising.
+
+    Post-processing helpers (tailor's static-section injection and employer
+    enforcement, researcher's entity extraction) used to read the module-level
+    USER_PROFILE singleton directly, which silently substituted the legacy
+    single-user data into every real account's output. They resolve through
+    here instead.
+
+    A DB lookup failure falls back to the legacy singleton rather than raising:
+    a CV built from a stale profile is still deliverable, a 500 is not. The
+    fallback is logged loudly because it silently degrades output quality.
+    """
+    if user_id == "default":
+        return USER_PROFILE
+    try:
+        return get_profile(user_id)
+    except Exception:
+        logger.exception(
+            "[user_profile] resolve_profile(%s) failed — falling back to the LEGACY "
+            "singleton. Downstream output may not match this user.",
+            user_id,
+        )
+        return USER_PROFILE
 
 
 def format_profile_compact(profile: dict) -> str:

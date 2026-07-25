@@ -6,7 +6,7 @@ import httpx
 import logging
 
 from backend.scrapers.base_scraper import BaseScraper
-from models.job import RawJobPosting
+from backend.schemas.job import RawJobPosting
 
 logger = logging.getLogger(__name__)
 

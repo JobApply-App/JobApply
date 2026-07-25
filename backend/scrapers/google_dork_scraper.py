@@ -48,7 +48,7 @@ import re
 import time
 from typing import Optional
 
-from models.job import JobMatch
+from backend.schemas.job import JobMatch
 from backend.scrapers.base_scraper import BaseScraper, make_job_id, minimal_job_match
 from backend.scrapers.relevancy import is_title_relevant
 from backend.config import TARGET_SEARCH_QUERIES, CREDIT_CONSERVATION_MODE

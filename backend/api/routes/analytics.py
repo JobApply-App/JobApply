@@ -50,7 +50,9 @@ from sqlalchemy.orm import Session
 
 from backend.api.deps import CurrentUser, get_current_user, standard_rate_limit
 from backend.services.analytics_service import compute_overview
-from backend.services.db import ENGINE, ApplicationRow, JobRow
+from backend.core.database import ENGINE
+from backend.models.job import JobRow
+from backend.repositories import application_repository
 
 # Router-level standard_rate_limit (Phase 4 invariant) — covers /summary and
 # /overview alike, keyed per authenticated user.
@@ -137,11 +139,7 @@ async def analytics_summary(user: CurrentUser = Depends(get_current_user)) -> di
     with Session(ENGINE) as db:
 
         # ── All application rows for this user ────────────────────────────────
-        all_apps: list[ApplicationRow] = (
-            db.query(ApplicationRow)
-            .filter(ApplicationRow.user_id == user.user_id)
-            .all()
-        )
+        all_apps = application_repository.get_all_rows(user.user_id, session=db)
 
         # Filter out discovery-only stages to count real pipeline entries
         pipeline_apps = [

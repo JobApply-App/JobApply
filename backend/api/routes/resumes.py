@@ -4,13 +4,14 @@ import base64
 import json
 import logging
 import re
+import time
 
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from backend.services import job_store
+from backend.repositories import job_repository as job_store
 from backend.agents.resume import ResumeAgent
 from backend.agents.tailor import TailorAgent, _inject_static_sections
 from backend.agents.gatekeeper import RevisionGatekeeper
@@ -25,7 +26,7 @@ from backend.services.match_score_service import (
 )
 from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit, standard_rate_limit
 from backend.services.master_profile_service import get_cached_answer, merge_answers
-from backend.services.job_store import get_tailored_cv, save_tailored_cv
+from backend.repositories.job_repository import clear_tailored_cv, get_tailored_cv, save_tailored_cv
 
 logger = logging.getLogger(__name__)
 
@@ -471,10 +472,30 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                               the user.  Call this endpoint again with
                               supplemental_answers to complete generation.
     """
+    # Whole-request wall clock. The client aborts at 180s (ApplierPreview.tsx),
+    # and one request can chain JD structuring -> tailoring -> refinement ->
+    # scoring, each with its own provider fallback/retries — so the total is
+    # what actually matters for timeouts, not any single call's latency.
+    _req_t0 = time.perf_counter()
+
     all_jobs = job_store.get_all(user.user_id)
     job      = next((j for j in all_jobs if j.job_id == req.job_id), None)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job '{req.job_id}' not found.")
+
+    # ── Regenerate from scratch: purge the stale draft up front ───────────────
+    # Deliberately BEFORE the LLM runs, not after. Relying on the successful
+    # run's save_tailored_cv() to overwrite meant a failed regeneration left
+    # the old draft intact and silently served it again on the next open —
+    # the exact "loads a previously generated draft instead of fresh content"
+    # symptom. Purging here makes a failure surface as "no draft" (which
+    # correctly re-runs generation) rather than as stale content.
+    if req.force:
+        purged = clear_tailored_cv(req.job_id, user.user_id)
+        logger.info(
+            "[resumes/tailor] force=True for job %s — purged cached draft: %s",
+            req.job_id, purged,
+        )
 
     # ── Return cached CV if available and force=False ─────────────────────────
     if not req.force and not req.supplemental_answers:
@@ -485,7 +506,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
             )
             cached_cv_data = cached["cv_data"]
             try:
-                cached_pdf = await build_pdf(cached_cv_data, template_id="t2_modern")
+                cached_pdf = await build_pdf(cached_cv_data, template_id="t2_modern", user_id=user.user_id)
             except Exception as exc:
                 logger.warning("[resumes/tailor] PDF rebuild from cache failed: %s", exc)
                 cached_pdf = None
@@ -535,7 +556,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
     auto_filled: dict[str, str] = {}
 
     try:
-        agent  = TailorAgent()
+        agent  = TailorAgent(user.user_id)
         result = await agent.tailor(job, supplemental_answers=jd_answers or None)
     except Exception as exc:
         logger.exception("[resumes/tailor] TailorAgent failed for job %s", req.job_id)
@@ -577,6 +598,10 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                 r for r in result.get("requests", [])
                 if str(r.get("id", "")) not in answered_ids
             ]
+            logger.info(
+                "[resumes/tailor] TOTAL %.1fs for job %s (status=missing_data, %d question(s))",
+                time.perf_counter() - _req_t0, req.job_id, len(unanswered),
+            )
             return TailorResponse(
                 status                = "missing_data",
                 missing_data_requests = unanswered,
@@ -595,7 +620,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
             logger.warning("[resumes/tailor] merge_answers failed (non-fatal): %s", exc)
 
     try:
-        pdf_bytes = await build_pdf(cv_data, template_id="t2_modern")
+        pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
     except Exception as exc:
         logger.exception("[resumes/tailor] PDF build failed for job %s", req.job_id)
         raise HTTPException(status_code=502, detail="PDF generation failed. Please try again shortly.") from exc
@@ -672,7 +697,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                 score_result     = refined_score
                 match_score_dict = refined_score.as_dict()
                 try:
-                    pdf_bytes = await build_pdf(cv_data, template_id="t2_modern")
+                    pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
                     logger.info(
                         "[resumes/tailor] Refined PDF rebuilt for job %s", req.job_id
                     )
@@ -694,6 +719,19 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
         logger.info("[resumes/tailor] Cached tailored CV for job %s", req.job_id)
     except Exception as exc:
         logger.warning("[resumes/tailor] Failed to cache CV (non-fatal): %s", exc)
+
+    _elapsed = time.perf_counter() - _req_t0
+    logger.info(
+        "[resumes/tailor] TOTAL %.1fs for job %s (status=ok) — client aborts at 180s",
+        _elapsed, req.job_id,
+    )
+    if _elapsed > 120:
+        logger.warning(
+            "[resumes/tailor] SLOW generation: %.1fs for job %s — approaching the "
+            "180s client abort. Check preceding llm_client lines for provider "
+            "fallbacks/retries.",
+            _elapsed, req.job_id,
+        )
 
     return TailorResponse(
         status             = "ok",
@@ -721,7 +759,7 @@ async def get_cached_resume(job_id: str, user: CurrentUser = Depends(get_current
 
     cv_data = cached["cv_data"]
     try:
-        pdf_bytes = await build_pdf(cv_data, template_id="t2_modern")
+        pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
         pdf_b64   = base64.b64encode(pdf_bytes).decode()
     except Exception as exc:
         logger.warning("[resumes/cached] PDF rebuild failed for job %s: %s", job_id, exc)
@@ -802,16 +840,19 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
     cv_data = result["cv_data"]
 
     # Re-inject canonical static sections (education, military, skills) from
-    # USER_PROFILE after every Copilot edit.  This guarantees these sections
-    # are never silently dropped when the LLM merely forgets to include them,
-    # and ensures the canonical profile dates/unit/role are always present in
-    # that case. respect_deletions=True means an explicit null/[] the
-    # CopilotAgent wrote for one of these keys (an intentional user deletion)
-    # is honored instead of being overwritten from the Master Profile.
-    cv_data = _inject_static_sections(cv_data, respect_deletions=True)
+    # THIS USER's profile after every Copilot edit.  This guarantees these
+    # sections are never silently dropped when the LLM merely forgets to
+    # include them, and ensures the canonical profile dates/unit/role are
+    # always present in that case. respect_deletions=True means an explicit
+    # null/[] the CopilotAgent wrote for one of these keys (an intentional
+    # user deletion) is honored instead of being overwritten from the Master
+    # Profile.
+    cv_data = _inject_static_sections(
+        cv_data, respect_deletions=True, user_id=user.user_id
+    )
 
     try:
-        pdf_bytes = await build_pdf(cv_data, template_id="t2_modern")
+        pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
     except Exception as exc:
         logger.exception("[resumes/copilot] PDF build failed for job %s", req.job_id)
         raise HTTPException(status_code=502, detail="PDF generation failed. Please try again shortly.") from exc
@@ -886,7 +927,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
             score_result.missing_keywords[:6],
         )
         try:
-            tailor_agent  = TailorAgent()
+            tailor_agent  = TailorAgent(user.user_id)
             refined_data  = await tailor_agent.refine(
                 cv_data          = cv_data,
                 missing_keywords = score_result.missing_keywords,
@@ -906,7 +947,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
                 score_result     = refined_score
                 match_score_dict = refined_score.as_dict()
                 try:
-                    pdf_bytes = await build_pdf(cv_data, template_id="t2_modern")
+                    pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
                     logger.info(
                         "[resumes/copilot] Refined PDF rebuilt for job %s", req.job_id
                     )
@@ -950,7 +991,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
             cv_data = {**cv_data, "skills": {"categories": pruned_cats}}
             # Rebuild PDF so the visual skills sidebar reflects the pruned list
             try:
-                pdf_bytes = await build_pdf(cv_data, template_id="t2_modern")
+                pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
             except Exception as pdf_exc:
                 logger.warning(
                     "[resumes/copilot] PDF rebuild after skills pruning failed: %s", pdf_exc
@@ -1051,7 +1092,7 @@ async def revise_resume(req: ReviseRequest, user: CurrentUser = Depends(get_curr
         raise HTTPException(status_code=404, detail=f"Job '{req.job_id}' not found.")
 
     try:
-        gk     = RevisionGatekeeper()
+        gk     = RevisionGatekeeper(user.user_id)
         result = await gk.revise(
             revision_text = req.revision_text,
             cv_data       = req.cv_data,
@@ -1096,7 +1137,7 @@ async def render_pdf(req: RenderPdfRequest, user: CurrentUser = Depends(get_curr
     template switching and final export.
     """
     try:
-        pdf_bytes = await build_pdf(req.cv_data, template_id=req.template_id)
+        pdf_bytes = await build_pdf(req.cv_data, template_id=req.template_id, user_id=user.user_id)
     except Exception as exc:
         logger.exception("[resumes/render-pdf] PDF render failed template=%s", req.template_id)
         raise HTTPException(status_code=502, detail="PDF render failed. Please try again shortly.") from exc

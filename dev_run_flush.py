@@ -46,7 +46,7 @@ USER_ID = "e2472fa3-db25-4e53-9d0b-2aed67bcfe0e"
 
 
 async def main() -> None:
-    from backend.services import job_store
+    from backend.repositories import job_repository as job_store
     from backend.services import feed_service
 
     # ── Phase 1: Flush ────────────────────────────────────────────────────────

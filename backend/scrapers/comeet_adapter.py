@@ -42,7 +42,7 @@ from typing import Optional
 
 import httpx
 
-from models.job import JobMatch
+from backend.schemas.job import JobMatch
 from backend.scrapers.base_scraper import BaseScraper, make_job_id, minimal_job_match, now_iso
 
 logger = logging.getLogger(__name__)

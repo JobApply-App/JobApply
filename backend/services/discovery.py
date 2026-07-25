@@ -33,9 +33,9 @@ from backend.config import (
 )
 from backend.scrapers.base_scraper import make_tenant_job_id
 from backend.scrapers.relevancy import is_title_relevant
-from backend.services import job_store
+from backend.repositories import job_repository as job_store
 import backend.services.agent_store as agent_store
-from models.job import JobMatch, RawJobPosting
+from backend.schemas.job import JobMatch, RawJobPosting
 
 # Minimum JD characters required before we attempt structuring + scoring.
 # Below this the text is just the title+company header line — not a real JD.

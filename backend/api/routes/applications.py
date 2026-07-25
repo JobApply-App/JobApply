@@ -10,9 +10,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.api.deps import CurrentUser, get_current_user
-from models.application import Application, ApplicationStatus
-from backend.services import app_store, job_store
-from backend.services.db import ENGINE, ApplicationRow, JobRow
+from backend.schemas.application import Application, ApplicationStatus
+from backend.repositories import application_repository as app_store
+from backend.repositories import job_repository as job_store
+from backend.core.database import ENGINE
+from backend.models.job import JobRow
 
 logger = logging.getLogger(__name__)
 
@@ -157,40 +159,16 @@ async def mark_applied(
         score   = float(job_row.score or 0.0)
 
         # ── Upsert ApplicationRow ─────────────────────────────────────────────
-        existing = (
-            db.query(ApplicationRow)
-            .filter(
-                ApplicationRow.job_id  == body.job_id,
-                ApplicationRow.user_id == user.user_id,
-            )
-            .first()
+        application_id, created = app_store.upsert_submitted(
+            db,
+            new_application_id = str(uuid.uuid4()),
+            job_id              = body.job_id,
+            user_id             = user.user_id,
+            title               = title,
+            company             = company,
+            score               = score,
+            now                 = now_str,
         )
-
-        if existing:
-            # Already in the pipeline — ensure status is at least 'submitted'
-            # but do not downgrade a card that has already advanced.
-            already_advanced = existing.status not in ("", None)
-            if not already_advanced or existing.status == "submitted":
-                existing.status      = "submitted"
-                existing.last_update = now_str
-            application_id = existing.application_id
-            created        = False
-        else:
-            application_id = str(uuid.uuid4())
-            new_row = ApplicationRow(
-                application_id = application_id,
-                user_id        = user.user_id,
-                job_id         = body.job_id,
-                title          = title,
-                company        = company,
-                ats            = "Direct",
-                status         = "submitted",
-                submitted_at   = now_str,
-                last_update    = now_str,
-                score          = score,
-            )
-            db.add(new_row)
-            created = True
 
         # ── Mark job as applied ───────────────────────────────────────────────
         job_row.applied    = True

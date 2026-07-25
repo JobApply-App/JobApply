@@ -22,7 +22,7 @@ import anthropic
 
 from backend.services.llm_client import call_llm
 from backend.services.user_profile import get_profile
-from models.job import JobMatch
+from backend.schemas.job import JobMatch
 
 logger = logging.getLogger(__name__)
 

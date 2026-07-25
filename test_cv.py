@@ -32,7 +32,7 @@ if _env_file.exists():
             if _k not in _os.environ:
                 _os.environ[_k] = _v
 
-from backend.services.job_store import get_by_url, get_all  # noqa: E402
+from backend.repositories.job_repository import get_by_url, get_all  # noqa: E402
 from backend.agents.tailor import TailorAgent               # noqa: E402
 from backend.services.pdf_builder import build_pdf          # noqa: E402
 

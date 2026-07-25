@@ -41,7 +41,8 @@ from datetime import datetime, timezone
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.services.db import ENGINE, JobRow
+from backend.core.database import ENGINE
+from backend.models.job import JobRow
 
 logger = logging.getLogger(__name__)
 

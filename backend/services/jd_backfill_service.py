@@ -22,7 +22,7 @@ import logging
 import random
 from typing import TypedDict
 
-from backend.services import job_store
+from backend.repositories import job_repository as job_store
 from backend.services import jd_structure_service
 from backend.scrapers.url_router import scrape_jd_text
 

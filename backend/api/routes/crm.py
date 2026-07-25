@@ -15,10 +15,9 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
 from backend.api.deps import CurrentUser, get_current_user
-from backend.services.db import ENGINE, ApplicationRow
+from backend.repositories import application_repository
 
 router  = APIRouter()
 logger  = logging.getLogger(__name__)
@@ -89,16 +88,7 @@ async def get_crm_board(user: CurrentUser = Depends(get_current_user)) -> CrmBoa
     empty.  Only ApplicationRow entries whose status is in the pipeline are
     included (i.e. status is one of the 6 canonical stages).
     """
-    with Session(ENGINE) as db:
-        rows: list[ApplicationRow] = (
-            db.query(ApplicationRow)
-            .filter(
-                ApplicationRow.user_id == user.user_id,
-                ApplicationRow.status.in_(_VALID_STAGE_KEYS),
-            )
-            .order_by(ApplicationRow.submitted_at.desc())
-            .all()
-        )
+    rows = application_repository.get_by_statuses(user.user_id, _VALID_STAGE_KEYS)
 
     # Group rows by stage
     buckets: dict[str, list[CrmCard]] = {stage: [] for stage, _ in _STAGES}
@@ -146,23 +136,19 @@ async def move_crm_card(
 
     now = _now_iso()
 
-    with Session(ENGINE) as db:
-        row = db.get(ApplicationRow, body.application_id)
-        if not row:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Application '{body.application_id}' not found.",
-            )
-        if row.user_id != user.user_id:
-            raise HTTPException(
-                status_code=403,
-                detail="You do not have permission to move this application.",
-            )
-
-        previous_stage  = (row.status or "submitted").lower()
-        row.status      = to_stage
-        row.last_update = now
-        db.commit()
+    result, previous_stage = application_repository.move_stage(
+        body.application_id, user.user_id, to_stage, now,
+    )
+    if result == "not_found":
+        raise HTTPException(
+            status_code=404,
+            detail=f"Application '{body.application_id}' not found.",
+        )
+    if result == "forbidden":
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to move this application.",
+        )
 
     logger.info(
         "[crm/move] %s  %r → %r", body.application_id, previous_stage, to_stage,

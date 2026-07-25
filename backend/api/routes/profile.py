@@ -23,21 +23,21 @@ from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit, standard_rate_limit
-from backend.services.db import (
-    ENGINE,
-    EvidenceRecordRow,
-    MasterProfileRow,
-    ProfileEntityRow,
-)
+from backend.core.database import ENGINE
+from backend.models.profile import ProfileEntityRow
+from backend.repositories import evidence_repository
+from backend.repositories import master_profile_repository
+from backend.repositories import profile_entity_repository
 from backend.services.master_profile_service import (
     get_enriched_entities,
     get_enriched_entity,
     load,
     merge_answers,
+    merge_parsed_contact,
     save,
     save_enriched_entities,
 )
@@ -86,19 +86,11 @@ async def init_profile(user: CurrentUser = Depends(get_current_user)):
     """
     db = Session(ENGINE)
     try:
-        row = db.get(MasterProfileRow, user.user_id)
-        if row:
+        now = datetime.now(timezone.utc).isoformat()
+        row, created = master_profile_repository.get_or_create(db, user.user_id, now=now)
+        if not created:
             return {"status": "ok", "created": False}
 
-        now = datetime.now(timezone.utc).isoformat()
-        row = MasterProfileRow(
-            user_id           = user.user_id,
-            onboarding_status = "incomplete",
-            master_profile    = {},
-            created_at        = now,
-            updated_at        = now,
-        )
-        db.add(row)
         db.commit()
         logger.info("[profile/init] Created master_profiles row for %s", user.user_id)
         return {"status": "ok", "created": True}
@@ -186,8 +178,13 @@ async def get_research(user: CurrentUser = Depends(get_current_user)):
 
 class ResearchRequest(BaseModel):
     # Optional override: specific entity names to research.
-    # If omitted, all entities from USER_PROFILE are researched.
+    # If omitted, all entities from the CALLER's profile are researched.
     entity_names: Optional[list[str]] = None
+    # Bypass the web-search result cache AND the ground-truth skip guard,
+    # forcing a fresh web+LLM pass for every entity in this request. Default
+    # False: normal calls are served from cache where possible (0 ScraperAPI
+    # credits on a repeat run) and never overwrite a human-verified record.
+    force: bool = False
 
 
 @router.post("/research")
@@ -207,20 +204,20 @@ async def trigger_research(req: ResearchRequest, user: CurrentUser = Depends(get
                 for n in req.entity_names
             ]
         else:
-            entities = extract_profile_entities()
+            entities = extract_profile_entities(user.user_id)
 
         if not entities:
             return {"status": "ok", "message": "No entities to research.", "entities": []}
 
-        agent   = ResearcherAgent()
-        results = await agent.research(entities)
+        agent   = ResearcherAgent(user.user_id)
+        results = await agent.research(entities, force=req.force)
 
         # Persist to master profile
         save_enriched_entities([e.as_dict() for e in results], user.user_id)
 
         logger.info(
-            "[profile/research] Completed: %d entities researched",
-            len(results),
+            "[profile/research] Completed for user=%s: %d entities researched",
+            user.user_id, len(results),
         )
         return {
             "status":   "ok",
@@ -301,20 +298,11 @@ async def save_role_preferences(
     # Mirror into master_profiles for DB-side consumers.
     _now = datetime.now(timezone.utc).isoformat()
     with Session(ENGINE) as _sess:
-        row = _sess.get(MasterProfileRow, user.user_id)
-        if row:
-            mp = dict(row.master_profile or {})
-            mp["role_preferences"] = {"target_titles": target_titles, "roles": roles}
-            row.master_profile = mp
-            row.updated_at     = _now
-        else:
-            _sess.add(MasterProfileRow(
-                user_id           = user.user_id,
-                onboarding_status = "incomplete",
-                master_profile    = {"role_preferences": {"target_titles": target_titles, "roles": roles}},
-                created_at        = _now,
-                updated_at        = _now,
-            ))
+        row, _created = master_profile_repository.get_or_create(_sess, user.user_id, now=_now)
+        mp = dict(row.master_profile or {})
+        mp["role_preferences"] = {"target_titles": target_titles, "roles": roles}
+        row.master_profile = mp
+        row.updated_at     = _now
         _sess.commit()
 
     logger.info("[profile/preferences] user=%s roles=%d", user.user_id, len(roles))
@@ -615,23 +603,38 @@ async def upload_cv_files(
     user_save(user.user_id, profile)
 
     _now = datetime.now(timezone.utc).isoformat()
+    parsed_personal = cv_claims.get("personal") or {}
     with Session(ENGINE) as _sess:
-        row = _sess.get(MasterProfileRow, user.user_id)
-        if row:
-            mp = dict(row.master_profile or {})
-            mp["cv_data"] = cv_claims
-            mp["cv_imported_at"] = _now
-            row.master_profile = mp
-            row.updated_at = _now
-        else:
-            _sess.add(MasterProfileRow(
-                user_id=user.user_id,
-                onboarding_status="incomplete",
-                master_profile={"cv_data": cv_claims, "cv_imported_at": _now},
-                created_at=_now,
-                updated_at=_now,
-            ))
+        row, _created = master_profile_repository.get_or_create(_sess, user.user_id, now=_now)
+        mp = dict(row.master_profile or {})
+        mp["cv_data"] = cv_claims
+        mp["cv_imported_at"] = _now
+        # Top-level onboarding `personal` block — same fill-blanks-only rule
+        # as the metrics_doc merge below, and the same key names get_profile()
+        # reads (name/phone/linkedin, not full_name/linkedin_url).
+        existing_personal = mp.get("personal")
+        if not isinstance(existing_personal, dict):
+            existing_personal = {}
+        for src, dst in (
+            ("full_name", "name"), ("phone", "phone"), ("email", "email"),
+            ("linkedin_url", "linkedin"), ("location", "location"),
+        ):
+            value = str(parsed_personal.get(src, "") or "").strip()
+            if value and not str(existing_personal.get(dst, "") or "").strip():
+                existing_personal[dst] = value
+        if existing_personal:
+            mp["personal"] = existing_personal
+        row.master_profile = mp
+        row.updated_at = _now
         _sess.commit()
+
+    # metrics_doc["personal"] — the other place get_profile() looks for
+    # contact details. Non-fatal: a CV whose contact block failed to merge is
+    # still a successfully imported CV.
+    try:
+        merge_parsed_contact(parsed_personal, user.user_id)
+    except Exception as exc:
+        logger.warning("[cv-upload] contact merge failed (non-fatal): %s", exc)
 
     # Phase 4: Ingest entities into the Confidence Matrix
     parsed_entities = _cv_claims_to_parsed_entities(cv_claims)
@@ -750,14 +753,12 @@ async def get_trust_score(
     now_iso = datetime.now(timezone.utc).isoformat()
 
     try:
+        # Single session for the whole request so the entity list and every
+        # entity's evidence are read from one consistent snapshot, and so the
+        # loop below doesn't open a new DB connection per entity.
         with Session(ENGINE) as db:
             # ── 1. Load all profile entities for this user ────────────────────
-            entity_rows: list[ProfileEntityRow] = (
-                db.query(ProfileEntityRow)
-                .filter(ProfileEntityRow.user_id == user_id)
-                .order_by(ProfileEntityRow.confidence_score.desc())
-                .all()
-            )
+            entity_rows = profile_entity_repository.get_all_for_user(user_id, session=db)
 
             # ── 2. For each entity, load its non-expired evidence records ─────
             result_entities = []
@@ -766,18 +767,7 @@ async def get_trust_score(
             }
 
             for ent in entity_rows:
-                evidence_rows: list[EvidenceRecordRow] = (
-                    db.query(EvidenceRecordRow)
-                    .filter(
-                        EvidenceRecordRow.entity_id == ent.entity_id,
-                        or_(
-                            EvidenceRecordRow.hard_expires_at.is_(None),
-                            EvidenceRecordRow.hard_expires_at > now_iso,
-                        ),
-                    )
-                    .order_by(EvidenceRecordRow.verified_at.desc())
-                    .all()
-                )
+                evidence_rows = evidence_repository.get_active_for_entity(ent.entity_id, now_iso, session=db)
 
                 trust_breakdown = [
                     {
@@ -787,7 +777,7 @@ async def get_trust_score(
                         "verified_at":   ev.verified_at,
                         "raw_content":   ev.raw_content,
                         "base_weight":   ev.base_weight,
-                        "is_ai_assisted": bool(ev.is_ai_assisted),
+                        "is_ai_assisted": ev.is_ai_assisted,
                     }
                     for ev in evidence_rows
                 ]
@@ -799,7 +789,7 @@ async def get_trust_score(
                         "source_type":    ev.source_type,
                         "base_weight":    float(ev.base_weight),
                         "verified_at":    _parse_ev_dt(ev.verified_at),
-                        "is_ai_assisted": bool(ev.is_ai_assisted),
+                        "is_ai_assisted": ev.is_ai_assisted,
                     }
                     for ev in evidence_rows
                 ]
@@ -811,7 +801,7 @@ async def get_trust_score(
                     "entity_type":             ent.entity_type,
                     "confidence_score":        ent.confidence_score,
                     "verification_status":     ent.verification_status,
-                    "manual_review_required":  bool(ent.manual_review_required),
+                    "manual_review_required":  ent.manual_review_required,
                     "skill_tier":              ent.skill_tier,
                     "architecture_confidence": ent.architecture_confidence,
                     "syntax_confidence":       ent.syntax_confidence,
@@ -935,24 +925,14 @@ async def force_recalculate(
             results = []
             for ent in entity_rows:
                 print(f"=== DEBUG FORCE_RECALC: Processing entity {ent.entity_id} ===")
-                evidence_rows: list[EvidenceRecordRow] = (
-                    db.query(EvidenceRecordRow)
-                    .filter(
-                        EvidenceRecordRow.entity_id == ent.entity_id,
-                        or_(
-                            EvidenceRecordRow.hard_expires_at.is_(None),
-                            EvidenceRecordRow.hard_expires_at > now_iso,
-                        ),
-                    )
-                    .all()
-                )
+                evidence_rows = evidence_repository.get_active_for_entity(ent.entity_id, now_iso, session=db)
 
                 ev_typed: list[EvidenceRow] = [
                     {
                         "source_type":    ev.source_type,
                         "base_weight":    float(ev.base_weight),
                         "verified_at":    _parse_ev_dt(ev.verified_at),
-                        "is_ai_assisted": bool(ev.is_ai_assisted),
+                        "is_ai_assisted": ev.is_ai_assisted,
                     }
                     for ev in evidence_rows
                 ]
@@ -1138,8 +1118,7 @@ async def upload_verification_document(
     """
     from backend.agents.profile_interviewer import get_session
     from backend.services.document_verifier import verify_document
-    from backend.services.db import ENGINE, ProfileInterviewRow
-    from sqlalchemy.orm import Session as DBSession
+    from backend.repositories import profile_interview_repository
 
     # Validate session (also enforces ownership)
     try:
@@ -1180,33 +1159,35 @@ async def upload_verification_document(
     # Update confidence_map in DB if verified/partial
     new_confidence = result.get("confidence")
     if new_confidence is not None:
-        with DBSession(ENGINE) as db:
-            row = db.get(ProfileInterviewRow, session_id)
-            if row:
-                cmap = dict(row.confidence_map or {})
-                # Find the matching claim by label
-                claim_lower = claim.lower()
-                for k, v in cmap.items():
-                    if claim_lower in (v.get("label") or "").lower():
-                        cmap[k] = {
-                            **v,
-                            "score":    new_confidence,
-                            "status":   result["status"],
-                            "evidence": file.filename,
-                        }
-                        break
-                doc_refs = list(row.document_refs or [])
-                doc_refs.append({
-                    "filename":        file.filename,
-                    "claim":           claim,
-                    "status":          result["status"],
-                    "confidence":      new_confidence,
-                    "extracted_facts": result.get("extracted_facts", {}),
-                    "match_notes":     result.get("match_notes", ""),
-                })
-                row.confidence_map = cmap
-                row.document_refs  = doc_refs
-                db.commit()
+        # Re-fetch immediately before merging (not the pre-verification
+        # session_state) so a concurrent write to this session during the
+        # verify_document() LLM call is never clobbered.
+        fresh = profile_interview_repository.get(session_id)
+        if fresh:
+            cmap = dict(fresh["confidence_map"] or {})
+            # Find the matching claim by label
+            claim_lower = claim.lower()
+            for k, v in cmap.items():
+                if claim_lower in (v.get("label") or "").lower():
+                    cmap[k] = {
+                        **v,
+                        "score":    new_confidence,
+                        "status":   result["status"],
+                        "evidence": file.filename,
+                    }
+                    break
+            doc_refs = list(fresh["document_refs"] or [])
+            doc_refs.append({
+                "filename":        file.filename,
+                "claim":           claim,
+                "status":          result["status"],
+                "confidence":      new_confidence,
+                "extracted_facts": result.get("extracted_facts", {}),
+                "match_notes":     result.get("match_notes", ""),
+            })
+            profile_interview_repository.update_confidence_and_docs(
+                session_id, confidence_map=cmap, document_refs=doc_refs,
+            )
 
     return {
         "verification": result,
@@ -1304,22 +1285,18 @@ async def start_manual_verification(
 
     import uuid as _uuid
 
-    with Session(ENGINE) as db:
-        entity = db.query(ProfileEntityRow).filter(
-            ProfileEntityRow.entity_id == body.entity_id,
-            ProfileEntityRow.user_id   == user_id,
-        ).first()
-        if not entity:
-            raise HTTPException(status_code=404, detail="Entity not found.")
+    entity = profile_entity_repository.get_for_user(body.entity_id, user_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Entity not found.")
 
-        # Guard: don't allow a manual_assessment session to re-promote an
-        # already VERIFIED_MANUAL entity to a higher tier — they can only
-        # re-verify to refresh freshness.
-        if entity.verification_level == "VERIFIED_MANUAL":
-            logger.info(
-                "[manual-verify/start] entity=%s already VERIFIED_MANUAL — refreshing",
-                body.entity_id,
-            )
+    # Guard: don't allow a manual_assessment session to re-promote an
+    # already VERIFIED_MANUAL entity to a higher tier — they can only
+    # re-verify to refresh freshness.
+    if entity.verification_level == "VERIFIED_MANUAL":
+        logger.info(
+            "[manual-verify/start] entity=%s already VERIFIED_MANUAL — refreshing",
+            body.entity_id,
+        )
 
     session_id = str(_uuid.uuid4())
     return {

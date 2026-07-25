@@ -37,8 +37,8 @@ from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
 
-from models.job import JobMatch
-from backend.services import job_store
+from backend.schemas.job import JobMatch
+from backend.repositories import job_repository as job_store
 from backend.services.match_score_service import compute_match_score_async
 from backend.config import DEV_MODE
 
@@ -455,7 +455,7 @@ async def refresh_user_scores(user_id: str) -> int:
     # stays None) if the lookup itself fails, matching the previous behavior.
     try:
         from backend.services.confidence_matrix_service import get_entity_breakdown
-        from backend.services.db import ENGINE
+        from backend.core.database import ENGINE
         entity_scores = list(get_entity_breakdown(user_id, ENGINE))
     except Exception as exc:
         logger.warning(

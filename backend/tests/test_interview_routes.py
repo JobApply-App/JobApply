@@ -14,7 +14,7 @@ from unittest.mock import patch, AsyncMock
 
 from fastapi.testclient import TestClient
 
-from models.job import DetailedAnalysis, JobMatch, ReasonTag
+from backend.schemas.job import DetailedAnalysis, JobMatch, ReasonTag
 
 
 def _fake_job(job_id: str = "job-123", jd_text: str = "We need a PM with SQL and Jira experience.") -> JobMatch:

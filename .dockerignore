@@ -1,6 +1,6 @@
 # Root .dockerignore — applies to the backend image's build context (repo
 # root; see backend/Dockerfile). The frontend image builds with
-# web_dashboard/ as its own separate context and has its own .dockerignore.
+# frontend/ as its own separate context and has its own .dockerignore.
 
 .git/
 .github/
@@ -8,7 +8,7 @@
 .streamlit/
 
 # Frontend — irrelevant to the backend image, and large (node_modules).
-web_dashboard/
+frontend/
 
 # Legacy Streamlit reference app (see CLAUDE.md) — not part of the FastAPI
 # product the backend image serves.

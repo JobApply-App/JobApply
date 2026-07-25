@@ -39,7 +39,8 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from backend.services.db import ENGINE, MasterProfileRow
+from backend.core.database import ENGINE
+from backend.models.profile import MasterProfileRow
 from backend.services.profile_update_service import ProfileUpdateService
 
 logger = logging.getLogger(__name__)
@@ -109,16 +110,8 @@ def _get_or_create_row(user_id: str, session: Session) -> MasterProfileRow:
     Return the MasterProfileRow for user_id, creating it if absent.
     The caller is responsible for committing the session.
     """
-    row = session.get(MasterProfileRow, user_id)
-    if row is None:
-        row = MasterProfileRow(
-            user_id           = user_id,
-            onboarding_status = "incomplete",
-            master_profile    = _empty_master_profile(),
-            created_at        = _now_iso(),
-            updated_at        = _now_iso(),
-        )
-        session.add(row)
+    from backend.repositories import master_profile_repository
+    row, _created = master_profile_repository.get_or_create(session, user_id, now=_now_iso())
     return row
 
 

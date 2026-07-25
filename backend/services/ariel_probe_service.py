@@ -432,7 +432,7 @@ class ArielProbeService:
     Parameters
     ----------
     engine
-        SQLAlchemy Engine (shared from backend.services.db.ENGINE).
+        SQLAlchemy Engine (shared from backend.core.database.ENGINE).
     profile_update_service
         A ProfileUpdateService instance.  All confidence mutations are
         delegated to it so the audit log is always kept consistent.

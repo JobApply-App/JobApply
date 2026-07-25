@@ -27,11 +27,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 from backend.api.deps import CurrentUser, get_current_user
-from backend.services.db import ENGINE, ProfileEntityRow
+from backend.core.database import ENGINE
+from backend.repositories import ariel_session_repository
+from backend.repositories import confidence_audit_log_repository
+from backend.repositories import profile_entity_repository
 from backend.services.profile_update_service import ProfileUpdateService
 from backend.services.ariel_probe_service import ArielProbeService
 
@@ -81,8 +82,7 @@ async def start_probe(
 
     The session_id must be threaded through every subsequent /respond call.
     """
-    with Session(ENGINE) as db:
-        entity: Optional[ProfileEntityRow] = db.get(ProfileEntityRow, req.entity_id)
+    entity = profile_entity_repository.get_by_id(req.entity_id)
 
     if entity is None:
         raise HTTPException(status_code=404, detail="Entity not found.")
@@ -184,8 +184,7 @@ async def respond_to_probe(
     if req.turn not in (1, 2, 3):
         raise HTTPException(status_code=422, detail="turn must be 1, 2, or 3.")
 
-    with Session(ENGINE) as db:
-        entity: Optional[ProfileEntityRow] = db.get(ProfileEntityRow, req.entity_id)
+    entity = profile_entity_repository.get_by_id(req.entity_id)
 
     if entity is None:
         raise HTTPException(status_code=404, detail="Entity not found.")
@@ -195,24 +194,13 @@ async def respond_to_probe(
     # ── Accumulate the answer in session transcript_json ─────────────────────
     # Filtered by user_id (not just session_id) so a caller can never read or
     # write another user's session transcript — mismatch is indistinguishable
-    # from "not found".
-    import json as _json
-    with ENGINE.begin() as conn:
-        row = conn.execute(
-            text("SELECT transcript_json FROM ariel_sessions WHERE session_id = :sid AND user_id = :uid"),
-            {"sid": req.session_id, "uid": user.user_id},
-        ).fetchone()
+    # from "not found". append_turn() merges the new answer in atomically (a
+    # single UPDATE...RETURNING statement), so two concurrent requests for
+    # the same session can never race and silently drop one turn's answer.
+    transcript = ariel_session_repository.append_turn(req.session_id, user.user_id, req.turn, req.answer)
 
-        if row is None:
-            raise HTTPException(status_code=404, detail="Session not found.")
-
-        transcript: dict = _json.loads(row[0] or "{}")
-        transcript[f"turn_{req.turn}"] = req.answer
-
-        conn.execute(
-            text("UPDATE ariel_sessions SET transcript_json = :tj WHERE session_id = :sid AND user_id = :uid"),
-            {"tj": _json.dumps(transcript), "sid": req.session_id, "uid": user.user_id},
-        )
+    if transcript is None:
+        raise HTTPException(status_code=404, detail="Session not found.")
 
     entity_dict = {
         "entity_id":        entity.entity_id,
@@ -269,8 +257,7 @@ async def respond_to_probe(
     pus.close_session(req.session_id)
 
     # Fetch updated confidence score after evidence was ingested
-    with Session(ENGINE) as db:
-        refreshed = db.get(ProfileEntityRow, req.entity_id)
+    refreshed = profile_entity_repository.get_by_id(req.entity_id)
     new_conf = refreshed.confidence_score if refreshed else None
 
     logger.info(
@@ -318,40 +305,14 @@ async def get_entity_audit(
 
     Access control: entity must belong to the caller.
     """
-    with Session(ENGINE) as db:
-        entity: Optional[ProfileEntityRow] = db.get(ProfileEntityRow, entity_id)
+    entity = profile_entity_repository.get_by_id(entity_id)
 
     if entity is None:
         raise HTTPException(status_code=404, detail="Entity not found.")
     if entity.user_id != user.user_id:
         raise HTTPException(status_code=403, detail="Entity does not belong to you.")
 
-    with ENGINE.connect() as conn:
-        rows = conn.execute(
-            text("""
-                SELECT
-                    log_id, old_score, new_score, delta,
-                    trigger_source, changed_at, note
-                FROM confidence_audit_log
-                WHERE entity_id = :eid
-                ORDER BY changed_at DESC
-                LIMIT 50
-            """),
-            {"eid": entity_id},
-        ).fetchall()
-
-    audit_log = [
-        {
-            "log_id":         r[0],
-            "old_score":      r[1],
-            "new_score":      r[2],
-            "delta":          r[3],
-            "trigger_source": r[4],
-            "changed_at":     r[5],
-            "note":           r[6],
-        }
-        for r in rows
-    ]
+    audit_log = confidence_audit_log_repository.get_recent_for_entity(entity_id, limit=50)
 
     # Surface the most recent negative-flag note for the ManualReviewModal
     latest_flag_note = next(

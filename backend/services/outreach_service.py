@@ -35,8 +35,8 @@ from dotenv import load_dotenv
 from backend.services.llm_client import call_llm
 from backend.services.user_profile import USER_PROFILE, build_full_text
 from backend.services.llm_validation import harden_system_prompt, sanitize_text
-import backend.services.job_store as job_store
-from models.job import RawJobPosting
+import backend.repositories.job_repository as job_store
+from backend.schemas.job import RawJobPosting
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
@@ -175,7 +175,8 @@ async def generate_outreach_message(
             job_context = f"Role: {cached.get('job_title', '')} at {cached.get('company', '')}"
         # Try fetching raw job metadata
         try:
-            from backend.services.db import ENGINE, JobRow
+            from backend.core.database import ENGINE
+            from backend.models.job import JobRow
             from sqlalchemy.orm import Session
             with Session(ENGINE) as s:
                 row = s.get(JobRow, job_id)

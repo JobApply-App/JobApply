@@ -76,33 +76,25 @@ def _now() -> datetime:
 # ── Cache layer ────────────────────────────────────────────────────────────────
 
 def _load_cached(key: str) -> Optional[CompanyProfile]:
-    from backend.services.db import ENGINE, CompanyIntelRow
-    from sqlalchemy.orm import Session
+    from backend.repositories import company_intel_repository
 
-    with Session(ENGINE) as s:
-        row = s.get(CompanyIntelRow, key)
-        if row is None:
-            return None
-        try:
-            return CompanyProfile(**json.loads(row.profile_json))
-        except Exception as exc:
-            logger.warning("[company-intel] corrupt cache row for %s (%s) — treating as miss", key, exc)
-            return None
+    row = company_intel_repository.get(key)
+    if row is None:
+        return None
+    try:
+        return CompanyProfile(**json.loads(row.profile_json))
+    except Exception as exc:
+        logger.warning("[company-intel] corrupt cache row for %s (%s) — treating as miss", key, exc)
+        return None
 
 
 def _save_cached(profile: CompanyProfile) -> None:
-    from backend.services.db import ENGINE, CompanyIntelRow
-    from sqlalchemy.orm import Session
+    from backend.repositories import company_intel_repository
 
-    with Session(ENGINE) as s:
-        row = s.get(CompanyIntelRow, profile.company_key)
-        if row is None:
-            row = CompanyIntelRow(company_key=profile.company_key)
-            s.add(row)
-        row.display_name  = profile.display_name
-        row.profile_json  = profile.model_dump_json()
-        row.researched_at = profile.researched_at
-        s.commit()
+    company_intel_repository.upsert(
+        profile.company_key, profile.display_name,
+        profile.model_dump_json(), profile.researched_at,
+    )
 
 
 def _is_stale(profile: CompanyProfile) -> bool:

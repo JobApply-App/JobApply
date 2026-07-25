@@ -27,7 +27,8 @@ Confidence levels
 
 Session persistence
 -------------------
-State is stored in ProfileInterviewRow (db.py) so sessions survive server restarts.
+State is stored via profile_interview_repository (backend/models/profile.py's
+ProfileInterviewRow) so sessions survive server restarts.
 """
 from __future__ import annotations
 
@@ -40,9 +41,8 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
-from sqlalchemy.orm import Session
 
-from backend.services.db import ENGINE, ProfileInterviewRow
+from backend.repositories import profile_interview_repository
 from backend.services.llm_client import call_llm
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
@@ -503,7 +503,7 @@ def _build_profile_context(
 
     For user_id='default' the authoritative source is USER_PROFILE (the
     backend constant loaded from the legacy flat-file).  For any real user
-    the per-user store (data/users/{user_id}/profile.json) is used instead,
+    the per-user store (backend/data/users/{user_id}/profile.json) is used instead,
     supplemented by the global USER_PROFILE structure for CV data.
 
     Optional overrides let the API layer inject frontend-supplied hints
@@ -942,22 +942,14 @@ async def start_session(
 
     opening_msg = {"role": "assistant", "content": opening, "ts": now}
 
-    with Session(ENGINE) as session:
-        row = ProfileInterviewRow(
-            session_id     = session_id,
-            user_id        = user_id,
-            messages       = [opening_msg],
-            draft_profile  = None,
-            confidence_map = {},
-            pending_probes = [],
-            document_refs  = [],
-            status         = "active",
-            intent         = intent,
-            created_at     = now,
-            updated_at     = now,
-        )
-        session.add(row)
-        session.commit()
+    profile_interview_repository.create(
+        session_id = session_id,
+        user_id    = user_id,
+        messages   = [opening_msg],
+        status     = "active",
+        intent     = intent,
+        now        = now,
+    )
 
     logger.info("[ProfileInterviewer] Session started: %s (user=%s)", session_id, user_id)
     return {
@@ -982,22 +974,21 @@ async def process_message(session_id: str, user_text: str, user_id: str) -> dict
     Raises ValueError    if session_id not found or session is not active.
     Raises PermissionError if the session belongs to a different user_id.
     """
-    with Session(ENGINE) as session:
-        row = session.get(ProfileInterviewRow, session_id)
-        if not row:
-            raise ValueError(f"Session {session_id!r} not found.")
-        if row.user_id != user_id:
-            raise PermissionError(
-                f"Session {session_id!r} does not belong to the authenticated user."
-            )
-        if row.status != "active":
-            raise ValueError(f"Session {session_id!r} is {row.status}, not active.")
+    row = profile_interview_repository.get(session_id)
+    if not row:
+        raise ValueError(f"Session {session_id!r} not found.")
+    if row["user_id"] != user_id:
+        raise PermissionError(
+            f"Session {session_id!r} does not belong to the authenticated user."
+        )
+    if row["status"] != "active":
+        raise ValueError(f"Session {session_id!r} is {row['status']}, not active.")
 
-        messages       = list(row.messages or [])
-        draft          = dict(row.draft_profile or {}) or None
-        confidence_map = dict(row.confidence_map or {})
-        pending_probes = list(row.pending_probes or [])
-        session_intent = row.intent  # "optimize_gaps" or None
+    messages       = list(row["messages"] or [])
+    draft          = dict(row["draft_profile"] or {}) or None
+    confidence_map = dict(row["confidence_map"] or {})
+    pending_probes = list(row["pending_probes"] or [])
+    session_intent = row["intent"]  # "optimize_gaps" or None
 
     # Append user message
     now = _now()
@@ -1100,15 +1091,14 @@ async def process_message(session_id: str, user_text: str, user_id: str) -> dict
         pending_probes = pending_probes[1:]
 
     # ── Persist ───────────────────────────────────────────────────────────────
-    with Session(ENGINE) as session:
-        row = session.get(ProfileInterviewRow, session_id)
-        if row:
-            row.messages       = messages
-            row.draft_profile  = draft
-            row.confidence_map = confidence_map
-            row.pending_probes = pending_probes
-            row.updated_at     = _now()
-            session.commit()
+    profile_interview_repository.update_full(
+        session_id,
+        messages       = messages,
+        draft_profile  = draft,
+        confidence_map = confidence_map,
+        pending_probes = pending_probes,
+        now            = _now(),
+    )
 
     logger.info(
         "[ProfileInterviewer] Turn processed — session=%s  edu=%d  exp=%d  claims=%d",
@@ -1136,24 +1126,23 @@ def get_session(session_id: str, user_id: str) -> dict:
     Raises ValueError     if session_id not found.
     Raises PermissionError if the session belongs to a different user_id.
     """
-    with Session(ENGINE) as session:
-        row = session.get(ProfileInterviewRow, session_id)
-        if not row:
-            raise ValueError(f"Session {session_id!r} not found.")
-        if row.user_id != user_id:
-            raise PermissionError(
-                f"Session {session_id!r} does not belong to the authenticated user."
-            )
-        return {
-            "session_id":     row.session_id,
-            "messages":       row.messages or [],
-            "draft_profile":  row.draft_profile,
-            "confidence_map": row.confidence_map or {},
-            "pending_probes": row.pending_probes or [],
-            "document_refs":  row.document_refs or [],
-            "status":         row.status,
-            "intent":         row.intent,
-        }
+    row = profile_interview_repository.get(session_id)
+    if not row:
+        raise ValueError(f"Session {session_id!r} not found.")
+    if row["user_id"] != user_id:
+        raise PermissionError(
+            f"Session {session_id!r} does not belong to the authenticated user."
+        )
+    return {
+        "session_id":     row["session_id"],
+        "messages":       row["messages"],
+        "draft_profile":  row["draft_profile"],
+        "confidence_map": row["confidence_map"],
+        "pending_probes": row["pending_probes"],
+        "document_refs":  row["document_refs"],
+        "status":         row["status"],
+        "intent":         row["intent"],
+    }
 
 
 async def resume_session(session_id: str, user_id: str) -> dict:
@@ -1171,18 +1160,17 @@ async def resume_session(session_id: str, user_id: str) -> dict:
     Raises ValueError     if session_id not found.
     Raises PermissionError if the session belongs to a different user_id.
     """
-    with Session(ENGINE) as db:
-        row = db.get(ProfileInterviewRow, session_id)
-        if not row:
-            raise ValueError(f"Session {session_id!r} not found.")
-        if row.user_id != user_id:
-            raise PermissionError(
-                f"Session {session_id!r} does not belong to the authenticated user."
-            )
-        messages       = list(row.messages or [])
-        draft          = row.draft_profile
-        confidence_map = dict(row.confidence_map or {})
-        pending_probes = list(row.pending_probes or [])
+    row = profile_interview_repository.get(session_id)
+    if not row:
+        raise ValueError(f"Session {session_id!r} not found.")
+    if row["user_id"] != user_id:
+        raise PermissionError(
+            f"Session {session_id!r} does not belong to the authenticated user."
+        )
+    messages       = list(row["messages"] or [])
+    draft          = row["draft_profile"]
+    confidence_map = dict(row["confidence_map"] or {})
+    pending_probes = list(row["pending_probes"] or [])
 
     # ── Idempotency guard ─────────────────────────────────────────────────────
     # If the last message in the chat already came from the assistant, the
@@ -1268,12 +1256,7 @@ async def resume_session(session_id: str, user_id: str) -> dict:
     messages.append(resume_entry)
 
     # ── Persist ───────────────────────────────────────────────────────────────
-    with Session(ENGINE) as db:
-        row = db.get(ProfileInterviewRow, session_id)
-        if row:
-            row.messages   = messages
-            row.updated_at = now
-            db.commit()
+    profile_interview_repository.update_messages(session_id, messages=messages, now=now)
 
     logger.info("[ProfileInterviewer] Session resumed: %s", session_id)
 

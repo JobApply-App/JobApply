@@ -29,7 +29,8 @@ _TEST_ENGINE = create_engine(
 
 
 def _setup_schema() -> None:
-    from backend.services.db import Base
+    from backend.core.database import Base
+    from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
     Base.metadata.create_all(_TEST_ENGINE)
 
 
@@ -44,7 +45,7 @@ class TestUpdateProfileBaseHandler:
 
     def test_summary_only_update_persists(self):
         from backend.agents.ariel_tools import execute_tool
-        from backend.services.db import MasterProfileRow
+        from backend.models.profile import MasterProfileRow
 
         uid = "summary-" + _uid()
         with Session(_TEST_ENGINE) as session:
@@ -64,7 +65,7 @@ class TestUpdateProfileBaseHandler:
 
     def test_target_title_only_replaces_target_roles(self):
         from backend.agents.ariel_tools import execute_tool
-        from backend.services.db import MasterProfileRow
+        from backend.models.profile import MasterProfileRow
 
         uid = "title-" + _uid()
         with Session(_TEST_ENGINE) as session:
@@ -81,7 +82,7 @@ class TestUpdateProfileBaseHandler:
 
     def test_both_fields_together(self):
         from backend.agents.ariel_tools import execute_tool
-        from backend.services.db import MasterProfileRow
+        from backend.models.profile import MasterProfileRow
 
         uid = "both-" + _uid()
         with Session(_TEST_ENGINE) as session:
@@ -99,7 +100,7 @@ class TestUpdateProfileBaseHandler:
 
     def test_empty_input_is_a_noop(self):
         from backend.agents.ariel_tools import execute_tool
-        from backend.services.db import MasterProfileRow
+        from backend.models.profile import MasterProfileRow
 
         uid = "empty-" + _uid()
         with Session(_TEST_ENGINE) as session:
@@ -112,7 +113,7 @@ class TestUpdateProfileBaseHandler:
     def test_existing_profile_fields_are_preserved(self):
         """A partial update must not clobber unrelated master_profile fields."""
         from backend.agents.ariel_tools import execute_tool
-        from backend.services.db import MasterProfileRow
+        from backend.models.profile import MasterProfileRow
 
         uid = "preserve-" + _uid()
         with Session(_TEST_ENGINE) as session:

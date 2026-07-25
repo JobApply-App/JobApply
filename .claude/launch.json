@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "web_dashboard",
+      "name": "frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "web_dashboard",
+      "cwd": "frontend",
       "port": 3000,
       "autoPort": false
     }

@@ -3,7 +3,7 @@ Per-user profile store — replaces the single global master_profile.json.
 
 Storage layout
 --------------
-    data/
+    backend/data/
       users/
         {user_id}/
           profile.json   ← structured master profile (metrics, personal, etc.)
@@ -36,7 +36,9 @@ logger = logging.getLogger(__name__)
 
 # Project root is three levels up from backend/services/user_profile_store.py
 _PROJECT_ROOT   = Path(__file__).resolve().parents[2]
-_USERS_DIR      = _PROJECT_ROOT / "data" / "users"
+_USERS_DIR      = _PROJECT_ROOT / "backend" / "data" / "users"
+# Legacy single-user fallback file was never scoped into the backend/data/
+# move — it still lives at repo-root data/master_profile.json.
 _LEGACY_PROFILE = _PROJECT_ROOT / "data" / "master_profile.json"
 
 

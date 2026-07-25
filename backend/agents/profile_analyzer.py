@@ -20,8 +20,8 @@ import anthropic
 import fitz  # PyMuPDF
 from dotenv import load_dotenv
 
-from models.job import JobAnalysis, RawJobPosting
-from models.user import UserProfile
+from backend.schemas.job import JobAnalysis, RawJobPosting
+from backend.schemas.user import UserProfile
 
 load_dotenv(override=True)
 

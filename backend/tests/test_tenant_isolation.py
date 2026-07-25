@@ -55,7 +55,9 @@ def _setup_schema() -> None:
     sufficient and correct here — no need to invoke the raw-DDL migration
     path that only exists to bring pre-ORM-era databases up to date.
     """
-    from backend.services.db import Base, _migrate_tenant_id
+    from backend.core.database import Base
+    from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
+    from backend.core.migrations import _migrate_tenant_id
 
     Base.metadata.create_all(_TEST_ENGINE)
     # _migrate_tenant_id manages its own commits internally (it calls
@@ -79,9 +81,9 @@ def _now() -> str:
 @pytest.fixture(autouse=True)
 def _patch_engine(monkeypatch):
     """Point every service module under test at the in-memory test engine."""
-    import backend.services.db as db_module
+    import backend.core.database as db_module
     import backend.services.master_profile_service as mp_module
-    import backend.services.job_store as job_store_module
+    import backend.repositories.job_repository as job_store_module
     import backend.services.confidence_matrix_service as cm_module
 
     monkeypatch.setattr(db_module, "ENGINE", _TEST_ENGINE)
@@ -140,7 +142,7 @@ class TestMasterProfileIsolation:
             mp.save({"version": 1, "professional_summary": f"summary for {u}"}, user_id=u)
 
         with Session(_TEST_ENGINE) as session:
-            from backend.services.db import MasterProfileRow
+            from backend.models.profile import MasterProfileRow
             count = session.query(MasterProfileRow).filter(
                 MasterProfileRow.user_id.in_(users)
             ).count()
@@ -153,7 +155,7 @@ class TestMasterProfileIsolation:
 
 class TestJobIsolation:
     def _insert_job(self, job_id: str, user_id: str, match_score: float, status: str = "new") -> None:
-        from backend.services.db import JobRow
+        from backend.models.job import JobRow
 
         with Session(_TEST_ENGINE) as session:
             session.add(JobRow(
@@ -168,7 +170,7 @@ class TestJobIsolation:
             session.commit()
 
     def test_get_all_only_returns_the_calling_users_jobs(self):
-        from backend.services import job_store
+        from backend.repositories import job_repository as job_store
 
         user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
         self._insert_job("job-a-1", user_a, match_score=91.5)
@@ -185,7 +187,7 @@ class TestJobIsolation:
         assert all(j.match_score != 91.5 for j in jobs_b)
 
     def test_get_feed_status_filter_stays_scoped_per_user(self):
-        from backend.services import job_store
+        from backend.repositories import job_repository as job_store
 
         user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
         self._insert_job("job-a-saved", user_a, match_score=70.0, status="saved")
@@ -205,7 +207,7 @@ class TestJobIsolation:
         (idempotent, only touches NULL rows), which is exactly what this test
         exercises a second time against fresh "legacy" rows.
         """
-        from backend.services.db import _migrate_tenant_id
+        from backend.core.migrations import _migrate_tenant_id
 
         user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
         # Insert through the ORM helper (sets every required column correctly,
@@ -278,7 +280,7 @@ class TestConfidenceMatrixIsolation:
 
 class TestApplicationIsolation:
     def _insert_application(self, application_id: str, user_id: str, job_id: str) -> None:
-        from backend.services.db import ApplicationRow
+        from backend.models.application import ApplicationRow
 
         with Session(_TEST_ENGINE) as session:
             session.add(ApplicationRow(
@@ -289,7 +291,7 @@ class TestApplicationIsolation:
             session.commit()
 
     def test_applications_are_scoped_by_user_id(self):
-        from backend.services.db import ApplicationRow
+        from backend.models.application import ApplicationRow
 
         user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
         self._insert_application("app-a-1", user_a, "job-1")
@@ -313,7 +315,7 @@ def _make_job_match(
     title: Optional[str] = None, company: str = "Acme", location: str = "Remote",
     match_score: float = 0.0, why_ron: Optional[str] = None,
 ):
-    from models.job import DetailedAnalysis, JobMatch
+    from backend.schemas.job import DetailedAnalysis, JobMatch
 
     # title defaults to something unique per call — save_with_source_priority
     # matches across the WHOLE persistent test engine by (title, company,
@@ -339,8 +341,8 @@ class TestJobSourcePriorityIsolation:
     """JOB-92: cross-tenant matches must clone a private row, never hijack an existing one."""
 
     def test_cross_tenant_apply_url_match_does_not_reassign_owner(self):
-        from backend.services import job_store
-        from backend.services.db import JobRow
+        from backend.repositories import job_repository as job_store
+        from backend.models.job import JobRow
 
         user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
         url = f"https://boards.example.com/job-{_uid()}"
@@ -379,8 +381,8 @@ class TestJobSourcePriorityIsolation:
 
     def test_cross_tenant_dedup_key_match_does_not_reassign_owner(self):
         """Same real job cross-posted under different URLs — must still isolate by user."""
-        from backend.services import job_store
-        from backend.services.db import JobRow
+        from backend.repositories import job_repository as job_store
+        from backend.models.job import JobRow
 
         user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
         title, company, location = f"Staff Engineer {_uid()}", "Acme Corp", "Tel Aviv"
@@ -413,8 +415,8 @@ class TestJobSourcePriorityIsolation:
         existing row's user_id — it must always stay with its original owner,
         no matter how many higher-priority saves other users make afterward.
         """
-        from backend.services import job_store
-        from backend.services.db import JobRow
+        from backend.repositories import job_repository as job_store
+        from backend.models.job import JobRow
 
         user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
         url = f"https://boards.example.com/job-{_uid()}"

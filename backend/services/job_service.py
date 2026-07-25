@@ -3,7 +3,7 @@ JobService — CRUD layer between the API routes and the database.
 """
 from __future__ import annotations
 
-from models.job import JobMatch
+from backend.schemas.job import JobMatch
 
 
 class JobService:

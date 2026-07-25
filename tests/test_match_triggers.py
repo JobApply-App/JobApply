@@ -18,7 +18,9 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from backend.services.db import Base, MatchTriggerRow
+from backend.core.database import Base
+from backend.models.matching import MatchTriggerRow
+from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
 from backend.services.match_trigger_service import (
     evaluate_match_trigger,
     fetch_pending_triggers,

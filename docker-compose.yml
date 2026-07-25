@@ -5,7 +5,7 @@
 #
 # Prerequisites (see docs/docker-setup.md):
 #   - backend/.env         (copy from backend/.env.example, fill in real values)
-#   - web_dashboard/.env.local (copy from web_dashboard/.env.example)
+#   - frontend/.env.local     (copy from frontend/.env.example)
 # Neither file is created by this compose file — both are gitignored and
 # must contain real credentials only you have.
 #
@@ -27,7 +27,6 @@ services:
       # no separate named volume needed (see CLAUDE.md: SQLite is the actual
       # active datastore, DATABASE_URL/Postgres is unwired/aspirational).
       - ./backend:/app/backend
-      - ./models:/app/models
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -37,19 +36,19 @@ services:
 
   frontend:
     build:
-      context: web_dashboard
+      context: frontend
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
     env_file:
-      - web_dashboard/.env.local
+      - frontend/.env.local
     environment:
       # Overrides whatever BACKEND_URL is in .env.local: inside the compose
       # network the backend is reachable at the service name `backend`, not
       # 127.0.0.1 (next.config.mjs's rewrite proxy reads this server-side).
       BACKEND_URL: http://backend:8000
     volumes:
-      - ./web_dashboard:/app
+      - ./frontend:/app
       # Anonymous volumes so the container's own Linux node_modules/.next
       # aren't shadowed by the host's (macOS/Windows) bind mount above.
       - /app/node_modules

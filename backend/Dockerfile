@@ -1,8 +1,10 @@
 # Backend (FastAPI) — dev image, mirrors the local `uvicorn --reload` workflow.
 #
-# Build context is the REPO ROOT (not backend/), because the app imports the
-# shared Pydantic models package at repo root (`from models.job import ...`)
-# in addition to `backend.*` — see CLAUDE.md. Build with:
+# Build context is the REPO ROOT (not backend/) — a holdover from when the
+# app also imported a shared Pydantic models package at repo root. That
+# package now lives at backend/schemas/ (see the repo restructure), so
+# everything backend needs is under backend/ already; the context could be
+# narrowed to backend/ itself, deferred to a later infra pass. Build with:
 #   docker build -f backend/Dockerfile -t jobapply-backend .
 # (docker-compose.yml at the repo root already sets this up.)
 # Pinned to a specific Debian codename (not the floating `python:3.9-slim`
@@ -35,11 +37,10 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 # matching apt packages for this base image automatically.
 RUN python -m playwright install --with-deps chromium
 
-# Minimum set of repo-root packages backend actually imports (models/) plus
-# backend/ itself. Not the whole repo — no web_dashboard/, no legacy
-# app.py/orchestrator.py/root requirements.txt (those belong to the frozen
-# Streamlit reference app, see CLAUDE.md).
-COPY models/ models/
+# Everything backend needs now lives under backend/ itself (schemas/ moved
+# in from the former repo-root models/). Not the whole repo — no frontend/,
+# no legacy app.py/orchestrator.py/root requirements.txt (those belong to
+# the frozen Streamlit reference app, see CLAUDE.md).
 COPY backend/ backend/
 
 EXPOSE 8000

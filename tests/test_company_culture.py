@@ -35,7 +35,9 @@ from backend.agents.company_culture import (
     load_cached_profile,
     save_cached_profile,
 )
-from backend.services.db import Base, CompanyCultureRow
+from backend.core.database import Base
+from backend.models.matching import CompanyCultureRow
+from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
 
 NOW = datetime(2026, 7, 10, tzinfo=timezone.utc)
 

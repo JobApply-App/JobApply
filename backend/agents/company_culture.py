@@ -339,43 +339,30 @@ def _extract_json(raw: str) -> dict:
 # ── Cache layer (company_culture table) ───────────────────────────────────────
 
 def load_cached_profile(company_name: str, engine=None) -> Optional[CompanyCultureProfile]:
-    if engine is None:
-        from backend.services.db import ENGINE
-        engine = ENGINE
     key = _company_key(company_name)
     if not key:
         return None
     try:
-        from sqlalchemy.orm import Session
+        from backend.repositories import company_culture_repository
 
-        from backend.services.db import CompanyCultureRow
-        with Session(engine) as s:
-            row = s.get(CompanyCultureRow, key)
-            if row is None:
-                return None
-            return CompanyCultureProfile(**json.loads(row.profile_json))
+        row = company_culture_repository.get(key, engine=engine)
+        if row is None:
+            return None
+        return CompanyCultureProfile(**json.loads(row.profile_json))
     except Exception as exc:
         logger.warning("[company-culture] corrupt/unreadable cache for %r (%s) — miss", key, exc)
         return None
 
 
 def save_cached_profile(profile: CompanyCultureProfile, engine=None) -> bool:
-    if engine is None:
-        from backend.services.db import ENGINE
-        engine = ENGINE
     try:
-        from sqlalchemy.orm import Session
+        from backend.repositories import company_culture_repository
 
-        from backend.services.db import CompanyCultureRow
-        with Session(engine) as s:
-            row = s.get(CompanyCultureRow, profile.company_key)
-            if row is None:
-                row = CompanyCultureRow(company_key=profile.company_key)
-                s.add(row)
-            row.display_name  = profile.display_name
-            row.profile_json  = profile.model_dump_json()
-            row.researched_at = profile.researched_at
-            s.commit()
+        company_culture_repository.upsert(
+            profile.company_key, profile.display_name,
+            profile.model_dump_json(), profile.researched_at,
+            engine=engine,
+        )
         return True
     except Exception as exc:
         logger.warning("[company-culture] cache save failed for %r: %s", profile.company_key, exc)

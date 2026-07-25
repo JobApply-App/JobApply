@@ -25,7 +25,7 @@ import logging
 from copy import deepcopy
 from typing import Any, Optional
 
-from models.agent import AgentStatus, AgentStats
+from backend.schemas.agent import AgentStatus, AgentStats
 
 logger = logging.getLogger(__name__)
 

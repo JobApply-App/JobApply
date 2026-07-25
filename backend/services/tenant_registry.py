@@ -29,7 +29,7 @@ def list_pipeline_user_ids() -> list[str]:
     pipeline keeps functioning in a broken-config dev environment.
     """
     from sqlalchemy import text as _text
-    from backend.services.db import ENGINE
+    from backend.core.database import ENGINE
 
     try:
         with ENGINE.connect() as conn:

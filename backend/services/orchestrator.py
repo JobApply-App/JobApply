@@ -11,7 +11,7 @@ from langgraph.graph import END, StateGraph
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 
 import backend.services.agent_store as store
-import backend.services.job_store as job_store
+import backend.repositories.job_repository as job_store
 from backend.services.user_profile import get_profile
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,9 @@ async def draft_recruiter_reply(user_id: str, job_id: str, email_text: str) -> s
 
     from sqlalchemy.orm import Session
 
-    from backend.services.db import ENGINE, JobRow, RecruiterReplyDraftRow
+    from backend.core.database import ENGINE
+    from backend.models.job import JobRow
+    from backend.repositories import recruiter_reply_draft_repository
     from backend.services.llm_client import call_llm
     from backend.services.llm_validation import harden_system_prompt, sanitize_text
 
@@ -133,17 +135,15 @@ async def draft_recruiter_reply(user_id: str, job_id: str, email_text: str) -> s
         return ""
 
     now = datetime.now(timezone.utc).isoformat()
-    with Session(ENGINE) as db:
-        db.add(RecruiterReplyDraftRow(
-            draft_id      = str(uuid.uuid4()),
-            user_id       = user_id,
-            job_id        = job_id,
-            email_excerpt = clean_email[:_REPLY_EXCERPT_CAP],
-            draft_text    = draft_text,
-            status        = "draft",
-            created_at    = now,
-        ))
-        db.commit()
+    recruiter_reply_draft_repository.insert(
+        draft_id      = str(uuid.uuid4()),
+        user_id       = user_id,
+        job_id        = job_id,
+        email_excerpt = clean_email[:_REPLY_EXCERPT_CAP],
+        draft_text    = draft_text,
+        status        = "draft",
+        created_at    = now,
+    )
 
     logger.info(
         "[reply-draft] stored draft for user=%s job=%s chars=%d",

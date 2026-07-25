@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from models.job import JobMatch
+from backend.schemas.job import JobMatch
 from backend.scrapers.base_scraper import BaseScraper, make_job_id, minimal_job_match, now_iso
 from backend.config import CREDIT_CONSERVATION_MODE
 

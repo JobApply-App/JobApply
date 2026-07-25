@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 
-from models.job import DetailedAnalysis, JobMatch
+from backend.schemas.job import DetailedAnalysis, JobMatch
 
 # ---------------------------------------------------------------------------
 # HTTP integration tests: POST /api/jobs/{job_id}/skills-gap

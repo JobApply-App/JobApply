@@ -28,7 +28,7 @@ from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine, s
 from sqlalchemy.orm import DeclarativeBase, Session
 
 from backend.api.deps import CurrentUser, get_current_user
-from backend.services.db import ENGINE as MAIN_ENGINE   # reuse the same DB file
+from backend.core.database import ENGINE as MAIN_ENGINE   # reuse the same DB file
 
 logger = logging.getLogger(__name__)
 

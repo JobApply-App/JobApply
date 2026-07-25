@@ -52,6 +52,9 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from backend.repositories import ariel_gap_queue_repository
+from backend.repositories import ariel_session_repository
+from backend.repositories import conversation_event_repository
 from backend.services.confidence_math import (
     BASE_WEIGHTS,
     EvidenceRow,
@@ -196,7 +199,7 @@ class ProfileUpdateService:
         Parameters
         ----------
         engine : sqlalchemy.engine.Engine
-            Pass ENGINE from backend.services.db — the shared SQLite engine.
+            Pass ENGINE from backend.core.database — the shared SQLite engine.
         """
         self._engine = engine
 
@@ -675,32 +678,19 @@ class ProfileUpdateService:
             event_id = _uid()
 
             # Persist the conversation_event record
-            conn.execute(
-                text("""
-                    INSERT INTO conversation_events
-                        (event_id, session_id, user_id,
-                         star_situation, star_task, star_action, star_result,
-                         extracted_entity_ids, extraction_confidence,
-                         analyzed_at, raw_quote)
-                    VALUES
-                        (:evid, :sid, :uid,
-                         :sit, :task, :act, :res,
-                         :eids, :conf,
-                         :now, :quote)
-                """),
-                {
-                    "evid":  event_id,
-                    "sid":   session_id,
-                    "uid":   user_id,
-                    "sit":   event.get("star_situation"),
-                    "task":  event.get("star_task"),
-                    "act":   event.get("star_action"),
-                    "res":   event.get("star_result"),
-                    "eids":  json.dumps(entity_ids),
-                    "conf":  extraction_conf,
-                    "now":   now,
-                    "quote": event.get("raw_quote", ""),
-                },
+            conversation_event_repository.insert(
+                conn,
+                event_id                  = event_id,
+                session_id                = session_id,
+                user_id                   = user_id,
+                star_situation            = event.get("star_situation"),
+                star_task                 = event.get("star_task"),
+                star_action               = event.get("star_action"),
+                star_result               = event.get("star_result"),
+                extracted_entity_ids_json = json.dumps(entity_ids),
+                extraction_confidence     = extraction_conf,
+                analyzed_at               = now,
+                raw_quote                 = event.get("raw_quote", ""),
             )
 
             # Build the raw_content summary stored in each evidence_record
@@ -1104,16 +1094,7 @@ class ProfileUpdateService:
                 return None   # already meets threshold — no gap
 
             # Idempotency check
-            exists = conn.execute(
-                text("""
-                    SELECT gap_id FROM ariel_gap_queue
-                    WHERE  user_id = :uid
-                      AND  entity_id = :eid
-                      AND  (job_id = :jid OR (:jid IS NULL AND job_id IS NULL))
-                      AND  status IN ('pending', 'in_session')
-                """),
-                {"uid": user_id, "eid": entity_id, "jid": job_id},
-            ).fetchone()
+            exists = ariel_gap_queue_repository.find_open_gap(conn, user_id, entity_id, job_id)
 
             if exists:
                 return None   # already queued
@@ -1122,22 +1103,16 @@ class ProfileUpdateService:
             gap_id   = _uid()
             now      = _now_iso()
 
-            conn.execute(
-                text("""
-                    INSERT INTO ariel_gap_queue
-                        (gap_id, user_id, entity_id, job_id,
-                         current_confidence, required_confidence, gap_severity,
-                         status, detected_at)
-                    VALUES
-                        (:gid, :uid, :eid, :jid,
-                         :cur, :req, :sev,
-                         'pending', :now)
-                """),
-                {
-                    "gid": gap_id, "uid": user_id, "eid": entity_id, "jid": job_id,
-                    "cur": current, "req": required_confidence, "sev": severity,
-                    "now": now,
-                },
+            ariel_gap_queue_repository.insert(
+                conn,
+                gap_id               = gap_id,
+                user_id              = user_id,
+                entity_id            = entity_id,
+                job_id               = job_id,
+                current_confidence   = current,
+                required_confidence  = required_confidence,
+                gap_severity         = severity,
+                detected_at          = now,
             )
 
         logger.info(
@@ -1148,16 +1123,7 @@ class ProfileUpdateService:
 
     def resolve_gap(self, gap_id: str) -> None:
         """Mark a gap as resolved (entity score now meets threshold)."""
-        now = _now_iso()
-        with self._engine.begin() as conn:
-            conn.execute(
-                text("""
-                    UPDATE ariel_gap_queue
-                    SET    status = 'resolved', resolved_at = :now
-                    WHERE  gap_id = :gid
-                """),
-                {"now": now, "gid": gap_id},
-            )
+        ariel_gap_queue_repository.resolve(gap_id, _now_iso(), engine=self._engine)
 
     def open_session(
         self,
@@ -1175,42 +1141,22 @@ class ProfileUpdateService:
         """
         session_id = _uid()
         now        = _now_iso()
-        with self._engine.begin() as conn:
-            conn.execute(
-                text("""
-                    INSERT INTO ariel_sessions
-                        (session_id, user_id, session_type,
-                         target_job_id, target_entities, ariel_goal,
-                         status, started_at)
-                    VALUES
-                        (:sid, :uid, :stype,
-                         :jid, :ents, :goal,
-                         'active', :now)
-                """),
-                {
-                    "sid":   session_id,
-                    "uid":   user_id,
-                    "stype": session_type,
-                    "jid":   target_job_id,
-                    "ents":  json.dumps(target_entities or []),
-                    "goal":  ariel_goal,
-                    "now":   now,
-                },
-            )
+        ariel_session_repository.create_session(
+            session_id=session_id,
+            user_id=user_id,
+            session_type=session_type,
+            started_at=now,
+            target_job_id=target_job_id,
+            target_entities=target_entities,
+            ariel_goal=ariel_goal,
+            engine=self._engine,
+        )
         return session_id
 
     def close_session(self, session_id: str, status: str = "completed") -> None:
         """Mark an Ariel session as completed or abandoned."""
         now = _now_iso()
-        with self._engine.begin() as conn:
-            conn.execute(
-                text("""
-                    UPDATE ariel_sessions
-                    SET    status = :status, ended_at = :now
-                    WHERE  session_id = :sid
-                """),
-                {"status": status, "now": now, "sid": session_id},
-            )
+        ariel_session_repository.update_status(session_id, status, now, engine=self._engine)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Public: weighted overall trust score

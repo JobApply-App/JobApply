@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from dotenv import load_dotenv
 from sqlalchemy import text
 
-from backend.services.db import ENGINE
+from backend.core.database import ENGINE
 
 load_dotenv(Path(__file__).resolve().parents[2] / "backend" / ".env")
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")

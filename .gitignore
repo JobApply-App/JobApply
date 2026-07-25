@@ -26,6 +26,7 @@ data/
 backend/data/
 backend/personal_overrides.json
 backend/supplemental_answers.json
+backend/web_search_cache.json
 /Ron_Morim_CV_PM.pdf
 /*_CV_*.pdf
 

@@ -7,7 +7,7 @@ patch_mint_direct.py
 4. Directly calls compute_match_score_async with the full LLM pipeline and
    writes the resulting match_score + why_ron + score_is_proxy=0 back to the DB.
 
-Exact column names verified from backend/services/db.py:
+Exact column names verified from backend/models/*.py:
   table  : jobs
   PK     : job_id  (String)
   JD text: jd_text (Text)
@@ -87,7 +87,9 @@ MINT_JOB_ID = "ace28755-d81c-41d5-a30a-c8a0b3ba089e"
 
 async def main() -> None:
     from sqlalchemy.orm import Session
-    from backend.services.db import ENGINE, KVRow, JobRow
+    from backend.core.database import ENGINE
+    from backend.models.job import JobRow
+    from backend.models.kv import KVRow
     from backend.services.match_score_service import compute_match_score_async
     from backend.services.feed_service import _build_profile_cv_proxy
     from backend.services.user_profile import USER_PROFILE

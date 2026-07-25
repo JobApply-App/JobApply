@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 from backend.services.outreach_service import generate_pitch_from_raw
-from models.job import DetailedAnalysis, JobMatch, RawJobPosting
+from backend.schemas.job import DetailedAnalysis, JobMatch, RawJobPosting
 
 @pytest.fixture
 def mock_job_posting():

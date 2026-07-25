@@ -13,7 +13,7 @@ from typing import AsyncIterator
 
 import httpx
 
-from models.job import RawJobPosting
+from backend.schemas.job import RawJobPosting
 
 logger = logging.getLogger(__name__)
 

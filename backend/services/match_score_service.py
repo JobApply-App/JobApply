@@ -1643,7 +1643,7 @@ def _run_ats_engine(
 
         if entity_scores is None:
             from backend.services.confidence_matrix_service import get_entity_breakdown
-            from backend.services.db import ENGINE
+            from backend.core.database import ENGINE
             entities = get_entity_breakdown(user_id, ENGINE)   # list[EntityScore] dicts
         else:
             entities = entity_scores
@@ -1749,34 +1749,31 @@ def _persist_score_audit(
         import json as _json
         from datetime import datetime, timezone
 
-        from backend.services.db import ENGINE, ShadowScoreRow
-        from sqlalchemy.orm import Session as _Session
+        from backend.repositories import shadow_score_repository
 
-        with _Session(ENGINE) as s:
-            s.add(ShadowScoreRow(
-                user_id        = user_id,
-                job_title      = job_title[:200],
-                company        = company_name[:200],
-                existing_score = llm_composite,
-                ats_score      = ats.final_score,
-                breakdown_json = _json.dumps({
-                    "unified":    unified,
-                    "ats_base":   ats.base_score,
-                    "competency": ats.competency_score,
-                    "impact":     ats.impact.score,
-                    "local":      ats.local_score,
-                    "knockout_failed":  not ats.knockout.passed,
-                    "knockout_reasons": ats.knockout.reasons,
-                    "legacy_company":   ats.legacy_company,
-                    "gaps":             ats.gap_analysis,
-                    "must_have_count":  sum(
-                        1 for m in ats.competency_detail
-                        if m.competency.tier.value == "must_have"
-                    ),
-                }, ensure_ascii=False),
-                created_at = datetime.now(timezone.utc).isoformat(),
-            ))
-            s.commit()
+        shadow_score_repository.insert(
+            user_id        = user_id,
+            job_title      = job_title[:200],
+            company        = company_name[:200],
+            existing_score = llm_composite,
+            ats_score      = ats.final_score,
+            breakdown_json = _json.dumps({
+                "unified":    unified,
+                "ats_base":   ats.base_score,
+                "competency": ats.competency_score,
+                "impact":     ats.impact.score,
+                "local":      ats.local_score,
+                "knockout_failed":  not ats.knockout.passed,
+                "knockout_reasons": ats.knockout.reasons,
+                "legacy_company":   ats.legacy_company,
+                "gaps":             ats.gap_analysis,
+                "must_have_count":  sum(
+                    1 for m in ats.competency_detail
+                    if m.competency.tier.value == "must_have"
+                ),
+            }, ensure_ascii=False),
+            created_at = datetime.now(timezone.utc).isoformat(),
+        )
     except Exception as exc:
         logger.warning("[ats-audit] score audit persist failed (non-fatal): %s", exc)
 

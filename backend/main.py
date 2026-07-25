@@ -17,12 +17,12 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=True)
 
 # When uvicorn is launched from the backend/ directory, the project root
-# (one level up) is not automatically on sys.path.  Add it so that the
-# top-level `models/` package (e.g. models.agent) AND the canonical
-# `backend.*` package path are importable.  ALL intra-backend imports use
-# the `backend.` prefix — the bare `api.*` / `services.*` / `config` forms
-# are forbidden because they load the same file as a second, independent
-# module object (duplicated rate-limit buckets, JWKS caches, DB engines).
+# (one level up) is not automatically on sys.path.  Add it so the canonical
+# `backend.*` package path (e.g. backend.schemas.agent) is importable.
+# ALL intra-backend imports use the `backend.` prefix — the bare
+# `api.*` / `services.*` / `config` forms are forbidden because they load
+# the same file as a second, independent module object (duplicated
+# rate-limit buckets, JWKS caches, DB engines).
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
@@ -32,7 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from backend.api.routes import agents, analytics, applications, ariel, auth, chat, crm, history, jobs, outreach, profile, resumes, scraper, settings, webhooks
+from backend.api.routes import agents, analytics, applications, ariel, auth, chat, crm, history, jobs, linkedin_jobs, outreach, profile, resumes, scraper, settings, webhooks
 from backend.config import (
     AUTO_DISCOVERY,
     CORS_ORIGINS,
@@ -266,7 +266,8 @@ def purge_irrelevant_jobs(min_score: float = 30.0, dry_run: bool = False, user_i
         deleted     — rows actually removed (0 if dry_run=True)
         dry_run_preview — rows that would be removed (only set when dry_run=True)
     """
-    from backend.services.db import ENGINE, JobRow
+    from backend.core.database import ENGINE
+    from backend.models.job import JobRow
     from backend.scrapers.relevancy import is_title_relevant
     from sqlalchemy.orm import Session
 
@@ -304,7 +305,7 @@ def purge_irrelevant_jobs(min_score: float = 30.0, dry_run: bool = False, user_i
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from backend.services.db import init_db
+    from backend.core.migrations import init_db
     init_db()
     logger.info("Database initialised.")
 
@@ -407,6 +408,7 @@ app.include_router(analytics.router,    prefix="/api/analytics",    tags=["analy
 app.include_router(webhooks.router,     prefix="/api/webhooks",     tags=["webhooks"])
 app.include_router(crm.router,          prefix="/api/crm",          tags=["crm"])
 app.include_router(scraper.router,      prefix="/api/v1/scraper",   tags=["scraper"])
+app.include_router(linkedin_jobs.router, prefix="/api/linkedin",    tags=["linkedin"])
 
 
 @app.get("/health")

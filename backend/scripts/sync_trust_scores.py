@@ -33,7 +33,7 @@ import logging
 
 from sqlalchemy import text
 
-from backend.services.db import ENGINE
+from backend.core.database import ENGINE
 from backend.services.profile_update_service import ProfileUpdateService
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

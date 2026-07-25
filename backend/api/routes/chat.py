@@ -37,7 +37,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit, standard_rate_limit
-from backend.services.db import ENGINE, MasterProfileRow
+from backend.core.database import ENGINE
 from backend.agents.ariel_tools import ARIEL_TOOLS, execute_tool
 from backend.services.user_profile import USER_PROFILE, get_profile, format_profile_compact
 from backend.services.llm_validation import harden_system_prompt, sanitize_text
@@ -644,12 +644,12 @@ def _build_ariel_system(pinned_messages: list[ChatMessage], user_id: str) -> str
     # ── Contact info: verified email (DB column) + personal.* (file store) ──
     try:
         from backend.services.user_profile_store import load as _load_personal_store
+        from backend.repositories import master_profile_repository
 
         verified_email = ""
-        with Session(ENGINE) as _sess:
-            row = _sess.get(MasterProfileRow, user_id)
-            if row and row.email:
-                verified_email = row.email
+        row = master_profile_repository.get(user_id)
+        if row and row.email:
+            verified_email = row.email
 
         stored_personal = _load_personal_store(user_id).get("personal", {}) or {}
         onboarding_name = ""
@@ -1046,21 +1046,13 @@ def _ingest_cv_from_chat(user_id: str, item: AttachmentItem) -> None:
 
         _now = datetime.now(timezone.utc).isoformat()
         with _Session(ENGINE) as sess:
-            row = sess.get(MasterProfileRow, user_id)
-            if row:
-                mp = dict(row.master_profile or {})
-                mp["cv_data"]       = cv_claims
-                mp["cv_imported_at"] = _now
-                row.master_profile  = mp
-                row.updated_at      = _now
-            else:
-                sess.add(MasterProfileRow(
-                    user_id=user_id,
-                    onboarding_status="incomplete",
-                    master_profile={"cv_data": cv_claims, "cv_imported_at": _now},
-                    created_at=_now,
-                    updated_at=_now,
-                ))
+            from backend.repositories import master_profile_repository
+            row, _created = master_profile_repository.get_or_create(sess, user_id, now=_now)
+            mp = dict(row.master_profile or {})
+            mp["cv_data"]        = cv_claims
+            mp["cv_imported_at"] = _now
+            row.master_profile   = mp
+            row.updated_at       = _now
             sess.commit()
 
         # Step 5 — ingest into Confidence Matrix

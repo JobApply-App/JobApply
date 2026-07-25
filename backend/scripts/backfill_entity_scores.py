@@ -41,7 +41,7 @@ from backend.services.confidence_math import (
     compute_confidence_score,
     verification_status,
 )
-from backend.services.db import ENGINE
+from backend.core.database import ENGINE
 
 logging.basicConfig(
     level=logging.INFO,

@@ -36,7 +36,7 @@ import logging
 import re
 from datetime import datetime, timezone
 
-from models.job import DetailedAnalysis, JobMatch, RawJobPosting, ReasonTag
+from backend.schemas.job import DetailedAnalysis, JobMatch, RawJobPosting, ReasonTag
 from backend.services.match_score_service import compute_local_proxy_score
 from backend.config import DEV_MODE
 
