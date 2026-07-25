@@ -133,15 +133,20 @@ function _networkErrorOr(err: unknown): Error {
   return err instanceof Error ? err : new Error(String(err))
 }
 
-async function get<T>(path: string): Promise<T> {
+async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   await _ensureFreshToken()
   let res: Response
   try {
     res = await fetch(`${BASE}${path}`, {
       cache:   'no-store',
       headers: _authHeaders(),
+      signal,
     })
   } catch (err) {
+    // AbortError (caller cancelled — e.g. a superseded pagination request)
+    // is not a real failure; let it propagate as-is so callers can tell it
+    // apart from a genuine network/HTTP error and skip showing an error UI.
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
     throw _networkErrorOr(err)
   }
   if (!res.ok) await _handleHttpError(res, path)
@@ -690,6 +695,54 @@ export async function moveCrmCard(applicationId: string, toStage: string): Promi
 
 export async function deleteApplication(applicationId: string): Promise<void> {
   await del<{ deleted: boolean }>(`/api/applications/${applicationId}`)
+}
+
+// ── LinkedIn scraped jobs (All Jobs tab) ─────────────────────────────────────
+
+export interface LinkedInJobItem {
+  id:                 string
+  linkedin_job_id:    string | null
+  title:              string
+  company:            string
+  location:           string | null
+  job_url:            string
+  posted_text:        string | null
+  exact_posted_text:  string | null
+  applicants_text:    string | null
+  seniority_level:    string | null
+  employment_type:    string | null
+  job_function:       string | null
+  industries:         string[] | null
+  company_logo_url:   string | null
+  linkedin_status:    string
+  is_active:          boolean | null
+  insertion_time:     string
+  first_seen_at:      string
+  last_seen_at:       string
+  updated_at:         string
+}
+
+export interface PaginationMeta {
+  page:          number
+  page_size:     number
+  total_items:   number
+  total_pages:   number
+  has_next:      boolean
+  has_previous:  boolean
+}
+
+export interface LinkedInJobsPage {
+  items:      LinkedInJobItem[]
+  pagination: PaginationMeta
+}
+
+export async function fetchLinkedInJobs(
+  page: number,
+  pageSize: number,
+  signal?: AbortSignal,
+): Promise<LinkedInJobsPage> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+  return get<LinkedInJobsPage>(`/api/linkedin/jobs?${params}`, signal)
 }
 
 export async function markJobApplied(jobId: string): Promise<MarkAppliedResponse> {

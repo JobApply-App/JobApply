@@ -5,7 +5,9 @@ For each key entity (company or project) found in the candidate's profile this
 agent performs a two-step research cycle:
 
   Step A — Domain identification
-    Search: "<entity> company" → extract business domain via Claude Haiku.
+    Search: "<entity> Israel official website" → extract business domain via
+    Claude Haiku. Deliberately not tech-biased — most entities in an Israeli
+    candidate's history are ordinary local businesses, not startups.
 
   Step B — Terminology gap analysis
     Search: "<domain> industry terminology <role>" → identify standard vocabulary
@@ -14,6 +16,14 @@ agent performs a two-step research cycle:
 Verification:
   If external evidence is found   → entity.verified = True
   If no evidence and high-impact  → entity.verified = False + clarification_request
+
+Ground truth: an entity previously saved with source="user_provided_ground_truth"
+(a human-confirmed correction — see docs on the manual-override path) is skipped
+on a normal auto-extract research() run, so re-running research never silently
+clobbers a verified-by-the-actual-employee record. Pass force=True to override.
+
+Every web_search.search() call this agent makes is cached (see web_search.py) —
+re-running research for an unchanged entity set costs 0 ScraperAPI credits.
 
 Output: list[EnrichedEntity]  (also persisted to master_profile.json)
 
@@ -36,7 +46,7 @@ from dotenv import load_dotenv
 
 from backend.services.llm_client import call_llm
 from backend.services.web_search import search, SearchResult
-from backend.services.user_profile import USER_PROFILE, build_full_text
+from backend.services.user_profile import USER_PROFILE, build_full_text, resolve_profile
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
@@ -65,6 +75,10 @@ class EnrichedEntity:
     evidence_urls:         list[str]
     clarification_requests: list[ClarificationRequest] = field(default_factory=list)
     researched_at:         str = ""
+    # Provenance. "researcher_agent" (default) = automated web+LLM pipeline.
+    # "user_provided_ground_truth" = a human-confirmed correction entered
+    # directly (see research()'s ground-truth skip guard, which reads this).
+    source:                str = "researcher_agent"
 
     def as_dict(self) -> dict:
         d = asdict(self)
@@ -72,9 +86,12 @@ class EnrichedEntity:
         return d
 
 
-# ── Entity extraction from USER_PROFILE ──────────────────────────────────────
+# ── Entity extraction from the active user's profile ─────────────────────────
 
-# Entities we never research — food service, zero professional signal
+# Entities we never research — food service, zero professional signal.
+# LEGACY-ONLY: these are names from the user_id='default' singleton. They are
+# NOT applied to a real user's DB profile, where a same-named entry can be a
+# genuine role (e.g. user e2472fa3's "Restaurant River").
 _EXCLUDED_COMPANIES = frozenset({
     "aldo", "aldo (gelato shop)", "river", "river (restaurant)",
 })
@@ -84,20 +101,27 @@ _EXCLUDED_COMPANIES = frozenset({
 _HIGH_IMPACT_MARKERS = {"go-out", "goout", "go out"}
 
 
-def extract_profile_entities() -> list[dict]:
+def extract_profile_entities(user_id: str = "default") -> list[dict]:
     """
-    Extract key entities from USER_PROFILE that are worth researching.
+    Extract key entities worth researching from user_id's profile.
     Returns a list of dicts with keys: name, entity_type, is_high_impact.
+
+    Passing a real user_id is REQUIRED for correctness — the results are
+    persisted against that user and later injected into their CV prompt as
+    ENTITY_INTELLIGENCE, so extracting from the legacy singleton would research
+    the wrong employers and store them under the wrong account.
     """
     entities: list[dict] = []
     seen: set[str] = set()
 
-    for exp in USER_PROFILE.get("experience", []):
+    for exp in resolve_profile(user_id).get("experience", []):
         company = (exp.get("company") or exp.get("unit") or "").strip()
         if not company:
             continue
         key = company.lower()
-        if key in _EXCLUDED_COMPANIES or key in seen:
+        if user_id == "default" and key in _EXCLUDED_COMPANIES:
+            continue
+        if key in seen:
             continue
         seen.add(key)
         entities.append({
@@ -107,7 +131,7 @@ def extract_profile_entities() -> list[dict]:
         })
 
     # Projects / side ventures — extend this list as the profile grows
-    for project_name in _extract_project_names():
+    for project_name in _extract_project_names(user_id):
         key = project_name.lower()
         if key not in seen:
             seen.add(key)
@@ -120,15 +144,15 @@ def extract_profile_entities() -> list[dict]:
     return entities
 
 
-def _extract_project_names() -> list[str]:
+def _extract_project_names(user_id: str = "default") -> list[str]:
     """
-    Scan USER_PROFILE achievements for explicitly named projects.
+    Scan user_id's profile achievements for explicitly named projects.
     Uses a simple regex heuristic on the full profile text.
     """
     import re
     seen: set[str] = set()
     projects: list[str] = []
-    all_text = build_full_text()
+    all_text = build_full_text(user_id)
 
     # Look for capitalised project names after "Project:" or "built the"
     # Require at least 2 words so we don't match single-word role titles
@@ -138,8 +162,8 @@ def _extract_project_names() -> list[str]:
     ):
         name = m.group(1).strip()
         key  = name.lower()
-        # Skip if it overlaps with an excluded company name
-        if any(excl in key for excl in _EXCLUDED_COMPANIES):
+        # Skip if it overlaps with an excluded company name (legacy profile only)
+        if user_id == "default" and any(excl in key for excl in _EXCLUDED_COMPANIES):
             continue
         if key not in seen and len(name.split()) <= 4:
             seen.add(key)
@@ -153,6 +177,25 @@ def _extract_project_names() -> list[str]:
 _DOMAIN_SYSTEM = """\
 You are a business intelligence analyst. Given web search results about a company
 or project, extract the business domain and up to 10 industry-standard keywords.
+
+The candidate is based in Israel and many entities are small local businesses
+(restaurants, retail, local insurance/financial agencies) — NOT tech startups.
+Do not default to a technology/SaaS framing just because other entities in this
+candidate's history are tech companies. A local business with a normal web
+presence (its own site, a Google/Facebook business listing, a local news
+mention) is exactly as "verified" as a tech company with an English-language
+press writeup — judge by whether the results describe a real, currently or
+formerly operating business, not by how much English-language coverage exists.
+
+Search results may be in Hebrew. Read and use them the same as English results
+— do not mark an entity unverified merely because the evidence is in Hebrew.
+
+Name-collision guard: a result can describe a DIFFERENT company that merely
+shares part of the entity's name (e.g. a search for a small local business
+returning an unrelated, similarly-named tech company). Only use a result as
+evidence if it plausibly matches the entity's actual nature — if every result
+is clearly about something else, set "verified": false and "domain":
+"Unknown domain" rather than reporting the unrelated company's domain.
 
 Return ONLY this JSON — no prose, no fences:
 {
@@ -190,24 +233,66 @@ class ResearcherAgent:
     and returns enriched data including domain, industry keywords, and vocabulary gaps.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, user_id: str = "default") -> None:
+        """
+        user_id scopes the CV text that cv_vocabulary_gap is computed against,
+        and the default entity extraction. Callers holding an authenticated
+        user MUST pass it — the gap terms are the whole point of the research,
+        and computing them against the legacy singleton's CV yields gaps that
+        are wrong for the account the results get saved under.
+        """
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not set")
-        self._cv_text = build_full_text().lower()
+        self.user_id  = user_id or "default"
+        self._cv_text = build_full_text(self.user_id).lower()
 
     async def research(
         self,
         entities: Optional[list[dict]] = None,
+        force: bool = False,
     ) -> list[EnrichedEntity]:
         """
-        Research all provided entities (or auto-extract from USER_PROFILE).
-        Returns a list of EnrichedEntity objects.
+        Research all provided entities (or auto-extract from this agent's
+        user's profile).  Returns a list of EnrichedEntity objects.
+
+        force=True bypasses both the web_search result cache AND the
+        ground-truth skip guard below, forcing a fresh web+LLM pass for every
+        entity. Default False for both auto-extract and explicit-entity_names
+        calls — a caller that names entities explicitly is presumed to want
+        them researched regardless (e.g. retrying just the ones that came back
+        unverified), so ground-truth entities named directly ARE still skipped
+        unless force=True; only the caller passing force gets them re-run.
+
+        Ground-truth guard: entities previously saved with
+        source="user_provided_ground_truth" (see master_profile_service /
+        the manual-correction path) are skipped on an auto-extract run —
+        research() would otherwise silently overwrite a human-verified record
+        with a fresh, possibly wrong, automated one on the very next run.
         """
         if entities is None:
-            entities = extract_profile_entities()
+            entities = extract_profile_entities(self.user_id)
 
         if not entities:
             logger.info("[researcher] No entities to research")
+            return []
+
+        if not force:
+            from backend.services.master_profile_service import get_enriched_entity
+            filtered = []
+            for entity in entities:
+                existing = get_enriched_entity(entity["name"], self.user_id)
+                if existing and existing.get("source") == "user_provided_ground_truth":
+                    logger.info(
+                        "[researcher] Skipping %r — has a user-provided ground-truth "
+                        "record; pass force=True to override it.",
+                        entity["name"],
+                    )
+                    continue
+                filtered.append(entity)
+            entities = filtered
+
+        if not entities:
+            logger.info("[researcher] No entities to research (all skipped as ground-truth)")
             return []
 
         logger.info("[researcher] Starting research for %d entities", len(entities))
@@ -219,6 +304,7 @@ class ResearcherAgent:
                     name=entity["name"],
                     entity_type=entity.get("entity_type", "company"),
                     is_high_impact=entity.get("is_high_impact", False),
+                    force=force,
                 )
                 results.append(enriched)
             except Exception as exc:
@@ -240,6 +326,7 @@ class ResearcherAgent:
         name: str,
         entity_type: str,
         is_high_impact: bool,
+        force: bool = False,
     ) -> EnrichedEntity:
         """
         Step A: Identify domain by searching for the entity.
@@ -248,12 +335,19 @@ class ResearcherAgent:
         logger.info("[researcher] Step A — domain search: %r", name)
 
         # ── Step A: Domain identification ─────────────────────────────────────
-        search_query_a = f"{name} {entity_type} Israel technology platform"
-        results_a = await search(search_query_a, max_results=5)
+        # Deliberately NOT "technology platform" — most entities in an Israeli
+        # candidate's history are ordinary local businesses (restaurants,
+        # insurance agencies, retail), and biasing every query toward tech
+        # framing pulls in unrelated tech-company hits for them (observed:
+        # "Restaurant River" returned an unrelated food-tech startup
+        # acquisition story). "official website" is a neutral qualifier that
+        # helps surface a small local business's own site or listing.
+        search_query_a = f"{name} Israel official website"
+        results_a = await search(search_query_a, max_results=5, force=force)
 
         if not results_a:
-            # Fallback: broader query without location
-            results_a = await search(f"{name} company software platform", max_results=5)
+            # Fallback: broader query, still no tech-specific framing
+            results_a = await search(f"{name} company Israel", max_results=5, force=force)
 
         domain_data = await self._synthesise_domain(name, results_a)
 
@@ -268,7 +362,7 @@ class ResearcherAgent:
         if domain and domain != "Unknown domain":
             logger.info("[researcher] Step B — terminology search for domain: %r", domain)
             search_query_b = f"{domain} industry terminology keywords professional"
-            results_b = await search(search_query_b, max_results=5)
+            results_b = await search(search_query_b, max_results=5, force=force)
             cv_vocab_gap = await self._synthesise_gap(domain, industry_kws, results_b)
 
         # ── Verification & clarification ──────────────────────────────────────

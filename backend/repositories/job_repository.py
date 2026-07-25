@@ -501,12 +501,53 @@ def mark_applied(job_id: str, applied_at: str, user_id: str) -> None:
 
 
 def get_tailored_cv(job_id: str, user_id: str) -> Optional[dict]:
-    """Return the cached tailored CV payload for a job owned by user_id, or None."""
+    """
+    Return the cached tailored CV payload for a job owned by user_id, or None.
+
+    Returns None when the cached draft was generated from an older version of
+    the user's master profile (see profile_fingerprint) — the caller then
+    regenerates from current data instead of serving a draft built from
+    since-edited experience/skills/contact details. Drafts cached before this
+    stamp existed carry no fingerprint and are treated as stale exactly once,
+    on first read after this change.
+    """
     with Session(ENGINE) as session:
         row = session.get(JobRow, job_id)
         if not row or row.user_id != user_id:
             return None
-        return row.tailored_cv or None
+        cached = row.tailored_cv or None
+
+    if not cached:
+        return None
+
+    current = profile_fingerprint(user_id)
+    # Only enforce when a fingerprint is actually resolvable — if the profile
+    # row is unreadable, serving the existing draft beats forcing a needless
+    # (and expensive) LLM regeneration on every open.
+    if current and cached.get("profile_fingerprint") != current:
+        logger.info(
+            "[job_store] Tailored CV for job=%s is stale (profile changed) — ignoring cache",
+            job_id,
+        )
+        return None
+    return cached
+
+
+def profile_fingerprint(user_id: str) -> str:
+    """
+    master_profiles.updated_at for user_id ("" when absent/unreadable).
+
+    Stamped into the tailored-CV cache so a draft generated from an older
+    master profile can be detected as stale — every write path through
+    master_profile_repository / master_profile_service bumps updated_at, so
+    a changed value means the source data the draft was built from has moved.
+    """
+    try:
+        from backend.repositories import master_profile_repository
+        row = master_profile_repository.get(user_id)
+        return str(row.updated_at or "") if row else ""
+    except Exception:
+        return ""
 
 
 def save_tailored_cv(job_id: str, user_id: str, cv_data: dict, match_score: Optional[dict]) -> None:
@@ -514,8 +555,33 @@ def save_tailored_cv(job_id: str, user_id: str, cv_data: dict, match_score: Opti
     with Session(ENGINE) as session:
         row = session.get(JobRow, job_id)
         if row and row.user_id == user_id:
-            row.tailored_cv = {"cv_data": cv_data, "match_score": match_score}
+            row.tailored_cv = {
+                "cv_data":     cv_data,
+                "match_score": match_score,
+                # Staleness stamp — compared on read (see get_tailored_cv).
+                "profile_fingerprint": profile_fingerprint(user_id),
+            }
             session.commit()
+
+
+def clear_tailored_cv(job_id: str, user_id: str) -> bool:
+    """
+    Drop the cached tailored CV for a job owned by user_id. Returns True if a
+    cached payload was actually removed.
+
+    Used by the "Regenerate from scratch" path so the stale draft is gone
+    BEFORE the LLM runs — previously `force=True` only skipped the cache read
+    and relied on a successful run overwriting it at the end, which meant a
+    failed regeneration silently left the old draft in place and the user was
+    served it again on the next open.
+    """
+    with Session(ENGINE) as session:
+        row = session.get(JobRow, job_id)
+        if row and row.user_id == user_id and row.tailored_cv:
+            row.tailored_cv = None
+            session.commit()
+            return True
+    return False
 
 
 def get_feed(user_id: str, status_filter: Optional[str] = None) -> List[JobMatch]:

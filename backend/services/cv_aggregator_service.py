@@ -347,8 +347,39 @@ DATE-ANCHOR OVERRIDES TEXT RULE (critical):
 - Generic boilerplate ("X+ years") is treated as noise when it contradicts
   explicit dates.  Dated job boundaries are ground truth.
 
+CONTACT EXTRACTION (the "personal" block):
+- Contact details are frequently in a header, footer, sidebar, or contact bar
+  at the very top of the document, often on one line separated by | / • or
+  similar. Scan those regions explicitly — do not assume contact info appears
+  as a normal labelled section.
+- full_name: the candidate's own name. Never a company, employer, school, or
+  a referee's name. Usually the largest/first text in the document.
+- phone: keep the digits and any leading +country code. Strip spaces, dots,
+  dashes, and parentheses (e.g. "(054) 245-9908" -> "+972542459908" only if
+  the country code is actually stated; otherwise "0542459908").
+- email: the candidate's own address, verbatim.
+- linkedin_url: normalize to bare "linkedin.com/in/<handle>" — strip
+  https://, www., any trailing slash, and any ?query parameters.
+- location: "City, Country" or "City, State" as written. Never a full street
+  address, and never an employer's office location.
+- Emit "" (empty string) for any contact field not present in the text. Never
+  guess, never fabricate, never carry a value over from an employer's details.
+
 OUTPUT SCHEMA (all fields required, use empty list/string/array if not found):
 {
+  "personal": {
+    "full_name":    "candidate's full name, or empty string",
+    "phone":        "normalized phone, or empty string",
+    "email":        "candidate's email, or empty string",
+    "linkedin_url": "linkedin.com/in/handle, or empty string",
+    "location":     "City, Country, or empty string"
+  },
+  "languages": [
+    {
+      "language": "language name, e.g. Hebrew",
+      "level":    "EXACTLY ONE of: Native, Fluent, Professional Working, Limited Working, Elementary"
+    }
+  ],
   "skills": [
     "exact skill string — emit every distinct skill found, no upper limit"
   ],
@@ -424,6 +455,10 @@ async def aggregate_cv_claims(texts: list[str], user_id: str = "default") -> dic
         # Apply the Date-Anchor Overrides Text rule as a deterministic
         # post-processing pass — catches any inflation the LLM missed.
         claims = _cross_validate_experience_claims(claims)
+        # Contact block is normalized deterministically rather than trusted
+        # as-emitted — the prompt asks for a canonical shape, this guarantees
+        # it (and guarantees the key exists at all for older/partial output).
+        claims["personal"] = _normalize_personal(claims.get("personal"))
         return claims
     except Exception as exc:
         logger.error("[cv_aggregator] LLM aggregation failed for user=%s: %s", user_id, exc)
@@ -445,11 +480,52 @@ def _parse_json(raw: str) -> dict:
     return _empty_claims()
 
 
+def _empty_personal() -> dict:
+    return {"full_name": "", "phone": "", "email": "", "linkedin_url": "", "location": ""}
+
+
 def _empty_claims() -> dict:
     return {
+        "personal":    _empty_personal(),
+        "languages":   [],
         "skills":      [],
         "domains":     [],
         "experiences": [],
         "education":   [],
         "summary":     "",
+    }
+
+
+_LINKEDIN_RE = re.compile(r"(?:https?://)?(?:[a-z]{2,3}\.)?(?:www\.)?linkedin\.com/in/([^/?\s]+)", re.I)
+
+
+def _normalize_linkedin(value: str) -> str:
+    """Bare 'linkedin.com/in/<handle>' — strips scheme, www/locale subdomain,
+    trailing slash, and query params, whatever shape the LLM echoed back."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    match = _LINKEDIN_RE.search(text)
+    return f"linkedin.com/in/{match.group(1)}" if match else text.rstrip("/")
+
+
+def _normalize_phone(value: str) -> str:
+    """Strip formatting punctuation, preserving a leading + country code.
+    Never invents a country code the source text didn't state."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    digits = re.sub(r"[^\d]", "", text)
+    return f"+{digits}" if text.lstrip().startswith("+") and digits else digits
+
+
+def _normalize_personal(raw: object) -> dict:
+    """Coerce the LLM's `personal` block into the fixed 5-key contact shape."""
+    personal = raw if isinstance(raw, dict) else {}
+    return {
+        "full_name":    str(personal.get("full_name", "") or "").strip(),
+        "phone":        _normalize_phone(personal.get("phone", "")),
+        "email":        str(personal.get("email", "") or "").strip(),
+        "linkedin_url": _normalize_linkedin(personal.get("linkedin_url", "")),
+        "location":     str(personal.get("location", "") or "").strip(),
     }

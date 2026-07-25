@@ -1324,6 +1324,80 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
     </div>
   )
 
+  // ── Header (JOB-114) ────────────────────────────────────────────────────────
+  // Shared between the welcome screen (no messages yet) and the active-chat
+  // view below — previously this markup lived ONLY in the active-chat return
+  // block, so the welcome screen rendered with no header at all: no History,
+  // no New-conversation, no Minimize, and no Close ('X') button. The reported
+  // symptom ("close button only appears after opening a new or existing
+  // conversation") was really "there is no header until messages.length > 0",
+  // since the welcome screen is exactly the `messages.length === 0` state.
+  const chatHeader = (
+    <div className="flex items-center justify-between px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] border-b border-slate-100 bg-white flex-shrink-0 z-10">
+      {/* Left: avatar + name */}
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-7 h-7 rounded-full text-white text-[11px] font-bold flex items-center justify-center shrink-0"
+          style={{ background: TOKENS.color.gradientIntelligence, boxShadow: TOKENS.shadow.glowAi }}>A</div>
+        <p className="text-[13px] font-semibold text-slate-700 truncate">Ariel</p>
+      </div>
+      {/* Right: icon buttons — 44px square on mobile (touch target minimum),
+          28px on desktop for alignment with the compact header */}
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={openHistory}
+          title="Conversation history"
+          className={`h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg transition-colors
+            ${showHistory ? 'text-teal-600 bg-teal-50' : 'text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100'}`}
+        >
+          <HistoryIcon s={14} />
+        </button>
+        <button
+          onClick={startNewSession}
+          title="New conversation"
+          className="h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 transition-colors text-[15px] leading-none"
+        >↺</button>
+        {onClose && (
+          <>
+            {/* Minimize — hides the panel; the conversation stays intact and
+                can be reopened from the floating "Ask Ariel" launcher.
+                Also a natural moment to re-check the Confidence Score in
+                case a background CV-ingestion task finished since the last
+                per-message trigger. */}
+            <button
+              onClick={() => { triggerProfileRefresh(); onClose() }}
+              title="Minimize"
+              aria-label="Minimize Ariel"
+              className="h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 transition-colors"
+            >
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <line x1="5" y1="19" x2="19" y2="19" />
+              </svg>
+            </button>
+            {/* Close — also hides the panel (state preserved); reopen anytime
+                via the launcher. */}
+            <button
+              onClick={() => { triggerProfileRefresh(); onClose() }}
+              title="Close"
+              aria-label="Close Ariel"
+              // Persistent bg-slate-100 circle on mobile only (not
+              // hover/active-only) so the close control is unambiguously
+              // pinned and visible on touch devices, where :hover never
+              // fires; desktop keeps its minimal icon-only compact header.
+              className="h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-full sm:rounded-lg bg-slate-100 sm:bg-transparent text-slate-500 sm:text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 transition-colors"
+            >
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+
   // ── Welcome screen ─────────────────────────────────────────────────────────
   if (messages.length === 0 && !loadingSession) {
     const latestSession = sessionList[0] ?? null   // list is already newest-first
@@ -1353,6 +1427,8 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
 
     return (
       <div className="flex flex-col h-full">
+        {chatHeader}
+
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
 
@@ -1421,70 +1497,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] border-b border-slate-100 bg-white flex-shrink-0 z-10">
-        {/* Left: avatar + name */}
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-full text-white text-[11px] font-bold flex items-center justify-center shrink-0"
-            style={{ background: TOKENS.color.gradientIntelligence, boxShadow: TOKENS.shadow.glowAi }}>A</div>
-          <p className="text-[13px] font-semibold text-slate-700 truncate">Ariel</p>
-        </div>
-        {/* Right: icon buttons — 44px square on mobile (touch target minimum),
-            28px on desktop for alignment with the compact header */}
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={openHistory}
-            title="Conversation history"
-            className={`h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg transition-colors
-              ${showHistory ? 'text-teal-600 bg-teal-50' : 'text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100'}`}
-          >
-            <HistoryIcon s={14} />
-          </button>
-          <button
-            onClick={startNewSession}
-            title="New conversation"
-            className="h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 transition-colors text-[15px] leading-none"
-          >↺</button>
-          {onClose && (
-            <>
-              {/* Minimize — hides the panel; the conversation stays intact and
-                  can be reopened from the floating "Ask Ariel" launcher.
-                  Also a natural moment to re-check the Confidence Score in
-                  case a background CV-ingestion task finished since the last
-                  per-message trigger. */}
-              <button
-                onClick={() => { triggerProfileRefresh(); onClose() }}
-                title="Minimize"
-                aria-label="Minimize Ariel"
-                className="h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 transition-colors"
-              >
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                  <line x1="5" y1="19" x2="19" y2="19" />
-                </svg>
-              </button>
-              {/* Close — also hides the panel (state preserved); reopen anytime
-                  via the launcher. */}
-              <button
-                onClick={() => { triggerProfileRefresh(); onClose() }}
-                title="Close"
-                aria-label="Close Ariel"
-                // Persistent bg-slate-100 circle on mobile only (not
-                // hover/active-only) so the close control is unambiguously
-                // pinned and visible on touch devices, where :hover never
-                // fires; desktop keeps its minimal icon-only compact header.
-                className="h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-full sm:rounded-lg bg-slate-100 sm:bg-transparent text-slate-500 sm:text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 transition-colors"
-              >
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      {chatHeader}
 
       {/* Body — relative container so the history panel can overlay it */}
       <div className="relative flex-1 min-h-0">

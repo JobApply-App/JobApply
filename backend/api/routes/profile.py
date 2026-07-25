@@ -37,6 +37,7 @@ from backend.services.master_profile_service import (
     get_enriched_entity,
     load,
     merge_answers,
+    merge_parsed_contact,
     save,
     save_enriched_entities,
 )
@@ -177,8 +178,13 @@ async def get_research(user: CurrentUser = Depends(get_current_user)):
 
 class ResearchRequest(BaseModel):
     # Optional override: specific entity names to research.
-    # If omitted, all entities from USER_PROFILE are researched.
+    # If omitted, all entities from the CALLER's profile are researched.
     entity_names: Optional[list[str]] = None
+    # Bypass the web-search result cache AND the ground-truth skip guard,
+    # forcing a fresh web+LLM pass for every entity in this request. Default
+    # False: normal calls are served from cache where possible (0 ScraperAPI
+    # credits on a repeat run) and never overwrite a human-verified record.
+    force: bool = False
 
 
 @router.post("/research")
@@ -198,20 +204,20 @@ async def trigger_research(req: ResearchRequest, user: CurrentUser = Depends(get
                 for n in req.entity_names
             ]
         else:
-            entities = extract_profile_entities()
+            entities = extract_profile_entities(user.user_id)
 
         if not entities:
             return {"status": "ok", "message": "No entities to research.", "entities": []}
 
-        agent   = ResearcherAgent()
-        results = await agent.research(entities)
+        agent   = ResearcherAgent(user.user_id)
+        results = await agent.research(entities, force=req.force)
 
         # Persist to master profile
         save_enriched_entities([e.as_dict() for e in results], user.user_id)
 
         logger.info(
-            "[profile/research] Completed: %d entities researched",
-            len(results),
+            "[profile/research] Completed for user=%s: %d entities researched",
+            user.user_id, len(results),
         )
         return {
             "status":   "ok",
@@ -597,14 +603,38 @@ async def upload_cv_files(
     user_save(user.user_id, profile)
 
     _now = datetime.now(timezone.utc).isoformat()
+    parsed_personal = cv_claims.get("personal") or {}
     with Session(ENGINE) as _sess:
         row, _created = master_profile_repository.get_or_create(_sess, user.user_id, now=_now)
         mp = dict(row.master_profile or {})
         mp["cv_data"] = cv_claims
         mp["cv_imported_at"] = _now
+        # Top-level onboarding `personal` block — same fill-blanks-only rule
+        # as the metrics_doc merge below, and the same key names get_profile()
+        # reads (name/phone/linkedin, not full_name/linkedin_url).
+        existing_personal = mp.get("personal")
+        if not isinstance(existing_personal, dict):
+            existing_personal = {}
+        for src, dst in (
+            ("full_name", "name"), ("phone", "phone"), ("email", "email"),
+            ("linkedin_url", "linkedin"), ("location", "location"),
+        ):
+            value = str(parsed_personal.get(src, "") or "").strip()
+            if value and not str(existing_personal.get(dst, "") or "").strip():
+                existing_personal[dst] = value
+        if existing_personal:
+            mp["personal"] = existing_personal
         row.master_profile = mp
         row.updated_at = _now
         _sess.commit()
+
+    # metrics_doc["personal"] — the other place get_profile() looks for
+    # contact details. Non-fatal: a CV whose contact block failed to merge is
+    # still a successfully imported CV.
+    try:
+        merge_parsed_contact(parsed_personal, user.user_id)
+    except Exception as exc:
+        logger.warning("[cv-upload] contact merge failed (non-fatal): %s", exc)
 
     # Phase 4: Ingest entities into the Confidence Matrix
     parsed_entities = _cv_claims_to_parsed_entities(cv_claims)

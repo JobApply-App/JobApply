@@ -102,7 +102,10 @@ interface MissingDataRequest {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function pdfDataUrl(b64: string) {
-  return `data:application/pdf;base64,${b64}`
+  // #toolbar=0&navpanes=0&scrollbar=0 suppresses Chrome/Firefox's native PDF
+  // viewer chrome (the dark toolbar with zoom/print/download controls) so
+  // the preview reads as an embedded CV, not an obviously-a-PDF-file frame.
+  return `data:application/pdf;base64,${b64}#toolbar=0&navpanes=0&scrollbar=0`
 }
 
 // ── JobInfoCard ───────────────────────────────────────────────────────────────
@@ -411,7 +414,14 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
     try {
       const controller = new AbortController()
-      const timeoutId  = setTimeout(() => controller.abort(), 90_000)
+      // 180s, not the previous 90s. A single /tailor request can legitimately
+      // chain several LLM calls (JD structuring -> tailoring -> optional
+      // refinement -> match scoring), and when Gemini rate-limits, each one
+      // falls back to Anthropic with its own retries. Observed real-world
+      // worst case in this pipeline is ~145s, so 90s was aborting healthy
+      // in-flight generations. Still below next.config.mjs's proxyTimeout
+      // (300_000) so the browser, not the proxy, owns the deadline.
+      const timeoutId  = setTimeout(() => controller.abort(), 180_000)
       let res: Response
       try {
         await ensureFreshToken()
@@ -452,7 +462,22 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       setMissingReqs([])
       setPhase('preview')
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'CV generation failed. Please try again.')
+      // An aborted fetch surfaces as DOMException('signal is aborted without
+      // reason') — a raw internal string that meant nothing to the user and
+      // gave no hint that retrying would help. Translate it before it can
+      // reach the UI; every other error keeps its (server-authored, already
+      // user-facing) detail message.
+      const isAbort =
+        (e instanceof DOMException && e.name === 'AbortError') ||
+        (e instanceof Error && e.name === 'AbortError')
+
+      setError(
+        isAbort
+          ? 'Generation timed out. This can happen when the AI service is busy — please try again.'
+          : e instanceof Error
+            ? e.message
+            : 'CV generation failed. Please try again.',
+      )
       setPhase('idle')
     }
   }, [job.id])
@@ -675,9 +700,10 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(4px)' }}>
-      <div className="relative flex w-full max-w-5xl rounded-2xl overflow-hidden animate-modal-in"
+      <div className="relative flex w-full rounded-2xl overflow-hidden animate-modal-in"
         style={{
           height:     'min(90vh, 760px)',
+          maxWidth:   'min(64rem, calc(100vw - 2rem))',
           background: TOKENS.color.surface,
           boxShadow:  '0 24px 64px rgba(15,23,42,0.22)',
         }}>
@@ -690,7 +716,13 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
         </button>
 
         {/* ═══ LEFT PANE — 38% ═══════════════════════════════════════════════ */}
-        <div className="flex flex-col w-[38%] shrink-0 overflow-y-auto border-r"
+        {/* min-w-0 is load-bearing: without it, a flex item defaults to
+            min-width:auto, so any child with intrinsic width wider than 38%
+            (e.g. an unwrapped row of chips/badges) forces this pane wider
+            than its box instead of scrolling/wrapping inside it — the modal's
+            own overflow-hidden then clips whatever spilled past the left
+            edge instead of containing it. */}
+        <div className="flex flex-col w-[38%] min-w-0 shrink-0 overflow-y-auto overflow-x-hidden border-r"
           style={{ borderColor: TOKENS.color.line, padding: '24px 20px 24px 24px' }}>
 
           <div className="mb-1">

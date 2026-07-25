@@ -123,9 +123,19 @@ fields you did not change. Do not omit or summarise unchanged sections:
 # ── Agent ─────────────────────────────────────────────────────────────────────
 
 class RevisionGatekeeper:
-    def __init__(self) -> None:
+    def __init__(self, user_id: str = "default") -> None:
+        """
+        user_id scopes the PDF's contact header (name/email/phone/linkedin/
+        location) rendered on approval. Currently unreachable from the
+        frontend (no caller passes anything but the default), but the route
+        that constructs this class holds an authenticated user and MUST pass
+        it the moment this endpoint is wired up again — otherwise an approved
+        revision renders with the legacy singleton's contact info instead of
+        the active user's.
+        """
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not set")
+        self.user_id = user_id or "default"
 
     async def revise(
         self,
@@ -206,7 +216,7 @@ class RevisionGatekeeper:
             )
 
         updated_cv = _enforce_limits(updated_cv)
-        pdf_bytes  = await build_pdf(updated_cv)
+        pdf_bytes  = await build_pdf(updated_cv, user_id=self.user_id)
 
         logger.info(
             "RevisionGatekeeper APPROVED  title='%s'  pdf=%d bytes",

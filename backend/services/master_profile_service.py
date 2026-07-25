@@ -563,6 +563,50 @@ def get_enriched_entity(name: str, user_id: str) -> dict | None:
         return None
 
 
+_PERSONAL_FIELDS = ("full_name", "phone", "email", "linkedin_url", "location")
+
+
+def merge_parsed_contact(personal: dict, user_id: str) -> dict:
+    """
+    Non-destructively merge CV-parsed contact details into the user's
+    metrics_doc["personal"] block, and return {field: value} for what was
+    actually written.
+
+    Fill-blanks-only: a field already holding a value is NEVER overwritten by
+    a parse. Re-uploading a CV can therefore only ever ADD missing contact
+    details, never clobber a value the user has verified or corrected — the
+    raw cv_data blob is overwritten wholesale on every upload (that's the
+    parse record), but this curated contact block is not.
+    """
+    incoming = {
+        field: str((personal or {}).get(field, "") or "").strip()
+        for field in _PERSONAL_FIELDS
+    }
+    if not any(incoming.values()):
+        return {}
+
+    doc      = load(user_id)
+    existing = doc.get("personal") or {}
+    if not isinstance(existing, dict):
+        existing = {}
+
+    applied: dict = {}
+    for field in _PERSONAL_FIELDS:
+        value = incoming[field]
+        if value and not str(existing.get(field, "") or "").strip():
+            existing[field] = value
+            applied[field]  = value
+
+    if applied:
+        doc["personal"] = existing
+        save(doc, user_id)
+        logger.info(
+            "[master_profile] Merged CV-parsed contact field(s) for user=%s: %s",
+            user_id, sorted(applied),
+        )
+    return applied
+
+
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _sync_personal_to_user_profile(profile: dict) -> None:

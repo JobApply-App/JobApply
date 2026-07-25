@@ -23,12 +23,13 @@ function HelpIcon({ s = 15 }: { s?: number }) {
   )
 }
 
-export type Tab = 'overview' | 'apps' | 'feed'
+export type Tab = 'overview' | 'apps' | 'feed' | 'linkedin'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview'     },
   { id: 'feed',     label: 'Matches'      },
   { id: 'apps',     label: 'Applications' },
+  { id: 'linkedin', label: 'All Jobs'     },
 ]
 
 interface HeaderProps {
@@ -87,10 +88,26 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
   // after navigating.
   useEffect(() => { setMobileNavOpen(false) }, [pathname, tab])
 
+  // ── Optimistic active-tab indicator (JOB-112) ─────────────────────────────
+  // Capabilities/Analytics are real route navigations (<Link>, not client tab
+  // state), so `onAnalytics`/`onCapabilities` below were derived purely from
+  // `pathname` — which only updates once the destination page's own Header
+  // instance has actually mounted. Between the click and that mount (an RSC
+  // fetch + render, not instant even on a fast connection), the clicked link
+  // shows no visual change at all: no pressed state, no underline movement,
+  // nothing. That silent gap is what reads as "the click didn't register" —
+  // confirmed by testing that a single click always DOES navigate, just not
+  // synchronously, which nothing in the UI communicated in the meantime,
+  // making a second (redundant but harmless) click feel necessary.
+  // `pendingNav` flips the indicator the instant the link is clicked; once
+  // the real navigation lands, `pathname` itself matches and this resets.
+  const [pendingNav, setPendingNav] = useState<'analytics' | 'capabilities' | null>(null)
+  useEffect(() => { setPendingNav(null) }, [pathname])
+
   // Suppress tab underlines on any route that isn't the main dashboard.
   const onMainDashboard   = pathname === '/'
-  const onAnalytics       = pathname === '/analytics'
-  const onCapabilities    = pathname === '/capabilities'
+  const onAnalytics       = pathname === '/analytics'    || pendingNav === 'analytics'
+  const onCapabilities    = pathname === '/capabilities' || pendingNav === 'capabilities'
   const activeTab         = onMainDashboard ? (tab ?? null) : null
 
   const goToTab = (t: Tab) => {
@@ -139,6 +156,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
         ))}
         <Link
           href="/capabilities"
+          onClick={() => setPendingNav('capabilities')}
           className={`h-full inline-flex items-center border-b-2 transition-colors ${
             onCapabilities ? 'text-slate-900 border-slate-900' : 'border-transparent hover:text-slate-900'
           }`}
@@ -147,6 +165,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
         </Link>
         <Link
           href="/analytics"
+          onClick={() => setPendingNav('analytics')}
           className={`h-full inline-flex items-center border-b-2 transition-colors ${
             onAnalytics ? 'text-slate-900 border-slate-900' : 'border-transparent hover:text-slate-900'
           }`}
@@ -331,6 +350,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
           ))}
           <Link
             href="/capabilities"
+            onClick={() => setPendingNav('capabilities')}
             className={`w-full text-left h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
               onCapabilities ? 'text-teal-700 bg-teal-50' : 'text-slate-600 active:bg-slate-50'
             }`}
@@ -339,6 +359,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
           </Link>
           <Link
             href="/analytics"
+            onClick={() => setPendingNav('analytics')}
             className={`w-full text-left h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
               onAnalytics ? 'text-teal-700 bg-teal-50' : 'text-slate-600 active:bg-slate-50'
             }`}

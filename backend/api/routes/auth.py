@@ -188,12 +188,20 @@ async def sync_user(user: CurrentUser = Depends(get_current_user)) -> SyncUserRe
         # ── No linking needed: upsert the caller's own row ────────────────────
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc).isoformat()
+
+        # Seed master_profile["personal"]["name"] from the verified JWT's
+        # user_metadata (Supabase full_name/name claim — see auth_utils.
+        # extract_identity) — never overwrites a name the user has already
+        # set some other way (e.g. via a future profile-edit flow).
+        name = (user.name or "").strip()
+
         if own_row is None:
+            initial_profile = {"personal": {"name": name}} if name else {}
             db.add(MasterProfileRow(
                 user_id           = uid,
                 email             = email or None,
                 onboarding_status = "incomplete",
-                master_profile    = {},
+                master_profile    = initial_profile,
                 created_at        = now,
                 updated_at        = now,
             ))
@@ -201,8 +209,16 @@ async def sync_user(user: CurrentUser = Depends(get_current_user)) -> SyncUserRe
             logger.info("[auth/sync] created master_profiles row for user=%s", uid)
             return SyncUserResult(status="created")
 
+        changed = False
         if email and own_row.email != email:
-            own_row.email      = email
+            own_row.email = email
+            changed = True
+        if name and not ((own_row.master_profile or {}).get("personal") or {}).get("name"):
+            mp = dict(own_row.master_profile or {})
+            mp["personal"] = {**mp.get("personal", {}), "name": name}
+            own_row.master_profile = mp
+            changed = True
+        if changed:
             own_row.updated_at = now
             db.commit()
         return SyncUserResult(status="ok", profile_completed=_profile_is_completed(own_row))

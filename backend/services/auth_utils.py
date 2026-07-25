@@ -174,11 +174,12 @@ class VerifiedIdentity:
     zero DB dependency, matching Requirement 5's "core logic unchanged"
     constraint precisely: this file only ever does crypto/JWKS work.
     """
-    __slots__ = ("user_id", "email")
+    __slots__ = ("user_id", "email", "name")
 
-    def __init__(self, user_id: str, email: str = ""):
+    def __init__(self, user_id: str, email: str = "", name: str = ""):
         self.user_id = user_id
         self.email   = email
+        self.name    = name
 
 
 async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
@@ -250,16 +251,26 @@ def verify_hs256(token: str, jwt, JWTError) -> VerifiedIdentity:
 
 
 def extract_identity(payload: dict) -> VerifiedIdentity:
-    """Pull user_id and email from a verified JWT payload."""
+    """Pull user_id, email, and display name from a verified JWT payload.
+
+    Name comes from Supabase's `user_metadata` claim (`full_name` or `name`
+    — populated at signup for email/password accounts that supplied one, or
+    by OAuth providers like Google) — never asked for manually. Empty string
+    if the account has neither, which callers must treat the same as any
+    other missing profile field (blank, never guessed).
+    """
     user_id: Optional[str] = payload.get("sub")
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token is missing the 'sub' claim.",
         )
+    user_metadata = payload.get("user_metadata") or {}
+    name = str(user_metadata.get("full_name") or user_metadata.get("name") or "").strip()
     return VerifiedIdentity(
         user_id=user_id,
         email=payload.get("email", ""),
+        name=name,
     )
 
 

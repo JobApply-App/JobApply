@@ -474,8 +474,16 @@ export function JobFeed({ onFeedRefreshed, preferences, expandJobId, userId }: J
       !!fresh.jd_structured?.trim()
 
     if (!pipelineDone) {
+      // Previously a silent console.warn + return — clicking "Tailor CV" did
+      // visibly nothing (JOB-115): no toast, no modal, no explanation. The
+      // CV preview's OWN internal guard (ApplierPreview.tsx's handleGenerate)
+      // already surfaces this exact situation via setError(), but that guard
+      // never gets a chance to run because this outer one decides whether to
+      // open the modal at all. Mirror the same message here so the user gets
+      // the same explanation regardless of which guard actually catches it.
       console.warn('[JobFeed] CV generation blocked — job not ready',
         { job_id: fresh.job_id, status: fresh.status, score_is_proxy: fresh.score_is_proxy, has_jd: Boolean(fresh.jd_structured) })
+      setToast({ message: 'Job details are still loading. Please wait a moment and try again.', tone: 'error' })
       return
     }
 

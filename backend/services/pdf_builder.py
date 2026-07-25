@@ -62,13 +62,16 @@ def _resolve_template(template_id: str | None) -> Path:
             return p
     return TEMPLATE_PATH
 
-# ── Contact data — sourced exclusively from USER_PROFILE, never from the LLM ─
-# user_profile.py is the single source of truth.  If a field is absent from
-# USER_PROFILE["personal"], it becomes an empty string and the template
-# placeholder is blanked.  Nothing is guessed or hardcoded here.
-def _load_contact() -> dict:
-    from backend.services.user_profile import USER_PROFILE
-    p = USER_PROFILE.get("personal", {})
+# ── Contact data — sourced exclusively from the caller's own profile, never
+# from the LLM ── get_profile(user_id) (user_profile.py) is the single source
+# of truth: user_id="default" resolves to the legacy singleton (patched by
+# backend/personal_overrides.json, gitignored dev-only scaffolding); any real
+# user_id resolves to their actual master_profiles DB row. If a field is
+# absent there, it becomes an empty string and the template placeholder is
+# blanked — nothing is guessed or hardcoded here.
+def _load_contact(user_id: str) -> dict:
+    from backend.services.user_profile import get_profile
+    p = get_profile(user_id).get("personal", {})
     return {
         "name":     p.get("name",     ""),
         "email":    p.get("email",    ""),
@@ -299,23 +302,24 @@ def _build_volunteering(text: str) -> str:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def _flatten(cv_data: dict) -> dict:
+def _flatten(cv_data: dict, user_id: str) -> dict:
     """Map TailorAgent JSON output to the flat placeholder dict the template needs.
 
-    Contact fields come exclusively from _CONTACT.  Any contact-like keys in
-    cv_data are silently dropped here so the LLM can never override them.
+    Contact fields come exclusively from the caller's own profile (get_profile
+    (user_id)).  Any contact-like keys in cv_data are silently dropped here so
+    the LLM can never override them.
     """
     # Strip any contact fields the LLM may have accidentally included
     clean = {k: v for k, v in cv_data.items() if k not in _CONTACT_KEYS}
 
     flat: dict = {}
 
-    # ── Contact — always from USER_PROFILE, never from LLM ──────────────────
+    # ── Contact — always from the caller's own profile, never from LLM ──────
     # name, email, linkedin → plain escaped strings (always rendered inside a
     #   static <span> in the template).
     # phone, location       → full <span> element or empty string; the template
     #   injects them raw so that a missing value leaves NO DOM node at all.
-    contact = _load_contact()
+    contact = _load_contact(user_id)
     flat["name"]          = _e(contact.get("name",     ""))
     flat["email"]         = _e(contact.get("email",    ""))
     flat["linkedin"]      = _e(contact.get("linkedin", ""))
@@ -336,14 +340,20 @@ def _flatten(cv_data: dict) -> dict:
     return flat
 
 
-def render_html(cv_data: dict, template_id: str | None = None) -> str:
-    """Return the fully-rendered HTML string for the CV."""
+def render_html(cv_data: dict, template_id: str | None = None, user_id: str = "default") -> str:
+    """Return the fully-rendered HTML string for the CV.
+
+    user_id selects whose contact data (name/email/phone/linkedin/location)
+    gets injected — defaults to "default" (the legacy single-user scaffold)
+    for backward compatibility with any caller that hasn't been updated to
+    pass the real caller's user_id.
+    """
     template = _resolve_template(template_id).read_text(encoding="utf-8")
-    return _inject(template, _flatten(cv_data))
+    return _inject(template, _flatten(cv_data, user_id))
 
 
 async def build_pdf(cv_data: dict, output_path: str | Path | None = None,
-                    template_id: str | None = None) -> bytes:
+                    template_id: str | None = None, user_id: str = "default") -> bytes:
     """
     Render cv_data to a single-page A4 PDF using Playwright headless Chromium.
 
@@ -351,7 +361,7 @@ async def build_pdf(cv_data: dict, output_path: str | Path | None = None,
     """
     from playwright.async_api import async_playwright
 
-    html_str = render_html(cv_data, template_id=template_id)
+    html_str = render_html(cv_data, template_id=template_id, user_id=user_id)
 
     async with async_playwright() as pw:
         browser = await pw.chromium.launch()

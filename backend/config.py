@@ -69,6 +69,18 @@ GEMINI_API_KEY:    Optional[str] = os.getenv("GEMINI_API_KEY")
 SUPABASE_URL:        Optional[str] = os.getenv("SUPABASE_URL")
 SUPABASE_JWT_SECRET: Optional[str] = os.getenv("SUPABASE_JWT_SECRET")
 
+# Real PostgreSQL connection — used ONLY by backend/core/postgres.py (a
+# dedicated engine for the backend/models/linkedin_job.py table). This is
+# NOT the app's primary datastore: backend/core/database.py's SQLite ENGINE
+# still is (see that module + CLAUDE.md). DATABASE_URL was previously an
+# unused placeholder (backend/.env.example) with an async-only
+# `postgresql+asyncpg://` scheme that can't drive a sync `create_engine()` —
+# every other DB access in this codebase is sync (see backend/core/database.py,
+# backend/repositories/*), so backend/core/postgres.py normalizes that
+# scheme to plain `postgresql://` (psycopg2) rather than introducing the
+# project's first async DB path for one table.
+DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
+
 EMAIL_WEBHOOK_SECRET: str = os.getenv("EMAIL_WEBHOOK_SECRET", "")
 
 # Deployment environment name. Drives CORS origin selection below.

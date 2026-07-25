@@ -6,7 +6,14 @@ Output contract (always one of two shapes):
   {"type": "missing_data", "requests": [{id, question, context}]}
 
 Contact info (name, email, phone, linkedin, location) is NEVER generated
-here — it is injected by pdf_builder from USER_PROFILE.
+here — it is injected by pdf_builder from the active user's profile.
+
+MULTI-TENANCY: TailorAgent is constructed with a user_id and every profile
+read is scoped to it (prompt blob, core-field gate, entity intelligence,
+static section injection). Constructing it with no argument falls back to the
+legacy single-user singleton and will produce a CV built from the WRONG,
+thinner profile for a real account — authenticated callers must pass
+user.user_id.
 
 Character limits for most fields are enforced post-hoc in _enforce_limits().
 Experience bullets are NOT hard-sliced — the LLM owns bullet length to
@@ -19,13 +26,14 @@ import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
 
 from backend.services.llm_client import call_llm
-from backend.services.user_profile import USER_PROFILE, build_full_text
+from backend.services.user_profile import USER_PROFILE, build_full_text, resolve_profile
 from backend.schemas.job import JobMatch
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
@@ -664,7 +672,9 @@ or circumstantial notes (e.g., do NOT write 'while working 3 concurrent roles' o
     }},
 
     "languages": [
-      {{"language": "<string <=20 chars>", "level": "<string <=35 chars>"}}
+      {{"language": "<string <=20 chars>", "level": "<EXACTLY ONE of: Native, Fluent, \
+Professional Working, Limited Working, Elementary — never combine two levels into one \
+string (e.g. never 'Native / Full Professional' or 'Native, Fluent')>"}}
     ],
 
     "volunteering": "<string <=120 chars — 1 sentence max. Perach framed as a professional \
@@ -813,6 +823,33 @@ def _clip_sentence(val: object, limit: int) -> str:
     return clipped if clipped.endswith((".", "!", "?", ";")) else clipped + "."
 
 
+# Canonical, mutually-exclusive language proficiency levels, checked in this
+# priority order. The prompt instructs the LLM to emit exactly one of these,
+# but that's not guaranteed — this is the defense-in-depth backstop that
+# collapses a non-compliant combined string (e.g. "Native / Full
+# Professional", "Native, Fluent") down to the single highest claim it
+# contains, so the rendered CV never shows two contradictory levels for one
+# language.
+_LANGUAGE_LEVEL_KEYWORDS: list[tuple[str, str]] = [
+    ("native",       "Native"),
+    ("fluent",       "Fluent"),
+    ("professional", "Professional Working"),
+    ("limited",      "Limited Working"),
+    ("elementary",   "Elementary"),
+    ("basic",        "Elementary"),
+]
+
+
+def _normalize_language_level(raw: str) -> str:
+    text = (raw or "").strip().lower()
+    if not text:
+        return ""
+    for keyword, canonical in _LANGUAGE_LEVEL_KEYWORDS:
+        if keyword in text:
+            return canonical
+    return (raw or "").strip()
+
+
 def _enforce_limits(data: dict) -> dict:
     data["title"]        = _clip_word(data.get("title"),        _LIM["title"])
     data["summary"]      = _clip_sentence(data.get("summary"),  _LIM["summary"])
@@ -821,8 +858,11 @@ def _enforce_limits(data: dict) -> dict:
     clamped_exp = []
     for idx, e in enumerate((data.get("experience") or [])[:5]):
         # Primary (most recent) role: max 4 bullets for single-page A4 fit.
-        # Supporting roles: max 2 bullets — enough signal, minimal space.
-        max_bullets = 4 if idx == 0 else 2
+        # Supporting roles: max 3 bullets — 2 was too thin to convey real
+        # leadership depth for candidates with multiple substantial roles at
+        # one employer (e.g. sequential promotions); still short enough to
+        # protect the single-page fit given exp_bullet's 240-char cap.
+        max_bullets = 4 if idx == 0 else 3
         clamped_exp.append({
             "role":    _clip_word(e.get("role"),    _LIM["exp_role"]),
             "company": _clip_word(e.get("company"), _LIM["exp_company"]),
@@ -876,7 +916,7 @@ def _enforce_limits(data: dict) -> dict:
     data["languages"] = [
         {
             "language": _clip_word(lang.get("language"), _LIM["lang_name"]),
-            "level":    _clip_word(lang.get("level"),    _LIM["lang_level"]),
+            "level":    _clip_word(_normalize_language_level(lang.get("level")), _LIM["lang_level"]),
         }
         for lang in (data.get("languages") or [])[:5]
     ]
@@ -884,12 +924,34 @@ def _enforce_limits(data: dict) -> dict:
     return data
 
 
+# ── Profile resolution (multi-tenant) ────────────────────────────────────────
+
+# Every post-processing helper below used to read the module-level USER_PROFILE
+# singleton directly. That dict is LEGACY SINGLE-USER data valid only for
+# user_id='default' — for a real account it silently substituted a different,
+# thinner profile into the CV (wrong education, wrong skills, wrong military
+# block). Resolve through here instead so the active user's DB profile is the
+# single source of truth.
+#
+# 'default' keeps the legacy singleton verbatim so pre-migration dev paths and
+# the existing tests are unaffected.
+
+
+# Shared with the researcher agent — see services/user_profile.resolve_profile.
+_resolve_profile = resolve_profile
+
+
 # ── Static section injection ─────────────────────────────────────────────────
 
-def _inject_static_sections(data: dict, respect_deletions: bool = False) -> dict:
+def _inject_static_sections(
+    data: dict,
+    respect_deletions: bool = False,
+    user_id: str = "default",
+) -> dict:
     """
     Overwrite Education, Skills, and Military with the canonical values from
-    USER_PROFILE — verbatim, every time, after the LLM has generated cv_data.
+    the ACTIVE USER's profile — verbatim, every time, after the LLM has
+    generated cv_data.
 
     This guarantees these sections are never omitted, truncated, or reordered
     by the model no matter what the JD contains.  Education and Military are
@@ -897,10 +959,26 @@ def _inject_static_sections(data: dict, respect_deletions: bool = False) -> dict
     dropped.  Skills are injected from the verified list so the model cannot
     introduce aspirational or incorrect skill claims.
 
-    Field-name mapping (USER_PROFILE → cv_data template keys):
-      education: school → institution | period → dates | status → honors
-      military:  found in experience[] entries that have a "unit" key but no "company"
+    user_id selects the source profile (see _resolve_profile). Passing a real
+    user_id is REQUIRED for multi-tenant correctness — the previous
+    unconditional USER_PROFILE read injected the legacy singleton's education,
+    skills and military block into every user's CV.
+
+    Field-name mapping (profile → cv_data template keys) — both the legacy
+    singleton's and the DB profile's spellings are accepted:
+      education: school|institution → institution | period|year → dates
+                 | status → honors
+      military:  found in experience[] entries that have a "unit" key but no
+                 "company". The DB profile has no such entries (military shows
+                 up as an ordinary company), so real users get no military
+                 sidebar — which is correct, it isn't their data to inject.
       skills:    flat list → {categories: [{label, items}]}
+
+    When a section is EMPTY in the resolved profile, it is left as the LLM
+    produced it rather than being back-filled from the legacy singleton.
+    Back-filling is what corrupted real users' CVs; and since a real user's
+    prompt is built from that same (education-less) profile, the model has no
+    source to invent one from either.
 
     The function is intentionally non-destructive of experience / summary so
     the tailored parts of the CV are preserved untouched.
@@ -928,38 +1006,50 @@ def _inject_static_sections(data: dict, respect_deletions: bool = False) -> dict
             return len(value) == 0
         return not value
 
+    profile = _resolve_profile(user_id)
+
     # ── Education ─────────────────────────────────────────────────────────────
     if not _explicitly_deleted("education"):
-        profile_edu = USER_PROFILE.get("education") or []
+        profile_edu = profile.get("education") or []
         if profile_edu:
             canonical_edu = []
             for e in profile_edu:
+                if not isinstance(e, dict):
+                    continue
                 if e.get("degree"):
-                    # Standard degree entry
+                    # Standard degree entry. The DB profile spells these
+                    # institution/year; the legacy singleton school/period.
                     canonical_edu.append({
                         "degree":      e.get("degree", ""),
                         "institution": e.get("school") or e.get("institution", ""),
-                        "dates":       e.get("period") or e.get("dates", ""),
+                        "dates":       e.get("period") or e.get("dates") or e.get("year", ""),
                         "honors":      e.get("status") or e.get("honors", ""),
-                        "coursework":  e.get("coursework", ""),
+                        "coursework":  e.get("coursework") or e.get("field", ""),
                     })
                 elif e.get("certification"):
                     # Certification entry — render as degree row
                     canonical_edu.append({
                         "degree":      e.get("certification", ""),
                         "institution": e.get("provider") or e.get("institution", ""),
-                        "dates":       e.get("period") or e.get("dates", ""),
+                        "dates":       e.get("period") or e.get("dates") or e.get("year", ""),
                         "honors":      e.get("status") or e.get("honors", ""),
                         "coursework":  e.get("details") or e.get("coursework", ""),
                     })
             if canonical_edu:
                 data["education"] = canonical_edu
+        elif user_id != "default":
+            logger.info(
+                "[tailor] user=%s has no education in their DB profile — leaving the "
+                "CV's education section as generated (no legacy back-fill).",
+                user_id,
+            )
 
     # ── Military ──────────────────────────────────────────────────────────────
-    # Military entries in USER_PROFILE["experience"] have a "unit" key but no
-    # "company" key — that's the reliable discriminator.
+    # Military entries in the legacy singleton's experience[] have a "unit" key
+    # but no "company" key — that's the reliable discriminator. The DB profile
+    # never produces such entries, so this is a no-op for real users.
     if not _explicitly_deleted("military"):
-        for exp in USER_PROFILE.get("experience", []):
+        for exp in profile.get("experience", []):
             if exp.get("unit") and not exp.get("company"):
                 data["military"] = {
                     "role":  exp.get("role", ""),
@@ -972,7 +1062,7 @@ def _inject_static_sections(data: dict, respect_deletions: bool = False) -> dict
 
     # ── Skills ────────────────────────────────────────────────────────────────
     if not _explicitly_deleted("skills"):
-        profile_skills = USER_PROFILE.get("skills") or []
+        profile_skills = profile.get("skills") or []
         if profile_skills:
             if isinstance(profile_skills, list):
                 # Flat list of strings → pack into a single category
@@ -1002,20 +1092,41 @@ def _norm_company(name: str) -> str:
     return re.sub(r'\s*\(.*?\)', '', name or "").strip().lower()
 
 
-def _required_profile_employers() -> list[dict]:
+def _required_profile_employers(user_id: str = "default") -> list[dict]:
     """
-    Return every non-excluded, non-military employer from USER_PROFILE that
-    must produce an experience entry in the final cv_data.
+    Return every non-excluded, non-military employer for user_id that must
+    produce an experience entry in the final cv_data.
+
+    The aldo/river exclusion list is LEGACY-ONLY and is applied solely to the
+    'default' singleton. Applying it to a real user's DB profile is exactly the
+    corruption this refactor removes — user e2472fa3, for instance, has a
+    genuine "Restaurant River" role that the bare-substring "river" token would
+    silently delete from their CV.
+
+    Employers are de-duplicated by normalised name, keeping the FIRST
+    occurrence. The DB profile stores one row per role, so a multi-role
+    employer (e.g. GO-OUT, 5 rows) would otherwise be demanded 5 times; the
+    profile is most-recent-first, so the first row carries the current title.
     """
+    profile = _resolve_profile(user_id)
+    apply_legacy_exclusions = user_id == "default"
+
     required: list[dict] = []
-    for exp in USER_PROFILE.get("experience", []):
+    seen: set[str] = set()
+    for exp in profile.get("experience", []):
         company = exp.get("company", "")
         if not company:
             continue  # military entry uses "unit", not "company"
         c_norm = _norm_company(company)
-        if any(tok in c_norm for tok in _EXCLUDED_EMPLOYER_TOKENS):
+        if apply_legacy_exclusions and any(
+            tok in c_norm for tok in _EXCLUDED_EMPLOYER_TOKENS
+        ):
             continue
-        # GO-OUT has a nested "roles" list; take the most recent title.
+        if c_norm in seen:
+            continue
+        seen.add(c_norm)
+        # The legacy singleton nests sequential promotions under "roles";
+        # the DB profile is flat. Take the most recent title either way.
         if exp.get("roles"):
             role = exp["roles"][0].get("title", "")
         else:
@@ -1028,14 +1139,14 @@ def _required_profile_employers() -> list[dict]:
     return required
 
 
-def _get_profile_stub(company: str) -> str:
+def _get_profile_stub(company: str, user_id: str = "default") -> str:
     """
-    Extract a single-sentence stub bullet from the profile for a company
+    Extract a single-sentence stub bullet from user_id's profile for a company
     that was dropped by the LLM.  Used only as a safety-net placeholder —
     the next generation (with the fixed prompt) should produce proper bullets.
     """
     c_norm = _norm_company(company)
-    for exp in USER_PROFILE.get("experience", []):
+    for exp in _resolve_profile(user_id).get("experience", []):
         if _norm_company(exp.get("company", "")) != c_norm:
             continue
         # Multi-role entry (GO-OUT style): use the most recent role's details.
@@ -1048,14 +1159,22 @@ def _get_profile_stub(company: str) -> str:
     return ""
 
 
-def _enforce_all_employers(cv_data: dict) -> dict:
+def _enforce_all_employers(cv_data: dict, user_id: str = "default") -> dict:
     """
-    Guarantee every non-excluded employer from USER_PROFILE appears in
+    Guarantee every non-excluded employer from user_id's profile appears in
     cv_data["experience"].  Any that the LLM silently dropped are added
     back as a minimal stub entry — omitting an entire employer block is a
     harder error than a low-quality stub.
+
+    NOT WIRED INTO THE PIPELINE — see the module docstring and the
+    "EXPERIENCE SELECTION & REFRAMING" prompt section. The prompt deliberately
+    instructs the model to select only the 3-4 highest-relevance roles and
+    gives it an explicit DROP RULE for low-signal ones, so most omissions here
+    are intentional, not silent failures. Calling this would append every
+    dropped employer back as a bullet-less stub and defeat the one-page
+    relevance selection. Kept (and kept correct) as a diagnostic helper.
     """
-    required = _required_profile_employers()
+    required = _required_profile_employers(user_id)
     if not required:
         return cv_data
 
@@ -1069,7 +1188,7 @@ def _enforce_all_employers(cv_data: dict) -> dict:
             "[enforce_all_employers] '%s' was silently dropped by LLM — inserting stub",
             req["company"],
         )
-        stub = _get_profile_stub(req["company"])
+        stub = _get_profile_stub(req["company"], user_id)
         experience.append({
             "role":    _clip_word(req["role"] or "Professional", _LIM["exp_role"]),
             "company": _clip_word(req["company"],                _LIM["exp_company"]),
@@ -1139,16 +1258,16 @@ def _sanitize_ai_tells(data: object) -> object:
 
 # ── Entity intelligence block ────────────────────────────────────────────────
 
-def _build_entity_intelligence_block() -> str:
+def _build_entity_intelligence_block(user_id: str = "default") -> str:
     """
-    Load verified enriched entities from master profile and format them as a
-    compact intelligence block for injection into the TailorAgent user message.
-    Only includes entities that are verified and have a known domain.
-    Returns empty string if no enriched data is available.
+    Load verified enriched entities for user_id from their master profile and
+    format them as a compact intelligence block for injection into the
+    TailorAgent user message.  Only includes entities that are verified and
+    have a known domain.  Returns empty string if no enriched data is available.
     """
     try:
         from backend.services.master_profile_service import get_enriched_entities
-        entities = get_enriched_entities("default")   # legacy single-user path (Phase 2 carve-out)
+        entities = get_enriched_entities(user_id)
     except Exception:
         return ""
 
@@ -1197,16 +1316,21 @@ _CORE_QUESTIONS = {
 }
 
 
-def _core_profile_gaps() -> list[dict]:
+def _core_profile_gaps(user_id: str = "default") -> list[dict]:
     """
     Return missing_data requests for any essential personal fields that are
-    still empty in USER_PROFILE.  Runs before the LLM so we never waste a
+    still empty for user_id.  Runs before the LLM so we never waste a
     round-trip asking JD questions when basic header info is missing.
+
+    Reads the ACTIVE user's profile: the previous unconditional USER_PROFILE
+    read gated every account on the legacy singleton's contact details, so a
+    real user with a complete profile could be blocked (or, as here, waved
+    through) on the basis of someone else's data.
     """
-    personal = USER_PROFILE.get("personal", {})
+    personal = _resolve_profile(user_id).get("personal", {}) or {}
     gaps: list[dict] = []
     for field, spec in _CORE_QUESTIONS.items():
-        if not personal.get(field, "").strip():
+        if not str(personal.get(field) or "").strip():
             gaps.append(spec)
     return gaps
 
@@ -1214,9 +1338,17 @@ def _core_profile_gaps() -> list[dict]:
 # ── Agent ─────────────────────────────────────────────────────────────────────
 
 class TailorAgent:
-    def __init__(self) -> None:
+    def __init__(self, user_id: str = "default") -> None:
+        """
+        user_id scopes EVERY profile read this agent makes — the prompt's
+        profile blob, the core-field gate, entity intelligence, and the static
+        section injection. Callers holding an authenticated user MUST pass it;
+        the 'default' fallback exists only for pre-migration dev paths and
+        resolves to the legacy single-user singleton.
+        """
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not set")
+        self.user_id = user_id or "default"
 
     async def tailor(
         self,
@@ -1239,15 +1371,15 @@ class TailorAgent:
         # These answers are saved directly to USER_PROFILE by the route layer
         # (not to supplemental_answers.json) so they populate the CV header
         # automatically on every future generation.
-        core_gaps = _core_profile_gaps()
+        core_gaps = _core_profile_gaps(self.user_id)
         if core_gaps:
             logger.info(
-                "TailorAgent -> core_profile missing_data  field(s): %s",
-                [g["id"] for g in core_gaps],
+                "TailorAgent -> core_profile missing_data  user=%s  field(s): %s",
+                self.user_id, [g["id"] for g in core_gaps],
             )
             return {"type": "missing_data", "requests": core_gaps}
 
-        profile_text = build_full_text()
+        profile_text = build_full_text(self.user_id)
         system       = _SYSTEM_PROMPT.format(profile=profile_text)
 
         rationale_block = ""
@@ -1289,7 +1421,7 @@ class TailorAgent:
                 f"profile updates, do not re-ask these):\n{lines}\n"
             )
 
-        entity_intelligence_block = _build_entity_intelligence_block()
+        entity_intelligence_block = _build_entity_intelligence_block(self.user_id)
         if entity_intelligence_block:
             logger.info(
                 "[tailor] Entity intelligence injected: %d chars — preview: %s…",
@@ -1333,12 +1465,20 @@ class TailorAgent:
             "then self-audit keyword coverage (≥16/20 required)), and output ONLY the final JSON."
         )
 
+        # Prompt-size breakdown, logged every run so a latency regression can
+        # be attributed to payload growth vs. provider slowness without
+        # guesswork. `profile` is the only component that grows with user
+        # data (CV imports, new roles); `system_total - profile` is the fixed
+        # instruction template.
         logger.info(
-            "TailorAgent -> '%s' @ %s  score=%.1f  supplemental=%s",
-            job.title, job.company, job.score,
+            "TailorAgent -> '%s' @ %s  user=%s  score=%.1f  supplemental=%s  "
+            "prompt_chars(system=%d profile=%d user_msg=%d)",
+            job.title, job.company, self.user_id, job.score,
             bool(supplemental_answers),
+            len(system), len(profile_text), len(user_msg),
         )
 
+        _t0 = time.perf_counter()
         result = await call_llm(
             system=system,
             messages=[{"role": "user", "content": user_msg}],
@@ -1346,6 +1486,10 @@ class TailorAgent:
             max_tokens=_MAX_TOKENS,
             temperature=0.0,
             purpose="tailor_cv",
+        )
+        logger.info(
+            "TailorAgent LLM call finished in %.1fs for '%s'",
+            time.perf_counter() - _t0, job.title,
         )
 
         raw = result.text.strip()
@@ -1391,7 +1535,7 @@ class TailorAgent:
         # ── CV: enforce limits, inject static sections, sanitise AI tells ──────
         cv_data = result.get("cv_data", result)  # tolerate missing wrapper
         cv_data = _enforce_limits(cv_data)
-        cv_data = _inject_static_sections(cv_data)
+        cv_data = _inject_static_sections(cv_data, user_id=self.user_id)
         cv_data = _sanitize_ai_tells(cv_data)
 
         logger.info(
@@ -1497,7 +1641,7 @@ class TailorAgent:
 
         refined = result.get("cv_data", result)
         refined = _enforce_limits(refined)
-        refined = _inject_static_sections(refined)
+        refined = _inject_static_sections(refined, user_id=self.user_id)
         refined = _sanitize_ai_tells(refined)
 
         logger.info(
