@@ -31,6 +31,7 @@ import os
 from typing import Any, AsyncIterator, List, Optional
 
 import anthropic
+from google.genai import errors as genai_errors
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -283,6 +284,18 @@ async def _stream_response(
     except anthropic.APIStatusError as exc:
         logger.error("[chat/stream] Anthropic API error: %s", exc)
         yield _sse_error(f"AI service error ({exc.status_code}). Please try again.")
+    except genai_errors.APIError as exc:
+        # Gemini is the primary provider (see llm_client.py) — a mid-stream
+        # failure here raises straight from the async generator stream_llm()
+        # yielded us, bypassing that module's own open-time fallback logic
+        # entirely. Without this handler it fell into the bare `except
+        # Exception` below and always showed the same generic text
+        # regardless of the real cause (rate limit, quota, safety block).
+        logger.error(
+            "[chat/stream] Gemini API error: %s (status=%s)",
+            type(exc).__name__, getattr(exc, "code", None),
+        )
+        yield _sse_error(f"AI service error ({getattr(exc, 'code', 'unknown')}). Please try again.")
     except Exception as exc:
         logger.exception("[chat/stream] Unexpected error")
         yield _sse_error("An unexpected error occurred. Please try again.")
@@ -737,9 +750,14 @@ async def _ariel_tool_loop_then_stream(
                 purpose    = "ariel_private_tool_loop",
                 user_id    = user_id,
             )
-        except LLMCallError:
+        except LLMCallError as exc:
+            # llm_client.py already picks a specific, safe, user-facing
+            # message per failure type (rate limited vs. auth vs. genuinely
+            # unexpected) and wraps it in this exception — str(exc) is that
+            # message. Discarding it for a flat generic string here defeats
+            # the whole point of that wrapping.
             logger.exception("[ariel/private] LLM call failed in tool loop")
-            yield _sse_error("An unexpected error occurred. Please try again.")
+            yield _sse_error(str(exc))
             return
         response = result_llm.raw
 
@@ -813,6 +831,15 @@ async def _ariel_tool_loop_then_stream(
     except anthropic.APIStatusError as exc:
         logger.error("[ariel/private] Anthropic API error in final stream: %s", exc)
         yield _sse_error(f"AI service error ({exc.status_code}). Please try again.")
+    except genai_errors.APIError as exc:
+        # Same reasoning as _stream_response's handler — Gemini is primary
+        # and a mid-stream error here bypasses stream_llm()'s own fallback,
+        # so without this it always fell into the generic catch-all below.
+        logger.error(
+            "[ariel/private] Gemini API error in final stream: %s (status=%s)",
+            type(exc).__name__, getattr(exc, "code", None),
+        )
+        yield _sse_error(f"AI service error ({getattr(exc, 'code', 'unknown')}). Please try again.")
     except Exception:
         logger.exception("[ariel/private] Unexpected error in final stream")
         yield _sse_error("An unexpected error occurred. Please try again.")
@@ -1311,6 +1338,16 @@ async def _stream_public_reply(
     except anthropic.APIStatusError as exc:
         logger.error("[chat/public] Anthropic API error: %s", exc)
         yield _sse_error(f"AI service error ({exc.status_code}). Please try again.")
+    except genai_errors.APIError as exc:
+        # Same reasoning as _stream_response's handler — Gemini is primary
+        # (see llm_client.py) and a mid-stream error here bypasses
+        # stream_llm()'s own open-time fallback, so without this it always
+        # fell into the generic catch-all below regardless of real cause.
+        logger.error(
+            "[chat/public] Gemini API error: %s (status=%s)",
+            type(exc).__name__, getattr(exc, "code", None),
+        )
+        yield _sse_error(f"AI service error ({getattr(exc, 'code', 'unknown')}). Please try again.")
     except Exception:
         logger.exception("[chat/public] Unexpected error")
         yield _sse_error("An unexpected error occurred. Please try again.")
