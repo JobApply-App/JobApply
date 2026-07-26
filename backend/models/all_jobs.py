@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy import Column, DateTime, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB, UUID
 
 from backend.core.postgres import LinkedInBase
 
@@ -39,18 +39,28 @@ class AllJobRow(LinkedInBase):
     insertion_time = Column(DateTime(timezone=True), nullable=False)
     updated_at = Column(DateTime(timezone=True), nullable=False)
     last_scraped_at = Column(DateTime(timezone=True), nullable=True)
-    is_active = Column(Boolean, nullable=True)
-    closed_at = Column(DateTime(timezone=True), nullable=True)
     raw_payload = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
 
     job_title = Column(Text, nullable=True)
     company_name = Column(Text, nullable=True)
+    # Lowercased, whitespace-collapsed matching key derived from
+    # company_name by backend/services/linkedin_job_normalize.py's
+    # normalize_company_key() — lets "Google Inc", " google inc ", and
+    # "GOOGLE INC" all match/group together.
+    company_name_normalized = Column(Text, nullable=True)
     company_url = Column(Text, nullable=True)
     company_logo_url = Column(Text, nullable=True)
     job_url = Column(Text, nullable=False)
     normalized_job_url = Column(Text, nullable=False)
-    location = Column(Text, nullable=True)
+    # {"city": str | None, "district": str | None, "country": str | None}
+    # — parsed from LinkedIn's freeform "City, District, Country" text by
+    # backend/services/linkedin_job_normalize.py's parse_location(). Plain
+    # `json`, not `jsonb`: jsonb always normalizes key order (by length,
+    # then alphabetically) regardless of insertion order, which would
+    # reorder this to city/country/district; `json` preserves the literal
+    # city -> district -> country construction order as text.
+    location = Column(JSON, nullable=True)
     seniority_level = Column(Text, nullable=True)
     employment_type = Column(Text, nullable=True)
     job_function = Column(Text, nullable=True)
@@ -58,4 +68,14 @@ class AllJobRow(LinkedInBase):
     description = Column(Text, nullable=True)
     posted_text = Column(Text, nullable=True)
     exact_posted_text = Column(Text, nullable=True)
-    applicants_text = Column(Text, nullable=True)
+    # Absolute datetime, derived from posted_text's relative "N units ago"
+    # text by backend/services/linkedin_job_normalize.py's parse_posted_at()
+    # — an approximation (anchored to the scrape run's own timestamp, not
+    # a real posting time LinkedIn ever exposes), kept alongside posted_text/
+    # exact_posted_text rather than replacing them.
+    posted_at = Column(DateTime(timezone=True), nullable=True)
+    # {"value": int | None, "exact": bool} — parsed from applicants_text by
+    # parse_applicants(). LinkedIn privacy-censors low counts as "< N"
+    # (exact=False, value=N as an upper bound); everything else is a plain
+    # integer LinkedIn shows verbatim (exact=True).
+    applicants = Column(JSON, nullable=True)

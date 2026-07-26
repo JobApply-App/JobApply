@@ -294,7 +294,7 @@ async def _run_agent_scrape(agent_id: str, user_id: str) -> None:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-@router.get("/", response_model=list[AgentStatus])
+@router.get("", response_model=list[AgentStatus])
 async def list_agents(user: CurrentUser = Depends(get_current_user)):
     """
     Return live status for all pipeline agents, scoped to the authenticated user.
@@ -302,6 +302,12 @@ async def list_agents(user: CurrentUser = Depends(get_current_user)):
     On first call for a new user, their personal agent registry is seeded
     automatically with four default-idle agents — so the UI never shows empty
     or dead cards.
+
+    Registered at "" (not "/") so the effective path is exactly "/api/agents"
+    with no trailing slash — see applications.py's list_applications for why
+    this matters (avoids FastAPI's redirect_slashes emitting a Location
+    header with the internal Docker hostname, which the browser can't
+    resolve).
     """
     return store.get_for_user(user.user_id)
 

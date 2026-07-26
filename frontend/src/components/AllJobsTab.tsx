@@ -21,12 +21,9 @@ function parsePageSize(raw: string | null): number {
   return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n) ? n : DEFAULT_PAGE_SIZE
 }
 
-// ── Source / active badges ────────────────────────────────────────────────────
+// ── Source badge ──────────────────────────────────────────────────────────────
 // all_jobs is cross-provider (see backend/models/all_jobs.py) — it has no
-// LinkedIn-specific `linkedin_status`, just a plain `source` string and a
-// tri-state `is_active` (true/false/unknown — no reliable open/closed
-// signal exists for every provider, so `null` is a real, honest state, not
-// a loading placeholder).
+// LinkedIn-specific `linkedin_status`, just a plain `source` string.
 
 const SOURCE_COLORS: Record<string, string> = {
   linkedin: 'bg-sky-100 text-sky-700',
@@ -37,16 +34,6 @@ function SourceBadge({ source }: { source: string }) {
   return (
     <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${cls}`}>
       {source.charAt(0).toUpperCase() + source.slice(1).toLowerCase()}
-    </span>
-  )
-}
-
-function ActiveBadge({ isActive }: { isActive: boolean | null }) {
-  if (isActive === null) return null
-  const cls = isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
-  return (
-    <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${cls}`}>
-      {isActive ? 'Active' : 'Closed'}
     </span>
   )
 }
@@ -63,6 +50,13 @@ function formatDateTime(iso: string): string {
 
 function dash(value: string | null | undefined): string {
   return value && value.trim() ? value : '—'
+}
+
+function formatLocation(location: AllJobItem['location']): string {
+  if (!location) return '—'
+  const parts = [location.city, location.district, location.country]
+    .filter((p): p is string => !!p && p.trim() !== '')
+  return parts.length ? parts.join(', ') : '—'
 }
 
 // ── Company logo with fallback ────────────────────────────────────────────────
@@ -106,10 +100,9 @@ function JobRow({ job }: { job: AllJobItem }) {
             {dash(job.job_title)}
           </a>
           <SourceBadge source={job.source} />
-          <ActiveBadge isActive={job.is_active} />
         </div>
         <p className="text-[12px] text-slate-500 truncate mt-0.5">
-          {dash(job.company_name)} · {dash(job.location)}
+          {dash(job.company_name)} · {formatLocation(job.location)}
         </p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px] text-slate-400">
           <span>{dash(job.employment_type)}</span>

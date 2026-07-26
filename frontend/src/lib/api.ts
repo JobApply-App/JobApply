@@ -757,19 +757,20 @@ export interface AllJobItem {
   canonical_job_key:  string
   job_title:          string | null
   company_name:       string | null
+  company_name_normalized: string | null
   company_url:        string | null
   company_logo_url:   string | null
   job_url:            string
   normalized_job_url: string
-  location:           string | null
+  location:           { city: string | null; district: string | null; country: string | null } | null
   seniority_level:    string | null
   employment_type:    string | null
   job_function:       string | null
   industries:         string[] | null
   posted_text:        string | null
   exact_posted_text:  string | null
-  applicants_text:    string | null
-  is_active:          boolean | null
+  posted_at:          string | null
+  applicants:         { value: number | null; exact: boolean } | null
   first_seen_at:      string
   last_seen_at:       string
   insertion_time:     string

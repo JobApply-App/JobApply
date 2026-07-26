@@ -27,7 +27,11 @@ from backend.core.postgres import get_pg_session
 from backend.models.all_jobs import AllJobRow
 from backend.services.linkedin_job_normalize import (
     build_normalized_job,
+    normalize_company_key,
     normalize_list_field,
+    parse_applicants,
+    parse_location,
+    parse_posted_at,
 )
 
 _TABLE = AllJobRow.__table__
@@ -39,10 +43,10 @@ MAX_PAGE_SIZE = 100
 
 _WRITABLE_COLUMNS = (
     "source", "source_job_id", "canonical_job_key",
-    "job_title", "company_name", "company_url", "company_logo_url",
+    "job_title", "company_name", "company_name_normalized", "company_url", "company_logo_url",
     "job_url", "normalized_job_url", "location", "seniority_level",
     "employment_type", "job_function", "industries", "description",
-    "posted_text", "exact_posted_text", "applicants_text", "raw_payload",
+    "posted_text", "exact_posted_text", "posted_at", "applicants", "raw_payload",
     "last_scraped_at",
 )
 
@@ -59,7 +63,9 @@ class AllJobsUpsertStats:
     updated: int = 0
 
 
-def build_all_jobs_record(raw_row: dict, *, source: str = "linkedin") -> dict[str, Any]:
+def build_all_jobs_record(
+    raw_row: dict, *, source: str = "linkedin", reference_time: Optional[datetime] = None,
+) -> dict[str, Any]:
     """
     A provider's raw scraped-job dict (currently only LinkedIn's JobListing
     shape — see backend/services/linkedin_job_normalize.py's
@@ -71,11 +77,18 @@ def build_all_jobs_record(raw_row: dict, *, source: str = "linkedin") -> dict[st
     Identity/dedup: canonical_job_key = extracted provider job id when
     available, else normalized_job_url — same two-tier fallback as
     backend/models/linkedin_job.py. Upsert target: UNIQUE(source, canonical_job_key).
+
+    reference_time anchors parse_posted_at()'s "N units ago" -> absolute
+    datetime conversion — defaults to now() for any caller that doesn't
+    pass one (e.g. a manual CSV backfill run standalone), but
+    bulk_upsert_all_jobs() below passes the same `now` it also writes to
+    last_scraped_at, so both reflect the same scrape-run moment.
     """
     normalized = build_normalized_job(raw_row)
     provider_job_id = normalized["linkedin_job_id"]
     normalized_url = normalized["job_url_normalized"]
     canonical_job_key = provider_job_id or normalized_url
+    reference_time = reference_time or datetime.now(timezone.utc)
 
     return {
         "source": source,
@@ -83,11 +96,12 @@ def build_all_jobs_record(raw_row: dict, *, source: str = "linkedin") -> dict[st
         "canonical_job_key": canonical_job_key,
         "job_title": normalized["title"],
         "company_name": normalized["company"],
+        "company_name_normalized": normalize_company_key(normalized["company"]),
         "company_url": normalized["company_url"],
         "company_logo_url": normalized["company_logo_url"],
         "job_url": normalized["job_url"],
         "normalized_job_url": normalized_url,
-        "location": normalized["location"],
+        "location": parse_location(normalized["location"]),
         "seniority_level": normalized["seniority_level"],
         "employment_type": normalized["employment_type"],
         "job_function": normalized["job_function"],
@@ -95,7 +109,8 @@ def build_all_jobs_record(raw_row: dict, *, source: str = "linkedin") -> dict[st
         "description": normalized["description"],
         "posted_text": normalized["posted_text"],
         "exact_posted_text": normalized["exact_posted_text"],
-        "applicants_text": normalized["applicants_text"],
+        "posted_at": parse_posted_at(normalized["posted_text"], reference_time),
+        "applicants": parse_applicants(normalized["applicants_text"]),
         # Raw dict, NOT a pre-dumped JSON string — inserted via a reflected
         # Table object whose JSONB column type serializes Python objects
         # itself; handing it an already-serialized string would double-encode it.
@@ -130,7 +145,7 @@ def bulk_upsert_all_jobs(
     now = datetime.now(timezone.utc)
     records = []
     for raw in raw_rows:
-        rec = build_all_jobs_record(raw, source=source)
+        rec = build_all_jobs_record(raw, source=source, reference_time=now)
         rec["last_scraped_at"] = now
         records.append(rec)
 
@@ -182,11 +197,11 @@ def bulk_upsert_all_jobs(
 # convention as linkedin_job_repository.py's _LIST_VIEW_COLUMNS.
 _LIST_VIEW_COLUMNS = (
     "id", "source", "source_job_id", "canonical_job_key",
-    "job_title", "company_name", "company_url", "company_logo_url",
+    "job_title", "company_name", "company_name_normalized", "company_url", "company_logo_url",
     "job_url", "normalized_job_url", "location", "seniority_level",
     "employment_type", "job_function", "industries",
-    "posted_text", "exact_posted_text", "applicants_text",
-    "is_active", "first_seen_at", "last_seen_at", "insertion_time",
+    "posted_text", "exact_posted_text", "posted_at", "applicants",
+    "first_seen_at", "last_seen_at", "insertion_time",
     "updated_at", "last_scraped_at",
 )
 

@@ -14,6 +14,7 @@ import hashlib
 import json
 import math
 import re
+from datetime import datetime, timedelta
 from typing import Any, Optional
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
@@ -43,6 +44,51 @@ def normalize_text(value: Any) -> Optional[str]:
         return None
     collapsed = " ".join(text.split())
     return collapsed or None
+
+
+def normalize_company_key(raw: Any) -> Optional[str]:
+    """
+    company_name -> a lowercased, whitespace-collapsed matching key (e.g.
+    "Google Inc", " google inc ", "GOOGLE INC" all normalize to "google
+    inc"). Reuses normalize_text()'s whitespace/NaN handling — just adds
+    the lowercase fold on top, so the two stay in lockstep if that
+    normalization ever changes.
+    """
+    text = normalize_text(raw)
+    return text.lower() if text else None
+
+
+_LOCATION_SPLIT_RE = re.compile(r"\s*,\s*")
+
+
+def parse_location(raw: Any) -> dict[str, Any]:
+    """
+    Split LinkedIn's freeform location string into structured
+    `{"city": ..., "district": ..., "country": ...}`.
+
+    The scraper's location text is comma-separated with the country last
+    and, going right-to-left, a district before that — LinkedIn's own
+    "City, District, Country" convention (e.g. "Ramat Gan, Tel Aviv
+    District, Israel"). Verified against every row in production: segment
+    count is always 1, 2, or 3, never more —
+      1 segment  ("Israel")                         -> country only
+      2 segments ("Tel Aviv District, Israel")       -> district + country
+      3 segments ("Ramat Gan, Tel Aviv District, Israel") -> city + district + country
+    A 4+-segment value (not seen so far) falls back to joining every
+    leading segment before the district into `city` with ", " rather than
+    silently dropping data.
+    """
+    text = normalize_text(raw)
+    if not text:
+        return {"city": None, "district": None, "country": None}
+    parts = [p for p in _LOCATION_SPLIT_RE.split(text) if p]
+    if len(parts) == 0:
+        return {"city": None, "district": None, "country": None}
+    if len(parts) == 1:
+        return {"city": None, "district": None, "country": parts[0]}
+    if len(parts) == 2:
+        return {"city": None, "district": parts[0], "country": parts[1]}
+    return {"city": ", ".join(parts[:-2]), "district": parts[-2], "country": parts[-1]}
 
 
 def normalize_url(url: Any) -> str:
@@ -102,6 +148,9 @@ def extract_linkedin_job_id(job_url: Any) -> Optional[str]:
     return match.group(1) if match else None
 
 
+_LEADING_AND_RE = re.compile(r"^and\s+", re.IGNORECASE)
+
+
 def normalize_list_field(value: Any) -> list[str]:
     """
     "Industries", split on comma. LinkedIn's own free-text rendering
@@ -112,11 +161,80 @@ def normalize_list_field(value: Any) -> list[str]:
     phrasing comma inside one industry name — there's no taxonomy available
     here to disambiguate that losslessly, so this is a best-effort split,
     not a semantically perfect one.
+
+    The naive comma-split leaves a leading "and " on the piece that
+    followed the list's Oxford comma — always the last piece, since
+    English only ever places that conjunction right before the final item
+    (e.g. "..., and Software Development" splits into a last piece
+    literally starting with "and "). That's the list conjunction, not part
+    of the industry's actual name, so it's stripped from the last piece
+    only.
     """
     text = normalize_text(value)
     if not text:
         return []
-    return [piece.strip() for piece in re.split(r",\s*", text) if piece.strip()]
+    pieces = [piece.strip() for piece in re.split(r",\s*", text) if piece.strip()]
+    if pieces:
+        pieces[-1] = _LEADING_AND_RE.sub("", pieces[-1])
+    return pieces
+
+
+_APPLICANTS_CENSORED_RE = re.compile(r"^<\s*(\d+)$")
+
+
+def parse_applicants(raw: Any) -> dict[str, Any]:
+    """
+    "applicants_text" -> {"value": int | None, "exact": bool}.
+
+    Almost every value is a plain integer LinkedIn shows verbatim (e.g.
+    "116") — `exact: true`. The remainder is LinkedIn's own privacy
+    censoring for low counts, always formatted "< N" (e.g. "< 25") — stored
+    as `value: N, exact: false`, i.e. "fewer than N", not N itself; callers
+    needing to distinguish real-25 from fewer-than-25 must check `exact`.
+    """
+    text = normalize_text(raw)
+    if not text:
+        return {"value": None, "exact": False}
+    if text.isdigit():
+        return {"value": int(text), "exact": True}
+    m = _APPLICANTS_CENSORED_RE.match(text)
+    if m:
+        return {"value": int(m.group(1)), "exact": False}
+    return {"value": None, "exact": False}
+
+
+_RELATIVE_TIME_RE = re.compile(
+    r"^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$", re.IGNORECASE
+)
+_UNIT_TO_DAYS = {"month": 30, "year": 365}  # approximate — see docstring
+
+
+def parse_posted_at(posted_text: Any, reference_time: datetime) -> Optional[datetime]:
+    """
+    LinkedIn's relative "N units ago" text -> an absolute datetime, by
+    subtracting the parsed duration from `reference_time` (the scrape run's
+    own timestamp — the same value backend/repositories/
+    all_jobs_repository.py's bulk_upsert_all_jobs() writes to
+    last_scraped_at, since "ago" is relative to roughly when LinkedIn's
+    guest search was queried, not to some other point in time).
+
+    "month"/"year" are only ever approximate (30/365 days) — LinkedIn's
+    relative text is itself coarse at that range, so calendar-aware month
+    arithmetic would be false precision. Returns None for text that isn't
+    exactly this pattern (nothing in the current scraper produces
+    anything else, but this must not raise on unexpected input).
+    """
+    text = normalize_text(posted_text)
+    if not text:
+        return None
+    m = _RELATIVE_TIME_RE.match(text)
+    if not m:
+        return None
+    amount = int(m.group(1))
+    unit = m.group(2).lower()
+    if unit in _UNIT_TO_DAYS:
+        return reference_time - timedelta(days=amount * _UNIT_TO_DAYS[unit])
+    return reference_time - timedelta(**{f"{unit}s": amount})
 
 
 # ── LinkedIn status mapping ──────────────────────────────────────────────────
