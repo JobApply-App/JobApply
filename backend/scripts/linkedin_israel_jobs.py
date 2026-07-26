@@ -1,7 +1,11 @@
 """
 LinkedIn "Israel jobs" scraper - no login required - with dual persistence
-to PostgreSQL (`linkedin.jobs`, see backend/models/linkedin_job.py) and a
-timestamped CSV export.
+to PostgreSQL, straight to Supabase: `linkedin.jobs` (raw, verbatim scraped
+shape, see backend/models/linkedin_job.py) AND `public.all_jobs` (canonical,
+cross-provider shape, see backend/models/all_jobs.py). No CSV is written by
+default — writes go directly from the in-memory scraped rows to both
+tables, no file round-trip in between. Pass --write-csv for an optional
+local debug snapshot; production/scheduled runs should not need it.
 
 Uses LinkedIn's public guest jobs API:
     https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search
@@ -37,10 +41,12 @@ Every job (live-scraped or --import-file'd) is normalized identically
 `linkedin.jobs` via backend/repositories/linkedin_job_repository.py's
 bulk_upsert_jobs() (INSERT ... ON CONFLICT DO UPDATE, deduped on
 linkedin_job_id / job_url_normalized — see that module's docstring for the
-exact insert/update/unchanged semantics). A live scrape additionally writes
-a timestamped CSV snapshot to backend/data/exports/ (or --export-dir) —
-the DB is the durable/deduplicated store of record; the CSV is a
-point-in-time audit copy of that specific run.
+exact insert/update/unchanged semantics). A live scrape additionally
+upserts the same in-memory rows straight into `public.all_jobs` via
+backend/repositories/all_jobs_repository.py's bulk_upsert_all_jobs() — both
+targets are Supabase Postgres; no CSV/file is involved in either write by
+default. Pass --write-csv to also save a local snapshot (debugging only —
+not read by anything else in this pipeline).
 
 IMPORTANT:
 - No LinkedIn account / cookies needed for this endpoint.
@@ -63,7 +69,8 @@ Usage:
     # Dry-run the DB/CSV pipeline with zero network calls:
     python -m backend.scripts.linkedin_israel_jobs --import-file path/to/jobs.csv
 
-    # Daily Israel pull, last 24 hours (requires the two-step opt-in above):
+    # Daily Israel pull, last 24 hours (requires the two-step opt-in above).
+    # Writes straight to Supabase (linkedin.jobs + all_jobs) — no CSV:
     ALLOW_LINKEDIN_SCRAPE=true python -m backend.scripts.linkedin_israel_jobs \\
         --allow-linkedin-request --hours 24
 
@@ -99,6 +106,10 @@ from backend.repositories.linkedin_job_repository import (  # noqa: E402
     DEFAULT_BATCH_SIZE,
     UpsertStats,
     bulk_upsert_jobs,
+)
+from backend.repositories.all_jobs_repository import (  # noqa: E402
+    AllJobsUpsertStats,
+    bulk_upsert_all_jobs,
 )
 from backend.services.linkedin_job_normalize import (  # noqa: E402
     build_normalized_job,
@@ -531,14 +542,22 @@ def main():
     parser.add_argument("--batch-size", type=int, default=2, help="Pages per batch before a longer pause")
     parser.add_argument("--request-delay", type=float, default=2.0, help="Seconds between individual requests")
     parser.add_argument("--batch-delay", type=float, default=6.0, help="Seconds between batches")
+    parser.add_argument("--write-csv", action="store_true",
+                         help="Also save a local CSV snapshot (debugging only — off by default; "
+                              "production writes go straight to Supabase, no file involved).")
     parser.add_argument("--out", default=None,
-                         help="Output CSV path. Defaults to a timestamped file under --export-dir.")
+                         help="Output CSV path when --write-csv is set. Defaults to a timestamped "
+                              "file under --export-dir.")
     parser.add_argument("--export-dir", default=str(DEFAULT_EXPORT_DIR),
-                         help="Directory for the timestamped CSV export when --out isn't given.")
+                         help="Directory for the timestamped CSV export when --write-csv is set and --out isn't given.")
     parser.add_argument("--db-batch-size", type=int, default=DEFAULT_BATCH_SIZE,
-                         help="Row batch size for the Postgres upsert.")
+                         help="Row batch size for the linkedin.jobs Postgres upsert.")
+    parser.add_argument("--all-jobs-batch-size", type=int, default=200,
+                         help="Row batch size for the all_jobs Postgres upsert.")
     parser.add_argument("--skip-db", action="store_true",
-                         help="Skip the Postgres upsert; CSV export only.")
+                         help="Skip the linkedin.jobs Postgres upsert.")
+    parser.add_argument("--skip-all-jobs", action="store_true",
+                         help="Skip the public.all_jobs Postgres upsert.")
     parser.add_argument("--allow-linkedin-request", action="store_true",
                          help="Required (together with ALLOW_LINKEDIN_SCRAPE=true) to actually contact LinkedIn.")
     parser.add_argument("--import-file", default=None,
@@ -570,31 +589,30 @@ def main():
     )
 
     if jobs:
-        print(f"\n--- Fetching details for {len(jobs)} jobs in parallel (with incremental saving) ---")
+        print(f"\n--- Fetching details for {len(jobs)} jobs in parallel ---")
 
-        out_path = Path(args.out) if args.out else (
-            Path(args.export_dir) /
-            f"linkedin_israel_jobs_{run_started_at.strftime('%Y%m%d_%H%M%S')}.csv"
-        )
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Initialize the CSV file with headers
+        out_path: Optional[Path] = None
+        csv_lock: Optional[threading.Lock] = None
         fieldnames = list(asdict(jobs[0]).keys())
-        with open(out_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-
-        csv_lock = threading.Lock()
+        if args.write_csv:
+            out_path = Path(args.out) if args.out else (
+                Path(args.export_dir) /
+                f"linkedin_israel_jobs_{run_started_at.strftime('%Y%m%d_%H%M%S')}.csv"
+            )
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(out_path, "w", newline="", encoding="utf-8") as f:
+                csv.DictWriter(f, fieldnames=fieldnames).writeheader()
+            csv_lock = threading.Lock()
 
         def process_job(job_obj, index):
             thread_session = requests.Session()
             fetch_job_details(thread_session, job_obj, delay=args.request_delay, rate_tracker=rate_tracker)
 
-            with csv_lock:
-                with open(out_path, "a", newline="", encoding="utf-8") as f_append:
-                    writer_append = csv.DictWriter(f_append, fieldnames=fieldnames)
-                    writer_append.writerow(asdict(job_obj))
-            print(f"  [{index}/{len(jobs)}] Saved: {job_obj.title} @ {job_obj.company}")
+            if out_path is not None and csv_lock is not None:
+                with csv_lock:
+                    with open(out_path, "a", newline="", encoding="utf-8") as f_append:
+                        csv.DictWriter(f_append, fieldnames=fieldnames).writerow(asdict(job_obj))
+            print(f"  [{index}/{len(jobs)}] Fetched: {job_obj.title} @ {job_obj.company}")
 
         # Use ThreadPoolExecutor to request in parallel (max 4 workers to prevent rate limit)
         max_workers = 4
@@ -612,18 +630,37 @@ def main():
             try:
                 db_stats = _persist_to_db(jobs, scraped_at=run_started_at, db_batch_size=args.db_batch_size)
             except Exception as e:
-                print(f"[!] DB upsert failed: {e}")
+                print(f"[!] linkedin.jobs upsert failed: {e}")
+
+        all_jobs_stats: Optional[AllJobsUpsertStats] = None
+        if not args.skip_all_jobs:
+            print(f"\n--- Upserting {len(jobs)} jobs into public.all_jobs ---")
+            try:
+                all_jobs_stats = bulk_upsert_all_jobs(
+                    [asdict(job) for job in jobs],
+                    batch_size=args.all_jobs_batch_size,
+                )
+            except Exception as e:
+                print(f"[!] all_jobs upsert failed: {e}")
 
         print(f"\n=== Done. {len(jobs)} unique jobs found in the last {args.hours}h in {args.location}. ===")
-        print(f"    CSV export: {out_path}")
+        if out_path is not None:
+            print(f"    CSV export: {out_path}")
         if db_stats is not None:
             print(
-                f"    DB upsert:  inserted={db_stats.jobs_inserted} updated={db_stats.jobs_updated} "
+                f"    linkedin.jobs upsert: inserted={db_stats.jobs_inserted} updated={db_stats.jobs_updated} "
                 f"unchanged={db_stats.jobs_unchanged} skipped={db_stats.jobs_skipped} "
                 f"db_failures={db_stats.database_failures}"
             )
         elif args.skip_db:
-            print("    DB upsert:  skipped (--skip-db)")
+            print("    linkedin.jobs upsert: skipped (--skip-db)")
+        if all_jobs_stats is not None:
+            print(
+                f"    all_jobs upsert: inserted={all_jobs_stats.inserted} updated={all_jobs_stats.updated} "
+                f"skipped_dupes={all_jobs_stats.skipped_dupes}"
+            )
+        elif args.skip_all_jobs:
+            print("    all_jobs upsert: skipped (--skip-all-jobs)")
         print(f"    Rate-limit (429) warnings encountered: {rate_tracker.count}")
         for job in jobs:
             print(f"- {job.title} @ {job.company} | {job.location} | posted: {job.posted_text} / {job.exact_posted_text} | applicants: {job.applicants_text} | {job.job_url}")

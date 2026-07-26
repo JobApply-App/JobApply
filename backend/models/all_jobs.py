@@ -8,9 +8,12 @@ backend/repositories/all_jobs_repository.py has a typed `Table` to query
 against). Lives on the same shared Postgres engine as `linkedin.jobs`
 (backend/core/postgres.py) — default `public` schema, no schema= needed.
 
-Read-only usage so far: GET /api/all-jobs (backend/api/routes/all_jobs.py).
-Writes go through backend/scripts/upsert_linkedin_csv_to_all_jobs.py's own
-Core-level `INSERT ... ON CONFLICT DO UPDATE`, not through this model.
+Read side: GET /api/all-jobs (backend/api/routes/all_jobs.py). Write side:
+backend/repositories/all_jobs_repository.py's bulk_upsert_all_jobs() (a
+Core-level `INSERT ... ON CONFLICT DO UPDATE`, not an ORM write through this
+model) — called directly by backend/scripts/linkedin_israel_jobs.py for a
+live scrape (no CSV involved), and by backend/scripts/
+upsert_linkedin_csv_to_all_jobs.py for manual CSV backfills.
 """
 from __future__ import annotations
 
