@@ -31,6 +31,7 @@ import {
 } from 'react'
 import Link from 'next/link'
 import { TOKENS } from '@/lib/tokens'
+import { getScoreBand } from '@/lib/scoreBand'
 import { ensureFreshToken, getAuthHeaders, setAuthToken } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import type {
@@ -1792,9 +1793,11 @@ interface CapabilityRowProps {
   onProbe:  (entity: TrustProfileEntity) => void
   probing:  boolean
   rank?:    number   // optional 1-based rank number shown to the left of the name
+  /** When provided, the row becomes clickable and opens the score-breakdown drawer. */
+  onSelect?: (entity: TrustProfileEntity) => void
 }
 
-function CapabilityRow({ entity, onVerify, onProbe, probing, rank }: CapabilityRowProps) {
+function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: CapabilityRowProps) {
   const vl   = entity.verification_level ?? 'UNVERIFIED'
   const pill = STATUS_PILL[vl]
   const pct  = Math.min(100, Math.max(0, entity.confidence_score))
@@ -1823,8 +1826,12 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank }: CapabilityR
 
   return (
     <div
-      className="flex flex-col gap-2.5 sm:grid sm:items-center sm:gap-x-4 sm:grid-cols-[minmax(180px,2fr)_minmax(100px,1fr)_90px_16px_minmax(120px,1fr)_minmax(100px,1fr)] px-5 py-3.5 rounded-xl bg-white border border-slate-100 hover:border-slate-200 hover:-translate-y-0.5 transition-all duration-200 ease-out group"
+      className={`flex flex-col gap-2.5 sm:grid sm:items-center sm:gap-x-4 sm:grid-cols-[minmax(180px,2fr)_minmax(100px,1fr)_90px_16px_minmax(120px,1fr)_minmax(100px,1fr)] px-5 py-3.5 rounded-xl bg-white border border-slate-100 hover:border-slate-200 hover:-translate-y-0.5 transition-all duration-200 ease-out group${onSelect ? ' cursor-pointer' : ''}`}
       style={{ boxShadow: '0 1px 3px rgba(15,23,42,0.05)' }}
+      onClick={onSelect ? () => onSelect(entity) : undefined}
+      role={onSelect ? 'button' : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onKeyDown={onSelect ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(entity) } } : undefined}
     >
       {/* ① Name + type (+ optional rank number) ───────────────────── */}
       <div className="flex items-center gap-2.5 overflow-hidden">
@@ -1912,7 +1919,7 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank }: CapabilityR
       <div className="flex items-center gap-2 flex-wrap justify-start sm:justify-end opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
         {showVerify && (
           <button
-            onClick={() => onProbe(entity)}
+            onClick={(e) => { e.stopPropagation(); onProbe(entity) }}
             disabled={probing}
             className="h-11 sm:h-8 px-3.5 rounded-lg text-[12px] font-semibold text-white bg-ja-primary hover:bg-ja-primaryHover transition active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           >
@@ -1921,7 +1928,7 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank }: CapabilityR
         )}
         {showStrengthen && (
           <button
-            onClick={() => onProbe(entity)}
+            onClick={(e) => { e.stopPropagation(); onProbe(entity) }}
             disabled={probing}
             className="h-11 sm:h-8 px-3.5 rounded-lg text-[12px] font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 transition active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
@@ -1933,6 +1940,198 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank }: CapabilityR
         )}
       </div>
     </div>
+  )
+}
+
+// ── Capability score breakdown ────────────────────────────────────────────────
+// Derives human-readable "why this score" reasoning and actionable improvement
+// tips from the signals already present on TrustProfileEntity — no separate
+// backend field required. JOB-39.
+
+interface CapabilityInsights {
+  reasoning: string[]
+  tips:      string[]
+}
+
+function buildCapabilityInsights(entity: TrustProfileEntity): CapabilityInsights {
+  const vl     = entity.verification_level ?? 'UNVERIFIED'
+  const arch   = entity.architecture_confidence ?? 0
+  const syntax = entity.syntax_confidence ?? 0
+  const score  = entity.confidence_score
+
+  const reasoning: string[] = [
+    `${entity.name} is currently scored at ${score.toFixed(1)}/100, blending two independent signals: how well your portfolio, STAR stories, and CV evidence support it (${arch.toFixed(1)}/100 architecture confidence), and how well you've demonstrated it directly to Ariel in a manual assessment (${syntax.toFixed(1)}/100 syntax confidence).`,
+  ]
+
+  if (entity.evidence_multiplier !== undefined) {
+    const mult  = entity.evidence_multiplier
+    const count = entity.evidence_count ?? 0
+    reasoning.push(
+      `A confidence weight of ×${mult.toFixed(1)} is applied based on ${count} Ariel-verified challenge${count === 1 ? '' : 's'} — the more you engage with verification, the closer this weight moves to ×1.0.`,
+    )
+  }
+
+  if (vl === 'VERIFIED_MANUAL') {
+    reasoning.push('This capability has been manually verified — the highest trust tier available.')
+  } else if (vl === 'ORCHESTRATION_ONLY') {
+    reasoning.push('This score currently reflects AI-orchestrated evidence only; it has not yet been confirmed through a manual review.')
+  } else {
+    reasoning.push('No verification evidence has been submitted for this capability yet, so it is scored on unverified signals alone.')
+  }
+
+  if (entity.manual_review_required) {
+    reasoning.push('A manual review has been flagged for this capability — see the review banner above for details.')
+  }
+
+  const tips: string[] = []
+
+  if (vl === 'UNVERIFIED') {
+    tips.push('Complete a Verify Mastery challenge with Ariel to establish an initial trust baseline.')
+  }
+  if (vl === 'ORCHESTRATION_ONLY' && score < 70) {
+    tips.push('Use "Strengthen" to submit further evidence — additional AI-verified challenges raise your confidence weight toward ×1.0.')
+  }
+  if (arch < 70) {
+    tips.push('Add portfolio links, STAR stories, or CV detail that showcase this capability in action — this directly raises architecture confidence.')
+  }
+  if (syntax < 70 && vl !== 'VERIFIED_MANUAL') {
+    tips.push('Request a manual assessment to validate hands-on mastery — this raises syntax confidence beyond what AI orchestration alone can prove.')
+  }
+  if (tips.length === 0) {
+    tips.push('This capability is in strong shape — keep its evidence current as your experience grows.')
+  }
+
+  return { reasoning, tips }
+}
+
+interface CapabilityDetailDrawerProps {
+  entity:  TrustProfileEntity | null
+  onClose: () => void
+}
+
+function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps) {
+  const isOpen    = !!entity
+  const insights  = entity ? buildCapabilityInsights(entity) : null
+  const band      = entity ? getScoreBand(entity.confidence_score) : null
+
+  // Close on Escape
+  useEffect(() => {
+    if (!entity) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [entity, onClose])
+
+  return (
+    <>
+      {/* Backdrop — Meridian V2 §3.2 scrim */}
+      <div
+        onClick={onClose}
+        className="fixed inset-0 z-40 transition-opacity duration-300"
+        style={{
+          background:     'rgba(15,23,42,0.55)',
+          backdropFilter: 'blur(4px)',
+          opacity:        isOpen ? 1 : 0,
+          pointerEvents:  isOpen ? 'auto' : 'none',
+        }}
+      />
+
+      {/* Drawer panel */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={entity ? `Score breakdown: ${entity.name}` : 'Score breakdown'}
+        className="fixed top-0 right-0 bottom-0 z-50 flex flex-col bg-white"
+        style={{
+          width:      'min(480px, 100vw)',
+          boxShadow:  '-4px 0 24px rgba(15,23,42,0.10)',
+          transform:  isOpen ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 300ms cubic-bezier(0.32,0,0.15,1)',
+        }}
+      >
+        {/* Sticky header */}
+        <div className="shrink-0 px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400">
+              {(entity?.entity_type ?? 'skill').toUpperCase()}
+            </p>
+            <h2 className="text-[16px] font-bold text-slate-900 leading-tight mt-0.5 truncate">
+              {entity?.name}
+            </h2>
+          </div>
+          <div className="flex items-center gap-3 shrink-0 mt-0.5">
+            {entity && band && (
+              <div
+                className="flex items-center gap-1.5 px-3 h-7 rounded-full text-[12px] font-bold tabular-nums"
+                style={{ background: band.hexBg, color: band.hexFg }}
+              >
+                {entity.confidence_score.toFixed(1)}/100
+              </div>
+            )}
+            <button
+              onClick={onClose}
+              className="h-8 w-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition"
+              aria-label="Close"
+            >
+              <XIcon s={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+          {!entity || !insights ? null : (
+            <>
+              <section>
+                <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
+                  Score Reasoning
+                </p>
+                <div className="space-y-2.5">
+                  {insights.reasoning.map((line, i) => (
+                    <p key={i} className="text-[13px] leading-relaxed text-slate-700">{line}</p>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
+                  Improvement Tips
+                </p>
+                <div className="space-y-2">
+                  {insights.tips.map((tip, i) => (
+                    <div key={i} className="flex gap-2.5 rounded-xl border border-slate-100 bg-slate-50/60 px-3.5 py-3">
+                      <span className="text-[13px] shrink-0" style={{ color: TOKENS.color.primary }}>→</span>
+                      <p className="text-[12.5px] leading-relaxed text-slate-700">{tip}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {entity.trust_breakdown.length > 0 && (
+                <section>
+                  <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
+                    Evidence Ledger
+                  </p>
+                  <div className="space-y-1.5">
+                    {entity.trust_breakdown.map(ev => (
+                      <div
+                        key={ev.evidence_id}
+                        className="flex items-center justify-between gap-3 text-[12px] py-1.5 border-b border-slate-50 last:border-0"
+                      >
+                        <span className="text-slate-600 truncate">{ev.source_label}</span>
+                        <span className="text-slate-400 tabular-nums shrink-0">
+                          {new Date(ev.verified_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -2130,6 +2329,7 @@ export function CapabilitiesList({ userId, className = '' }: { userId: string; c
   const [manualTarget,  setManualTarget] = useState<TrustProfileEntity | null>(null)
   const [manualSession, setManualSession]= useState<{session_id: string; first_prompt: string} | null>(null)
   const [manualLoading, setManualLoading]= useState(false)
+  const [detailEntity,  setDetailEntity] = useState<TrustProfileEntity | null>(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true); setError(null)
@@ -2306,9 +2506,12 @@ export function CapabilitiesList({ userId, className = '' }: { userId: string; c
             onVerify={handleManualVerify}
             onProbe={handleProbe}
             probing={probingId === entity.entity_id}
+            onSelect={setDetailEntity}
           />
         ))}
       </div>
+
+      <CapabilityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
 
       {/* Modals (same as TrustDashboard) */}
       {probeState && (
