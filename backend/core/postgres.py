@@ -48,14 +48,21 @@ def _to_sync_dsn(url: str) -> str:
 def ensure_sslmode(url: str) -> str:
     """
     Add `sslmode=require` if the DSN doesn't already specify one and isn't
-    pointed at localhost/127.0.0.1 — Supabase requires TLS on every
-    connection type, while a local/dev-container Postgres often has no TLS
-    listener at all, so this is skipped for local hosts. Reused by
-    backend/alembic_linkedin/env.py so migrations get the same treatment as
-    the app's own runtime engine.
+    pointed at a local host — Supabase requires TLS on every connection
+    type, while a local/dev-container Postgres often has no TLS listener at
+    all, so this is skipped for local hosts. `host.docker.internal` is
+    Docker Desktop's standard alias a container uses to reach a Postgres
+    running on its host machine (e.g. docker-compose's backend container
+    reaching a docker-compose-external test Postgres) — exactly as "local"
+    as localhost/127.0.0.1 for this purpose, and forcing SSL on it produces
+    a confusing "server does not support SSL" crash that masks the real
+    problem (almost always: DATABASE_URL pointing at the wrong target)
+    rather than a clean connection error. Reused by backend/alembic_linkedin/
+    env.py and backend/alembic_app_schema/env.py so migrations get the same
+    treatment as the app's own runtime engine.
     """
     parts = urlsplit(url)
-    if parts.hostname in (None, "localhost", "127.0.0.1"):
+    if parts.hostname in (None, "localhost", "127.0.0.1", "host.docker.internal"):
         return url
     query = dict(parse_qsl(parts.query))
     query.setdefault("sslmode", "require")
