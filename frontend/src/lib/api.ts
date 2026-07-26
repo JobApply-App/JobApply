@@ -757,19 +757,21 @@ export interface AllJobItem {
   canonical_job_key:  string
   job_title:          string | null
   company_name:       string | null
+  company_name_normalized: string | null
   company_url:        string | null
   company_logo_url:   string | null
   job_url:            string
   normalized_job_url: string
-  location:           string | null
+  location:           { city: string | null; district: string | null; country: string | null } | null
   seniority_level:    string | null
   employment_type:    string | null
   job_function:       string | null
   industries:         string[] | null
+  description:        string | null
   posted_text:        string | null
   exact_posted_text:  string | null
-  applicants_text:    string | null
-  is_active:          boolean | null
+  posted_at:          string | null
+  applicants:         { value: number | null; exact: boolean } | null
   first_seen_at:      string
   last_seen_at:       string
   insertion_time:     string
@@ -782,13 +784,59 @@ export interface AllJobsPage {
   pagination: PaginationMeta
 }
 
+// Every field optional/AND-combined server-side (see backend/repositories/
+// all_jobs_repository.py's AllJobsFilters) — omit a field entirely rather
+// than passing '' when it's unset, so the query string stays clean.
+// source/seniority_level/employment_type/job_function/industry are
+// multi-select (OR'd within the field server-side) — each becomes a
+// repeated query param, e.g. ?seniority_level=A&seniority_level=B.
+export interface AllJobsFilters {
+  source?:              string[]
+  seniority_level?:     string[]
+  employment_type?:     string[]
+  job_function?:        string[]
+  industry?:            string[]
+  company?:             string
+  title?:               string
+  min_applicants?:      number
+  max_applicants?:      number
+  posted_within_hours?: number
+}
+
+export type AllJobsSortBy = 'recent' | 'posted' | 'applicants_desc' | 'applicants_asc' | 'company'
+
+export interface AllJobsFilterOptions {
+  sources:           string[]
+  seniority_levels:  string[]
+  employment_types:  string[]
+  job_functions:     string[]
+  industries:        string[]
+}
+
 export async function fetchAllJobs(
   page: number,
   pageSize: number,
+  filters?: AllJobsFilters,
+  sortBy?: AllJobsSortBy,
   signal?: AbortSignal,
 ): Promise<AllJobsPage> {
   const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+  if (sortBy) params.set('sort_by', sortBy)
+  if (filters) {
+    for (const [key, value] of Object.entries(filters)) {
+      if (value === undefined || value === null || value === '') continue
+      if (Array.isArray(value)) {
+        for (const v of value) params.append(key, v)
+      } else {
+        params.set(key, String(value))
+      }
+    }
+  }
   return get<AllJobsPage>(`/api/all-jobs?${params}`, signal)
+}
+
+export async function fetchAllJobsFilterOptions(signal?: AbortSignal): Promise<AllJobsFilterOptions> {
+  return get<AllJobsFilterOptions>('/api/all-jobs/filter-options', signal)
 }
 
 export async function markJobApplied(jobId: string): Promise<MarkAppliedResponse> {

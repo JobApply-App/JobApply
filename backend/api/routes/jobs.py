@@ -361,7 +361,7 @@ async def backfill_jd_text(
     )
 
 
-@router.get("/", response_model=List[JobMatch])
+@router.get("", response_model=List[JobMatch])
 async def list_jobs(
     filter: str = Query("all", description="all | new | strong | remote | saved"),
     sort:   str = Query("match", description="match | newest | oldest"),
@@ -374,6 +374,13 @@ async def list_jobs(
     Returns only the caller's own jobs — never mock or cross-user data.
     When the user has no jobs yet (empty feed) an empty list is returned so
     the frontend can display its empty-state onboarding UI.
+
+    Registered at "" (not "/") — Next.js's rewrite proxy strips the client's
+    trailing slash before forwarding (its own trailing-slash normalization),
+    so matching that no-slash form here avoids FastAPI's redirect_slashes
+    firing a 307 whose Location header exposes the internal Docker hostname
+    (backend:8000) to the browser — see applications.py's list_applications
+    for the original diagnosis of this pattern.
     """
     source = job_store.get_feed(user_id=user.user_id, status_filter=None)
     result = _apply_filter(source, filter)

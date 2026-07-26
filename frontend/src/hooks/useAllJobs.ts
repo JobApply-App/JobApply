@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { fetchAllJobs } from '@/lib/api'
-import type { AllJobItem, PaginationMeta } from '@/lib/api'
+import type { AllJobItem, AllJobsFilters, AllJobsSortBy, PaginationMeta } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 
 // Mirrors useLinkedInJobs.ts exactly (same hand-rolled useState/useEffect
@@ -17,7 +17,9 @@ interface UseAllJobsResult {
   refetch: () => void
 }
 
-export function useAllJobs(page: number, pageSize: number): UseAllJobsResult {
+export function useAllJobs(
+  page: number, pageSize: number, filters?: AllJobsFilters, sortBy?: AllJobsSortBy,
+): UseAllJobsResult {
   const { session, loading: authLoading } = useAuth()
 
   const [jobs, setJobs] = useState<AllJobItem[]>([])
@@ -28,6 +30,11 @@ export function useAllJobs(page: number, pageSize: number): UseAllJobsResult {
 
   const requestIdRef = useRef(0)
 
+  // Serialized so a fresh filters object literal on every render (the
+  // common case — callers rarely useMemo their filter state) doesn't
+  // retrigger the effect unless its actual contents changed.
+  const filtersKey = JSON.stringify(filters ?? {})
+
   useEffect(() => {
     if (authLoading || !session) return
 
@@ -35,7 +42,7 @@ export function useAllJobs(page: number, pageSize: number): UseAllJobsResult {
     const controller = new AbortController()
     setLoading(true)
 
-    fetchAllJobs(page, pageSize, controller.signal)
+    fetchAllJobs(page, pageSize, JSON.parse(filtersKey), sortBy, controller.signal)
       .then((data) => {
         if (requestId !== requestIdRef.current) return  // superseded by a newer request
         setJobs(data.items)
@@ -52,7 +59,7 @@ export function useAllJobs(page: number, pageSize: number): UseAllJobsResult {
       })
 
     return () => controller.abort()
-  }, [page, pageSize, authLoading, session?.user?.id, refetchTick])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [page, pageSize, filtersKey, sortBy, authLoading, session?.user?.id, refetchTick])  // eslint-disable-line react-hooks/exhaustive-deps
 
   return { jobs, pagination, loading, error, refetch: () => setRefetchTick((t) => t + 1) }
 }
