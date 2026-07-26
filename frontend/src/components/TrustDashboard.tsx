@@ -34,6 +34,8 @@ import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
 import { ensureFreshToken, getAuthHeaders, setAuthToken } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { useChat } from '@/contexts/ChatContext'
+import { SparkIcon } from './icons'
 import type {
   TrustScoreResponse, TrustProfileEntity, TrustEvidenceEntry, EntityType,
   SkillTier, VerificationLevel, ConfidenceMatrixResponse, ConfidenceRadarDatum,
@@ -2013,6 +2015,7 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
   const isOpen    = !!entity
   const insights  = entity ? buildCapabilityInsights(entity) : null
   const band      = entity ? getScoreBand(entity.confidence_score) : null
+  const { openChat } = useChat()
 
   // Close on Escape
   useEffect(() => {
@@ -2021,6 +2024,19 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [entity, onClose])
+
+  // "Improve with Ariel" (JOB-40) — hands the capability off to the on-demand
+  // Ariel overlay (never a persistent split-screen, per DESIGN_SYSTEM.md) and
+  // closes this drawer so only one altitude-2 surface is ever visible at once.
+  const handleImproveWithAriel = useCallback(() => {
+    if (!entity) return
+    const label = (entity.entity_type ?? 'skill').replace(/_/g, ' ')
+    openChat({
+      topic: `Help me improve my "${entity.name}" ${label} score `
+        + `(currently ${entity.confidence_score.toFixed(1)}/100).`,
+    })
+    onClose()
+  }, [entity, openChat, onClose])
 
   return (
     <>
@@ -2082,6 +2098,15 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
           {!entity || !insights ? null : (
             <>
+              <button
+                onClick={handleImproveWithAriel}
+                className="w-full inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-lg text-[13px] font-semibold transition active:scale-[0.98] hover:opacity-90"
+                style={{ background: TOKENS.color.primary, color: '#fff' }}
+              >
+                <SparkIcon s={13} />
+                Improve with Ariel
+              </button>
+
               <section>
                 <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
                   Score Reasoning
