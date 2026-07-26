@@ -279,10 +279,9 @@ function MessageBubble({ message, onToolConfirm, onToolDismiss }: MessageBubbleP
         dir="auto"
         className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-relaxed ${
           isUser
-            ? 'rounded-br-sm text-white'
+            ? 'rounded-br-sm bg-teal-50 text-slate-900'
             : 'rounded-bl-sm bg-slate-50 border border-slate-100 text-slate-700'
         }`}
-        style={isUser ? { background: TOKENS.color.primary } : undefined}
       >
         {isUser ? content : renderMarkdown(content)}
       </div>
@@ -961,8 +960,8 @@ function OverlayShell({
 // ── Main overlay shell ────────────────────────────────────────────────────────
 //
 // Two independent panels:
-//   • Ariel  (teal, right side)   — authenticated users only, via ChatContext.isOpen
-//   • Eliya  (indigo, right side) — all users, via ChatContext.isEliyaOpen
+//   • Ariel  (amethyst, right side) — authenticated users only, via ChatContext.isOpen
+//   • Eliya  (indigo, right side)   — all users, via ChatContext.isEliyaOpen
 //
 // Opening one closes the other (enforced in ChatContext).
 
@@ -993,13 +992,13 @@ export function ChatOverlay() {
 
   return (
     <>
-      {/* Ariel panel — teal Career Agent, completed-profile users only */}
+      {/* Ariel panel — amethyst Career Agent, completed-profile users only */}
       {arielAvailable && (
         <OverlayShell
           isOpen={isOpen}
           onBackdropClick={closeChat}
           ariaLabel="Ask Ariel — Career Agent"
-          shadowColor="rgba(13,148,136,0.18)"
+          shadowColor="rgba(124,58,237,0.18)"
           handleVariant="onLight"
         >
           <ArielChat onClose={closeChat} />
