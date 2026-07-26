@@ -16,10 +16,10 @@ bulk_upsert_jobs() — one INSERT ... ON CONFLICT DO UPDATE per batch.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from sqlalchemy import MetaData, Table, func, select, text
+from sqlalchemy import Integer, MetaData, Table, and_, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -192,14 +192,16 @@ def bulk_upsert_all_jobs(
 
 # ── Read side ─────────────────────────────────────────────────────────────────
 
-# List-view columns only — excludes `description` (large text, never shown
-# in a list row) and `raw_payload` (internal, not displayed), same
-# convention as linkedin_job_repository.py's _LIST_VIEW_COLUMNS.
+# List-view columns — excludes only `raw_payload` (internal, never
+# displayed). `description` IS included despite being large text: the
+# frontend renders it behind a per-row expand/collapse toggle rather than
+# inline, so it's hidden by default without needing a second per-row
+# network round-trip to fetch it on expand.
 _LIST_VIEW_COLUMNS = (
     "id", "source", "source_job_id", "canonical_job_key",
     "job_title", "company_name", "company_name_normalized", "company_url", "company_logo_url",
     "job_url", "normalized_job_url", "location", "seniority_level",
-    "employment_type", "job_function", "industries",
+    "employment_type", "job_function", "industries", "description",
     "posted_text", "exact_posted_text", "posted_at", "applicants",
     "first_seen_at", "last_seen_at", "insertion_time",
     "updated_at", "last_scraped_at",
@@ -212,18 +214,94 @@ class PaginatedAllJobs:
     total_items: int
 
 
+@dataclass
+class AllJobsFilters:
+    """
+    Every field is optional/AND-combined — only fields the caller actually
+    sets narrow the query. source/seniority_level/employment_type/
+    job_function/industry take a LIST of values, OR'd together within the
+    field (e.g. seniority_level=["Entry level", "Associate"] matches
+    either) — each is exact-match against real distinct values already in
+    the table (see get_all_jobs_filter_options()), not free text, so a
+    filter can never silently return zero rows due to a typo.
+    company/title are case-insensitive substring search instead, since
+    those columns are open-ended (no fixed vocabulary to pick from).
+    """
+    source: Optional[list[str]] = None
+    seniority_level: Optional[list[str]] = None
+    employment_type: Optional[list[str]] = None
+    job_function: Optional[list[str]] = None
+    industry: Optional[list[str]] = None
+    company: Optional[str] = None
+    title: Optional[str] = None
+    min_applicants: Optional[int] = None
+    max_applicants: Optional[int] = None
+    posted_within_hours: Optional[int] = None
+
+
+def _build_filter_conditions(filters: AllJobsFilters) -> list:
+    conditions = []
+    if filters.source:
+        conditions.append(_TABLE.c.source.in_(filters.source))
+    if filters.seniority_level:
+        conditions.append(_TABLE.c.seniority_level.in_(filters.seniority_level))
+    if filters.employment_type:
+        conditions.append(_TABLE.c.employment_type.in_(filters.employment_type))
+    if filters.job_function:
+        conditions.append(_TABLE.c.job_function.in_(filters.job_function))
+    if filters.industry:
+        # ARRAY overlap (&&) — matches rows whose `industries` array shares
+        # at least one element with the selected list (OR semantics across
+        # the selected industries, same as every other multi-select field).
+        conditions.append(_TABLE.c.industries.overlap(filters.industry))
+    if filters.company:
+        conditions.append(_TABLE.c.company_name_normalized.ilike(f"%{filters.company.strip().lower()}%"))
+    if filters.title:
+        conditions.append(_TABLE.c.job_title.ilike(f"%{filters.title.strip()}%"))
+    if filters.min_applicants is not None:
+        conditions.append(_TABLE.c.applicants["value"].astext.cast(Integer) >= filters.min_applicants)
+    if filters.max_applicants is not None:
+        conditions.append(_TABLE.c.applicants["value"].astext.cast(Integer) <= filters.max_applicants)
+    if filters.posted_within_hours is not None:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=filters.posted_within_hours)
+        conditions.append(_TABLE.c.posted_at >= cutoff)
+    return conditions
+
+
+# `id DESC` is always the final tie-breaker — every option, so two rows
+# with an identical sort value never reorder between page 1 and page 2.
+_SORT_OPTIONS = {
+    # Most-recently-scraped first — rides the existing
+    # ix_all_jobs_last_seen_at_desc index. The default: matches what a
+    # fresh scrape run surfaces without the user picking anything.
+    "recent": (_TABLE.c.last_seen_at.desc(),),
+    # Most-recently-posted first (by the job's own posted_at, not scrape
+    # time) — the most meaningful default for a job-seeker once they've
+    # applied any filter narrowing the list down, since "posted_within_hours"
+    # and "newest posted" are the same mental model.
+    "posted": (_TABLE.c.posted_at.desc().nulls_last(),),
+    "applicants_desc": (_TABLE.c.applicants["value"].astext.cast(Integer).desc().nulls_last(),),
+    "applicants_asc": (_TABLE.c.applicants["value"].astext.cast(Integer).asc().nulls_last(),),
+    "company": (_TABLE.c.company_name_normalized.asc().nulls_last(),),
+}
+DEFAULT_SORT_BY = "recent"
+
+
 def get_paginated_all_jobs(
     *,
     page: int = 1,
     page_size: int = DEFAULT_PAGE_SIZE,
+    filters: Optional[AllJobsFilters] = None,
+    sort_by: str = DEFAULT_SORT_BY,
     session: Optional[Session] = None,
 ) -> PaginatedAllJobs:
     """
-    Ordered `last_seen_at DESC, id DESC` — the former rides the existing
-    ix_all_jobs_last_seen_at_desc index (most-recently-seen job first, so a
-    fresh scrape run surfaces at the top); `id` (the primary key) is the
-    mandatory tie-breaker so two rows re-touched in the same batch upsert
-    (identical last_seen_at) never reorder between page 1 and page 2.
+    sort_by picks from _SORT_OPTIONS above (falls back to the default for
+    anything unrecognized, so a bad/stale value from a client can never
+    500 — see backend/api/routes/all_jobs.py's Query(...) for the
+    user-facing option list). `id DESC` is always appended as the final
+    tie-breaker regardless of sort_by, so two rows sharing an identical
+    sort value never reorder between page 1 and page 2.
 
     page/page_size are trusted to already be validated by the caller (see
     backend/api/routes/all_jobs.py's Query(...) constraints) but are still
@@ -233,12 +311,16 @@ def get_paginated_all_jobs(
     page_size = min(max(page_size, 1), MAX_PAGE_SIZE)
     offset = (page - 1) * page_size
 
+    conditions = _build_filter_conditions(filters) if filters else []
+    order_clauses = _SORT_OPTIONS.get(sort_by, _SORT_OPTIONS[DEFAULT_SORT_BY])
+
     columns = [_TABLE.c[name] for name in _LIST_VIEW_COLUMNS]
     total_count_col = func.count().over().label("total_count")
 
     stmt = (
         select(*columns, total_count_col)
-        .order_by(_TABLE.c.last_seen_at.desc(), _TABLE.c.id.desc())
+        .where(and_(*conditions))
+        .order_by(*order_clauses, _TABLE.c.id.desc())
         .limit(page_size)
         .offset(offset)
     )
@@ -254,12 +336,58 @@ def get_paginated_all_jobs(
                 for row in rows
             ]
         else:
-            total_items = session.execute(
-                select(func.count()).select_from(_TABLE)
-            ).scalar_one()
+            count_stmt = select(func.count()).select_from(_TABLE).where(and_(*conditions))
+            total_items = session.execute(count_stmt).scalar_one()
             items = []
     finally:
         if owns_session:
             session.close()
 
     return PaginatedAllJobs(items=items, total_items=total_items)
+
+
+@dataclass
+class AllJobsFilterOptions:
+    sources: list[str]
+    seniority_levels: list[str]
+    employment_types: list[str]
+    job_functions: list[str]
+    industries: list[str]
+
+
+def get_all_jobs_filter_options(*, session: Optional[Session] = None) -> AllJobsFilterOptions:
+    """
+    Distinct, sorted values actually present in `all_jobs` right now — the
+    frontend's filter dropdowns are populated from this rather than a
+    hardcoded list, so a filter option can never be offered that would
+    return zero results.
+    """
+    owns_session = session is None
+    session = session or get_pg_session()
+    try:
+        def _distinct(col):
+            stmt = (
+                select(_TABLE.c[col])
+                .where(_TABLE.c[col].is_not(None))
+                .distinct()
+                .order_by(_TABLE.c[col])
+            )
+            return [row[0] for row in session.execute(stmt).all()]
+
+        industries = [
+            row[0] for row in session.execute(text(
+                "SELECT DISTINCT x FROM public.all_jobs, unnest(industries) x "
+                "WHERE industries IS NOT NULL ORDER BY x"
+            )).all()
+        ]
+
+        return AllJobsFilterOptions(
+            sources=_distinct("source"),
+            seniority_levels=_distinct("seniority_level"),
+            employment_types=_distinct("employment_type"),
+            job_functions=_distinct("job_function"),
+            industries=industries,
+        )
+    finally:
+        if owns_session:
+            session.close()
