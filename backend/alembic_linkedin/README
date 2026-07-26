@@ -1,0 +1,70 @@
+backend/alembic_linkedin — migrations for the `linkedin` schema only
+=====================================================================
+
+Dedicated Alembic environment for backend/models/linkedin_job.py
+(`linkedin.jobs`, on the Postgres engine in backend/core/postgres.py).
+This is NOT a project-wide migration setup — every other table in this
+repo still lives on the SQLite ENGINE (backend/core/database.py), created
+via backend/core/migrations.py's create_all(), untouched by this.
+
+Run every command from the repository root, with `backend/.venv` active.
+
+How the target database is chosen
+----------------------------------
+`alembic_linkedin.ini`'s `sqlalchemy.url` is a placeholder — it's always
+overwritten at runtime (backend/alembic_linkedin/env.py) with
+`backend.config.DATABASE_URL`, the same environment-aware value the app
+itself uses:
+
+  1. `DATABASE_URL`               — explicit override, always wins
+  2. `DATABASE_URL_DEV`/`_PROD`   — picked by `APP_ENV`
+  3. `DB_HOST_DEV`/`_PROD` + friends — built from discrete parts
+
+So which database a migration runs against is controlled entirely by
+`APP_ENV` (or `PYTHON_ENV`) plus whatever's in `backend/.env` — no
+`alembic_linkedin.ini` edits needed, ever. `env.py` prints
+`[alembic_linkedin] APP_ENV=... — migrating <host>` before every run so
+it's always visible which project you're about to touch.
+
+Running migrations against Dev
+--------------------------------
+With `DATABASE_URL_DEV` set in `backend/.env` (Supabase Dev project):
+
+    APP_ENV=development alembic -c alembic_linkedin.ini upgrade head
+
+Running migrations against Prod
+---------------------------------
+With `DATABASE_URL_PROD` set in `backend/.env` (Supabase Prod project).
+Treat this exactly like any other production deploy step — review the
+generated SQL first (`alembic -c alembic_linkedin.ini upgrade head --sql`
+for a dry-run/offline print instead of executing), and only run it for
+real when you're sure:
+
+    APP_ENV=production alembic -c alembic_linkedin.ini upgrade head
+
+One-off override without touching backend/.env or APP_ENV (e.g. from CI,
+or to target a database that isn't Dev or Prod at all):
+
+    DATABASE_URL='postgresql://...' alembic -c alembic_linkedin.ini upgrade head
+
+Creating a new migration
+--------------------------
+Autogenerate diffs LinkedInBase.metadata (backend/models/linkedin_job.py)
+against whichever database APP_ENV currently resolves to — normally do
+this against Dev:
+
+    APP_ENV=development alembic -c alembic_linkedin.ini revision --autogenerate -m "describe the change"
+
+Review the generated file in backend/alembic_linkedin/versions/ (autogenerate
+never detects schema-level CREATE SCHEMA — see f5bd530a002f's upgrade() for
+why that one's hand-edited), then apply it to Dev, verify, and only once
+confirmed apply the identical migration file to Prod with
+`APP_ENV=production alembic -c alembic_linkedin.ini upgrade head` — both
+environments run from the same versions/ directory, so Dev and Prod always
+converge on the same schema history, never diverge.
+
+Checking current revision / history
+-------------------------------------
+    APP_ENV=development alembic -c alembic_linkedin.ini current
+    APP_ENV=production  alembic -c alembic_linkedin.ini current
+    alembic -c alembic_linkedin.ini history

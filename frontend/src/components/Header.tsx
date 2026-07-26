@@ -23,12 +23,13 @@ function HelpIcon({ s = 15 }: { s?: number }) {
   )
 }
 
-export type Tab = 'overview' | 'apps' | 'feed'
+export type Tab = 'overview' | 'apps' | 'feed' | 'all-jobs'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview'     },
   { id: 'feed',     label: 'Matches'      },
   { id: 'apps',     label: 'Applications' },
+  { id: 'all-jobs', label: 'All Jobs'     },
 ]
 
 interface HeaderProps {

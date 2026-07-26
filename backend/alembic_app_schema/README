@@ -1,0 +1,71 @@
+backend/alembic_app_schema — Postgres port of the app's primary schema
+=========================================================================
+
+Migrations for the app's primary-datastore tables (currently SQLite,
+backend/jobs.db) ported to Postgres's default `public` schema, on the same
+shared Supabase-capable Postgres engine as `linkedin.jobs`
+(backend/core/postgres.py). See backend/alembic_app_schema/versions/
+413f4ed8fbc6_create_app_tables.py's docstring for the full schema-audit
+and type-mapping rationale (SQLite TEXT/VARCHAR/JSON/BOOLEAN -> Postgres
+TEXT/VARCHAR/JSONB/BOOLEAN, one intentionally-unenforced FK).
+
+IMPORTANT — schema-only, not a cutover
+----------------------------------------
+Running this migration creates empty tables in Postgres. It does NOT change
+what the running app reads from or writes to — that is still SQLite
+(backend/core/database.py's ENGINE, see CLAUDE.md) until a real cutover
+(repository rewrite + dual-write/backfill/verify/switch plan) is separately
+scoped and executed. Treat this as schema/tooling readiness, not a live
+migration.
+
+Every table here is hand-authored DDL generated once from an exact audit of
+backend/jobs.db (PRAGMA table_info/foreign_key_list/index_list), not
+reflected from ORM model classes — 13 of the app's 19 tables are managed by
+raw-SQL repository modules with no declarative model at all (see
+backend/repositories/*.py), so there's no metadata to autogenerate against.
+Any future schema change must be hand-added as a new revision here, mirrored
+from whatever change was made to backend/jobs.db's schema
+(backend/core/migrations.py or a repository's own DDL).
+
+Run every command from the repository root, with `backend/.venv` active.
+
+How the target database is chosen
+------------------------------------
+Same as backend/alembic_linkedin — `alembic_app_schema.ini`'s
+`sqlalchemy.url` placeholder is always overwritten at runtime
+(backend/alembic_app_schema/env.py) with `backend.config.DATABASE_URL`:
+
+  1. `DATABASE_URL`               — explicit override, always wins
+  2. `DATABASE_URL_DEV`/`_PROD`   — picked by `APP_ENV`
+  3. `DB_HOST_DEV`/`_PROD` + friends — built from discrete parts
+
+`env.py` prints `[alembic_app_schema] APP_ENV=... — migrating <host>`
+before every run.
+
+Running migrations against Dev
+---------------------------------
+    APP_ENV=development alembic -c alembic_app_schema.ini upgrade head
+
+Running migrations against Prod
+----------------------------------
+Review first (`--sql` prints the DDL without executing/connecting):
+
+    APP_ENV=production alembic -c alembic_app_schema.ini upgrade head --sql
+    APP_ENV=production alembic -c alembic_app_schema.ini upgrade head
+
+Checking current revision
+----------------------------
+    APP_ENV=development alembic -c alembic_app_schema.ini current
+    alembic -c alembic_app_schema.ini history
+
+After the schema exists: data copy
+--------------------------------------
+See backend/scripts/migrate_jobs_db_to_supabase.py — copies backend/jobs.db's
+rows into these tables in FK-safe order, resets Postgres identity sequences
+for the 5 autoincrement-PK tables (chat_sessions, confidence_audit_log,
+job_feedback, match_triggers, shadow_match_scores) to MAX(id)+1 afterward,
+and runs row-count + spot-check verification. Same two-step safety gate as
+backend/scripts/linkedin_israel_jobs.py: requires both
+`--allow-write` and `ALLOW_SUPABASE_APP_MIGRATION=true` before touching
+Postgres; `--dry-run` (the default) only reads SQLite and reports what
+would be copied.

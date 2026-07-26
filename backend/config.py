@@ -16,6 +16,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote
 
 from dotenv import load_dotenv
 
@@ -28,6 +29,69 @@ logger = logging.getLogger(__name__)
 # more than once — python-dotenv is idempotent and override=True just
 # re-applies the same values if main.py has already loaded it.
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=True)
+
+
+# ── App environment (dev/prod switch) ───────────────────────────────────────────
+# Canonical flag for picking between Development and Production Supabase
+# projects (DATABASE_URL/SUPABASE_URL/SUPABASE_JWT_SECRET below). Accepts
+# APP_ENV, or PYTHON_ENV/ENVIRONMENT as fallbacks so existing deployments
+# that already set ENVIRONMENT=production (see CORS section further down)
+# don't need to add a second variable. "dev"/"develop" and "prod" are
+# accepted as shorthand aliases; anything else passes through unchanged
+# (e.g. a future "staging") and is treated as non-production everywhere
+# below.
+_RAW_APP_ENV = (
+    os.getenv("APP_ENV") or os.getenv("PYTHON_ENV") or os.getenv("ENVIRONMENT") or "development"
+).strip().lower()
+_APP_ENV_ALIASES = {"dev": "development", "develop": "development", "prod": "production"}
+APP_ENV: str = _APP_ENV_ALIASES.get(_RAW_APP_ENV, _RAW_APP_ENV)
+
+# Backward-compatible alias — _compute_cors_origins() below (and any other
+# existing reader of ENVIRONMENT) keeps working unchanged; APP_ENV is now
+# the single source of truth both variables derive from.
+ENVIRONMENT: str = APP_ENV
+
+
+def _select_env_var(base_name: str) -> Optional[str]:
+    """
+    Multi-environment resolution shared by every Dev/Prod-Supabase-backed
+    setting (DATABASE_URL, SUPABASE_URL, SUPABASE_JWT_SECRET):
+      1. The bare var (e.g. DATABASE_URL), if set, always wins — every
+         existing single-environment .env (one Supabase/Postgres project,
+         no dev/prod split) keeps working with zero changes.
+      2. Otherwise <base_name>_DEV / <base_name>_PROD, selected by APP_ENV —
+         lets both a Dev and a Prod Supabase project's credentials live in
+         the same backend/.env at once, with APP_ENV picking which one is
+         actually used by this process.
+    """
+    explicit = os.getenv(base_name)
+    if explicit:
+        return explicit
+    suffix = "PROD" if APP_ENV == "production" else "DEV"
+    return os.getenv(f"{base_name}_{suffix}")
+
+
+def _database_url_from_parts() -> Optional[str]:
+    """
+    Build a DSN from discrete DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD
+    (optionally _DEV/_PROD-suffixed, same precedence as _select_env_var) —
+    mirrors the discrete connection-field view Supabase's dashboard shows
+    alongside its ready-made connection string, for anyone who copies those
+    fields instead of the single URL. Only consulted when neither
+    DATABASE_URL nor DATABASE_URL_DEV/DATABASE_URL_PROD is set. Username/
+    password are percent-encoded — Supabase-generated passwords routinely
+    contain characters (e.g. '+', '/', '@') that aren't valid unescaped in a
+    URL.
+    """
+    suffix = "PROD" if APP_ENV == "production" else "DEV"
+    host = os.getenv(f"DB_HOST_{suffix}") or os.getenv("DB_HOST")
+    if not host:
+        return None
+    port = os.getenv(f"DB_PORT_{suffix}") or os.getenv("DB_PORT", "5432")
+    name = os.getenv(f"DB_NAME_{suffix}") or os.getenv("DB_NAME", "postgres")
+    user = os.getenv(f"DB_USER_{suffix}") or os.getenv("DB_USER", "postgres")
+    password = os.getenv(f"DB_PASSWORD_{suffix}") or os.getenv("DB_PASSWORD", "")
+    return f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}@{host}:{port}/{name}"
 
 
 # ── Secrets & external-service settings ───────────────────────────────────────
@@ -66,27 +130,34 @@ ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
 TAVILY_API_KEY:    Optional[str] = os.getenv("TAVILY_API_KEY")
 GEMINI_API_KEY:    Optional[str] = os.getenv("GEMINI_API_KEY")
 
-SUPABASE_URL:        Optional[str] = os.getenv("SUPABASE_URL")
-SUPABASE_JWT_SECRET: Optional[str] = os.getenv("SUPABASE_JWT_SECRET")
+# Both resolved via _select_env_var() — SUPABASE_URL_DEV/_PROD and
+# SUPABASE_JWT_SECRET_DEV/_PROD let a Dev and a Prod Supabase project's auth
+# settings coexist in one backend/.env, with APP_ENV picking which is live.
+SUPABASE_URL:        Optional[str] = _select_env_var("SUPABASE_URL")
+SUPABASE_JWT_SECRET: Optional[str] = _select_env_var("SUPABASE_JWT_SECRET")
 
 # Real PostgreSQL connection — used ONLY by backend/core/postgres.py (a
-# dedicated engine for the backend/models/linkedin_job.py table). This is
-# NOT the app's primary datastore: backend/core/database.py's SQLite ENGINE
-# still is (see that module + CLAUDE.md). DATABASE_URL was previously an
-# unused placeholder (backend/.env.example) with an async-only
-# `postgresql+asyncpg://` scheme that can't drive a sync `create_engine()` —
-# every other DB access in this codebase is sync (see backend/core/database.py,
-# backend/repositories/*), so backend/core/postgres.py normalizes that
-# scheme to plain `postgresql://` (psycopg2) rather than introducing the
-# project's first async DB path for one table.
-DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
+# dedicated engine for the backend/models/linkedin_job.py table, schema
+# `linkedin`). This is NOT the app's primary datastore: backend/core/
+# database.py's SQLite ENGINE still is (see that module + CLAUDE.md) —
+# migrating the primary app schema off SQLite onto shared Postgres is a
+# separate, much larger effort (every repository module would need a new
+# data-access path) and is not part of this dev/prod config layer.
+#
+# Resolution order (see _select_env_var/_database_url_from_parts above):
+#   1. DATABASE_URL                    — explicit override, always wins
+#   2. DATABASE_URL_DEV / _PROD        — picked by APP_ENV
+#   3. DB_HOST_DEV/_PROD + friends     — built from discrete parts
+# An async-only `postgresql+asyncpg://` scheme is normalized to plain
+# `postgresql://` (psycopg2) by backend/core/postgres.py's _to_sync_dsn() —
+# every other DB access in this codebase is sync, so this avoids introducing
+# the project's first async DB path for one table. That same module also
+# adds `sslmode=require` for non-localhost hosts (Supabase requires TLS) and
+# switches to NullPool when the DSN's port is 6543 (Supabase's transaction
+# pooler already pools connections server-side).
+DATABASE_URL: Optional[str] = _select_env_var("DATABASE_URL") or _database_url_from_parts()
 
 EMAIL_WEBHOOK_SECRET: str = os.getenv("EMAIL_WEBHOOK_SECRET", "")
-
-# Deployment environment name. Drives CORS origin selection below.
-# Defaults to "development" so nothing changes for local dev unless this is
-# explicitly set to "production".
-ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
 # High-match trigger threshold (JOB-43). A newly-computed, LLM-validated
 # composite match score at or above this value emits a one-time trigger event
@@ -171,6 +242,9 @@ _validate_required_env()
 
 
 # ── CORS origins ───────────────────────────────────────────────────────────────
+# ENVIRONMENT here is an alias of APP_ENV (see the "App environment" section
+# near the top of this file) — kept as its own name only because this
+# section already reads it that way; there is only one underlying value.
 #
 #   ENVIRONMENT=development (default) — permissive localhost allow-list,
 #     identical to the hardcoded list main.py used before this was made

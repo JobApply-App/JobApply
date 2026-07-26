@@ -745,6 +745,52 @@ export async function fetchLinkedInJobs(
   return get<LinkedInJobsPage>(`/api/linkedin/jobs?${params}`, signal)
 }
 
+// ── Canonical, cross-provider jobs (All Jobs tab — public.all_jobs) ─────────
+// Distinct from LinkedInJobItem/linkedin.jobs above: this is the normalized
+// table designed to hold multiple providers via `source`, not LinkedIn's
+// raw scraped shape. See backend/models/all_jobs.py.
+
+export interface AllJobItem {
+  id:                 string
+  source:             string
+  source_job_id:      string | null
+  canonical_job_key:  string
+  job_title:          string | null
+  company_name:       string | null
+  company_url:        string | null
+  company_logo_url:   string | null
+  job_url:            string
+  normalized_job_url: string
+  location:           string | null
+  seniority_level:    string | null
+  employment_type:    string | null
+  job_function:       string | null
+  industries:         string[] | null
+  posted_text:        string | null
+  exact_posted_text:  string | null
+  applicants_text:    string | null
+  is_active:          boolean | null
+  first_seen_at:      string
+  last_seen_at:       string
+  insertion_time:     string
+  updated_at:         string
+  last_scraped_at:    string | null
+}
+
+export interface AllJobsPage {
+  items:      AllJobItem[]
+  pagination: PaginationMeta
+}
+
+export async function fetchAllJobs(
+  page: number,
+  pageSize: number,
+  signal?: AbortSignal,
+): Promise<AllJobsPage> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+  return get<AllJobsPage>(`/api/all-jobs?${params}`, signal)
+}
+
 export async function markJobApplied(jobId: string): Promise<MarkAppliedResponse> {
   return post<object, MarkAppliedResponse>('/api/applications/mark-applied', { job_id: jobId })
 }

@@ -32,7 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from backend.api.routes import agents, analytics, applications, ariel, auth, chat, crm, history, jobs, outreach, profile, resumes, scraper, settings, webhooks
+from backend.api.routes import agents, all_jobs, analytics, applications, ariel, auth, chat, crm, history, jobs, linkedin_jobs, outreach, profile, resumes, scraper, settings, webhooks
 from backend.config import (
     AUTO_DISCOVERY,
     CORS_ORIGINS,
@@ -398,6 +398,8 @@ app.include_router(auth.router,         prefix="/api/auth",         tags=["auth"
 app.include_router(chat.router,         prefix="/api/chat",         tags=["chat"])
 app.include_router(history.router,      prefix="/api/chat",         tags=["chat-history"])
 app.include_router(jobs.router,         prefix="/api/jobs",         tags=["jobs"])
+app.include_router(linkedin_jobs.router, prefix="/api/linkedin",    tags=["linkedin"])
+app.include_router(all_jobs.router,      prefix="/api/all-jobs",    tags=["all-jobs"])
 app.include_router(agents.router,       prefix="/api/agents",       tags=["agents"])
 app.include_router(applications.router, prefix="/api/applications", tags=["applications"])
 app.include_router(resumes.router,      prefix="/api/resumes",      tags=["resumes"])

@@ -8,6 +8,13 @@
       "cwd": "frontend",
       "port": 3100,
       "autoPort": false
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "backend/.venv/bin/uvicorn",
+      "runtimeArgs": ["backend.main:app", "--port", "8001"],
+      "port": 8001,
+      "autoPort": false
     }
   ]
 }
