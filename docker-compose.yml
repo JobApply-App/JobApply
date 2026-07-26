@@ -33,6 +33,31 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    labels:
+      # Read by the `ofelia` service below (job-exec: runs a command inside
+      # THIS already-running container on a schedule, via the Docker
+      # socket — no separate always-on process for the scraper itself, it
+      # only executes at the scheduled times). Twice daily, 00:00 and
+      # 12:00 UTC (6-field cron: seconds first — Ofelia uses robfig/cron
+      # WithSeconds). See backend/scripts/run_scheduled_linkedin_scrape.sh.
+      ofelia.enabled: "true"
+      ofelia.job-exec.linkedin-scrape.schedule: "0 0 0,12 * * *"
+      ofelia.job-exec.linkedin-scrape.command: "/app/backend/scripts/run_scheduled_linkedin_scrape.sh"
+
+  ofelia:
+    # Docker-native cron — triggers the labeled job-exec command above
+    # inside the `backend` container on schedule. This container itself
+    # just watches for the next trigger time (negligible idle cost); the
+    # actual scrape work only runs twice a day, on demand, not as a
+    # separate 24/7 service.
+    image: mcuadros/ofelia:latest
+    command: daemon --docker
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
 
   frontend:
     build:
