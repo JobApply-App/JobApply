@@ -111,14 +111,14 @@ function JobRowDetails({ job }: { job: AllJobItem }) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
           {applicantsText && <span>{applicantsText}</span>}
           {job.industries?.map((ind) => (
-            <span key={ind} className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10.5px]">
+            <span key={ind} dir="auto" className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10.5px] [unicode-bidi:plaintext]">
               {ind}
             </span>
           ))}
         </div>
       )}
       {job.description && (
-        <p className="text-[12px] text-slate-600 leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">
+        <p dir="auto" className="text-[12px] text-slate-600 leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto [unicode-bidi:plaintext] text-start">
           {job.description}
         </p>
       )}
@@ -126,22 +126,34 @@ function JobRowDetails({ job }: { job: AllJobItem }) {
   )
 }
 
+// Resting/hover/expanded shadows per DESIGN_SYSTEM.md §3 ("multi-layered
+// micro-shadows, never flat shadow-sm/md/lg") — same pair used for the
+// primary JobCard. Plain Tailwind classes (not JS hover state) so a page of
+// 100 rows doesn't re-render on every mouse move.
+const SHADOW_REST = 'shadow-[0_1px_3px_rgba(15,23,42,0.04)]'
+const SHADOW_HOVER = 'hover:shadow-[0_4px_16px_rgba(15,23,42,0.08),0_1px_3px_rgba(15,23,42,0.05)]'
+const SHADOW_EXPANDED = 'shadow-[0_4px_16px_rgba(15,23,42,0.08),0_1px_3px_rgba(15,23,42,0.05)]'
+
 function JobRow({ job }: { job: AllJobItem }) {
   const [expanded, setExpanded] = useState(false)
   const hasDetails = !!job.description || !!job.applicants?.value || (job.industries?.length ?? 0) > 0
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 px-4 py-3 hover:border-slate-200 hover:shadow-sm transition-all duration-150">
+    <div
+      className={`bg-white rounded-2xl border px-4 py-3.5 transition-all duration-150 ${SHADOW_REST} ${
+        expanded ? `border-slate-200 ${SHADOW_EXPANDED}` : `border-slate-100 hover:border-slate-200 ${SHADOW_HOVER}`
+      }`}
+    >
       <div className="flex items-start gap-3">
         <CompanyLogo url={job.company_logo_url} company={job.company_name} />
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0" dir="auto" style={{ textAlign: 'start', unicodeBidi: 'plaintext' }}>
           <div className="flex items-center gap-2 flex-wrap">
             <a
               href={job.job_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[13px] font-semibold text-slate-900 hover:text-teal-700 hover:underline truncate"
+              className="text-[13.5px] font-semibold text-slate-900 hover:text-teal-700 hover:underline truncate"
             >
               {dash(job.job_title)}
             </a>
@@ -445,7 +457,100 @@ function FilterBar({
   )
 }
 
+// ── Active filter chips ──────────────────────────────────────────────────────
+// Surfaces exactly what's currently filtered as removable pills — with 9
+// independent filter fields, the filter bar alone doesn't show *what* is
+// applied once a dropdown closes, only that something is (via its teal
+// border). One glance here + a click to drop a single field beats re-opening
+// each control to check its state.
+
+const MULTI_FILTER_LABELS: Record<'seniority_level' | 'employment_type' | 'job_function' | 'industry', string> = {
+  seniority_level: 'Seniority',
+  employment_type: 'Employment type',
+  job_function:    'Function',
+  industry:        'Industry',
+}
+
+function ActiveFilterChips({
+  inputs, onChange, onMultiChange,
+}: {
+  inputs: FilterInputs
+  onChange: (field: 'company' | 'title' | 'min_applicants' | 'max_applicants' | 'posted_within_hours', value: string) => void
+  onMultiChange: (field: 'seniority_level' | 'employment_type' | 'job_function' | 'industry', value: string[]) => void
+}) {
+  const chips: { key: string; label: string; onRemove: () => void }[] = []
+
+  if (inputs.company) chips.push({ key: 'company', label: `Company: ${inputs.company}`, onRemove: () => onChange('company', '') })
+  if (inputs.title) chips.push({ key: 'title', label: `Title: ${inputs.title}`, onRemove: () => onChange('title', '') })
+
+  ;(['seniority_level', 'employment_type', 'job_function', 'industry'] as const).forEach((field) => {
+    const values = inputs[field]
+    if (values.length > 0) {
+      chips.push({
+        key: field,
+        label: `${MULTI_FILTER_LABELS[field]}: ${values.join(', ')}`,
+        onRemove: () => onMultiChange(field, []),
+      })
+    }
+  })
+
+  if (inputs.posted_within_hours) {
+    const opt = POSTED_WITHIN_OPTIONS.find((o) => o.value === inputs.posted_within_hours)
+    chips.push({ key: 'posted', label: opt?.label ?? 'Posted within', onRemove: () => onChange('posted_within_hours', '') })
+  }
+
+  if (inputs.min_applicants || inputs.max_applicants) {
+    const label = inputs.min_applicants && inputs.max_applicants
+      ? `Applicants: ${inputs.min_applicants}–${inputs.max_applicants}`
+      : inputs.min_applicants
+      ? `Applicants: ≥ ${inputs.min_applicants}`
+      : `Applicants: ≤ ${inputs.max_applicants}`
+    chips.push({
+      key: 'applicants',
+      label,
+      onRemove: () => { onChange('min_applicants', ''); onChange('max_applicants', '') },
+    })
+  }
+
+  if (chips.length === 0) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 -mt-1">
+      {chips.map((chip) => (
+        <span
+          key={chip.key}
+          className="inline-flex items-center gap-1 h-6 pl-2.5 pr-1.5 rounded-full bg-teal-50 text-teal-800 text-[11px] font-medium max-w-[280px]"
+        >
+          <span className="truncate">{chip.label}</span>
+          <button
+            onClick={chip.onRemove}
+            aria-label={`Remove filter: ${chip.label}`}
+            className="shrink-0 h-4 w-4 flex items-center justify-center rounded-full text-teal-600 hover:bg-teal-100 hover:text-teal-900 transition"
+          >
+            ×
+          </button>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 // ── Pagination controls ───────────────────────────────────────────────────────
+// Numbered page buttons (with an ellipsis for large page counts) instead of a
+// bare Previous/Next pair — lets a user jump straight to page 5 of 7 instead
+// of clicking Next four times, same convention as most job-board paginators.
+
+function buildPageList(current: number, total: number): (number | 'ellipsis')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = new Set<number>([1, total, current, current - 1, current + 1])
+  const sorted = Array.from(pages).filter((p) => p >= 1 && p <= total).sort((a, b) => a - b)
+  const withEllipsis: (number | 'ellipsis')[] = []
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) withEllipsis.push('ellipsis')
+    withEllipsis.push(p)
+  })
+  return withEllipsis
+}
 
 function PaginationControls({
   page, totalPages, totalItems, pageSize, hasNext, hasPrevious, onPageChange, onPageSizeChange,
@@ -459,10 +564,15 @@ function PaginationControls({
   onPageChange: (p: number) => void
   onPageSizeChange: (s: number) => void
 }) {
+  const rangeStart = totalItems === 0 ? 0 : (page - 1) * pageSize + 1
+  const rangeEnd = Math.min(page * pageSize, totalItems)
+  const pageList = buildPageList(page, totalPages)
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
       <p className="text-[12px] text-slate-500">
-        {totalItems} total result{totalItems === 1 ? '' : 's'}
+        Showing <span className="font-medium text-slate-700">{rangeStart}–{rangeEnd}</span> of{' '}
+        <span className="font-medium text-slate-700">{totalItems}</span> result{totalItems === 1 ? '' : 's'}
       </p>
 
       <div className="flex items-center gap-3">
@@ -479,24 +589,42 @@ function PaginationControls({
           </select>
         </label>
 
-        <span className="text-[12px] text-slate-500 whitespace-nowrap">
-          Page {totalPages === 0 ? 0 : page} of {totalPages}
-        </span>
-
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => onPageChange(page - 1)}
             disabled={!hasPrevious}
-            className="h-7 px-3 rounded-lg text-[12px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition disabled:opacity-40 disabled:hover:bg-white disabled:hover:border-slate-200"
+            aria-label="Previous page"
+            className="h-7 w-7 flex items-center justify-center rounded-lg text-[12px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition disabled:opacity-40 disabled:hover:bg-white disabled:hover:border-slate-200"
           >
-            Previous
+            ‹
           </button>
+
+          {pageList.map((p, i) =>
+            p === 'ellipsis' ? (
+              <span key={`e${i}`} className="w-6 text-center text-[12px] text-slate-400 select-none">…</span>
+            ) : (
+              <button
+                key={p}
+                onClick={() => onPageChange(p)}
+                aria-current={p === page ? 'page' : undefined}
+                className={`h-7 min-w-7 px-2 rounded-lg text-[12px] font-medium transition tabular-nums ${
+                  p === page
+                    ? 'bg-teal-600 text-white'
+                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                }`}
+              >
+                {p}
+              </button>
+            )
+          )}
+
           <button
             onClick={() => onPageChange(page + 1)}
             disabled={!hasNext}
-            className="h-7 px-3 rounded-lg text-[12px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition disabled:opacity-40 disabled:hover:bg-white disabled:hover:border-slate-200"
+            aria-label="Next page"
+            className="h-7 w-7 flex items-center justify-center rounded-lg text-[12px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition disabled:opacity-40 disabled:hover:bg-white disabled:hover:border-slate-200"
           >
-            Next
+            ›
           </button>
         </div>
       </div>
@@ -568,16 +696,29 @@ export function AllJobsTab() {
     router.push(`/?${params.toString()}`, { scroll: false })
   }, [router, searchParams])
 
+  // Anchors the top of the job list — `router.push(..., { scroll: false })`
+  // above deliberately suppresses Next.js's own scroll-to-top (it would jump
+  // the whole page, including the header, on every same-route URL sync), but
+  // that means changing pages left the viewport wherever the user scrolled
+  // to on the *previous* page's rows, looking at content that no longer
+  // matches. Scroll to this anchor by hand instead, on page/page-size change.
+  const jobsListTopRef = useRef<HTMLDivElement>(null)
+  const scrollToListTop = () => {
+    jobsListTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const goToPage = (p: number) => {
     const clamped = Math.max(1, p)
     setPage(clamped)
     syncUrl(clamped, pageSize)
+    scrollToListTop()
   }
 
   const changePageSize = (size: number) => {
     setPageSize(size)
     setPage(1)   // reset to page 1 whenever page size changes
     syncUrl(1, size)
+    scrollToListTop()
   }
 
   // Reset to page 1 whenever the *committed* (debounced) filters or the
@@ -634,9 +775,21 @@ export function AllJobsTab() {
         onSortChange={setSortBy}
       />
 
+      <ActiveFilterChips inputs={filterInputs} onChange={updateFilter} onMultiChange={updateMultiFilter} />
+
+      {/* Scroll target for page/page-size changes — sits right above the
+          list so "back to top" lands on the first job row, not the header.
+          scroll-mt-20 (80px) reserves room for Header.tsx's sticky bar
+          (h-14/60px) — without it, scrollIntoView's block:'start' scrolls
+          this anchor flush to the viewport top, where the sticky header
+          then covers it, so the scroll visually looks like it fell short. */}
+      <div ref={jobsListTopRef} className="scroll-mt-20" />
+
       {/* First-load skeleton only — a page/pageSize/filter change keeps the
           previous page's rows visible (see useAllJobs's docstring) instead
-          of blanking the table, so no skeleton flash on Next/Previous. */}
+          of blanking the table, so no skeleton flash on Next/Previous. A
+          subtle opacity dim on the (still-interactive) old rows is enough
+          feedback that a new page is loading without hiding content. */}
       {loading && jobs.length === 0 && <JobListSkeleton />}
 
       {!loading && error && jobs.length === 0 && <JobListError error={error} onRetry={refetch} />}
@@ -644,7 +797,7 @@ export function AllJobsTab() {
       {!error && !loading && jobs.length === 0 && <JobListEmpty />}
 
       {jobs.length > 0 && (
-        <div className="space-y-2 mt-4">
+        <div className={`space-y-2 mt-4 transition-opacity duration-150 ${loading ? 'opacity-50' : 'opacity-100'}`}>
           {jobs.map((job) => <JobRow key={job.id} job={job} />)}
         </div>
       )}
