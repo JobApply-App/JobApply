@@ -372,15 +372,20 @@ class ProfileUpdateService:
         conn.execute(
             text("""
                 INSERT INTO confidence_audit_log
-                    (entity_id, user_id, old_score, new_score, delta,
+                    (entity_id, user_id, tenant_id, old_score, new_score, delta,
                      trigger_source, evidence_id, session_id, changed_at, note)
                 VALUES
-                    (:eid, :uid, :old, :new, :delta,
+                    (:eid, :uid, :tenant, :old, :new, :delta,
                      :src, :evid, :sid, :now, :note)
             """),
             {
                 "eid":   entity_id,
                 "uid":   user_id,
+                # tenant_id == user_id today (one account = one tenant) — see
+                # docs/multi-tenant-erd.md §5. Populated at write time so this
+                # table doesn't require a separate backfill pass once a real
+                # tenant concept lands.
+                "tenant": user_id,
                 "old":   old_score,
                 "new":   new_score,
                 "delta": round(new_score - old_score, 1),
@@ -1452,15 +1457,16 @@ class ProfileUpdateService:
                 conn.execute(
                     text("""
                         INSERT INTO confidence_audit_log
-                            (entity_id, user_id, old_score, new_score, delta,
+                            (entity_id, user_id, tenant_id, old_score, new_score, delta,
                              trigger_source, evidence_id, session_id, changed_at, note)
                         VALUES
-                            (:eid, :uid, :old, :new, :delta,
+                            (:eid, :uid, :tenant, :old, :new, :delta,
                              'chat_proficiency_update', NULL, NULL, :now, :note)
                     """),
                     {
                         "eid":   entity_id,
                         "uid":   user_id,
+                        "tenant": user_id,
                         "old":   old_score,
                         "new":   new_score,
                         "delta": round(new_score - old_score, 1),
