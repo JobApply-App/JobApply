@@ -248,9 +248,32 @@ class TestUpdateSkillsHandlerUpdateAction:
 
     @pytest.fixture(autouse=True)
     def _patch_engine(self, monkeypatch):
-        """Point ariel_tools' module-global ENGINE at the in-memory test DB."""
+        """
+        Point every live ENGINE reference this handler can reach at the
+        in-memory test DB — not just ariel_tools' own module-level import.
+
+        _handle_update_skills also calls _refresh_baseline(user_id), which
+        calls backend.services.profile_baseline_service.refresh_baseline_snapshot(),
+        which (via persist_baseline_snapshot/build_user_baseline) does a
+        *fresh* `from backend.core.database import ENGINE` inside the
+        function body rather than importing it once at module load time.
+        Patching only backend.agents.ariel_tools.ENGINE doesn't reach that:
+        it's a different module's own frozen reference. Patching
+        backend.core.database.ENGINE itself is what every one of those
+        inline re-imports actually resolves at call time, so it's the one
+        patch point that covers all of them without having to thread an
+        engine parameter through every intermediate function.
+
+        This was a real bug, not just theoretical: before this fix, these
+        tests' synthetic "handler-compose-*"/"handler-update-*" user_ids
+        were landing as real rows in whatever backend.core.database.ENGINE
+        pointed at outside the test (SQLite jobs.db, or Dev Supabase once
+        DATABASE_URL_DEV is configured) — see docs/db-redesign-proposal.md.
+        """
         import backend.agents.ariel_tools as _tools
+        import backend.core.database as _database
         monkeypatch.setattr(_tools, "ENGINE", _TEST_ENGINE)
+        monkeypatch.setattr(_database, "ENGINE", _TEST_ENGINE)
 
     def test_update_action_lowers_existing_skill_in_place(self):
         """
