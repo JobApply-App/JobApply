@@ -4,12 +4,26 @@ Extracted from the former backend/services/db.py during the repo restructure
 (backend/models/* now holds the ORM classes; backend/core/database.py holds
 the engine/Base). init_db() remains the single public entry point main.py
 calls at startup.
+
+Every migration function in this file (_migrate, _migrate_confidence_matrix,
+_migrate_tenant_id) is built entirely on SQLite-only introspection
+(`PRAGMA table_info`, `sqlite_master`, `PRAGMA foreign_keys`/`wal_checkpoint`)
+— none of it has a Postgres equivalent, and none of it needs one: when
+backend/core/database.py's ENGINE points at Postgres, the schema is already
+fully created and versioned by backend/alembic_app_schema/ (run explicitly as
+a deploy step, `alembic -c alembic_app_schema.ini upgrade head` — never from
+here). init_db() therefore only runs this file's migration logic on SQLite;
+on Postgres it just confirms connectivity and logs the target.
 """
 from __future__ import annotations
+
+import logging
 
 from sqlalchemy import text
 
 from backend.core.database import Base, ENGINE
+
+logger = logging.getLogger(__name__)
 
 # Importing the model modules registers every ORM class on Base.metadata so
 # that Base.metadata.create_all() below creates all tables, not just the ones
@@ -642,7 +656,25 @@ def _rollback_tenant_id(conn) -> None:
 
 
 def init_db() -> None:
-    """Create all tables if they don't already exist, then apply any pending migrations."""
+    """
+    On SQLite: create all tables if they don't already exist, then apply any
+    pending migrations (unchanged behavior).
+
+    On Postgres: the schema is already created and versioned by
+    backend/alembic_app_schema/ as an explicit deploy step, so there is
+    nothing here to run — just confirm the app can actually reach the
+    configured database before serving traffic.
+    """
+    if ENGINE.dialect.name != "sqlite":
+        with ENGINE.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info(
+            "Database initialised (Postgres, host=%s) — schema managed by "
+            "backend/alembic_app_schema/, not by this module.",
+            ENGINE.url.host,
+        )
+        return
+
     Base.metadata.create_all(ENGINE)
     _migrate()
     # profile_interviews table is created by create_all() on first run;

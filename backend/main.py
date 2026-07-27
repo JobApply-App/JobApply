@@ -306,7 +306,15 @@ def purge_irrelevant_jobs(min_score: float = 30.0, dry_run: bool = False, user_i
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from backend.core.migrations import init_db
-    init_db()
+    from backend.core.database import ENGINE
+    try:
+        init_db()
+    except Exception:
+        logger.exception(
+            "[startup] Database initialisation failed (dialect=%s, host=%s) — "
+            "aborting startup.", ENGINE.dialect.name, ENGINE.url.host,
+        )
+        raise
     logger.info("Database initialised.")
 
     try:

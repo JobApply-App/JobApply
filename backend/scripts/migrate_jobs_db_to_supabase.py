@@ -54,9 +54,14 @@ _SQLITE_PATH = _PROJECT_ROOT / "backend" / "jobs.db"
 
 # FK-safe copy order — must match backend/alembic_app_schema/versions/
 # 413f4ed8fbc6_create_app_tables.py's create order (parents before children).
+#
+# evidence_records_old is deliberately excluded: it's a dead duplicate table
+# still present in SQLite, but backend/alembic_app_schema/versions/
+# f1c4f486a0a8_drop_evidence_records_old.py already dropped it from Postgres
+# ("accidental permanent duplicate") — there is no target table to copy into.
 TABLE_ORDER = [
     "profile_entities", "ariel_sessions", "conversation_events",
-    "evidence_records", "evidence_records_old", "ariel_gap_queue",
+    "evidence_records", "ariel_gap_queue",
     "ariel_probe_log", "confidence_audit_log",
     "applications", "chat_sessions", "company_culture", "company_intel",
     "job_feedback", "jobs", "kv_store", "master_profiles", "match_triggers",
