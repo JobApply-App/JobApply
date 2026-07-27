@@ -22,10 +22,10 @@ services:
     env_file:
       - backend/.env
     volumes:
-      # Bind-mount source for --reload live-editing; jobs.db (SQLite) lives
-      # inside backend/ and persists on the host through this same mount —
-      # no separate named volume needed (see CLAUDE.md: SQLite is the actual
-      # active datastore, DATABASE_URL/Postgres is unwired/aspirational).
+      # Bind-mount source for --reload live-editing. backend/core/database.py
+      # picks Postgres (DATABASE_URL/_DEV/_PROD, resolved in backend/config.py)
+      # when configured, falling back to the SQLite file that also lives
+      # inside backend/ and persists on the host through this same mount.
       - ./backend:/app/backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
