@@ -26,6 +26,8 @@ from sqlalchemy.orm import Session
 from backend.core.postgres import get_pg_session
 from backend.models.all_jobs import AllJobRow
 from backend.services.linkedin_job_normalize import (
+    _INDUSTRY_KNOWN_TERMS,
+    _JOB_FUNCTION_KNOWN_TERMS,
     build_normalized_job,
     normalize_company_key,
     normalize_list_field,
@@ -104,8 +106,8 @@ def build_all_jobs_record(
         "location": parse_location(normalized["location"]),
         "seniority_level": normalized["seniority_level"],
         "employment_type": normalized["employment_type"],
-        "job_function": normalized["job_function"],
-        "industries": normalize_list_field(raw_row.get("industries")),
+        "job_function": normalize_list_field(normalized["job_function"], known_terms=_JOB_FUNCTION_KNOWN_TERMS),
+        "industries": normalize_list_field(raw_row.get("industries"), known_terms=_INDUSTRY_KNOWN_TERMS),
         "description": normalized["description"],
         "posted_text": normalized["posted_text"],
         "exact_posted_text": normalized["exact_posted_text"],
@@ -248,7 +250,9 @@ def _build_filter_conditions(filters: AllJobsFilters) -> list:
     if filters.employment_type:
         conditions.append(_TABLE.c.employment_type.in_(filters.employment_type))
     if filters.job_function:
-        conditions.append(_TABLE.c.job_function.in_(filters.job_function))
+        # ARRAY overlap (&&), same as industries below — job_function is
+        # also a text[] now, not a single exact-match string.
+        conditions.append(_TABLE.c.job_function.overlap(filters.job_function))
     if filters.industry:
         # ARRAY overlap (&&) — matches rows whose `industries` array shares
         # at least one element with the selected list (OR semantics across
@@ -374,19 +378,19 @@ def get_all_jobs_filter_options(*, session: Optional[Session] = None) -> AllJobs
             )
             return [row[0] for row in session.execute(stmt).all()]
 
-        industries = [
-            row[0] for row in session.execute(text(
-                "SELECT DISTINCT x FROM public.all_jobs, unnest(industries) x "
-                "WHERE industries IS NOT NULL ORDER BY x"
-            )).all()
-        ]
+        def _distinct_unnested(col):
+            stmt = text(
+                f"SELECT DISTINCT x FROM public.all_jobs, unnest({col}) x "
+                f"WHERE {col} IS NOT NULL ORDER BY x"
+            )
+            return [row[0] for row in session.execute(stmt).all()]
 
         return AllJobsFilterOptions(
             sources=_distinct("source"),
             seniority_levels=_distinct("seniority_level"),
             employment_types=_distinct("employment_type"),
-            job_functions=_distinct("job_function"),
-            industries=industries,
+            job_functions=_distinct_unnested("job_function"),
+            industries=_distinct_unnested("industries"),
         )
     finally:
         if owns_session:

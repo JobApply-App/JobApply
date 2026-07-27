@@ -66,7 +66,7 @@ class AllJobItem(BaseModel):
     location: Optional[LocationInfo]
     seniority_level: Optional[str]
     employment_type: Optional[str]
-    job_function: Optional[str]
+    job_function: Optional[list]
     industries: Optional[list]
     description: Optional[str]
     posted_text: Optional[str]
