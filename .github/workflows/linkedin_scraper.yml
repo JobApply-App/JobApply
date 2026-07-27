@@ -18,20 +18,20 @@ name: LinkedIn Israel Jobs Scraper
 # saving) in summer — and unlike most of Europe/US, Israel's DST
 # transition dates don't line up with UTC's own (fixed) definition, so a
 # single static cron cannot track both offsets at once. The two cron
-# entries below are anchored to IST (UTC+2, winter), which is correct
-# roughly Oct-Mar; during IDT (roughly Mar-Oct) the runs will fire at
-# 01:00 and 13:00 Israel time instead of 00:00/12:00 — a known 1-hour
-# drift, not a bug. If exact-to-the-minute timing across both seasons
-# matters, the fix is to maintain two cron lines per run (one IST, one
-# IDT) and comment out whichever doesn't currently apply — deliberately
-# not done here to keep the schedule simple, since this scraper's own
-# --hours window already tolerates an hour of slack.
+# entries below are anchored to IDT (UTC+3, summer), which is correct
+# roughly Mar-Oct; during IST (roughly Oct-Mar) the runs will fire at
+# 23:00 (previous day) and 11:00 Israel time instead of 00:00/12:00 — a
+# known 1-hour drift, not a bug. If exact-to-the-minute timing across
+# both seasons matters, the fix is to maintain two cron lines per run
+# (one IST, one IDT) and comment out whichever doesn't currently apply —
+# deliberately not done here to keep the schedule simple, since this
+# scraper's own --hours window already tolerates an hour of slack.
 #
 # HOW TO CHANGE THE SCHEDULE LATER
 # -----------------------------------
-# Pick your new Israel local time, subtract 2 hours (IST) to get UTC, and
+# Pick your new Israel local time, subtract 3 hours (IDT) to get UTC, and
 # write that as "M H * * *" (minute hour, every day). E.g. 06:00 Israel
-# (IST) -> 04:00 UTC -> "0 4 * * *". https://crontab.guru is useful for
+# (IDT) -> 03:00 UTC -> "0 3 * * *". https://crontab.guru is useful for
 # sanity-checking the resulting expression.
 #
 # HOW TO RUN THIS MANUALLY
@@ -41,10 +41,10 @@ name: LinkedIn Israel Jobs Scraper
 # trigger below; no schedule wait required to test a change.
 on:
   schedule:
-    # 00:00 Israel Standard Time (UTC+2) -> 22:00 UTC the PREVIOUS day
-    - cron: "0 22 * * *"
-    # 12:00 Israel Standard Time (UTC+2) -> 10:00 UTC
-    - cron: "0 10 * * *"
+    # 00:00 Israel Daylight Time (UTC+3) -> 21:00 UTC the PREVIOUS day
+    - cron: "0 21 * * *"
+    # 12:00 Israel Daylight Time (UTC+3) -> 09:00 UTC
+    - cron: "0 9 * * *"
   workflow_dispatch: {}
 
 jobs:
