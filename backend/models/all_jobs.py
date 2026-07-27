@@ -63,7 +63,12 @@ class AllJobRow(LinkedInBase):
     location = Column(JSON, nullable=True)
     seniority_level = Column(Text, nullable=True)
     employment_type = Column(Text, nullable=True)
-    job_function = Column(Text, nullable=True)
+    # Comma-split like industries (see that column's own note) — LinkedIn's
+    # job-function taxonomy has no name containing its own internal comma
+    # (unlike industries' "Technology, Information and Internet"), so this
+    # one needs no atomic-phrase whitelist, just normalize_list_field()'s
+    # generic Oxford-list split.
+    job_function = Column(ARRAY(Text), nullable=True)
     industries = Column(ARRAY(Text), nullable=True)
     description = Column(Text, nullable=True)
     posted_text = Column(Text, nullable=True)

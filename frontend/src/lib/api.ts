@@ -765,7 +765,7 @@ export interface AllJobItem {
   location:           { city: string | null; district: string | null; country: string | null } | null
   seniority_level:    string | null
   employment_type:    string | null
-  job_function:       string | null
+  job_function:       string[] | null
   industries:         string[] | null
   description:        string | null
   posted_text:        string | null

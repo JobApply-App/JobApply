@@ -150,33 +150,143 @@ def extract_linkedin_job_id(job_url: Any) -> Optional[str]:
 
 _LEADING_AND_RE = re.compile(r"^and\s+", re.IGNORECASE)
 
+# Real LinkedIn industry taxonomy names that contain their OWN internal
+# comma — confirmed by observation: each of these appears as the ENTIRE
+# raw scraped string (i.e. the job's one and only industry) on at least
+# one real job in production, proving the comma belongs to the name
+# itself, not a list separator. Without this whitelist, a naive
+# comma-split fragments these into nonsense pieces like "Technology" +
+# "Information and Media" whenever they show up inside a larger
+# multi-industry list (e.g. "Entertainment, Technology, Information and
+# Media, and Technology, Information and Internet" should be 3 industries,
+# not 5). Sorted longest-first so a shorter phrase can never accidentally
+# shadow a longer one that contains it as a prefix.
+_ATOMIC_INDUSTRY_PHRASES = sorted([
+    "Technology, Information and Internet",
+    "Technology, Information and Media",
+], key=len, reverse=True)
 
-def normalize_list_field(value: Any) -> list[str]:
+# Confirmed-atomic vocabularies for the "bare ' and ', zero comma" fallback
+# split below — e.g. "Information Technology and Engineering" (one raw
+# value, no comma at all) should become 2 industries/functions, not stay
+# glued as one, because LinkedIn's own rendering joins exactly-2-item lists
+# with a plain "and" and NO Oxford comma (confirmed directly on linkedin.com:
+# a job's "Job function" line showed exactly "Information Technology and
+# Engineering" with the same two-value semantics as a 3-item list elsewhere
+# rendering as "X, Y, and Z"). Each entry below is independently confirmed
+# in production data — either it appears as a job's ENTIRE raw value on its
+# own (with zero "and"/comma), or it's one piece of an already-solved
+# Oxford-comma (3+ item) list elsewhere. See _split_known_and_pairs()'s
+# docstring for why this can only split with real evidence, never guess.
+_JOB_FUNCTION_KNOWN_TERMS = frozenset([
+    "Accounting/Auditing", "Administrative", "Analyst", "Art/Creative",
+    "Business Development", "Consulting", "Customer Service", "Design",
+    "Engineering", "Finance", "Human Resources", "Information Technology",
+    "Legal", "Management", "Manufacturing", "Marketing", "Other",
+    "Product Management", "Project Management", "Public Relations",
+    "Purchasing", "Quality Assurance", "Research", "Sales",
+    "Strategy/Planning", "Supply Chain", "Training", "Writing/Editing",
+])
+_INDUSTRY_KNOWN_TERMS = frozenset([
+    "Advertising Services", "Appliances", "Automation Machinery Manufacturing",
+    "Aviation and Aerospace Component Manufacturing", "Banking",
+    "Broadcast Media Production and Distribution", "Capital Markets",
+    "Computer Games", "Computer and Network Security", "Consumer Services",
+    "Defense and Space Manufacturing", "Electrical", "Electronics Manufacturing",
+    "Engineering Services", "Entertainment", "Entertainment Providers",
+    "Environmental Services", "Facilities Services", "Financial Services",
+    "Government Administration", "Higher Education", "Hospitality",
+    "Human Resources Services", "IT Services and IT Consulting",
+    "IT System Operations and Maintenance", "IT System Testing and Evaluation",
+    "Industrial Machinery Manufacturing", "Information Services",
+    "Information Technology & Services", "Insurance", "Law Practice",
+    "Manufacturing", "Marketing Services",
+    "Measuring and Control Instrument Manufacturing",
+    "Medical Equipment Manufacturing", "Mobile Gaming Apps",
+    "Non-profit Organizations", "Operations Consulting",
+    "Pharmaceutical Manufacturing", "Political Organizations",
+    "Professional Services", "Public Safety", "Restaurants", "Retail",
+    "Software Development", "Technology, Information and Internet",
+    "Technology, Information and Media", "Telecommunications", "Wholesale",
+])
+
+
+def _split_known_and_pairs(piece: str, known_terms: frozenset[str]) -> list[str]:
     """
-    "Industries", split on comma. LinkedIn's own free-text rendering
-    sometimes joins multiple industries into one English list phrase (e.g.
-    "Appliances, Electrical, and Electronics Manufacturing, Industrial
-    Machinery Manufacturing, and Manufacturing") with no delimiter that
-    reliably distinguishes an inter-item comma from an "X, Y, and Z"
-    phrasing comma inside one industry name — there's no taxonomy available
-    here to disambiguate that losslessly, so this is a best-effort split,
-    not a semantically perfect one.
+    "A and B" (no comma at all) -> ["A", "B"], but ONLY when both A and B
+    are independently confirmed real category names — never a guess. If
+    `piece` is itself already a confirmed atomic name (e.g. "Oil and Gas"),
+    it's returned as-is without even trying a split, so a real atomic name
+    that happens to also decompose into two other confirmed terms can never
+    be second-guessed (checked first, deliberately, to avoid that
+    self-conflict). Multi-"and" strings (3+ terms glued with no comma at
+    all) are handled too — every " and " occurrence is tried as a
+    candidate split point, not just the first.
+    """
+    if piece in known_terms or " and " not in f" {piece} ":
+        return [piece]
+    for m in re.finditer(r"\s+and\s+", piece, re.IGNORECASE):
+        left, right = piece[:m.start()].strip(), piece[m.end():].strip()
+        if left in known_terms and right in known_terms:
+            return [left, right]
+    return [piece]
+
+
+def normalize_list_field(value: Any, *, known_terms: frozenset[str] = frozenset()) -> list[str]:
+    """
+    "Industries"/"job_function", split on comma. LinkedIn's own free-text
+    rendering sometimes joins multiple values into one English list phrase
+    (e.g. "Appliances, Electrical, and Electronics Manufacturing,
+    Industrial Machinery Manufacturing, and Manufacturing") with no
+    delimiter that reliably distinguishes an inter-item comma from an "X,
+    Y, and Z" phrasing comma inside one value's own name.
+    _ATOMIC_INDUSTRY_PHRASES resolves the specific known industries cases
+    where that ambiguity is real (see its own docstring); anything else is
+    still a best-effort split, not a semantically perfect one — no
+    taxonomy exists here covering every possible value.
+
+    `known_terms` (pass _JOB_FUNCTION_KNOWN_TERMS or _INDUSTRY_KNOWN_TERMS)
+    additionally resolves the case with NO comma at all — LinkedIn renders
+    an exactly-2-item list as a bare "A and B", indistinguishable from a
+    single atomic name that happens to contain "and", UNLESS both A and B
+    are independently confirmed elsewhere in the data (see
+    _split_known_and_pairs()). Left as one combined string when neither
+    half can be confirmed — not a guess.
 
     The naive comma-split leaves a leading "and " on the piece that
     followed the list's Oxford comma — always the last piece, since
     English only ever places that conjunction right before the final item
     (e.g. "..., and Software Development" splits into a last piece
     literally starting with "and "). That's the list conjunction, not part
-    of the industry's actual name, so it's stripped from the last piece
-    only.
+    of the value's actual name, so it's stripped from the last piece only.
     """
     text = normalize_text(value)
     if not text:
         return []
-    pieces = [piece.strip() for piece in re.split(r",\s*", text) if piece.strip()]
+
+    # Swap out each atomic phrase for a sentinel so its internal comma is
+    # never seen by the generic split below, then normalize a bare "and
+    # <sentinel>" (a 2-item list with no Oxford comma) into ", <sentinel>"
+    # so it still gets picked up as its own piece.
+    sentinels: dict[str, str] = {}
+    doctored = text
+    for i, phrase in enumerate(_ATOMIC_INDUSTRY_PHRASES):
+        if phrase in doctored:
+            token = f"\x00{i}\x00"
+            doctored = doctored.replace(phrase, token)
+            sentinels[token] = phrase
+    for token in sentinels:
+        doctored = re.sub(r"\s+and\s+(?=" + re.escape(token) + ")", ", ", doctored)
+
+    pieces = [piece.strip() for piece in re.split(r",\s*", doctored) if piece.strip()]
     if pieces:
         pieces[-1] = _LEADING_AND_RE.sub("", pieces[-1])
+    pieces = [sentinels.get(piece, piece) for piece in pieces]
+
+    if known_terms and len(pieces) == 1 and pieces[0] not in sentinels.values():
+        pieces = _split_known_and_pairs(pieces[0], known_terms)
     return pieces
+    return [sentinels.get(piece, piece) for piece in pieces]
 
 
 _APPLICANTS_CENSORED_RE = re.compile(r"^<\s*(\d+)$")

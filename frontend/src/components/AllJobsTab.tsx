@@ -310,19 +310,23 @@ function MultiSelectDropdown({
         {buttonLabel}
       </button>
       {open && (
-        <div className="absolute z-10 mt-1 max-h-56 w-60 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg py-1">
+        <div className="absolute z-10 mt-1 max-h-56 w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg py-1">
           {options.length === 0 && (
             <p className="px-3 py-1.5 text-[12px] text-slate-400">No options</p>
           )}
           {options.map((opt) => (
-            <label key={opt} className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-slate-700 hover:bg-slate-50 cursor-pointer">
+            <label key={opt} className="flex items-start gap-2 px-3 py-1.5 text-[12px] text-slate-700 hover:bg-slate-50 cursor-pointer">
               <input
                 type="checkbox"
                 checked={selected.includes(opt)}
                 onChange={() => toggleValue(opt)}
-                className="accent-teal-600"
+                className="accent-teal-600 mt-0.5 shrink-0"
               />
-              <span className="truncate">{opt}</span>
+              {/* No truncation here — some real industry names (e.g.
+                  "Technology, Information and Internet") contain their own
+                  internal comma and read as a fragment if cut off with
+                  "...", which looks like a splitting bug but isn't one. */}
+              <span className="leading-snug">{opt}</span>
             </label>
           ))}
         </div>
