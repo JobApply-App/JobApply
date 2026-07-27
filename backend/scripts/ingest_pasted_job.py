@@ -23,8 +23,8 @@ Usage
         --description-file /path/to/jd.txt
 
 --user-id is optional and defaults to the sole real (non-'default',
-non-'handler-*', non-QA-test-email) row in master_profiles — i.e. the one
-actual logged-in account in this single-tenant dev setup, resolved via
+non-QA-test-email) row in master_profiles — i.e. the one actual logged-in
+account in this single-tenant dev setup, resolved via
 _resolve_active_user_id() below. GET /api/jobs/feed's user_id comes from
 the real Supabase JWT `sub` claim (backend/api/deps.py's get_current_user),
 NOT the literal string "default" — a job saved under user_id="default"
@@ -51,9 +51,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Rows created by this repo's own scaffolding, never a real logged-in
-# account — excluded when auto-resolving "the" active user.
-_NON_ACCOUNT_USER_ID_PREFIXES = ("default", "handler-update-", "handler-compose-")
+# "default" is a permanent placeholder row, never a real logged-in account —
+# excluded when auto-resolving "the" active user. (This tuple previously
+# also excluded "handler-update-"/"handler-compose-" test-artifact user_ids;
+# those no longer occur — see backend/tests/test_proficiency_update.py's
+# _patch_engine fixture and backend/scripts/cleanup_test_master_profiles.py,
+# which fixed the root cause and removed the existing contaminated rows.)
+_NON_ACCOUNT_USER_ID_PREFIXES = ("default",)
 _QA_TEST_EMAIL_MARKERS = ("qa-test", "qa.test", "@example.com")
 
 
