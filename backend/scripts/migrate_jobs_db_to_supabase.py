@@ -94,6 +94,32 @@ AUTOINCREMENT_TABLES: dict[str, str] = {
     "shadow_match_scores": "id",
 }
 
+# Primary key per table — used for ON CONFLICT DO NOTHING so a re-run (or a
+# run against a target that already has some independently-seeded rows, e.g.
+# from earlier ad-hoc testing) is safe at the row level rather than only
+# safe when the whole table's row count happens to match exactly.
+PRIMARY_KEYS: dict[str, str] = {
+    "profile_entities": "entity_id",
+    "ariel_sessions": "session_id",
+    "conversation_events": "event_id",
+    "evidence_records": "evidence_id",
+    "ariel_gap_queue": "gap_id",
+    "ariel_probe_log": "probe_id",
+    "confidence_audit_log": "log_id",
+    "applications": "application_id",
+    "chat_sessions": "id",
+    "company_culture": "company_key",
+    "company_intel": "company_key",
+    "job_feedback": "id",
+    "jobs": "job_id",
+    "kv_store": "key",
+    "master_profiles": "user_id",
+    "match_triggers": "id",
+    "profile_interviews": "session_id",
+    "recruiter_reply_drafts": "draft_id",
+    "shadow_match_scores": "id",
+}
+
 # chat_sessions.created_at/updated_at are the one column pair ported to a
 # real Postgres TIMESTAMPTZ (see backend/alembic_app_schema's migration
 # docstring) — but SQLite stores them as a NAIVE text string with no offset
@@ -167,7 +193,11 @@ def _insert_sql(table: str, columns: list[str]) -> str:
     """
     jsonb_cols = JSONB_COLUMNS.get(table, set())
     placeholders = [f"CAST(:{c} AS jsonb)" if c in jsonb_cols else f":{c}" for c in columns]
-    return f"INSERT INTO public.{table} ({', '.join(columns)}) VALUES ({', '.join(placeholders)})"
+    pk = PRIMARY_KEYS[table]
+    return (
+        f"INSERT INTO public.{table} ({', '.join(columns)}) VALUES ({', '.join(placeholders)}) "
+        f"ON CONFLICT ({pk}) DO NOTHING"
+    )
 
 
 def run_preview() -> None:
@@ -185,12 +215,16 @@ def run_migration(batch_size: int = 500) -> dict[str, tuple[int, int]]:
     """
     Copies every table in TABLE_ORDER. Returns {table: (sqlite_count, inserted_count)}.
 
-    Resumable/idempotent by row-count check: a table already holding exactly
-    as many rows on the Postgres side as SQLite is skipped rather than
-    re-inserted (which would hit primary-key conflicts on a second run) —
-    this lets a run that failed partway through (e.g. a bug in one table's
-    insert) be re-run cleanly after the fix, without needing to truncate
-    anything on the target first.
+    Row-level idempotent via `ON CONFLICT (<pk>) DO NOTHING` (see PRIMARY_KEYS/
+    _insert_sql), not a table-level row-count skip: a target that already has
+    some of a table's rows (a partial prior run, or independently-seeded rows
+    with no SQLite counterpart — confirmed to happen in practice against Dev)
+    is handled correctly by only inserting what's actually missing, rather
+    than either re-running a doomed full INSERT (primary-key violation) or
+    wrongly skipping the whole table because the counts don't happen to match.
+    inserted_count is measured as the actual net row-count delta, not the
+    number of rows sent, since ON CONFLICT DO NOTHING silently no-ops
+    duplicates.
     """
     sqlite_conn = _sqlite_conn()
     results: dict[str, tuple[int, int]] = {}
@@ -203,21 +237,18 @@ def run_migration(batch_size: int = 500) -> dict[str, tuple[int, int]]:
                     print(f"  {table}: 0 rows (nothing to copy)")
                     continue
 
-                existing = session.execute(text(f"SELECT count(*) FROM public.{table}")).scalar_one()
-                if existing == len(rows):
-                    results[table] = (len(rows), 0)
-                    print(f"  {table}: already fully copied ({existing}/{len(rows)}) — skipped")
-                    continue
+                before = session.execute(text(f"SELECT count(*) FROM public.{table}")).scalar_one()
 
                 columns = list(rows[0].keys())
                 stmt = text(_insert_sql(table, columns))
-                inserted = 0
                 for i in range(0, len(rows), batch_size):
                     batch = [_coerce_row(table, r) for r in rows[i: i + batch_size]]
                     session.execute(stmt, batch)
-                    inserted += len(batch)
                 session.commit()
-                print(f"  {table}: {inserted}/{len(rows)} row(s) copied")
+
+                after = session.execute(text(f"SELECT count(*) FROM public.{table}")).scalar_one()
+                inserted = after - before
+                print(f"  {table}: {inserted} new row(s) inserted ({after}/{len(rows)} sqlite rows now present)")
                 results[table] = (len(rows), inserted)
 
             # Reset autoincrement sequences so a future real INSERT (once the
@@ -235,16 +266,29 @@ def run_migration(batch_size: int = 500) -> dict[str, tuple[int, int]]:
 
 
 def run_verify() -> bool:
-    """Per-table row-count comparison, SQLite vs Postgres — the zero-data-loss check."""
-    sqlite_counts = _sqlite_table_counts()
+    """
+    Per-table PK-coverage check, SQLite vs Postgres — the zero-data-loss check.
+
+    Checks that every SQLite row's primary key is present in Postgres, rather
+    than comparing raw row counts: Postgres may legitimately hold extra rows
+    with no SQLite counterpart (confirmed against Dev — some tables already
+    had independently-seeded rows before this script ever ran), which a bare
+    count comparison would wrongly flag as a mismatch even with zero data
+    loss. Missing-from-Postgres is the only real failure condition here.
+    """
+    sqlite_conn = _sqlite_conn()
     ok = True
     with get_pg_session() as session:
-        print(f"{'table':<24} {'sqlite':>8} {'postgres':>8}  status")
+        print(f"{'table':<24} {'sqlite':>8} {'postgres':>8} {'missing':>8}  status")
         for t in TABLE_ORDER:
-            pg_count = session.execute(text(f"SELECT COUNT(*) FROM public.{t}")).scalar_one()
-            match = pg_count == sqlite_counts[t]
+            pk = PRIMARY_KEYS[t]
+            sq_ids = {r[pk] for r in sqlite_conn.execute(f"SELECT {pk} FROM {t}").fetchall()}
+            pg_ids = {r[0] for r in session.execute(text(f"SELECT {pk} FROM public.{t}")).fetchall()}
+            missing = sq_ids - pg_ids
+            match = not missing
             ok = ok and match
-            print(f"{t:<24} {sqlite_counts[t]:>8} {pg_count:>8}  {'OK' if match else 'MISMATCH'}")
+            print(f"{t:<24} {len(sq_ids):>8} {len(pg_ids):>8} {len(missing):>8}  {'OK' if match else 'MISMATCH'}")
+    sqlite_conn.close()
     return ok
 
 
