@@ -195,7 +195,6 @@ def _migrate_confidence_matrix(conn) -> None:
             CREATE TABLE IF NOT EXISTS profile_entities (
                 entity_id               TEXT PRIMARY KEY,
                 user_id                 TEXT NOT NULL,
-                tenant_id               TEXT,
                 entity_type             TEXT NOT NULL,
                 name                    TEXT NOT NULL,
                 normalized_name         TEXT NOT NULL,
@@ -221,7 +220,6 @@ def _migrate_confidence_matrix(conn) -> None:
             CREATE TABLE IF NOT EXISTS ariel_sessions (
                 session_id              TEXT PRIMARY KEY,
                 user_id                 TEXT NOT NULL,
-                tenant_id               TEXT,
                 session_type            TEXT NOT NULL,
                 target_job_id           TEXT,
                 target_entities         TEXT,
@@ -241,7 +239,6 @@ def _migrate_confidence_matrix(conn) -> None:
                 event_id                TEXT PRIMARY KEY,
                 session_id              TEXT NOT NULL REFERENCES ariel_sessions (session_id),
                 user_id                 TEXT NOT NULL,
-                tenant_id               TEXT,
                 star_situation          TEXT,
                 star_task               TEXT,
                 star_action             TEXT,
@@ -277,7 +274,6 @@ def _migrate_confidence_matrix(conn) -> None:
             evidence_id     TEXT PRIMARY KEY,
             entity_id       TEXT NOT NULL REFERENCES profile_entities (entity_id),
             user_id         TEXT NOT NULL,
-            tenant_id       TEXT,
             source_type     TEXT NOT NULL
                                 CHECK (source_type IN (
                                     'cv_parse', 'self_assertion',
@@ -317,10 +313,10 @@ def _migrate_confidence_matrix(conn) -> None:
             conn.execute(text(_EVIDENCE_RECORDS_DDL))
             conn.execute(text("""
                 INSERT INTO evidence_records
-                    (evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                    (evidence_id, entity_id, user_id, source_type, base_weight,
                      raw_content, verified_at, hard_expires_at, session_id,
                      event_id, extra_metadata, is_ai_assisted)
-                SELECT evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                SELECT evidence_id, entity_id, user_id, source_type, base_weight,
                        raw_content, verified_at, hard_expires_at, session_id,
                        event_id, extra_metadata, is_ai_assisted
                 FROM evidence_records_old
@@ -342,10 +338,10 @@ def _migrate_confidence_matrix(conn) -> None:
             conn.execute(text(_EVIDENCE_RECORDS_DDL))
             conn.execute(text("""
                 INSERT INTO evidence_records
-                    (evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                    (evidence_id, entity_id, user_id, source_type, base_weight,
                      raw_content, verified_at, hard_expires_at, session_id,
                      event_id, extra_metadata)
-                SELECT evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                SELECT evidence_id, entity_id, user_id, source_type, base_weight,
                        raw_content, verified_at, hard_expires_at, session_id,
                        event_id, metadata
                 FROM evidence_records_old
@@ -404,10 +400,10 @@ def _migrate_confidence_matrix(conn) -> None:
             conn.execute(text(_EVIDENCE_RECORDS_DDL))
             conn.execute(text("""
                 INSERT INTO evidence_records
-                    (evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                    (evidence_id, entity_id, user_id, source_type, base_weight,
                      raw_content, verified_at, hard_expires_at, session_id,
                      event_id, extra_metadata, is_ai_assisted)
-                SELECT evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                SELECT evidence_id, entity_id, user_id, source_type, base_weight,
                        raw_content, verified_at, hard_expires_at, session_id,
                        event_id, extra_metadata, is_ai_assisted
                 FROM evidence_records_old
@@ -438,7 +434,6 @@ def _migrate_confidence_matrix(conn) -> None:
                 log_id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 entity_id       TEXT NOT NULL REFERENCES profile_entities (entity_id),
                 user_id         TEXT NOT NULL,
-                tenant_id       TEXT,
                 old_score       REAL NOT NULL,
                 new_score       REAL NOT NULL,
                 delta           REAL NOT NULL,
@@ -456,7 +451,6 @@ def _migrate_confidence_matrix(conn) -> None:
             CREATE TABLE IF NOT EXISTS ariel_gap_queue (
                 gap_id              TEXT PRIMARY KEY,
                 user_id             TEXT NOT NULL,
-                tenant_id           TEXT,
                 entity_id           TEXT NOT NULL REFERENCES profile_entities (entity_id),
                 job_id              TEXT,
                 current_confidence  REAL NOT NULL,
