@@ -46,11 +46,6 @@ class JobRow(Base):
     jd_structured         = Column(Text,    nullable=True)
     # Multi-user & feed columns
     user_id               = Column(String,  nullable=False, default='default', index=True)
-    # Forward-compatible tenant scoping (Infra & Multi-Tenant Architecture).
-    # Nullable during rollout; backfilled to match user_id (1 account == 1
-    # tenant today). Not yet enforced at the query layer — see
-    # docs/multi-tenant-erd.md §"What tenant_id does NOT do yet".
-    tenant_id              = Column(String,  nullable=True, index=True)
     source_type           = Column(String,  nullable=False, default='other')
     company_website_url   = Column(String,  nullable=True)
     status                = Column(String,  nullable=False, default='new')

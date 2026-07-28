@@ -22,7 +22,6 @@ class ShadowScoreRow(Base):
 
     id             = Column(Integer, primary_key=True, autoincrement=True)
     user_id        = Column(String,  nullable=False, index=True)
-    tenant_id      = Column(String,  nullable=True, index=True)   # see JobRow.tenant_id docstring
     job_title      = Column(String,  nullable=True)
     company        = Column(String,  nullable=True)
     existing_score = Column(Float,   nullable=False)   # what the frontend received
@@ -50,7 +49,6 @@ class MatchTriggerRow(Base):
 
     id           = Column(Integer, primary_key=True, autoincrement=True)
     user_id      = Column(String,  nullable=False, index=True)
-    tenant_id    = Column(String,  nullable=True, index=True)   # see JobRow.tenant_id docstring
     job_id       = Column(String,  nullable=False)
     score        = Column(Float,   nullable=False)               # 1-decimal composite at trigger time
     threshold    = Column(Float,   nullable=False)               # threshold in force when fired

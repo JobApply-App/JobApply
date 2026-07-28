@@ -15,7 +15,6 @@ class ArielSessionRow(Base):
 
     session_id             = Column(String, primary_key=True)
     user_id                = Column(String, nullable=False, index=True)
-    tenant_id              = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
     session_type           = Column(String, nullable=False)
     target_job_id          = Column(String, nullable=True, index=True)
     target_entities        = Column(Text,   nullable=True)    # JSON array
@@ -34,7 +33,6 @@ class ConversationEventRow(Base):
     event_id              = Column(String, primary_key=True)
     session_id            = Column(String, nullable=False, index=True)
     user_id               = Column(String, nullable=False, index=True)
-    tenant_id             = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
     star_situation        = Column(Text,   nullable=True)
     star_task             = Column(Text,   nullable=True)
     star_action           = Column(Text,   nullable=True)
@@ -51,7 +49,6 @@ class ArielGapQueueRow(Base):
 
     gap_id              = Column(String, primary_key=True)
     user_id             = Column(String, nullable=False, index=True)
-    tenant_id           = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
     entity_id           = Column(String, nullable=False)
     job_id              = Column(String, nullable=True,  index=True)
     current_confidence  = Column(Float,  nullable=False)

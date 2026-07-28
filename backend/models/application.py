@@ -16,7 +16,6 @@ class ApplicationRow(Base):
     application_id = Column(String, primary_key=True)
     # Multi-tenant owner — added in v2; existing rows migrated to 'default'
     user_id        = Column(String, nullable=False, default="default", index=True)
-    tenant_id      = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
     job_id         = Column(String, nullable=False, index=True)
     title          = Column(String, nullable=False)
     company        = Column(String, nullable=False)
@@ -43,7 +42,6 @@ class RecruiterReplyDraftRow(Base):
 
     draft_id      = Column(String, primary_key=True)
     user_id       = Column(String, nullable=False, index=True)
-    tenant_id     = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
     job_id        = Column(String, nullable=False, index=True)
     # Sanitized excerpt of the inbound email the draft responds to (audit trail)
     email_excerpt = Column(Text,   nullable=False, default="")
@@ -66,7 +64,6 @@ class JobFeedbackRow(Base):
 
     id            = Column(Integer, primary_key=True, autoincrement=True)
     user_id       = Column(String,  nullable=False, index=True)
-    tenant_id     = Column(String,  nullable=True, index=True)   # see JobRow.tenant_id docstring
     job_id        = Column(String,  nullable=False)
     feedback_type = Column(String,  nullable=False)               # thumbs_up | thumbs_down
     reason        = Column(Text,    nullable=True)                # optional free-text why

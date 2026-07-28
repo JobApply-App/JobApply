@@ -32,7 +32,6 @@ class ProfileInterviewRow(Base):
     session_id     = Column(String, primary_key=True)
     # Multi-tenant owner — added in v2; existing rows migrated to 'default'
     user_id        = Column(String, nullable=False, default="default", index=True)
-    tenant_id      = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
     messages       = Column(JSON, nullable=False, default=list)
     draft_profile  = Column(JSON, nullable=True)
     confidence_map = Column(JSON, nullable=True)
@@ -91,7 +90,6 @@ class MasterProfileRow(Base):
     __tablename__ = "master_profiles"
 
     user_id            = Column(String, primary_key=True)
-    tenant_id          = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
     # Verified email from the Supabase JWT — lower-cased. Used by
     # POST /api/auth/sync-user to link accounts across auth providers
     # (email login vs Google OAuth) when Supabase issues a different `sub`
@@ -116,7 +114,6 @@ class ProfileEntityRow(Base):
 
     entity_id              = Column(String,  primary_key=True)
     user_id                = Column(String,  nullable=False, index=True)
-    tenant_id              = Column(String,  nullable=True, index=True)   # see JobRow.tenant_id docstring
     entity_type            = Column(String,  nullable=False)   # skill|trait|domain|experience
     name                   = Column(String,  nullable=False)
     normalized_name        = Column(String,  nullable=False)
@@ -160,7 +157,6 @@ class EvidenceRecordRow(Base):
     evidence_id     = Column(String,  primary_key=True)
     entity_id       = Column(String,  nullable=False, index=True)
     user_id         = Column(String,  nullable=False, index=True)
-    tenant_id       = Column(String,  nullable=True, index=True)   # see JobRow.tenant_id docstring
     source_type     = Column(String,  nullable=False)
     base_weight     = Column(Float,   nullable=False)
     raw_content     = Column(Text,    nullable=True)
@@ -183,7 +179,6 @@ class ConfidenceAuditLogRow(Base):
     log_id         = Column(Integer, primary_key=True, autoincrement=True)
     entity_id      = Column(String,  nullable=False, index=True)
     user_id        = Column(String,  nullable=False, index=True)
-    tenant_id      = Column(String,  nullable=True, index=True)   # see JobRow.tenant_id docstring
     old_score      = Column(Float,   nullable=False)
     new_score      = Column(Float,   nullable=False)
     delta          = Column(Float,   nullable=False)
