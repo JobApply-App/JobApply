@@ -4,7 +4,7 @@ Extracted from the former backend/services/db.py.
 """
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Column, Float, Integer, String, Text
+from sqlalchemy import Column, Float, Integer, String, Text
 from sqlalchemy.types import JSON
 
 from backend.core.database import Base
@@ -43,64 +43,11 @@ class ProfileInterviewRow(Base):
     updated_at     = Column(String, nullable=True)
 
 
-class MasterProfileRow(Base):
-    """
-    Central master profile for each authenticated user.
-
-    Stores the complete, unstructured and structured professional history in a
-    single JSON document (master_profile) alongside a lightweight onboarding
-    state flag.  All Ariel tool calls that mutate profile data write to this
-    table — they never touch the legacy flat JSON files.
-
-    master_profile shape (baseline):
-    {
-        "professional_summary": str,
-        "experience": [
-            {
-                "company":   str,
-                "role":      str,
-                "start":     str,   # e.g. "2021-03"
-                "end":       str,   # e.g. "2024-01" | "present"
-                "bullets":   [str]
-            }
-        ],
-        "skills":       [str],
-        "education":    [
-            {
-                "institution": str,
-                "degree":      str,
-                "field":       str,
-                "year":        str
-            }
-        ],
-        "career_goals": {
-            "target_roles":        [str],
-            "preferred_locations": [str],
-            "work_environment":    str,   # "remote" | "hybrid" | "onsite" | "any"
-            "notes":               str
-        }
-    }
-
-    onboarding_status:
-        "incomplete" — default; Ariel is still collecting information
-        "complete"   — user confirmed all background has been provided;
-                       set exclusively by the finalize_onboarding tool
-    """
-    __tablename__ = "master_profiles"
-
-    user_id            = Column(String, primary_key=True)
-    # Verified email from the Supabase JWT — lower-cased. Used by
-    # POST /api/auth/sync-user to link accounts across auth providers
-    # (email login vs Google OAuth) when Supabase issues a different `sub`
-    # for the same person.
-    email              = Column(String, nullable=True, index=True)
-    onboarding_status  = Column(String, nullable=False, default="incomplete")
-    master_profile     = Column(JSON,   nullable=False, default=dict)
-    # Admin-dashboard foundation (Phase 2) — flipped manually in the DB for
-    # now; require_admin (api/deps.py) is the only consumer.
-    is_admin           = Column(Boolean, nullable=False, default=False)
-    created_at         = Column(String, nullable=True)
-    updated_at         = Column(String, nullable=True)
+## MasterProfileRow (master_profiles table) removed — Phase 3/4 of the
+## relational schema redesign (docs/db-redesign-proposal.md) repointed every
+## read/write path at backend/repositories/profile_repository.py (profiles/
+## user_preferences/profile_answers/cv_documents/cv_claims) and the
+## master_profiles table itself was dropped (Alembic revision 3a6b5cab3433).
 
 
 # ── Active Confidence Matrix ORM models ──────────────────────────────────────

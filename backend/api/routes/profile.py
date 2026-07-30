@@ -30,7 +30,7 @@ from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit, stan
 from backend.core.database import ENGINE
 from backend.models.profile import ProfileEntityRow
 from backend.repositories import evidence_repository
-from backend.repositories import master_profile_repository
+from backend.repositories import profile_repository
 from backend.repositories import profile_entity_repository
 from backend.services.master_profile_service import (
     get_enriched_entities,
@@ -87,10 +87,11 @@ async def init_profile(user: CurrentUser = Depends(get_current_user)):
     db = Session(ENGINE)
     try:
         now = datetime.now(timezone.utc).isoformat()
-        row, created = master_profile_repository.get_or_create(db, user.user_id, now=now)
+        row, created = profile_repository.get_or_create(db, user.user_id, now=now)
         if not created:
             return {"status": "ok", "created": False}
 
+        profile_repository.save(db, row)
         db.commit()
         logger.info("[profile/init] Created master_profiles row for %s", user.user_id)
         return {"status": "ok", "created": True}
@@ -295,14 +296,15 @@ async def save_role_preferences(
     prefs["roles"]         = roles           # per-role seniority pairs
     user_save(user.user_id, profile)
 
-    # Mirror into master_profiles for DB-side consumers.
+    # Mirror into the relational profile schema for DB-side consumers.
     _now = datetime.now(timezone.utc).isoformat()
     with Session(ENGINE) as _sess:
-        row, _created = master_profile_repository.get_or_create(_sess, user.user_id, now=_now)
+        row, _created = profile_repository.get_or_create(_sess, user.user_id, now=_now)
         mp = dict(row.master_profile or {})
         mp["role_preferences"] = {"target_titles": target_titles, "roles": roles}
         row.master_profile = mp
         row.updated_at     = _now
+        profile_repository.save(_sess, row)
         _sess.commit()
 
     logger.info("[profile/preferences] user=%s roles=%d", user.user_id, len(roles))
@@ -605,7 +607,7 @@ async def upload_cv_files(
     _now = datetime.now(timezone.utc).isoformat()
     parsed_personal = cv_claims.get("personal") or {}
     with Session(ENGINE) as _sess:
-        row, _created = master_profile_repository.get_or_create(_sess, user.user_id, now=_now)
+        row, _created = profile_repository.get_or_create(_sess, user.user_id, now=_now)
         mp = dict(row.master_profile or {})
         mp["cv_data"] = cv_claims
         mp["cv_imported_at"] = _now
@@ -626,6 +628,7 @@ async def upload_cv_files(
             mp["personal"] = existing_personal
         row.master_profile = mp
         row.updated_at = _now
+        profile_repository.save(_sess, row)
         _sess.commit()
 
     # metrics_doc["personal"] — the other place get_profile() looks for

@@ -18,16 +18,17 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session as DBSession
 
 from backend.api.deps import CurrentUser, get_current_user, standard_rate_limit
 from backend.core.database import ENGINE
-from backend.models.profile import MasterProfileRow
 from backend.repositories import application_repository
 from backend.repositories import evidence_repository
 from backend.repositories import job_repository
 from backend.repositories import profile_entity_repository
 from backend.repositories import profile_interview_repository
+from backend.repositories import profile_repository
 from backend.repositories import recruiter_reply_draft_repository
 
 logger = logging.getLogger(__name__)
@@ -85,8 +86,8 @@ class SyncUserResult(BaseModel):
     profile_file:  bool = False
 
 
-def _profile_is_completed(row: "MasterProfileRow | None") -> bool:
-    """True when the master profile holds real data (CV imported or onboarded)."""
+def _profile_is_completed(row: "profile_repository.ProfileHandle | None") -> bool:
+    """True when the profile holds real data (CV imported or onboarded)."""
     if row is None:
         return False
     mp = row.master_profile or {}
@@ -108,14 +109,17 @@ def _relink_rows(db: DBSession, old_uid: str, new_uid: str) -> dict:
 @router.post("/sync-user", response_model=SyncUserResult)
 async def sync_user(user: CurrentUser = Depends(get_current_user)) -> SyncUserResult:
     """
-    Ensure a master_profiles row exists for the caller (any auth provider) and
-    link data owned by a previous identity with the same verified email.
+    Ensure a profiles row exists for the caller (any auth provider) and link
+    data owned by a previous identity with the same verified email.
     """
+    from datetime import datetime, timezone
+
     uid   = user.user_id
     email = (user.email or "").strip().lower()
+    now   = datetime.now(timezone.utc).isoformat()
 
     with DBSession(ENGINE) as db:
-        own_row = db.get(MasterProfileRow, uid)
+        own_row = profile_repository.get_in_session(db, uid)
 
         # ── Account linking: same verified email, different user_id ──────────
         # Only link INTO a blank identity: either no row yet, or a barebones
@@ -127,28 +131,25 @@ async def sync_user(user: CurrentUser = Depends(get_current_user)) -> SyncUserRe
         )
         legacy_row = None
         if email and own_is_blank:
-            legacy_row = (
-                db.query(MasterProfileRow)
-                .filter(
-                    MasterProfileRow.email == email,
-                    MasterProfileRow.user_id != uid,
-                )
-                .order_by(MasterProfileRow.updated_at.desc())
-                .first()
-            )
+            legacy_row = profile_repository.get_by_email(db, email, exclude_user_id=uid)
 
         if legacy_row is not None:
             old_uid = legacy_row.user_id
             counts  = _relink_rows(db, old_uid, uid)
 
-            # Adopt the old master profile under the new user_id (drop the
-            # blank placeholder row first to avoid a primary-key collision).
-            if own_row is not None:
-                db.delete(own_row)
-                db.flush()
-            legacy_row.user_id = uid
-            legacy_row.email   = email
+            # profiles.id is a real, immutable FK to auth.users(id) — unlike
+            # the old free-string MasterProfileRow PK it can't be reassigned
+            # in place. Ensure the caller's own row exists, merge the legacy
+            # identity's relational data into it field-by-field, and drop the
+            # old row (see profile_repository.reassign_user's docstring).
+            profile_repository.get_or_create(db, uid, now=now)
+            profile_repository.reassign_user(db, old_uid, uid)
+            db.execute(
+                text("UPDATE public.profiles SET email = :email, updated_at = now() WHERE id = CAST(:uid AS uuid)"),
+                {"email": email, "uid": uid},
+            )
             db.commit()
+            merged = profile_repository.get_in_session(db, uid)
 
             # Move the on-disk profile file to the new identity's directory.
             profile_moved = False
@@ -168,16 +169,13 @@ async def sync_user(user: CurrentUser = Depends(get_current_user)) -> SyncUserRe
             )
             return SyncUserResult(
                 status            = "linked",
-                profile_completed = _profile_is_completed(legacy_row),
+                profile_completed = _profile_is_completed(merged),
                 linked_from       = old_uid,
                 profile_file      = profile_moved,
                 **counts,
             )
 
         # ── No linking needed: upsert the caller's own row ────────────────────
-        from datetime import datetime, timezone
-        now = datetime.now(timezone.utc).isoformat()
-
         # Seed master_profile["personal"]["name"] from the verified JWT's
         # user_metadata (Supabase full_name/name claim — see auth_utils.
         # extract_identity) — never overwrites a name the user has already
@@ -185,17 +183,13 @@ async def sync_user(user: CurrentUser = Depends(get_current_user)) -> SyncUserRe
         name = (user.name or "").strip()
 
         if own_row is None:
-            initial_profile = {"personal": {"name": name}} if name else {}
-            db.add(MasterProfileRow(
-                user_id           = uid,
-                email             = email or None,
-                onboarding_status = "incomplete",
-                master_profile    = initial_profile,
-                created_at        = now,
-                updated_at        = now,
-            ))
+            row, _created = profile_repository.get_or_create(db, uid, now=now)
+            row.email = email or None
+            if name:
+                row.master_profile = {"personal": {"name": name}}
+            profile_repository.save(db, row)
             db.commit()
-            logger.info("[auth/sync] created master_profiles row for user=%s", uid)
+            logger.info("[auth/sync] created profiles row for user=%s", uid)
             return SyncUserResult(status="created")
 
         changed = False
@@ -209,6 +203,7 @@ async def sync_user(user: CurrentUser = Depends(get_current_user)) -> SyncUserRe
             changed = True
         if changed:
             own_row.updated_at = now
+            profile_repository.save(db, own_row)
             db.commit()
         return SyncUserResult(status="ok", profile_completed=_profile_is_completed(own_row))
 

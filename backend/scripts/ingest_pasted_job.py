@@ -64,19 +64,19 @@ _QA_TEST_EMAIL_MARKERS = ("qa-test", "qa.test", "@example.com")
 def _resolve_active_user_id() -> str:
     """
     The one real logged-in account in this single-tenant dev setup, i.e. the
-    sole master_profiles row that isn't a scaffolding placeholder or a QA
-    test account. Raises with a clear candidate list if that's not unique —
+    sole profiles row that isn't a scaffolding placeholder or a QA test
+    account. Raises with a clear candidate list if that's not unique —
     callers should pass --user-id explicitly in that case.
     """
     from sqlalchemy import text
     from backend.core.database import ENGINE
 
     with ENGINE.connect() as conn:
-        rows = conn.execute(text("SELECT user_id, email FROM master_profiles")).fetchall()
+        rows = conn.execute(text("SELECT id, email FROM public.profiles")).fetchall()
 
     candidates = [
-        (uid, email) for uid, email in rows
-        if not uid.startswith(_NON_ACCOUNT_USER_ID_PREFIXES)
+        (str(uid), email) for uid, email in rows
+        if not str(uid).startswith(_NON_ACCOUNT_USER_ID_PREFIXES)
         and email
         and not any(marker in email.lower() for marker in _QA_TEST_EMAIL_MARKERS)
     ]

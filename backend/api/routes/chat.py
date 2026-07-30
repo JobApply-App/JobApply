@@ -626,12 +626,12 @@ def _build_ariel_system(pinned_messages: list[ChatMessage], user_id: str) -> str
     re-fetches (e.g. after a CV upload updates the profile).
 
     Contact details (name/email/phone/linkedin/location) do NOT live in the
-    master_profiles.master_profile JSON that get_profile() reads — they are
-    split across the verified `email` column on MasterProfileRow (Supabase
-    JWT, authoritative) and the per-user personal.* fields in
-    user_profile_store (populated by CV parsing / the profile UI). Both are
-    fetched here and prepended as a dedicated <ContactInfo> block ahead of
-    <MasterProfile> so Ariel never has to ask the user for details the CV
+    profile document that get_profile() reads — they are split across the
+    verified `email` column on profiles (Supabase JWT, authoritative) and
+    the per-user personal.* fields in user_profile_store (populated by CV
+    parsing / the profile UI). Both are fetched here and prepended as a
+    dedicated <ContactInfo> block ahead of <MasterProfile> so Ariel never
+    has to ask the user for details the CV
     parser already extracted.
 
     The static persona + rules follow.
@@ -657,10 +657,10 @@ def _build_ariel_system(pinned_messages: list[ChatMessage], user_id: str) -> str
     # ── Contact info: verified email (DB column) + personal.* (file store) ──
     try:
         from backend.services.user_profile_store import load as _load_personal_store
-        from backend.repositories import master_profile_repository
+        from backend.repositories import profile_repository
 
         verified_email = ""
-        row = master_profile_repository.get(user_id)
+        row = profile_repository.get(user_id)
         if row and row.email:
             verified_email = row.email
 
@@ -1073,13 +1073,14 @@ def _ingest_cv_from_chat(user_id: str, item: AttachmentItem) -> None:
 
         _now = datetime.now(timezone.utc).isoformat()
         with _Session(ENGINE) as sess:
-            from backend.repositories import master_profile_repository
-            row, _created = master_profile_repository.get_or_create(sess, user_id, now=_now)
+            from backend.repositories import profile_repository
+            row, _created = profile_repository.get_or_create(sess, user_id, now=_now)
             mp = dict(row.master_profile or {})
             mp["cv_data"]        = cv_claims
             mp["cv_imported_at"] = _now
             row.master_profile   = mp
             row.updated_at       = _now
+            profile_repository.save(sess, row)
             sess.commit()
 
         # Step 5 — ingest into Confidence Matrix

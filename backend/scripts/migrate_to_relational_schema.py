@@ -354,13 +354,13 @@ def _migrate_jobs(session) -> None:
         session.execute(
             text("""
                 INSERT INTO public.user_job_matches
-                    (user_id, job_posting_id, score, match_score, confidence_score, culture_fit_score,
+                    (user_id, job_posting_id, job_id, score, match_score, confidence_score, culture_fit_score,
                      trajectory_alignment, company_dna_inference, investigation_points, detailed_analysis,
                      reasons, why_ron, scoring_rationale, tailored_cv, status, is_new, applied, applied_at,
                      category, score_is_proxy, enrichment_failures, outreach_text, culture_delta,
                      culture_alignment, culture_category, culture_note)
                 VALUES
-                    (CAST(:uid AS uuid), :jpid, :score, :match_score, :confidence_score, :culture_fit_score,
+                    (CAST(:uid AS uuid), :jpid, :job_id, :score, :match_score, :confidence_score, :culture_fit_score,
                      :trajectory_alignment, :company_dna_inference, CAST(:investigation_points AS jsonb),
                      CAST(:detailed_analysis AS jsonb), CAST(:reasons AS jsonb), :why_ron, :scoring_rationale,
                      CAST(:tailored_cv AS jsonb), :status, :is_new, :applied,
@@ -369,7 +369,8 @@ def _migrate_jobs(session) -> None:
                 ON CONFLICT (user_id, job_posting_id) DO NOTHING
             """),
             {
-                "uid": m["user_id"], "jpid": job_posting_id, "score": m["score"], "match_score": m["match_score"],
+                "uid": m["user_id"], "jpid": job_posting_id, "job_id": m["job_id"],
+                "score": m["score"], "match_score": m["match_score"],
                 "confidence_score": m["confidence_score"], "culture_fit_score": m["culture_fit_score"],
                 "trajectory_alignment": m["trajectory_alignment"], "company_dna_inference": m["company_dna_inference"],
                 # investigation_points/detailed_analysis/reasons/tailored_cv come back from the

@@ -678,26 +678,26 @@ def get_narrative(key: str) -> dict:
 # that Ariel maintains (see agents/ariel_tools.py handlers).
 
 def _onboarding_row_profile(user_id: str) -> dict:
-    """Load the onboarding profile dict from master_profiles for user_id ({} if absent)."""
+    """Load the onboarding profile document for user_id ({} if absent)."""
     try:
-        from backend.repositories import master_profile_repository
-        return master_profile_repository.get_profile_json(user_id)
+        from backend.repositories import profile_repository
+        return profile_repository.get_profile_json(user_id)
     except Exception:
         return {}
 
 
 def _master_profile_verified_email(user_id: str) -> str:
     """
-    The verified-email COLUMN on master_profiles (set from the Supabase JWT
-    at /api/auth/sync-user — see backend/api/routes/auth.py), not the
-    master_profile JSON blob. Reliable for every real account regardless of
-    whether onboarding ever asked for contact info, so this is the primary
-    email source — the JSON blob's personal.email (if ever set some other
-    way) is checked first by get_profile() and this is only the fallback.
+    The verified-email COLUMN on profiles (set from the Supabase JWT at
+    /api/auth/sync-user — see backend/api/routes/auth.py), not the profile
+    document. Reliable for every real account regardless of whether
+    onboarding ever asked for contact info, so this is the primary email
+    source — the document's personal.email (if ever set some other way) is
+    checked first by get_profile() and this is only the fallback.
     """
     try:
-        from backend.repositories import master_profile_repository
-        row = master_profile_repository.get(user_id)
+        from backend.repositories import profile_repository
+        row = profile_repository.get(user_id)
         return (row.email or "") if row else ""
     except Exception:
         return ""

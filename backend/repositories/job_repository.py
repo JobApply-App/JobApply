@@ -538,19 +538,15 @@ def get_tailored_cv(job_id: str, user_id: str) -> Optional[dict]:
 
 def profile_fingerprint(user_id: str) -> str:
     """
-    master_profiles.updated_at for user_id ("" when absent/unreadable).
+    profiles.updated_at for user_id ("" when absent/unreadable).
 
     Stamped into the tailored-CV cache so a draft generated from an older
     master profile can be detected as stale — every write path through
-    master_profile_repository / master_profile_service bumps updated_at, so
-    a changed value means the source data the draft was built from has moved.
+    profile_repository / master_profile_service bumps updated_at, so a
+    changed value means the source data the draft was built from has moved.
     """
-    try:
-        from backend.repositories import master_profile_repository
-        row = master_profile_repository.get(user_id)
-        return str(row.updated_at or "") if row else ""
-    except Exception:
-        return ""
+    from backend.repositories.profile_repository import get_updated_at
+    return get_updated_at(user_id)
 
 
 def save_tailored_cv(job_id: str, user_id: str, cv_data: dict, match_score: Optional[dict]) -> None:

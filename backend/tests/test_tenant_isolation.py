@@ -2,11 +2,15 @@
 Multi-tenant isolation tests.
 ==============================
 
-Proves that two distinct user accounts are strictly isolated for the three
-data classes the Infra & Multi-Tenant migration brief called out by name:
-Master Profile, match-score-bearing job rows, and application data. Also
-covers the Confidence Matrix (profile_entities), since it's the other
-half of "Master Profile data cannot be shared, leaked, or overwritten."
+Proves that two distinct user accounts are strictly isolated for
+match-score-bearing job rows and application data (the legacy jobs table's
+tenant_id backfill mechanism only — see TestJobIsolation's docstring). Also
+covers the Confidence Matrix (profile_entities).
+
+Master Profile isolation moved to test_profile_isolation.py: it now runs
+through profile_repository.py (Postgres-only, profiles.id has a hard FK to
+auth.users(id)), so it can no longer run against this file's isolated
+SQLite database.
 
 Runs against an isolated in-memory SQLite database — the real jobs.db is
 never touched. Follows the exact StaticPool + monkeypatch(ENGINE) pattern
@@ -90,64 +94,6 @@ def _patch_engine(monkeypatch):
     monkeypatch.setattr(mp_module, "ENGINE", _TEST_ENGINE, raising=False)
     monkeypatch.setattr(job_store_module, "ENGINE", _TEST_ENGINE, raising=False)
     monkeypatch.setattr(cm_module, "ENGINE", _TEST_ENGINE, raising=False)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Master Profile isolation — the ticket's explicit constraint #4
-# ═══════════════════════════════════════════════════════════════════════════
-
-class TestMasterProfileIsolation:
-    def test_two_users_cannot_read_each_others_profile(self):
-        """User B's load() must never return User A's saved data, and vice versa."""
-        from backend.services import master_profile_service as mp
-
-        user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
-
-        profile_a = {"version": 1, "professional_summary": "A's secret summary"}
-        profile_b = {"version": 1, "professional_summary": "B's secret summary"}
-
-        mp.save(profile_a, user_id=user_a)
-        mp.save(profile_b, user_id=user_b)
-
-        loaded_a = mp.load(user_a)
-        loaded_b = mp.load(user_b)
-
-        assert loaded_a["professional_summary"] == "A's secret summary"
-        assert loaded_b["professional_summary"] == "B's secret summary"
-        # The actual isolation assertion: neither leaked into the other.
-        assert loaded_a["professional_summary"] != loaded_b["professional_summary"]
-
-    def test_save_for_user_a_does_not_overwrite_user_b_row(self):
-        """Writing A's profile after B's must leave B's row untouched (no
-        shared-row / last-writer-wins collapse across accounts)."""
-        from backend.services import master_profile_service as mp
-
-        user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
-
-        mp.save({"version": 1, "professional_summary": "B original"}, user_id=user_b)
-        mp.save({"version": 1, "professional_summary": "A original"}, user_id=user_a)
-        # A second write to A must not disturb B.
-        mp.save({"version": 1, "professional_summary": "A updated"}, user_id=user_a)
-
-        assert mp.load(user_b)["professional_summary"] == "B original"
-        assert mp.load(user_a)["professional_summary"] == "A updated"
-
-    def test_master_profiles_row_count_matches_distinct_users(self):
-        """Structural check: master_profiles.user_id is the primary key, so N
-        distinct users must produce exactly N rows — never fewer (collapsed)."""
-        from backend.services import master_profile_service as mp
-
-        users = [f"user-{_uid()}" for _ in range(5)]
-        for u in users:
-            mp.save({"version": 1, "professional_summary": f"summary for {u}"}, user_id=u)
-
-        with Session(_TEST_ENGINE) as session:
-            from backend.models.profile import MasterProfileRow
-            count = session.query(MasterProfileRow).filter(
-                MasterProfileRow.user_id.in_(users)
-            ).count()
-        assert count == len(users)
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Job / match-score isolation

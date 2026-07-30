@@ -3,7 +3,9 @@ Ariel Tool Definitions and Execution Handlers
 ==============================================
 
 This module owns everything the Ariel agent needs to perform No-UI CRUD
-operations against the master_profiles table.
+operations against the profile document (backend/repositories/
+profile_repository.py — profiles/user_preferences/profile_answers/
+cv_documents/cv_claims).
 
 Two layers are exposed:
 
@@ -40,7 +42,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from backend.core.database import ENGINE
-from backend.models.profile import MasterProfileRow
+from backend.repositories.profile_repository import ProfileHandle
 from backend.services.profile_update_service import ProfileUpdateService
 
 logger = logging.getLogger(__name__)
@@ -105,13 +107,14 @@ def _empty_master_profile() -> dict:
     }
 
 
-def _get_or_create_row(user_id: str, session: Session) -> MasterProfileRow:
+def _get_or_create_row(user_id: str, session: Session) -> ProfileHandle:
     """
-    Return the MasterProfileRow for user_id, creating it if absent.
-    The caller is responsible for committing the session.
+    Return the ProfileHandle for user_id, creating one if absent.
+    The caller is responsible for calling profile_repository.save(session, row)
+    and committing the session.
     """
-    from backend.repositories import master_profile_repository
-    row, _created = master_profile_repository.get_or_create(session, user_id, now=_now_iso())
+    from backend.repositories import profile_repository
+    row, _created = profile_repository.get_or_create(session, user_id, now=_now_iso())
     return row
 
 
@@ -507,6 +510,8 @@ def _handle_update_experience(
         profile["experience"] = experience
         row.master_profile    = profile
         row.updated_at        = _now_iso()
+        from backend.repositories import profile_repository
+        profile_repository.save(session, row)
         session.commit()
 
         _sync_self_assertion(
@@ -578,6 +583,8 @@ def _handle_update_skills(
         profile["skills"] = current
         row.master_profile = profile
         row.updated_at     = _now_iso()
+        from backend.repositories import profile_repository
+        profile_repository.save(session, row)
         session.commit()
 
         for skill in added:
@@ -695,6 +702,8 @@ def _handle_update_career_goals(
         profile["career_goals"] = goals
         row.master_profile      = profile
         row.updated_at          = _now_iso()
+        from backend.repositories import profile_repository
+        profile_repository.save(session, row)
         session.commit()
 
         _refresh_baseline(user_id)
@@ -751,6 +760,8 @@ def _handle_update_profile_base(
 
         row.master_profile = profile
         row.updated_at     = _now_iso()
+        from backend.repositories import profile_repository
+        profile_repository.save(session, row)
         session.commit()
 
         logger.info(
@@ -787,6 +798,8 @@ def _handle_finalize_onboarding(
 
         row.onboarding_status = "complete"
         row.updated_at        = _now_iso()
+        from backend.repositories import profile_repository
+        profile_repository.save(session, row)
         session.commit()
 
         profile    = row.master_profile or {}
