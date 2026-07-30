@@ -169,11 +169,12 @@ def _seed_scraper_registry() -> None:
     """
     Register default company scrapers into the global SCRAPER_MANAGER.
 
-    The user_id baked into each scraper at construction time is used as a
-    fallback only.  The discovery loop and run_all() pass the active user_id
-    at call time (read from data/active_user.json), which overrides this value
-    so new jobs land in the correct user's feed.  We keep user_id="default"
-    here so scrapers remain functional before any user logs in.
+    The user_id baked into each scraper at construction time is an inert
+    placeholder — every real caller (the discovery loop via
+    tenant_registry.list_pipeline_user_ids(), and every route that triggers a
+    scrape) passes an explicit, authenticated user_id at call time, which
+    ScraperManager._save_new() uses to stamp every saved job before it's ever
+    persisted. This placeholder value is never itself written to the DB.
     """
     from backend.scrapers.scraper_manager import SCRAPER_MANAGER, scraper_from_config
     from backend.scrapers.drushim_scraper      import DrushimScraper

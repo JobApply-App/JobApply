@@ -202,7 +202,7 @@ def _dev_jd_override(job: JobMatch) -> str | None:
     return None
 
 
-def _build_profile_cv_proxy(profile: dict, user_id: str = "default") -> dict:
+def _build_profile_cv_proxy(profile: dict, user_id: str) -> dict:
     """
     Convert a USER_PROFILE dict into the cv_data structure accepted by
     compute_match_score_async.  Delegates to profile_baseline_service (JOB-18)

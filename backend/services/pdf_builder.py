@@ -3,8 +3,8 @@ PDF builder — renders the A4 CV HTML template to a single-page PDF via Playwri
 
 Public API
 ----------
-render_html(cv_data)              -> str    (fully-injected HTML string)
-build_pdf(cv_data, output_path)   -> bytes  (raw PDF; also writes file if path given)
+render_html(cv_data, user_id=...)              -> str    (fully-injected HTML string)
+build_pdf(cv_data, output_path, user_id=...)   -> bytes  (raw PDF; also writes file if path given)
 
 Architectural contract
 ----------------------
@@ -64,10 +64,8 @@ def _resolve_template(template_id: str | None) -> Path:
 
 # ── Contact data — sourced exclusively from the caller's own profile, never
 # from the LLM ── get_profile(user_id) (user_profile.py) is the single source
-# of truth: user_id="default" resolves to the legacy singleton (patched by
-# backend/personal_overrides.json, gitignored dev-only scaffolding); any real
-# user_id resolves to their actual master_profiles DB row. If a field is
-# absent there, it becomes an empty string and the template placeholder is
+# of truth, resolving to the user's actual master_profiles DB row. If a field
+# is absent there, it becomes an empty string and the template placeholder is
 # blanked — nothing is guessed or hardcoded here.
 def _load_contact(user_id: str) -> dict:
     from backend.services.user_profile import get_profile
@@ -340,7 +338,7 @@ def _flatten(cv_data: dict, user_id: str) -> dict:
     return flat
 
 
-def render_html(cv_data: dict, template_id: str | None = None, user_id: str = "default") -> str:
+def render_html(cv_data: dict, template_id: str | None = None, *, user_id: str) -> str:
     """Return the fully-rendered HTML string for the CV.
 
     user_id selects whose contact data (name/email/phone/linkedin/location)
@@ -353,7 +351,7 @@ def render_html(cv_data: dict, template_id: str | None = None, user_id: str = "d
 
 
 async def build_pdf(cv_data: dict, output_path: str | Path | None = None,
-                    template_id: str | None = None, user_id: str = "default") -> bytes:
+                    template_id: str | None = None, *, user_id: str) -> bytes:
     """
     Render cv_data to a single-page A4 PDF using Playwright headless Chromium.
 

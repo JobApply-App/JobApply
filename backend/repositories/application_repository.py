@@ -54,7 +54,7 @@ def save(app: Application) -> None:
         session.commit()
 
 
-def get_all(user_id: str = "default") -> list[Application]:
+def get_all(user_id: str) -> list[Application]:
     """Return all applications for user_id, ordered by most recently submitted first."""
     with Session(ENGINE) as session:
         rows = (
@@ -66,7 +66,7 @@ def get_all(user_id: str = "default") -> list[Application]:
         return [_from_row(r) for r in rows]
 
 
-def get_by_id(application_id: str, user_id: str = "default") -> Optional[Application]:
+def get_by_id(application_id: str, user_id: str) -> Optional[Application]:
     """
     Return a single application by its primary key, scoped to user_id.
 
@@ -81,7 +81,7 @@ def get_by_id(application_id: str, user_id: str = "default") -> Optional[Applica
         return _from_row(row)
 
 
-def has_application(job_id: str, user_id: str = "default") -> bool:
+def has_application(job_id: str, user_id: str) -> bool:
     """Return True if user_id already has an application row for job_id."""
     with Session(ENGINE) as session:
         return (
@@ -94,7 +94,7 @@ def has_application(job_id: str, user_id: str = "default") -> bool:
         )
 
 
-def delete(application_id: str, user_id: str = "default") -> bool:
+def delete(application_id: str, user_id: str) -> bool:
     """
     Delete a single application row, scoped to user_id.
 
@@ -201,7 +201,7 @@ def find_updatable_by_company(
     return None
 
 
-def get_all_rows(user_id: str = "default", session: Optional[Session] = None) -> list[ApplicationRow]:
+def get_all_rows(user_id: str, session: Optional[Session] = None) -> list[ApplicationRow]:
     """
     Return all ApplicationRow ORM objects for user_id, unordered — for
     callers that need the raw stored status string (e.g. analytics

@@ -45,7 +45,7 @@ class ChatSessionRow(_Base):
 
     id           = Column(Integer, primary_key=True, autoincrement=True)
     session_id   = Column(String(64),  nullable=False, unique=True, index=True)
-    user_id      = Column(String(64),  nullable=False, index=True, default="default")
+    user_id      = Column(String(64),  nullable=False, index=True)
     messages_json = Column(Text,       nullable=False, default="[]")
     created_at   = Column(DateTime,    nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at   = Column(DateTime,    nullable=False, default=lambda: datetime.now(timezone.utc),

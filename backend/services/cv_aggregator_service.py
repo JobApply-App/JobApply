@@ -419,7 +419,7 @@ Extract and aggregate the structured cv_claims JSON now.
 """
 
 
-async def aggregate_cv_claims(texts: list[str], user_id: str = "default") -> dict:
+async def aggregate_cv_claims(texts: list[str], user_id: str) -> dict:
     """
     Pass combined CV text through the LLM aggregator.
 

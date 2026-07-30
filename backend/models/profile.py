@@ -30,8 +30,7 @@ class ProfileInterviewRow(Base):
     __tablename__ = "profile_interviews"
 
     session_id     = Column(String, primary_key=True)
-    # Multi-tenant owner — added in v2; existing rows migrated to 'default'
-    user_id        = Column(String, nullable=False, default="default", index=True)
+    user_id        = Column(String, nullable=False, index=True)
     messages       = Column(JSON, nullable=False, default=list)
     draft_profile  = Column(JSON, nullable=True)
     confidence_map = Column(JSON, nullable=True)

@@ -217,7 +217,7 @@ def assess_completeness(
 
 # ── cv_data assembly (strict match_score_service input schema) ───────────────
 
-def build_cv_data(profile: dict, user_id: str = "default") -> dict:
+def build_cv_data(profile: dict, user_id: str) -> dict:
     """
     Convert a get_profile()-shaped dict into the exact cv_data structure
     consumed by compute_match_score_async:

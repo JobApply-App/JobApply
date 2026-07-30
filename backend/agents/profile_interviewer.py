@@ -525,16 +525,15 @@ def _build_profile_context(
         _name_override = user_name_override if (user_name_override and "@" not in user_name_override) else None
         full_name = _name_override or personal.get("name", "")
 
-        # For real (non-default) users, prefer their stored personal data
-        if user_id != "default":
-            try:
-                from backend.services.user_profile_store import load as _store_load
-                stored = _store_load(user_id)
-                stored_personal = stored.get("personal", {})
-                if not full_name:
-                    full_name = stored_personal.get("full_name", "")
-            except Exception:
-                pass
+        # Prefer the user's stored personal data over the USER_PROFILE fallback.
+        try:
+            from backend.services.user_profile_store import load as _store_load
+            stored = _store_load(user_id)
+            stored_personal = stored.get("personal", {})
+            if not full_name:
+                full_name = stored_personal.get("full_name", "")
+        except Exception:
+            pass
 
         # Resolve first name: profile full_name → name override → email → "there"
         first_name = _extract_first_name(full_name or user_name_override, user_email)

@@ -183,7 +183,7 @@ def _category_for_query(query: str) -> str:
     return "Customer Success" if any(sig in lower for sig in cs_signals) else "Product"
 
 
-async def run_discovery_cycle(user_id: str = "default") -> None:
+async def run_discovery_cycle(user_id: str) -> None:
     """
     Run one full discovery cycle: Google Dork → filter → analyse → save.
 

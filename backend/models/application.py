@@ -14,8 +14,7 @@ class ApplicationRow(Base):
     __tablename__ = "applications"
 
     application_id = Column(String, primary_key=True)
-    # Multi-tenant owner — added in v2; existing rows migrated to 'default'
-    user_id        = Column(String, nullable=False, default="default", index=True)
+    user_id        = Column(String, nullable=False, index=True)
     job_id         = Column(String, nullable=False, index=True)
     title          = Column(String, nullable=False)
     company        = Column(String, nullable=False)

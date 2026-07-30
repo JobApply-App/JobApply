@@ -45,7 +45,7 @@ class JobRow(Base):
     # LLM-structured JD stored as JSON string (set by jd_structure_service)
     jd_structured         = Column(Text,    nullable=True)
     # Multi-user & feed columns
-    user_id               = Column(String,  nullable=False, default='default', index=True)
+    user_id               = Column(String,  nullable=False, index=True)
     source_type           = Column(String,  nullable=False, default='other')
     company_website_url   = Column(String,  nullable=True)
     status                = Column(String,  nullable=False, default='new')

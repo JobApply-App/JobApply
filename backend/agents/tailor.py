@@ -946,7 +946,8 @@ _resolve_profile = resolve_profile
 def _inject_static_sections(
     data: dict,
     respect_deletions: bool = False,
-    user_id: str = "default",
+    *,
+    user_id: str,
 ) -> dict:
     """
     Overwrite Education, Skills, and Military with the canonical values from
@@ -1037,7 +1038,7 @@ def _inject_static_sections(
                     })
             if canonical_edu:
                 data["education"] = canonical_edu
-        elif user_id != "default":
+        else:
             logger.info(
                 "[tailor] user=%s has no education in their DB profile — leaving the "
                 "CV's education section as generated (no legacy back-fill).",
@@ -1083,25 +1084,15 @@ def _inject_static_sections(
 
 # ── All-employer enforcement (mechanical safety net) ─────────────────────────
 
-# Company tokens that are permanently excluded from the experience array.
-_EXCLUDED_EMPLOYER_TOKENS = frozenset({"aldo", "river"})
-
-
 def _norm_company(name: str) -> str:
     """Strip parenthetical suffixes and lower-case for fuzzy comparison."""
     return re.sub(r'\s*\(.*?\)', '', name or "").strip().lower()
 
 
-def _required_profile_employers(user_id: str = "default") -> list[dict]:
+def _required_profile_employers(user_id: str) -> list[dict]:
     """
-    Return every non-excluded, non-military employer for user_id that must
-    produce an experience entry in the final cv_data.
-
-    The aldo/river exclusion list is LEGACY-ONLY and is applied solely to the
-    'default' singleton. Applying it to a real user's DB profile is exactly the
-    corruption this refactor removes — user e2472fa3, for instance, has a
-    genuine "Restaurant River" role that the bare-substring "river" token would
-    silently delete from their CV.
+    Return every non-military employer for user_id that must produce an
+    experience entry in the final cv_data.
 
     Employers are de-duplicated by normalised name, keeping the FIRST
     occurrence. The DB profile stores one row per role, so a multi-role
@@ -1109,7 +1100,6 @@ def _required_profile_employers(user_id: str = "default") -> list[dict]:
     profile is most-recent-first, so the first row carries the current title.
     """
     profile = _resolve_profile(user_id)
-    apply_legacy_exclusions = user_id == "default"
 
     required: list[dict] = []
     seen: set[str] = set()
@@ -1118,10 +1108,6 @@ def _required_profile_employers(user_id: str = "default") -> list[dict]:
         if not company:
             continue  # military entry uses "unit", not "company"
         c_norm = _norm_company(company)
-        if apply_legacy_exclusions and any(
-            tok in c_norm for tok in _EXCLUDED_EMPLOYER_TOKENS
-        ):
-            continue
         if c_norm in seen:
             continue
         seen.add(c_norm)
@@ -1139,7 +1125,7 @@ def _required_profile_employers(user_id: str = "default") -> list[dict]:
     return required
 
 
-def _get_profile_stub(company: str, user_id: str = "default") -> str:
+def _get_profile_stub(company: str, user_id: str) -> str:
     """
     Extract a single-sentence stub bullet from user_id's profile for a company
     that was dropped by the LLM.  Used only as a safety-net placeholder —
@@ -1159,7 +1145,7 @@ def _get_profile_stub(company: str, user_id: str = "default") -> str:
     return ""
 
 
-def _enforce_all_employers(cv_data: dict, user_id: str = "default") -> dict:
+def _enforce_all_employers(cv_data: dict, user_id: str) -> dict:
     """
     Guarantee every non-excluded employer from user_id's profile appears in
     cv_data["experience"].  Any that the LLM silently dropped are added
@@ -1258,7 +1244,7 @@ def _sanitize_ai_tells(data: object) -> object:
 
 # ── Entity intelligence block ────────────────────────────────────────────────
 
-def _build_entity_intelligence_block(user_id: str = "default") -> str:
+def _build_entity_intelligence_block(user_id: str) -> str:
     """
     Load verified enriched entities for user_id from their master profile and
     format them as a compact intelligence block for injection into the
@@ -1316,7 +1302,7 @@ _CORE_QUESTIONS = {
 }
 
 
-def _core_profile_gaps(user_id: str = "default") -> list[dict]:
+def _core_profile_gaps(user_id: str) -> list[dict]:
     """
     Return missing_data requests for any essential personal fields that are
     still empty for user_id.  Runs before the LLM so we never waste a
@@ -1338,17 +1324,15 @@ def _core_profile_gaps(user_id: str = "default") -> list[dict]:
 # ── Agent ─────────────────────────────────────────────────────────────────────
 
 class TailorAgent:
-    def __init__(self, user_id: str = "default") -> None:
+    def __init__(self, user_id: str) -> None:
         """
         user_id scopes EVERY profile read this agent makes — the prompt's
         profile blob, the core-field gate, entity intelligence, and the static
-        section injection. Callers holding an authenticated user MUST pass it;
-        the 'default' fallback exists only for pre-migration dev paths and
-        resolves to the legacy single-user singleton.
+        section injection.
         """
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not set")
-        self.user_id = user_id or "default"
+        self.user_id = user_id
 
     async def tailor(
         self,
