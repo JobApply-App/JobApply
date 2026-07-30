@@ -46,12 +46,12 @@ from collections import Counter
 from typing import Any
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.api.deps import CurrentUser, get_current_user, standard_rate_limit
 from backend.services.analytics_service import compute_overview
 from backend.core.database import ENGINE
-from backend.models.job import JobRow
 from backend.repositories import application_repository
 
 # Router-level standard_rate_limit (Phase 4 invariant) — covers /summary and
@@ -134,7 +134,7 @@ async def analytics_summary(user: CurrentUser = Depends(get_current_user)) -> di
     ApplicationRow drives: total_applications, active_processes,
     interview_conversion_rate, funnel_stages, and top_companies.
 
-    JobRow (applied=True) drives: top_keywords from tailored CV skill data.
+    user_job_matches (applied=True) drives: top_keywords from tailored CV skill data.
     """
     with Session(ENGINE) as db:
 
@@ -201,15 +201,11 @@ async def analytics_summary(user: CurrentUser = Depends(get_current_user)) -> di
             top_companies.append({"company": display_name, "count": count})
 
         # ── Top keywords from applied jobs' tailored CVs ───────────────────────
-        applied_jobs: list[JobRow] = (
-            db.query(JobRow)
-            .filter(
-                JobRow.user_id     == user.user_id,
-                JobRow.applied     == True,           # noqa: E712
-                JobRow.tailored_cv.isnot(None),
-            )
-            .all()
-        )
+        applied_jobs = db.execute(
+            text("SELECT tailored_cv FROM public.user_job_matches "
+                 "WHERE user_id = CAST(:uid AS uuid) AND applied = true AND tailored_cv IS NOT NULL"),
+            {"uid": user.user_id},
+        ).fetchall()
         keyword_counter: Counter[str] = Counter()
         for job in applied_jobs:
             for kw in _extract_skill_keywords(job.tailored_cv):

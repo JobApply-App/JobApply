@@ -154,6 +154,16 @@ class TestMasterProfileIsolation:
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestJobIsolation:
+    """
+    Note: this class covers the legacy jobs table's tenant_id backfill
+    migration only (SQLite, isolated _TEST_ENGINE) — get_all()/get_feed()
+    scoping against the NEW job_postings/user_job_matches tables is covered
+    separately in test_job_postings_isolation.py, which needs real Dev
+    Postgres (those tables don't exist on SQLite, and user_job_matches has a
+    hard FK to auth.users) and so can't share this file's autouse
+    ENGINE-patching fixture.
+    """
+
     def _insert_job(self, job_id: str, user_id: str, match_score: float, status: str = "new") -> None:
         from backend.models.job import JobRow
 
@@ -168,33 +178,6 @@ class TestJobIsolation:
                 source_type="other", score_is_proxy=False, created_at=_now(),
             ))
             session.commit()
-
-    def test_get_all_only_returns_the_calling_users_jobs(self):
-        from backend.repositories import job_repository as job_store
-
-        user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
-        self._insert_job("job-a-1", user_a, match_score=91.5)
-        self._insert_job("job-b-1", user_b, match_score=12.0)
-        self._insert_job("job-b-2", user_b, match_score=45.5)
-
-        jobs_a = job_store.get_all(user_a)
-        jobs_b = job_store.get_all(user_b)
-
-        assert {j.job_id for j in jobs_a} == {"job-a-1"}
-        assert {j.job_id for j in jobs_b} == {"job-b-1", "job-b-2"}
-        # No cross-contamination of match scores between accounts.
-        assert jobs_a[0].match_score == 91.5
-        assert all(j.match_score != 91.5 for j in jobs_b)
-
-    def test_get_feed_status_filter_stays_scoped_per_user(self):
-        from backend.repositories import job_repository as job_store
-
-        user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
-        self._insert_job("job-a-saved", user_a, match_score=70.0, status="saved")
-        self._insert_job("job-b-saved", user_b, match_score=70.0, status="saved")
-
-        feed_a = job_store.get_feed(user_a, status_filter="saved")
-        assert {j.job_id for j in feed_a} == {"job-a-saved"}
 
     def test_tenant_id_backfilled_correctly_per_user(self):
         """
@@ -304,139 +287,6 @@ class TestApplicationIsolation:
 
         assert {a.application_id for a in apps_a} == {"app-a-1"}
         assert {a.application_id for a in apps_b} == {"app-b-1", "app-b-2"}
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# JOB-92 — save_with_source_priority() must never reassign a row's user_id
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _make_job_match(
-    *, job_id: str, user_id: str, apply_url: str, source_type: str,
-    title: Optional[str] = None, company: str = "Acme", location: str = "Remote",
-    match_score: float = 0.0, why_ron: Optional[str] = None,
-):
-    from backend.schemas.job import DetailedAnalysis, JobMatch
-
-    # title defaults to something unique per call — save_with_source_priority
-    # matches across the WHOLE persistent test engine by (title, company,
-    # location), so a fixed default would collide with rows other test
-    # methods insert in the same module-level in-memory DB.
-    if title is None:
-        title = f"Senior PM {_uid()}"
-
-    return JobMatch(
-        job_id=job_id, title=title, company=company, location=location,
-        score=80.0, confidence_score=50, culture_fit_score=50,
-        trajectory_alignment="", company_dna_inference="",
-        detailed_analysis=DetailedAnalysis(strengths=[], critical_gaps=[], strategic_advice=[]),
-        investigation_points=[], reasons=[],
-        apply_url=apply_url, is_new=True, posted_at="", source="automatic",
-        is_open=True, user_id=user_id, source_type=source_type,
-        match_score=match_score, score_is_proxy=False, created_at=_now(),
-        why_ron=why_ron,
-    )
-
-
-class TestJobSourcePriorityIsolation:
-    """JOB-92: cross-tenant matches must clone a private row, never hijack an existing one."""
-
-    def test_cross_tenant_apply_url_match_does_not_reassign_owner(self):
-        from backend.repositories import job_repository as job_store
-        from backend.models.job import JobRow
-
-        user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
-        url = f"https://boards.example.com/job-{_uid()}"
-        title = f"Senior PM {_uid()}"
-
-        job_a = _make_job_match(
-            job_id=f"job-a-{_uid()}", user_id=user_a, apply_url=url, title=title,
-            source_type="linkedin", match_score=91.5, why_ron="A's private brief",
-        )
-        assert job_store.save_with_source_priority(job_a) is True
-
-        # User B discovers the SAME posting from a higher-priority source.
-        job_b = _make_job_match(
-            job_id=f"job-b-{_uid()}", user_id=user_b, apply_url=url, title=title,
-            source_type="company_site", match_score=10.0,
-        )
-        assert job_store.save_with_source_priority(job_b) is True
-
-        with Session(_TEST_ENGINE) as session:
-            rows = session.query(JobRow).filter(JobRow.apply_url == url).all()
-        by_user = {r.user_id: r for r in rows}
-
-        # Both users now have their own row for the same posting.
-        assert set(by_user) == {user_a, user_b}
-        # A's row is untouched: same owner, same private analysis.
-        assert by_user[user_a].user_id == user_a
-        assert by_user[user_a].match_score == 91.5
-        assert by_user[user_a].why_ron == "A's private brief"
-        # B's row is its own, separate row (distinct job_id from A's).
-        assert by_user[user_b].job_id != by_user[user_a].job_id
-        assert by_user[user_b].source_type == "company_site"
-
-        # Feed isolation still holds.
-        assert {j.job_id for j in job_store.get_all(user_a)} == {by_user[user_a].job_id}
-        assert {j.job_id for j in job_store.get_all(user_b)} == {by_user[user_b].job_id}
-
-    def test_cross_tenant_dedup_key_match_does_not_reassign_owner(self):
-        """Same real job cross-posted under different URLs — must still isolate by user."""
-        from backend.repositories import job_repository as job_store
-        from backend.models.job import JobRow
-
-        user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
-        title, company, location = f"Staff Engineer {_uid()}", "Acme Corp", "Tel Aviv"
-
-        job_a = _make_job_match(
-            job_id=f"job-a-{_uid()}", user_id=user_a,
-            apply_url=f"https://drushim.co.il/job-{_uid()}", source_type="other",
-            title=title, company=company, location=location, match_score=77.0,
-        )
-        assert job_store.save_with_source_priority(job_a) is True
-
-        job_b = _make_job_match(
-            job_id=f"job-b-{_uid()}", user_id=user_b,
-            apply_url=f"https://alljobs.co.il/job-{_uid()}", source_type="linkedin",
-            title=title, company=company, location=location, match_score=5.0,
-        )
-        assert job_store.save_with_source_priority(job_b) is True
-
-        with Session(_TEST_ENGINE) as session:
-            rows = session.query(JobRow).filter(JobRow.title == title).all()
-        by_user = {r.user_id: r for r in rows}
-
-        assert set(by_user) == {user_a, user_b}
-        assert by_user[user_a].match_score == 77.0
-        assert by_user[user_b].match_score == 5.0
-
-    def test_never_reassigns_row_user_id(self):
-        """
-        Regression guard: no branch of save_with_source_priority may change an
-        existing row's user_id — it must always stay with its original owner,
-        no matter how many higher-priority saves other users make afterward.
-        """
-        from backend.repositories import job_repository as job_store
-        from backend.models.job import JobRow
-
-        user_a, user_b = f"user-a-{_uid()}", f"user-b-{_uid()}"
-        url = f"https://boards.example.com/job-{_uid()}"
-
-        job_a = _make_job_match(job_id=f"job-a-{_uid()}", user_id=user_a, apply_url=url, source_type="other")
-        job_store.save_with_source_priority(job_a)
-
-        with Session(_TEST_ENGINE) as session:
-            original_job_id = session.query(JobRow).filter(JobRow.apply_url == url).one().job_id
-
-        for source_type in ("linkedin", "company_site"):
-            job_b = _make_job_match(
-                job_id=f"job-b-{_uid()}", user_id=user_b, apply_url=url, source_type=source_type,
-            )
-            job_store.save_with_source_priority(job_b)
-
-            with Session(_TEST_ENGINE) as session:
-                a_row = session.get(JobRow, original_job_id)
-                assert a_row is not None
-                assert a_row.user_id == user_a
 
 
 # ═══════════════════════════════════════════════════════════════════════════

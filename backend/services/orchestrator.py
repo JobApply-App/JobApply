@@ -64,10 +64,6 @@ async def draft_recruiter_reply(user_id: str, job_id: str, email_text: str) -> s
     import uuid
     from datetime import datetime, timezone
 
-    from sqlalchemy.orm import Session
-
-    from backend.core.database import ENGINE
-    from backend.models.job import JobRow
     from backend.repositories import recruiter_reply_draft_repository
     from backend.services.llm_client import call_llm
     from backend.services.llm_validation import harden_system_prompt, sanitize_text
@@ -84,12 +80,7 @@ async def draft_recruiter_reply(user_id: str, job_id: str, email_text: str) -> s
         return ""
 
     # Tenant-isolated job lookup — job_id alone is NOT sufficient.
-    with Session(ENGINE) as db:
-        job: JobRow | None = (
-            db.query(JobRow)
-            .filter(JobRow.job_id == job_id, JobRow.user_id == user_id)
-            .first()
-        )
+    job = job_store.get_by_id(job_id, user_id)
     if job is None:
         logger.warning(
             "[reply-draft] job %r not found for user %r — refusing to draft",

@@ -39,8 +39,8 @@ from dotenv import load_dotenv
 
 import backend.repositories.job_repository as job_store
 from backend.core.database import ENGINE
-from backend.models.job import JobRow
 from backend.services.llm_client import call_llm
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
@@ -152,13 +152,12 @@ async def extract_ats_keywords(job_id: str, user_id: str) -> dict:
         return cached_blob["ats_keywords"]
 
     # ── Fetch job from DB ─────────────────────────────────────────────────────
-    with Session(ENGINE) as session:
-        row = session.get(JobRow, job_id)
-        if not row or row.user_id != user_id:
-            raise ValueError(f"Job {job_id!r} not found")
-        jd_text  = (row.jd_text or "").strip()
-        job_title = row.title or ""
-        company   = row.company or ""
+    job = job_store.get_by_id(job_id, user_id)
+    if not job:
+        raise ValueError(f"Job {job_id!r} not found")
+    jd_text   = (job.jd_text or "").strip()
+    job_title = job.title or ""
+    company   = job.company or ""
 
     if not jd_text or len(jd_text) < 100:
         raise ValueError(
@@ -207,12 +206,21 @@ async def extract_ats_keywords(job_id: str, user_id: str) -> dict:
     )
 
     # ── Persist in cache ──────────────────────────────────────────────────────
+    import json
     with Session(ENGINE) as session:
-        row = session.get(JobRow, job_id)
-        if row:
+        row = session.execute(
+            text("SELECT tailored_cv FROM public.user_job_matches "
+                 "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid)"),
+            {"job_id": job_id, "user_id": user_id},
+        ).fetchone()
+        if row is not None:
             blob = dict(row.tailored_cv or {})
             blob["ats_keywords"] = keywords_result
-            row.tailored_cv = blob
+            session.execute(
+                text("UPDATE public.user_job_matches SET tailored_cv = CAST(:payload AS jsonb) "
+                     "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid)"),
+                {"payload": json.dumps(blob), "job_id": job_id, "user_id": user_id},
+            )
             session.commit()
 
     return keywords_result

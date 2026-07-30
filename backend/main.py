@@ -266,40 +266,58 @@ def purge_irrelevant_jobs(min_score: float = 30.0, dry_run: bool = False, user_i
         total       — total rows examined
         deleted     — rows actually removed (0 if dry_run=True)
         dry_run_preview — rows that would be removed (only set when dry_run=True)
+
+    Deletes user_job_matches rows only, never the shared job_postings row it
+    points at — another tenant may still have a legitimate match against the
+    same posting (job_postings is global; see job_repository.py's module
+    docstring for why that split exists).
     """
-    from backend.core.database import ENGINE
-    from backend.models.job import JobRow
-    from backend.scrapers.relevancy import is_title_relevant
+    from sqlalchemy import text
     from sqlalchemy.orm import Session
 
+    from backend.core.database import ENGINE
+    from backend.scrapers.relevancy import is_title_relevant
+
     with Session(ENGINE) as session:
-        query = session.query(JobRow)
+        where = "1=1"
+        params: dict = {}
         if user_id is not None:
-            query = query.filter(JobRow.user_id == user_id)   # tenant-scoped purge
-        all_rows = query.all()
+            where = "ujm.user_id = CAST(:uid AS uuid)"   # tenant-scoped purge
+            params["uid"] = user_id
+        rows = session.execute(
+            text(f"""
+                SELECT ujm.id, ujm.match_score, jp.title
+                FROM public.user_job_matches ujm JOIN public.job_postings jp ON jp.id = ujm.job_posting_id
+                WHERE {where}
+            """),
+            params,
+        ).fetchall()
         to_delete = [
-            r for r in all_rows
+            r for r in rows
             if (r.match_score or 0.0) < min_score or not is_title_relevant(r.title or "")
         ]
 
-        result: dict = {"total": len(all_rows), "deleted": 0}
+        result: dict = {"total": len(rows), "deleted": 0}
 
         if dry_run:
             result["dry_run_preview"] = len(to_delete)
             logger.info(
                 "[purge] DRY RUN — would delete %d/%d rows (min_score=%.1f)",
-                len(to_delete), len(all_rows), min_score,
+                len(to_delete), len(rows), min_score,
             )
             return result
 
-        for row in to_delete:
-            session.delete(row)
+        if to_delete:
+            session.execute(
+                text("DELETE FROM public.user_job_matches WHERE id = ANY(:ids)"),
+                {"ids": [r.id for r in to_delete]},
+            )
         session.commit()
 
         result["deleted"] = len(to_delete)
         logger.info(
             "[purge] Deleted %d/%d job rows (min_score=%.1f)",
-            len(to_delete), len(all_rows), min_score,
+            len(to_delete), len(rows), min_score,
         )
         return result
 

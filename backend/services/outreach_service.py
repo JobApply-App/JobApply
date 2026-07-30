@@ -175,17 +175,13 @@ async def generate_outreach_message(
             job_context = f"Role: {cached.get('job_title', '')} at {cached.get('company', '')}"
         # Try fetching raw job metadata
         try:
-            from backend.core.database import ENGINE
-            from backend.models.job import JobRow
-            from sqlalchemy.orm import Session
-            with Session(ENGINE) as s:
-                row = s.get(JobRow, job_id)
-                if row and row.user_id == user_id:
-                    job_context = (
-                        f"Role: {row.title} at {row.company}\n"
-                        f"Location: {row.location or 'Israel'}\n"
-                        f"JD snippet: {sanitize_text((row.jd_text or '')[:400])}"
-                    )
+            job = job_store.get_by_id(job_id, user_id)
+            if job:
+                job_context = (
+                    f"Role: {job.title} at {job.company}\n"
+                    f"Location: {job.location or 'Israel'}\n"
+                    f"JD snippet: {sanitize_text((job.jd_text or '')[:400])}"
+                )
         except Exception:
             pass
 
