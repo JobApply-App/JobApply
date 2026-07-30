@@ -343,9 +343,9 @@ def load_cached_profile(company_name: str, engine=None) -> Optional[CompanyCultu
     if not key:
         return None
     try:
-        from backend.repositories import company_culture_repository
+        from backend.repositories import company_intel_repository
 
-        row = company_culture_repository.get(key, engine=engine)
+        row = company_intel_repository.get(key, profile_type="culture", engine=engine)
         if row is None:
             return None
         return CompanyCultureProfile(**json.loads(row.profile_json))
@@ -356,12 +356,12 @@ def load_cached_profile(company_name: str, engine=None) -> Optional[CompanyCultu
 
 def save_cached_profile(profile: CompanyCultureProfile, engine=None) -> bool:
     try:
-        from backend.repositories import company_culture_repository
+        from backend.repositories import company_intel_repository
 
-        company_culture_repository.upsert(
+        company_intel_repository.upsert(
             profile.company_key, profile.display_name,
             profile.model_dump_json(), profile.researched_at,
-            engine=engine,
+            profile_type="culture", engine=engine,
         )
         return True
     except Exception as exc:
