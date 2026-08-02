@@ -41,42 +41,12 @@ class ShadowScoreRow(Base):
     created_at     = Column(String,  nullable=False)
 
 
-class MatchTriggerRow(Base):
-    """
-    High-match trigger events (JOB-43).
-
-    One row per (user, job) pair whose LLM-validated composite score crossed
-    HIGH_MATCH_THRESHOLD. The UNIQUE(user_id, job_id) constraint is the
-    exactly-once guarantee: re-scoring the same job — same, higher, or lower —
-    can never emit a second trigger, because the INSERT simply conflicts.
-
-    `status` lifecycle: 'pending' → 'consumed'. Downstream channels
-    (UI Notifications bell, Mobile push/SMS, WhatsApp, CV Adaptation Flow)
-    read pending rows via match_trigger_service.fetch_pending_triggers() and
-    acknowledge via mark_triggers_consumed() — they must NOT delete rows,
-    since the row itself is the dedup record.
-    """
-    __tablename__ = "match_triggers"
-
-    id           = Column(Integer, primary_key=True, autoincrement=True)
-    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
-    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
-    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
-    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
-    # they would silently stop matching on SQLite. Python always sees a str.
-    # See docs/db-architecture-spec.md principle 1.
-    user_id      = Column(UUID_FK, nullable=False, index=True)
-    job_id       = Column(String,  nullable=False)
-    score        = Column(Float,   nullable=False)               # 1-decimal composite at trigger time
-    threshold    = Column(Float,   nullable=False)               # threshold in force when fired
-    payload_json = Column(Text,    nullable=False, default="{}") # title/company/fit_brief for notifications
-    status       = Column(String,  nullable=False, default="pending", index=True)
-    created_at   = Column(String,  nullable=False)
-    consumed_at  = Column(String,  nullable=True)
-
-    __table_args__ = (
-        UniqueConstraint("user_id", "job_id", name="uq_match_trigger_user_job"),
-    )
+## MatchTriggerRow (match_triggers table) removed — folded into
+## user_job_matches as trigger_state/trigger_score/trigger_threshold/
+## triggered_at/trigger_consumed_at (migration 3542b0021d6b). A trigger is
+## 1:1 with the match that fired it — the old table's UNIQUE(user_id,
+## job_id) said so — and the partial index ix_ujm_pending_triggers keeps
+## the pending scan as cheap as the dedicated table was.
 
 
 class CompanyIntelRow(Base):

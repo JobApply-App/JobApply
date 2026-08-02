@@ -526,10 +526,28 @@ def _migrate_confidence_matrix(conn) -> None:
 #
 # `ariel_probe_log` has no ORM class (created via raw DDL in
 # _migrate_confidence_matrix) but is tenant-scoped and handled below too.
+# This list drives the SQLite-only tenant_id backfill, so membership tracks
+# what still exists ON SQLITE — which is not the same as what exists in
+# Postgres. The deciding question for each table is whether an ORM model still
+# creates it via create_all(), not whether Postgres still has it:
+#
+#   jobs             DROPPED in Postgres (migration 3a6b5cab3433) but JobRow
+#                    still exists in backend/models/job.py, so create_all()
+#                    still builds it on SQLite and the backfill still applies.
+#                    STAYS. (Removing it here broke
+#                    test_tenant_isolation.py::test_tenant_id_backfilled_correctly_per_user,
+#                    which exercises exactly that path.)
+#   master_profiles  dropped AND MasterProfileRow deleted — never created
+#                    anywhere now. REMOVED.
+#   match_triggers   folded into user_job_matches (3542b0021d6b) and their ORM
+#   job_feedback     models deleted with them. REMOVED.
+#
+# The loop below skips a missing table silently, so a stale entry costs nothing
+# at runtime — but an entry missing for a table that DOES exist silently skips
+# a real migration, which is the failure mode above.
 TENANT_SCOPED_TABLES: tuple[str, ...] = (
     "jobs", "profile_interviews", "applications", "recruiter_reply_drafts",
-    "master_profiles", "profile_entities", "evidence_records",
-    "shadow_match_scores", "match_triggers", "job_feedback",
+    "profile_entities", "evidence_records", "shadow_match_scores",
     "ariel_sessions", "conversation_events", "confidence_audit_log",
     "ariel_gap_queue", "ariel_probe_log",
 )

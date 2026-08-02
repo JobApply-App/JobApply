@@ -1,4 +1,4 @@
-# אפיון ארכיטקטורת מסד הנתונים — מ-26 טבלאות ל-19
+# אפיון ארכיטקטורת מסד הנתונים — מ-26 טבלאות ל-21
 
 **מסמך אפיון · JobApply_Venture · Supabase Postgres**
 נכתב על בסיס סריקת סכימה חיה + ניתוח קוד ה-Backend, 2026-07-31
@@ -15,7 +15,7 @@
 | 2 | **אותה ישות מיוצגת פעמיים** — כישורים, שיחות, ומשרות מנוהלים בטבלאות מקבילות בלי קשר ביניהן | 36 כישורים ב-`cv_claims` מול 121 ב-`profile_entities`, **0 קישור** |
 | 3 | **מינוח אישי במקום גנרי** — `why_ron` כשם עמודה במוצר רב-משתמשי | 113 שימושים ב-Backend + 16 ב-Frontend, ונחשף כמפתח JSON ב-5 ראוטים |
 
-**היעד:** 19 טבלאות, כל אחת עם ייעוד יחיד, כולן תלויות ב-`profiles.id` כעוגן, ללא כפילות מושגית.
+**היעד:** 21 טבלאות, כל אחת עם ייעוד יחיד, כולן תלויות ב-`profiles.id` כעוגן, ללא כפילות מושגית.
 
 ---
 
@@ -138,14 +138,14 @@ job_postings  :   4 שורות, canonical_job_key = "9ca83e8de4e16f8a" ← hash 
 
 ### 2.5 טבלאות שהן למעשה עמודות
 
-ארבע טבלאות מחזיקות יחס **1:1 מדויק** עם `user_job_matches` — כלומר הן עמודות שהוגלו לטבלה:
+שלוש טבלאות מחזיקות יחס **1:1 מדויק** עם `user_job_matches` — כלומר הן עמודות שהוגלו לטבלה. הרביעית **נראתה** כך ואינה:
 
-| טבלה | היחס | היעד |
-|------|------|------|
-| `match_triggers` | 1:1 עם (משתמש, משרה) שחצתה סף | עמודות ב-`user_job_matches` |
-| `job_feedback` | 1:1 עם (משתמש, משרה) שקיבלה משוב | עמודות ב-`user_job_matches` |
-| `recruiter_reply_drafts` | 1:1 עם (משתמש, משרה) שהגיעה אליה פנייה | עמודות ב-`user_job_matches` |
-| `ariel_probe_log` | אירוע בתוך שיחה | שורה ב-`conversation_events` |
+| טבלה | היחס | אכיפה בסכימה | היעד |
+|------|------|--------------|------|
+| `match_triggers` | 1:1 עם (משתמש, משרה) שחצתה סף | ✅ UNIQUE | עמודות ב-`user_job_matches` |
+| `job_feedback` | 1:1 עם (משתמש, משרה) שקיבלה משוב | ✅ UNIQUE | עמודות ב-`user_job_matches` |
+| `ariel_probe_log` | אירוע בתוך שיחה | — | שורה ב-`conversation_events` |
+| `recruiter_reply_drafts` | **1:N** — טיוטה לכל מייל נכנס | ❌ אין | **נשארת טבלה** (§4.2) |
 
 `user_job_matches` כבר מחזיקה `outreach_text` — כלומר התקדים לכיוון הזה כבר קיים בסכימה.
 
@@ -157,7 +157,7 @@ job_postings  :   4 שורות, canonical_job_key = "9ca83e8de4e16f8a" ← hash 
 
 ---
 
-## 3. מודל היעד — 19 טבלאות
+## 3. מודל היעד — 21 טבלאות
 
 ```
                           ┌─────────────┐
@@ -199,7 +199,7 @@ job_postings  :   4 שורות, canonical_job_key = "9ca83e8de4e16f8a" ← hash 
 | 2 | `user_preferences` | ✅ נשארת | תקינה כבר היום |
 | 3 | `profile_answers` | ⚠️ מצטמצמת | מפתחות מוכרים → מבנה טיפוסי |
 | 4 | `cv_documents` | ✅ נשארת | תיעוד מקור |
-| 5 | `cv_claims` | 🔀 **ממוזגת** | → `profile_entities` |
+| 5 | `cv_claims` | ⚠️ מצטמצמת | כישורים → `profile_entities`; ניסיון/השכלה נשארים |
 | 6 | `profile_entities` | 🔧 מורחבת | קולטת `cv_claims`, FK ל-`profiles` |
 | 7 | `evidence_records` | 🔧 מתוקנת | FK ל-`profiles` |
 | 8 | `confidence_audit_log` | 🔧 מתוקנת | FK ל-`profiles` |
@@ -208,7 +208,7 @@ job_postings  :   4 שורות, canonical_job_key = "9ca83e8de4e16f8a" ← hash 
 | 11 | `user_job_matches` | 🔧 מורחבת | קולטת 3 טבלאות + `why_ron`→`fit_brief` |
 | 12 | `match_triggers` | 🔀 **ממוזגת** | → `user_job_matches` |
 | 13 | `job_feedback` | 🔀 **ממוזגת** | → `user_job_matches` |
-| 14 | `recruiter_reply_drafts` | 🔀 **ממוזגת** | → `user_job_matches` |
+| 14 | `recruiter_reply_drafts` | ✅ נשארת | 1:N אמיתי — ראה §4.2 |
 | 15 | `applications` | 🔧 מתוקנת | FK ל-`profiles` + ל-`user_job_matches` |
 | 16 | `shadow_match_scores` | 🔧 מתוקנת | FK ל-`profiles` (נשארת — כלי מדידה) |
 | 17 | `chat_sessions` | 🔀 **ממוזגת** | → `conversations` |
@@ -222,7 +222,11 @@ job_postings  :   4 שורות, canonical_job_key = "9ca83e8de4e16f8a" ← hash 
 | 24 | `kv_store` | ✅ נשארת | תשתית |
 | 25-26 | `alembic_version` ×2 | ✅ נשארות | תשתית |
 
-**סיכום: 8 טבלאות מתמזגות, 1 נוספת → 19 טבלאות.**
+**סיכום: 6 טבלאות מתמזגות, 1 נוספת → 21 טבלאות.**
+
+> היעד המקורי היה 19. הוא עלה ל-21 אחרי ששתי "כפילויות" התבררו בבדיקה
+> כלא-כפילויות: `cv_claims` (רק הכישורים חפפו — §4.1) ו-`recruiter_reply_drafts`
+> (1:N אמיתי — §4.2). המספר הוא תוצאה של הבדיקה, לא יעד שרודפים אחריו.
 
 ---
 
@@ -277,9 +281,27 @@ ALTER TABLE public.cv_claims
 
 **אימות:** 36 כישורים ו-14 רשומות ניסיון לפני ואחרי; סכום הציונים (2393.2) ומספר הראיות (261) ללא שינוי; מחזור הסרה→החזרה חוזר בדיוק למצב ההתחלתי. `test_skill_entity_merge.py` שומר על שלושת הכללים, ואומת ע"י הכנסת רגרסיה מכוונת.
 
-### 4.2 `user_job_matches` קולטת שלוש טבלאות
+### 4.2 `user_job_matches` קולטת **שתי** טבלאות `[✅ בוצע · מיגרציה 3542b0021d6b]`
 
-כל השלוש הן 1:1 מדויק עם (משתמש, משרה) — כלומר עמודות שהוגלו.
+**תיקון להיקף שנרשם כאן במקור.** הסעיף אמר "כל השלוש הן 1:1 מדויק". בדיקה של מה שהסכימה **באמת אוכפת** — במקום להאמין לתווית — הראתה ששתיים בלבד:
+
+| טבלה | UNIQUE על (user_id, job_id) | הוחלט |
+|------|----------------------------|--------|
+| `match_triggers` | ✅ `uq_match_triggers_user_job` — ה-repository אף מתעד את ה-insert כמחזיר False "if the (user, job) pair already fired" | **קופלה** |
+| `job_feedback` | ✅ `uq_job_feedback_user_job`, והכותב הוא upsert ("latest opinion wins") | **קופלה** |
+| `recruiter_reply_drafts` | ❌ **אין ייחודיות.** `insert()` מייצר `draft_id` חדש בכל קריאה ללא טיפול בקונפליקט, ולכל שורה `email_excerpt` של ההודעה הספציפית שהיא עונה לה | **נשארה** |
+
+מגייס שכותב פעמיים על אותה משרה מייצר **שתי טיוטות נפרדות** — זה 1:N אמיתי, בדיוק המקרה שעיקרון 3 מצדיק כטבלה נפרדת. קיפולה היה מוחק היסטוריית טיוטות ואת הקישור בין כל טיוטה למייל שלה.
+
+**שני ה-blobs הדנורמליים — החלטות הפוכות, ולמה:**
+
+- **`payload_json` נמחק.** ה-comment שלו מסביר בדיוק למה הוא היה קיים: *"compact payload for the notification channels — enough to render an alert **without a join back to the jobs table**"*. אחרי הקיפול השורה **היא** ה-JOIN — כותרת, חברה, `fit_brief` וציון כולם עליה. `fetch_pending` בונה אותם מחדש בקריאה, כך שהם גם לא יכולים להתיישן אחרי ניקוד מחדש.
+- **`snapshot_json` נשמר** כעמודה `feedback_snapshot`. נראה כמו אותה דנורמליזציה — אבל `build_job_snapshot()` לוכד `culture_axis`, `operational_pace` ו-`work_model` מ-`company_intel`, שאינם קיימים על `user_job_matches` כלל, ונתיב למידת-ההעדפות קורא `snapshot["culture_axis"]` ישירות. הקפאה בזמן הדירוג היא גם הסמנטיקה הנכונה יותר: אות הלמידה צריך לשקף איך המשרה נראתה כשהמשתמש שפט אותה, לא מה שמטמון תרבות שנחקר מחדש אומר היום.
+
+**שינוי חוזה:** `mark_triggers_consumed` מקבל עכשיו `job_ids` (מחרוזות) במקום `trigger_ids` (שלמים) — הקיפול ביטל את מפתח ה-surrogate. בטוח: ל-`fetch_pending_triggers`/`mark_triggers_consumed` אין צרכן חי (worker ההתראות טרם נבנה), ו-`fetch_pending` מחזיר את ה-`job_id` גם תחת `"id"` וגם תחת `"job_id"` כך ששני המפתחות עובדים.
+
+**האינדקסים החלקיים הם מה שמצדיק את הקיפול תפעולית:** `WHERE trigger_state = 'pending'` ו-`WHERE feedback_type IS NOT NULL` נותנים בדיוק את יעילות התור של טבלה ייעודית — סריקה על מספר שורות בודד, לא על כל ההתאמות של המשתמש.
+
 
 ```sql
 ALTER TABLE public.user_job_matches

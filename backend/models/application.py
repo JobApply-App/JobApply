@@ -66,33 +66,8 @@ class RecruiterReplyDraftRow(Base):
     created_at    = Column(String, nullable=False, default="")
 
 
-class JobFeedbackRow(Base):
-    """
-    User thumbs-up / thumbs-down feedback on job matches (JOB-57).
-
-    One row per (user, job) — re-rating updates the row in place (latest
-    opinion wins), enforced by UNIQUE(user_id, job_id). snapshot_json freezes
-    the job's characteristics at rating time (match score, culture axis/
-    category, pace, work model) so preference learning keeps working even if
-    the job row is later re-scored, archived, or purged.
-    """
-    __tablename__ = "job_feedback"
-
-    id            = Column(Integer, primary_key=True, autoincrement=True)
-    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
-    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
-    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
-    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
-    # they would silently stop matching on SQLite. Python always sees a str.
-    # See docs/db-architecture-spec.md principle 1.
-    user_id       = Column(UUID_FK, nullable=False, index=True)
-    job_id        = Column(String,  nullable=False)
-    feedback_type = Column(String,  nullable=False)               # thumbs_up | thumbs_down
-    reason        = Column(Text,    nullable=True)                # optional free-text why
-    snapshot_json = Column(Text,    nullable=False, default="{}") # job characteristics at rating time
-    created_at    = Column(String,  nullable=False)
-    updated_at    = Column(String,  nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("user_id", "job_id", name="uq_job_feedback_user_job"),
-    )
+## JobFeedbackRow (job_feedback table) removed — folded into
+## user_job_matches as feedback_type/feedback_reason/feedback_snapshot/
+## feedback_at (migration 3542b0021d6b). Feedback is 1:1 with the match it
+## is about; the old table enforced that with UNIQUE(user_id, job_id) and
+## its writer was already an upsert.
