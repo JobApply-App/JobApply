@@ -246,10 +246,22 @@ def _migrate_confidence_matrix(conn) -> None:
                 extracted_entity_ids    TEXT NOT NULL,
                 extraction_confidence   REAL NOT NULL,
                 raw_quote               TEXT,
-                analyzed_at             TEXT NOT NULL
+                analyzed_at             TEXT NOT NULL,
+                -- Probe events share this table since migration 32d536527e9a:
+                -- a probe and a STAR extraction are both events inside one
+                -- ariel_session. star_extraction rows leave the probe columns
+                -- NULL and vice versa.
+                event_kind              TEXT NOT NULL DEFAULT 'star_extraction',
+                probe_outcome           TEXT,
+                entity_id               TEXT REFERENCES profile_entities (entity_id)
             )
         """))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_ce_session ON conversation_events (session_id)"))
+        # Backs the probe-cooldown LEFT JOIN in ariel_probe_service.
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_ce_probe_cooldown "
+            "ON conversation_events (user_id, entity_id, analyzed_at DESC)"
+        ))
 
     # Full CREATE DDL for evidence_records — includes all source_type values.
     # base_weight is REAL (not constrained to positive) so negative_flag rows
@@ -464,24 +476,10 @@ def _migrate_confidence_matrix(conn) -> None:
         """))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_agq_user ON ariel_gap_queue (user_id, gap_severity, status)"))
 
-    # ── Migration 004: ariel_probe_log ────────────────────────────────────────
-    # Tracks every probe session opened by ArielProbeService so that the
-    # 48-hour cooldown can be enforced without re-probing a recently-addressed entity.
-    if "ariel_probe_log" not in tables:
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS ariel_probe_log (
-                probe_id        TEXT PRIMARY KEY,
-                user_id         TEXT NOT NULL,
-                entity_id       TEXT NOT NULL REFERENCES profile_entities (entity_id),
-                session_id      TEXT NOT NULL REFERENCES ariel_sessions (session_id),
-                outcome         TEXT,
-                probed_at       TEXT NOT NULL
-            )
-        """))
-        conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS idx_apl_user_entity "
-            "ON ariel_probe_log (user_id, entity_id, probed_at DESC)"
-        ))
+    # Migration 004 (ariel_probe_log) intentionally removed: probe events
+    # moved into conversation_events with event_kind='probe'
+    # (migration 32d536527e9a). The columns and the cooldown index are
+    # created with that table above.
 
     # ── Migration 002: add manual_review_required to profile_entities ─────────
     # ALTER TABLE to add the column if the table already exists from migration 001.
@@ -524,8 +522,6 @@ def _migrate_confidence_matrix(conn) -> None:
 # each call site (mechanical, not a redesign — every call site already takes
 # user_id as an explicit parameter, never a global).
 #
-# `ariel_probe_log` has no ORM class (created via raw DDL in
-# _migrate_confidence_matrix) but is tenant-scoped and handled below too.
 # This list drives the SQLite-only tenant_id backfill, so membership tracks
 # what still exists ON SQLITE — which is not the same as what exists in
 # Postgres. The deciding question for each table is whether an ORM model still
@@ -549,7 +545,7 @@ TENANT_SCOPED_TABLES: tuple[str, ...] = (
     "jobs", "profile_interviews", "applications", "recruiter_reply_drafts",
     "profile_entities", "evidence_records", "shadow_match_scores",
     "ariel_sessions", "conversation_events", "confidence_audit_log",
-    "ariel_gap_queue", "ariel_probe_log",
+    "ariel_gap_queue",
 )
 
 # Intentionally global / shared across all tenants — never add tenant_id here
