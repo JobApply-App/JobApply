@@ -7,7 +7,12 @@ from __future__ import annotations
 from sqlalchemy import Column, Float, Integer, String, Text
 from sqlalchemy.types import JSON
 
+from sqlalchemy.dialects import postgresql
+
 from backend.core.database import Base
+
+# Shared tenancy-key type — see the UUID_FK comment on any user_id column below.
+UUID_FK = String().with_variant(postgresql.UUID(as_uuid=False), "postgresql")
 
 
 class ProfileInterviewRow(Base):
@@ -30,7 +35,13 @@ class ProfileInterviewRow(Base):
     __tablename__ = "profile_interviews"
 
     session_id     = Column(String, primary_key=True)
-    user_id        = Column(String, nullable=False, index=True)
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id        = Column(UUID_FK, nullable=False, index=True)
     messages       = Column(JSON, nullable=False, default=list)
     draft_profile  = Column(JSON, nullable=True)
     confidence_map = Column(JSON, nullable=True)
@@ -59,7 +70,13 @@ class ProfileEntityRow(Base):
     __tablename__ = "profile_entities"
 
     entity_id              = Column(String,  primary_key=True)
-    user_id                = Column(String,  nullable=False, index=True)
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id                = Column(UUID_FK, nullable=False, index=True)
     entity_type            = Column(String,  nullable=False)   # skill|trait|domain|experience
     name                   = Column(String,  nullable=False)
     normalized_name        = Column(String,  nullable=False)
@@ -102,7 +119,13 @@ class EvidenceRecordRow(Base):
 
     evidence_id     = Column(String,  primary_key=True)
     entity_id       = Column(String,  nullable=False, index=True)
-    user_id         = Column(String,  nullable=False, index=True)
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id         = Column(UUID_FK, nullable=False, index=True)
     source_type     = Column(String,  nullable=False)
     base_weight     = Column(Float,   nullable=False)
     raw_content     = Column(Text,    nullable=True)
@@ -124,7 +147,13 @@ class ConfidenceAuditLogRow(Base):
 
     log_id         = Column(Integer, primary_key=True, autoincrement=True)
     entity_id      = Column(String,  nullable=False, index=True)
-    user_id        = Column(String,  nullable=False, index=True)
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id        = Column(UUID_FK, nullable=False, index=True)
     old_score      = Column(Float,   nullable=False)
     new_score      = Column(Float,   nullable=False)
     delta          = Column(Float,   nullable=False)

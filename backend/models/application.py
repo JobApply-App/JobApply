@@ -6,7 +6,12 @@ from __future__ import annotations
 
 from sqlalchemy import Column, Float, Integer, String, Text, UniqueConstraint
 
+from sqlalchemy.dialects import postgresql
+
 from backend.core.database import Base
+
+# Shared tenancy-key type — see the UUID_FK comment on any user_id column below.
+UUID_FK = String().with_variant(postgresql.UUID(as_uuid=False), "postgresql")
 
 
 class ApplicationRow(Base):
@@ -14,7 +19,13 @@ class ApplicationRow(Base):
     __tablename__ = "applications"
 
     application_id = Column(String, primary_key=True)
-    user_id        = Column(String, nullable=False, index=True)
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id        = Column(UUID_FK, nullable=False, index=True)
     job_id         = Column(String, nullable=False, index=True)
     title          = Column(String, nullable=False)
     company        = Column(String, nullable=False)
@@ -40,7 +51,13 @@ class RecruiterReplyDraftRow(Base):
     __tablename__ = "recruiter_reply_drafts"
 
     draft_id      = Column(String, primary_key=True)
-    user_id       = Column(String, nullable=False, index=True)
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id       = Column(UUID_FK, nullable=False, index=True)
     job_id        = Column(String, nullable=False, index=True)
     # Sanitized excerpt of the inbound email the draft responds to (audit trail)
     email_excerpt = Column(Text,   nullable=False, default="")
@@ -62,7 +79,13 @@ class JobFeedbackRow(Base):
     __tablename__ = "job_feedback"
 
     id            = Column(Integer, primary_key=True, autoincrement=True)
-    user_id       = Column(String,  nullable=False, index=True)
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id       = Column(UUID_FK, nullable=False, index=True)
     job_id        = Column(String,  nullable=False)
     feedback_type = Column(String,  nullable=False)               # thumbs_up | thumbs_down
     reason        = Column(Text,    nullable=True)                # optional free-text why

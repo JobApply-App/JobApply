@@ -6,7 +6,12 @@ from __future__ import annotations
 
 from sqlalchemy import Column, Float, Integer, String, Text, UniqueConstraint
 
+from sqlalchemy.dialects import postgresql
+
 from backend.core.database import Base
+
+# Shared tenancy-key type — see the UUID_FK comment on any user_id column below.
+UUID_FK = String().with_variant(postgresql.UUID(as_uuid=False), "postgresql")
 
 
 class ShadowScoreRow(Base):
@@ -21,7 +26,13 @@ class ShadowScoreRow(Base):
     __tablename__ = "shadow_match_scores"
 
     id             = Column(Integer, primary_key=True, autoincrement=True)
-    user_id        = Column(String,  nullable=False, index=True)
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id        = Column(UUID_FK, nullable=False, index=True)
     job_title      = Column(String,  nullable=True)
     company        = Column(String,  nullable=True)
     existing_score = Column(Float,   nullable=False)   # what the frontend received
@@ -48,7 +59,13 @@ class MatchTriggerRow(Base):
     __tablename__ = "match_triggers"
 
     id           = Column(Integer, primary_key=True, autoincrement=True)
-    user_id      = Column(String,  nullable=False, index=True)
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id      = Column(UUID_FK, nullable=False, index=True)
     job_id       = Column(String,  nullable=False)
     score        = Column(Float,   nullable=False)               # 1-decimal composite at trigger time
     threshold    = Column(Float,   nullable=False)               # threshold in force when fired

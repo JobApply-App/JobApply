@@ -65,3 +65,4 @@ skills_report.md
 
 # Claude Code local (per-developer) settings — do not share machine-specific state
 .claude/settings.local.json
+backend/backups/
