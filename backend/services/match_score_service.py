@@ -329,7 +329,7 @@ class MatchScoreResult:
     semantic_score:      float           = 0.0   # within the 70% LLM bucket (5/7 share)
     management_score:    float           = 0.0   # within the 70% LLM bucket (2/7 share)
     # ── LLM-generated fit brief + conceptual gap list ─────────────────────────
-    why_ron:                       Optional[str]   = None  # populated by _llm_dual_score
+    fit_brief:                       Optional[str]   = None  # populated by _llm_dual_score
     missing_critical_capabilities: list[str]        = field(default_factory=list)
     # high-level conceptual capability gaps from the LLM — NOT a low-level
     # missing-word list (that's missing_keywords / missing_skills from Phase 1).
@@ -379,7 +379,7 @@ class MatchScoreResult:
             "local_score":         self.local_score,
             "semantic_score":      self.semantic_score,
             "management_score":    self.management_score,
-            "why_ron":             self.why_ron,
+            "fit_brief":             self.fit_brief,
             "missing_critical_capabilities": self.missing_critical_capabilities,
             "ats_score":            self.ats_score,
             "ats_competency_score": self.ats_competency_score,
@@ -1042,7 +1042,7 @@ class LLMCapabilityScore(BaseModel):
     management_score: float = Field(ge=0, le=100,
         description="Tooling (Jira/Monday/etc.), methodology, and "
                      "stakeholder-management fit.")
-    why_ron: str = Field(default="",
+    fit_brief: str = Field(default="",
         description="Detailed contextual justification of the candidate's "
                      "core strengths relative to the role.")
     missing_critical_capabilities: List[str] = Field(default_factory=list,
@@ -1054,7 +1054,7 @@ _LLM_SYSTEM_SCORER = (
     "You are a precise capability-based evaluation engine. "
     "Output ONLY a valid, complete JSON object — no markdown fences, no prose, no explanation. "
     "The entire response must be parseable by json.loads(). "
-    "Keep the 'why_ron' field under 250 characters to avoid truncation."
+    "Keep the 'fit_brief' field under 250 characters to avoid truncation."
 )
 
 _LLM_SCORER_TEMPLATE = """\
@@ -1086,11 +1086,11 @@ Return this exact JSON object:
 {{
   "semantic_score": <integer 0-100>,
   "management_score": <integer 0-100>,
-  "why_ron": "<concise, contextual fit rationale — max 250 characters>",
+  "fit_brief": "<concise, contextual fit rationale — max 250 characters>",
   "missing_critical_capabilities": ["<high-level conceptual gap>", ...]
 }}
 
-WHY_RON RULES:
+FIT_BRIEF RULES:
   • Plain text, no markdown, no bullet symbols, no newlines.
   • One or two sentences: state the strongest fit signal and the main gap (if any).
   • Direct and factual — no filler ("great opportunity", "excited to").
@@ -1141,7 +1141,7 @@ COMPANY CONTEXT — factor this into semantic_score
     industry contexts (banks, telcos, government) should slightly lower the score
     unless the JD content itself shows the company operates in an agile way.
   • Domain fit: B2B SaaS, marketplace, fintech, e-commerce — weight positively.
-  • Culture signals inferred from the company name may inform the why_ron brief
+  • Culture signals inferred from the company name may inform the fit_brief brief
     but should not be the primary score driver — JD content takes precedence.
 
 semantic_score  — capability alignment, transferable execution, growth trajectory
@@ -1216,14 +1216,14 @@ def _parse_json_robust(raw: str, job_title: str = "") -> dict | None:
     Truncation pattern: the model fills `max_tokens` mid-string, producing
     something like:
         {"semantic_score": 72, "management_score": 65,
-         "why_ron": "🟢 Core Strengths:\\n• Led product at GO-OUT
+         "fit_brief": "🟢 Core Strengths:\\n• Led product at GO-OUT
     (no closing quote, comma, or brace)
 
     Repair order:
       1. Direct parse — succeeds for well-formed responses.
       2. Close open string + object  →  append  '"}
       3. Close object only           →  append  }
-      4. Extract scores with regex, drop why_ron / missing_critical_capabilities.
+      4. Extract scores with regex, drop fit_brief / missing_critical_capabilities.
       5. Return None  — caller uses (60, 60, "", []) fallback.
     """
     # 1. Direct
@@ -1244,19 +1244,19 @@ def _parse_json_robust(raw: str, job_title: str = "") -> dict | None:
     except json.JSONDecodeError:
         pass
 
-    # 4. Regex extraction — scores only, no why_ron / capability gaps
+    # 4. Regex extraction — scores only, no fit_brief / capability gaps
     sem_m  = re.search(r'"semantic_score"\s*:\s*(\d+)',   raw)
     mgmt_m = re.search(r'"management_score"\s*:\s*(\d+)', raw)
     if sem_m or mgmt_m:
         logger.warning(
             "match_score LLM: truncated JSON repaired via regex for title='%s' — "
-            "scores recovered but why_ron/missing_critical_capabilities lost. raw=%r",
+            "scores recovered but fit_brief/missing_critical_capabilities lost. raw=%r",
             job_title, raw[:200],
         )
         return {
             "semantic_score":   int(sem_m.group(1))  if sem_m  else 60,
             "management_score": int(mgmt_m.group(1)) if mgmt_m else 60,
-            "why_ron": "",
+            "fit_brief": "",
             "missing_critical_capabilities": [],
         }
 
@@ -1278,7 +1278,7 @@ async def _llm_dual_score(
 ) -> tuple[float, float, str, list[str]]:
     """
     Single claude-haiku-4-5 call returning
-    (semantic_score, management_score, why_ron, missing_critical_capabilities).
+    (semantic_score, management_score, fit_brief, missing_critical_capabilities).
 
     The response is validated against LLMCapabilityScore (Pydantic) so a
     malformed payload — wrong types, out-of-range scores — is caught
@@ -1369,7 +1369,7 @@ async def _llm_dual_score(
     try:
         result_llm = await call_llm(
             model       = "claude-haiku-4-5-20251001",
-            max_tokens  = 450,   # headroom for why_ron + missing_critical_capabilities list
+            max_tokens  = 450,   # headroom for fit_brief + missing_critical_capabilities list
             temperature = 0.0,   # deterministic — same input → same output every time
             system      = _LLM_SYSTEM_SCORER,
             messages    = [{"role": "user", "content": prompt}],
@@ -1409,15 +1409,15 @@ async def _llm_dual_score(
 
         semantic   = validated.semantic_score
         management = validated.management_score
-        why_ron    = validated.why_ron.strip()
+        fit_brief    = validated.fit_brief.strip()
         gaps       = validated.missing_critical_capabilities[:5]
 
         logger.info(
-            "match_score LLM: semantic=%.0f  management=%.0f  why_ron_len=%d  "
+            "match_score LLM: semantic=%.0f  management=%.0f  fit_brief_len=%d  "
             "gaps=%d  title='%s'",
-            semantic, management, len(why_ron), len(gaps), job_title,
+            semantic, management, len(fit_brief), len(gaps), job_title,
         )
-        return semantic, management, why_ron, gaps
+        return semantic, management, fit_brief, gaps
 
     except json.JSONDecodeError as exc:
         logger.warning(
@@ -1906,7 +1906,7 @@ async def compute_match_score_async(
             local_score         = local,
             semantic_score      = 0.0,
             management_score    = 0.0,
-            why_ron             = None,
+            fit_brief             = None,
             missing_critical_capabilities = [],
             # bullet_matches is a Phase-1, LLM-independent signal — the thin-JD
             # fallback zeroes the LLM-derived score components but must not
@@ -1927,7 +1927,7 @@ async def compute_match_score_async(
     local = compute_local_proxy_score(inferred_title, jd_text)
 
     # LLM dual scorer (single haiku call, temperature=0.0, Pydantic-validated)
-    semantic, management, why_ron, missing_caps = await _llm_dual_score(
+    semantic, management, fit_brief, missing_caps = await _llm_dual_score(
         cv_data, jd_text, inferred_title, company_name,
         user_id=user_id, job_id=job_id,
     )
@@ -1993,7 +1993,7 @@ async def compute_match_score_async(
         local_score         = local,
         semantic_score      = semantic,
         management_score    = management,
-        why_ron             = why_ron or None,
+        fit_brief             = fit_brief or None,
         missing_critical_capabilities = missing_caps,
         ats_score            = ats.base_score if ats else None,
         ats_competency_score = ats.competency_score if ats else None,

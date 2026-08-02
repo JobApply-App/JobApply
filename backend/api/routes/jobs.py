@@ -223,10 +223,10 @@ async def get_job_feed(
             and bool((j.company or "").strip())
             and bool((j.title or "").strip())
             # Require a real LLM analysis brief — jobs where the LLM call
-            # returned an empty why_ron are held back until the next s2 cycle
+            # returned an empty fit_brief are held back until the next s2 cycle
             # re-attempts enrichment.  Paired with feed_service._enrich_one
-            # which keeps score_is_proxy=True when why_ron is absent.
-            and bool((getattr(j, "why_ron", None) or "").strip())
+            # which keeps score_is_proxy=True when fit_brief is absent.
+            and bool((getattr(j, "fit_brief", None) or "").strip())
         )
         if not is_complete:
             continue
@@ -929,15 +929,15 @@ async def analyze_job(
     # save the job with score_is_proxy=True so the auto-enrichment loop picks
     # it up on the next cycle rather than surfacing it with a dead skeleton.
     from backend.services.feed_service import is_substantive_analysis
-    analysis_ok  = is_substantive_analysis(result.why_ron)
-    why_ron_save = result.why_ron if analysis_ok else None
+    analysis_ok  = is_substantive_analysis(result.fit_brief)
+    fit_brief_save = result.fit_brief if analysis_ok else None
 
     if not analysis_ok:
         logger.warning(
             "[analyze] LLM returned non-substantive analysis for %r — "
             "persisting with score_is_proxy=True so enrichment loop retries. "
-            "why_ron=%r",
-            match.title, (result.why_ron or "")[:80],
+            "fit_brief=%r",
+            match.title, (result.fit_brief or "")[:80],
         )
 
     match = match.model_copy(update={
@@ -949,13 +949,13 @@ async def analyze_job(
         "match_score":    final_score,
         "score_is_proxy": not analysis_ok,   # False only when analysis is real
         "jd_structured":  structured_json,
-        "why_ron":        why_ron_save,
+        "fit_brief":        fit_brief_save,
         "created_at":     datetime.now(timezone.utc).isoformat(),
     })
 
     job_store.save(match)
-    if why_ron_save:
-        job_store.update_why_ron(match.job_id, user.user_id, why_ron_save)
+    if fit_brief_save:
+        job_store.update_fit_brief(match.job_id, user.user_id, fit_brief_save)
 
     logger.info(
         "[analyze] Complete — job_id=%s title=%r score=%.1f "
@@ -1185,7 +1185,7 @@ async def get_job(job_id: str, user: CurrentUser = Depends(get_current_user)):
 
 class JobAnalysisState(BaseModel):
     job_id:               str
-    why_ron:              Optional[str]
+    fit_brief:              Optional[str]
     score_is_proxy:       bool
     enrichment_failures:  int
 
@@ -1207,7 +1207,7 @@ async def get_job_analysis(
         raise HTTPException(status_code=404, detail="Job not found")
     return JobAnalysisState(
         job_id=job.job_id,
-        why_ron=job.why_ron,
+        fit_brief=job.fit_brief,
         score_is_proxy=job.score_is_proxy,
         enrichment_failures=job.enrichment_failures,
     )
@@ -1487,7 +1487,7 @@ async def dev_flush_jobs(
 
     For each job owned by the authenticated user:
       • Clears jd_text → "" (makes _is_thin() return True → triggers hydration)
-      • Resets match_score → 0.0 and why_ron → None (triggers LLM enrichment)
+      • Resets match_score → 0.0 and fit_brief → None (triggers LLM enrichment)
 
     Returns immediately with the total number of flushed jobs.
     Raises HTTP 403 in production (DEV_MODE=False) and HTTP 403 for any

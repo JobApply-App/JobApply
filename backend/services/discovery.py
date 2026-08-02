@@ -114,23 +114,23 @@ async def _enrich_job(match: JobMatch, user_id: str) -> None:
             user_id            = user_id,
         )
 
-        analysis_ok = is_substantive_analysis(result.why_ron)
-        # Only mark as fully scored when analysis is real.  A junk why_ron
+        analysis_ok = is_substantive_analysis(result.fit_brief)
+        # Only mark as fully scored when analysis is real.  A junk fit_brief
         # keeps is_proxy=True so the enrichment loop re-attempts it.
         job_store.update_match_score(
             match.job_id, user_id, float(result.total), is_proxy=not analysis_ok
         )
 
         if analysis_ok:
-            job_store.update_why_ron(match.job_id, user_id, result.why_ron)
+            job_store.update_fit_brief(match.job_id, user_id, result.fit_brief)
             scored_ok = True
         else:
             job_store.increment_enrichment_failures(match.job_id)
             logger.warning(
                 "[discovery] ENRICHMENT_FAILURE step=analysis job_id=%s "
-                "LLM returned non-substantive why_ron=%r — "
+                "LLM returned non-substantive fit_brief=%r — "
                 "keeping score_is_proxy=True for enrichment loop retry",
-                match.job_id, (result.why_ron or "")[:80],
+                match.job_id, (result.fit_brief or "")[:80],
             )
 
         # Populate reason tags so the feed card header shows gap badges.

@@ -7,9 +7,9 @@ Idempotent enrichment pass (s2).  Validates every job's JD integrity before
 scoring — if the stored text is thin, it hydrates first.  The trigger
 condition is intentionally broad:
 
-    len(jd_text) < _JD_MIN_CHARS   OR   why_ron IS NULL
+    len(jd_text) < _JD_MIN_CHARS   OR   fit_brief IS NULL
 
-This means a job that carries a why_ron string from a previous DEV mock but
+This means a job that carries a fit_brief string from a previous DEV mock but
 still holds a thin placeholder JD is treated as un-enriched and re-processed.
 
 hydrate_job(job)
@@ -23,8 +23,8 @@ LinkedIn challenge/redirect errors are treated as transient (no penalty).
 force_rescore_all(user_id)
 ───────────────────────────
 Re-runs local proxy scoring for every job that is NOT fully enriched.
-"Fully enriched" means: why_ron IS NOT NULL  AND  jd_text IS rich.
-A job with why_ron set but thin text is NOT considered fully enriched and
+"Fully enriched" means: fit_brief IS NOT NULL  AND  jd_text IS rich.
+A job with fit_brief set but thin text is NOT considered fully enriched and
 is re-scored here (local proxy only — LLM is not called from s4).
 """
 from __future__ import annotations
@@ -125,7 +125,7 @@ def _is_thin(jd_text: str | None) -> bool:
 
 def is_substantive_analysis(text: str | None) -> bool:
     """
-    Return True when an LLM-produced why_ron string contains real analysis.
+    Return True when an LLM-produced fit_brief string contains real analysis.
 
     Shared by feed_service (enrichment pass), discovery (inline enrichment),
     and jobs.analyze (synchronous pipeline) so all three code paths apply the
@@ -163,7 +163,7 @@ def _needs_enrichment(job: JobMatch) -> bool:
 
     A job needs enrichment if ANY of the following are true:
       • JD text is thin (< _JD_MIN_CHARS, not the failure sentinel)
-      • why_ron is None — never received a real LLM evaluation
+      • fit_brief is None — never received a real LLM evaluation
       • score_is_proxy=True — LLM scoring didn't complete cleanly last time
 
     LinkedIn jobs are permanently excluded from JD hydration — the
@@ -176,10 +176,10 @@ def _needs_enrichment(job: JobMatch) -> bool:
         return False   # hard stop — show "Manual analysis required" in UI
     if _is_linkedin_url(job.apply_url) and _is_thin(job.jd_text):
         # LinkedIn JD cannot be hydrated — skip enrichment for thin rows.
-        # If why_ron or score_is_proxy need fixing, fall through to scoring
+        # If fit_brief or score_is_proxy need fixing, fall through to scoring
         # only when the JD text is already rich enough (i.e. not thin).
         return False
-    return _is_thin(job.jd_text) or job.why_ron is None or job.score_is_proxy
+    return _is_thin(job.jd_text) or job.fit_brief is None or job.score_is_proxy
 
 
 def _dev_jd_override(job: JobMatch) -> str | None:
@@ -383,8 +383,8 @@ async def refresh_user_scores(user_id: str) -> int:
     Pass A — Identify candidates
         All jobs where _needs_enrichment() is True:
           • jd_text thin (< 250 chars, not a failure sentinel)  ← catches DEV
-            mock rows whose why_ron was set but JD is still a placeholder
-          • why_ron IS NULL  ← never received a real LLM evaluation
+            mock rows whose fit_brief was set but JD is still a placeholder
+          • fit_brief IS NULL  ← never received a real LLM evaluation
 
     Pass B — Hydrate thin jobs
         For each candidate whose jd_text is thin, hydrate_job() fetches the
@@ -474,10 +474,10 @@ async def refresh_user_scores(user_id: str) -> int:
         try:
             logger.info(
                 "[feed_service] s2: attempting enrichment for job %s (%s @ %s) "
-                "failures=%d score_is_proxy=%s why_ron=%s jd_len=%d",
+                "failures=%d score_is_proxy=%s fit_brief=%s jd_len=%d",
                 job.job_id, job.title, job.company,
                 job.enrichment_failures, job.score_is_proxy,
-                "null" if job.why_ron is None else f"'{job.why_ron[:40]}…'",
+                "null" if job.fit_brief is None else f"'{job.fit_brief[:40]}…'",
                 len(job.jd_text or ""),
             )
 
@@ -574,10 +574,10 @@ async def refresh_user_scores(user_id: str) -> int:
                     )
 
                 # Only mark score_is_proxy=False when the LLM actually produced
-                # analysis text.  If why_ron is empty (LLM fallback or timeout),
+                # analysis text.  If fit_brief is empty (LLM fallback or timeout),
                 # keep is_proxy=True so the feed gate holds the job back and the
                 # enrichment pass re-attempts it on the next s2 cycle.
-                _why         = (result.why_ron or "").strip()
+                _why         = (result.fit_brief or "").strip()
                 has_analysis = is_substantive_analysis(_why)
 
                 skill_tags = _match_skill_tags(result.matched_skills)
@@ -590,7 +590,7 @@ async def refresh_user_scores(user_id: str) -> int:
                     score             = float(result.total),
                     is_proxy          = not has_analysis,
                     reasons           = skill_tags + prof_tags,
-                    why_ron           = result.why_ron if has_analysis else None,
+                    fit_brief           = result.fit_brief if has_analysis else None,
                     culture_delta     = result.culture_delta,
                     culture_alignment = result.culture_alignment,
                     culture_category  = result.culture_category,
@@ -601,7 +601,7 @@ async def refresh_user_scores(user_id: str) -> int:
                 if not has_analysis:
                     logger.warning(
                         "[feed_service] s2: job %s (%s @ %s) scored but LLM returned "
-                        "non-substantive analysis (why_ron=%r, len=%d) — "
+                        "non-substantive analysis (fit_brief=%r, len=%d) — "
                         "keeping score_is_proxy=True, enrichment_failures now %d",
                         job.job_id, job.title, job.company,
                         _why[:80], len(_why), fail_count,
@@ -610,7 +610,7 @@ async def refresh_user_scores(user_id: str) -> int:
                 enriched += 1
                 logger.info(
                     "[feed_service] s2: enriched job %s (%s @ %s) → %.1f "
-                    "[local=%.0f sem=%.0f mgmt=%.0f why_ron=%s]%s",
+                    "[local=%.0f sem=%.0f mgmt=%.0f fit_brief=%s]%s",
                     job.job_id, job.title, job.company, result.total,
                     result.local_score, result.semantic_score, result.management_score,
                     "✓" if has_analysis else "∅",
@@ -678,8 +678,8 @@ async def force_rescore_all(user_id: str) -> int:
     Re-compute and persist the local proxy ATS score for all jobs that are NOT
     fully enriched.
 
-    "Fully enriched" = why_ron IS NOT NULL  AND  jd_text is rich (≥ _JD_MIN_CHARS).
-    Both conditions must hold.  A job with why_ron set but thin text (e.g. a
+    "Fully enriched" = fit_brief IS NOT NULL  AND  jd_text is rich (≥ _JD_MIN_CHARS).
+    Both conditions must hold.  A job with fit_brief set but thin text (e.g. a
     DEV mock row) is NOT considered fully enriched and IS re-scored here.
 
     This function uses run_llm_validation=False (pure Python, no API calls) so
@@ -707,7 +707,7 @@ async def force_rescore_all(user_id: str) -> int:
         # Skip jobs that are genuinely fully enriched — both the LLM brief AND
         # rich JD text are present.  Overwriting would silently downgrade the
         # composite score to a local-only estimate.
-        if job.why_ron is not None and not _is_thin(jd_stored):
+        if job.fit_brief is not None and not _is_thin(jd_stored):
             logger.debug(
                 "[feed_service] s4: skipping fully enriched job %s (%s)",
                 job.job_id, job.title,

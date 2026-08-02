@@ -69,7 +69,7 @@ class MatchTriggerRow(Base):
     job_id       = Column(String,  nullable=False)
     score        = Column(Float,   nullable=False)               # 1-decimal composite at trigger time
     threshold    = Column(Float,   nullable=False)               # threshold in force when fired
-    payload_json = Column(Text,    nullable=False, default="{}") # title/company/why_ron for notifications
+    payload_json = Column(Text,    nullable=False, default="{}") # title/company/fit_brief for notifications
     status       = Column(String,  nullable=False, default="pending", index=True)
     created_at   = Column(String,  nullable=False)
     consumed_at  = Column(String,  nullable=True)

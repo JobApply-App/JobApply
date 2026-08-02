@@ -17,7 +17,7 @@ export interface Job {
   score: number
   isNew?: boolean
   reasons: Reason[]
-  whyRon?: string | null
+  fitBrief?: string | null
 }
 
 export interface Application {

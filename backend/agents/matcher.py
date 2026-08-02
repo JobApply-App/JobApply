@@ -9,15 +9,15 @@ s1  (Scraper)             → MatcherAgent.match()
                              alignment + seniority fit) in pure Python, < 1 ms.
                              Saves the job to the DB immediately so the UI shows
                              a meaningful initial score without blocking on LLM.
-                             Sets why_ron=None as the "needs enrichment" signal.
+                             Sets fit_brief=None as the "needs enrichment" signal.
 
 s2  (Sourcing Specialist) → feed_service.refresh_user_scores()
-                             Finds all jobs where why_ron IS NULL (locally scored
+                             Finds all jobs where fit_brief IS NULL (locally scored
                              but not yet LLM-enriched), batches them behind
                              asyncio.Semaphore(5), and runs the 50% semantic +
                              20% management LLM sub-scores via claude-haiku
                              (temperature=0.0).  Updates match_score with the
-                             full composite and sets why_ron to the LLM brief.
+                             full composite and sets fit_brief to the LLM brief.
 
 No Anthropic API calls in this module.  The LLM lives in match_score_service
 _llm_dual_score() and is orchestrated by feed_service in the s2 stage.
@@ -26,7 +26,7 @@ DEV_MODE
 --------
 When backend/config.py has DEV_MODE=True, match() returns a deterministic mock
 (seeded by posting.id) without touching any external API.  The mock produces
-realistic-looking scores in the 55-82 range and correctly sets why_ron to a
+realistic-looking scores in the 55-82 range and correctly sets fit_brief to a
 non-None string so s2 does not re-process DEV jobs.
 """
 from __future__ import annotations
@@ -140,7 +140,7 @@ class MatcherAgent:
     #
     # Returns a deterministic JobMatch without calling any external service.
     # Score is seeded by MD5(posting.id) → stable across pipeline reruns.
-    # why_ron is set to a non-None string so s2 skips re-enriching DEV jobs.
+    # fit_brief is set to a non-None string so s2 skips re-enriching DEV jobs.
 
     def _mock_match(self, posting: RawJobPosting) -> JobMatch:
         """Deterministic DEV mock — no API call, no content guards."""
@@ -156,7 +156,7 @@ class MatcherAgent:
         domain  = "PM" if is_pm else ("CS" if is_cs else ("Engineering" if is_eng else ("Data" if is_data else "General")))
         snr_tag = "senior" if is_snr else "mid-level"
 
-        _WHY_RON_TEMPLATES: dict[str, str] = {
+        _FIT_BRIEF_TEMPLATES: dict[str, str] = {
             "PM": (
                 f"Strong alignment with {posting.title} at {posting.company}: the candidate's "
                 f"track record in roadmap ownership, cross-functional stakeholder management, and "
@@ -190,7 +190,7 @@ class MatcherAgent:
             ),
         }
 
-        why_ron_text = _WHY_RON_TEMPLATES.get(domain, _WHY_RON_TEMPLATES["General"])
+        fit_brief_text = _FIT_BRIEF_TEMPLATES.get(domain, _FIT_BRIEF_TEMPLATES["General"])
 
         logger.info(
             "[MatcherAgent] DEV_MODE mock → score=%.1f  domain=%s  '%s' @ '%s'",
@@ -222,8 +222,8 @@ class MatcherAgent:
             apply_url = posting.source_url,
             is_new   = True,
             posted_at = "just now",
-            # Non-None why_ron prevents s2 from re-enriching DEV mock rows.
-            why_ron  = why_ron_text,
+            # Non-None fit_brief prevents s2 from re-enriching DEV mock rows.
+            fit_brief  = fit_brief_text,
             scoring_rationale = (
                 f"seed={seed % 28}/27  domain={domain}  "
                 f"seniority={snr_tag}  score={score}"
@@ -256,7 +256,7 @@ class MatcherAgent:
         match when the actual JD requirements don't align with the candidate's
         documented skills.
 
-        why_ron is set to None — the signal for s2 (feed_service.refresh_user_scores)
+        fit_brief is set to None — the signal for s2 (feed_service.refresh_user_scores)
         to run the full LLM composite scorer (semantic + management sub-scores).
         """
         if DEV_MODE:
@@ -301,7 +301,7 @@ class MatcherAgent:
             apply_url = posting.source_url,
             is_new    = True,
             posted_at = "just now",
-            why_ron   = None,              # None = "needs LLM enrichment"
+            fit_brief   = None,              # None = "needs LLM enrichment"
             scoring_rationale = (
                 "Proxy scoring disabled — score deferred to LLM composite "
                 "(compute_match_score_async). Job gated 'analysing' until finalised."

@@ -65,7 +65,7 @@ def _make_job(job_id: str, user_id: str, match_score: float, status: str = "new"
 def _make_job_match(
     *, job_id: str, user_id: str, apply_url: str, source_type: str,
     title: Optional[str] = None, company: str = "Acme", location: str = "Remote",
-    match_score: float = 0.0, why_ron: Optional[str] = None,
+    match_score: float = 0.0, fit_brief: Optional[str] = None,
 ):
     from backend.schemas.job import DetailedAnalysis, JobMatch
 
@@ -84,7 +84,7 @@ def _make_job_match(
         apply_url=apply_url, is_new=True, posted_at="", source="automatic",
         is_open=True, user_id=user_id, source_type=source_type,
         match_score=match_score, score_is_proxy=False, created_at=_now(),
-        why_ron=why_ron,
+        fit_brief=fit_brief,
     )
 
 
@@ -134,7 +134,7 @@ class TestJobPostingsSourcePriorityIsolation:
     per-user). The invariant these tests guard is the NEW correct one:
     job_postings legitimately gets shared/upgraded across tenants (that's
     the point of a normalized global catalog); user_job_matches — the
-    private score/status/why_ron a tenant never wants another tenant to see
+    private score/status/fit_brief a tenant never wants another tenant to see
     or overwrite — never is.
     """
 
@@ -147,7 +147,7 @@ class TestJobPostingsSourcePriorityIsolation:
 
         job_a = _make_job_match(
             job_id=jid_a, user_id=_QA_USER_A, apply_url=url, title=title,
-            source_type="linkedin", match_score=91.5, why_ron="A's private brief",
+            source_type="linkedin", match_score=91.5, fit_brief="A's private brief",
         )
         assert job_store.save_with_source_priority(job_a) is True
 
@@ -169,7 +169,7 @@ class TestJobPostingsSourcePriorityIsolation:
 
             # A's PRIVATE match state is untouched by B's higher-priority save.
             assert fetched_a.match_score == 91.5
-            assert fetched_a.why_ron == "A's private brief"
+            assert fetched_a.fit_brief == "A's private brief"
 
             # The SHARED posting legitimately picked up B's higher-priority
             # source — that's the point of job_postings being global.

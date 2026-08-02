@@ -72,7 +72,7 @@ class JobMatch(BaseModel):
     apply_url: Optional[str] = None
     is_new: bool = True
     posted_at: str = ""
-    why_ron: Optional[str] = None
+    fit_brief: Optional[str] = None
     scoring_rationale: Optional[str] = None
     category: Optional[str] = None
     applied: bool = False

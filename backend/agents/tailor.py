@@ -113,7 +113,7 @@ UNVERIFIED entities (absent from ENTITY_INTELLIGENCE or not marked VERIFIED):
   • Do not guess industry terminology for unverified employers.
 
 FACT INTEGRITY — absolute, same weight as FORBIDDEN SHORTCUTS:
-  • Enriched vocabulary describes the industry context of what Ron actually did.
+  • Enriched vocabulary describes the industry context of what the candidate actually did.
     It NEVER creates new experiences or metrics.
   • VALID bridge:  "event ticketing revenue" → "GMV" if domain confirms that
     GMV is the standard term for that revenue type in this industry.
@@ -200,9 +200,9 @@ STEP 3 — JD GAP ANALYSIS
              NO  → skip entirely, never ask.
           2. Does the profile EXPLICITLY cover it?
              YES → proceed, do not ask.
-          3. Is it a GENUINE DISQUALIFIER (e.g., 10 yrs required, Ron has 2)?
+          3. Is it a GENUINE DISQUALIFIER (e.g., 10 yrs required, the candidate has 2)?
              YES → note silently, NEVER ask.
-          4. Could Ron plausibly have this experience given his background,
+          4. Could the candidate plausibly have this experience given their background,
              AND would his answer change a bullet, skill, or role inclusion?
              YES → TRIGGER missing_data.
              NO  → skip.
@@ -418,7 +418,7 @@ LEADERSHIP / TEAM LEAD JDs:
 SIGNAL SELECTION DOCTRINE
 ════════════════════════
 For each section ask: "Which 1-3 facts give this hiring manager the highest
-confidence that Ron will succeed in THIS exact role?" Lead with those.
+confidence that the candidate will succeed in THIS exact role?" Lead with those.
 Each signal gets exactly one placement — where it has maximum impact.
 Never repeat the same fact across multiple sections.
 
@@ -497,7 +497,7 @@ Validated bridge patterns (apply analogously to the actual JD):
   "Usage Tracking"         → "Product Adoption Metrics"    (if JD uses "adoption")
 
 Invalid bridges (fabrication — hard error):
-  ✗ Saying Ron "built a health-score model" when the profile shows only that he
+  ✗ Saying the candidate "built a health-score model" when the profile shows only that he
     monitored accounts in a spreadsheet.
   ✗ Writing "managed $2M ARR book" when no revenue figure exists anywhere in
     the profile or SUPPLEMENTAL_ANSWERS.
@@ -510,7 +510,7 @@ XYZ FRAMEWORK — mandatory for every bullet, zero exceptions:
 Structure: "Accomplished [X] as measured by [Y], by doing [Z]"
   X = the concrete achievement (what changed, what was delivered)
   Y = the measurable proof  (a number, %, rate, volume, or verifiable scope)
-  Z = the specific method   (the action Ron took — not a vague verb)
+  Z = the specific method   (the action the candidate took — not a vague verb)
 
 The three elements must all be present. Phrasing must be natural — do not
 write the labels literally. Test each bullet against this checklist:
@@ -541,18 +541,18 @@ Never write a bullet that begins with or relies on:
   "Was responsible for", "Was tasked with", "Helped to", "Assisted in",
   "Supported the team", "Contributed to", "Involved in", "Part of".
 These phrases describe a job description, not an achievement.
-Every bullet must begin with an active verb that names Ron's direct action.
+Every bullet must begin with an active verb that names the candidate's direct action.
 
 SUMMARY RULES — same standards apply:
 The professional summary is not exempt from the XYZ discipline.
 It must contain at least one concrete number from the metrics table.
 It cannot open with "I am" or a passive construction.
-It must name Ron's clearest quantified strength in the first sentence.
+It must name the candidate's clearest quantified strength in the first sentence.
 
 AUTHENTIC STORYTELLING:
 Write like a sharp professional explaining their actual experience to a colleague
 who is also an industry expert. Grounded, direct, specific. Tell the story:
-what was the problem, what did Ron do, what measurably changed.
+what was the problem, what did the candidate do, what measurably changed.
 When drawing on SUPPLEMENTAL_ANSWERS, always embed the number the user gave —
 never paraphrase it into a vague adjective.
 Rich multi-clause bullets (up to 240 chars) are preferred when the fuller
@@ -617,10 +617,10 @@ No markdown fences. No prose. Only the JSON object.
 {{
   "type": "cv",
   "cv_data": {{
-    "title": "<role-specific positioning, <=58 chars. What Ron IS, not what he is applying for.>",
+    "title": "<role-specific positioning, <=58 chars. What the candidate IS, not what they are applying for.>",
 
     "summary": "<<=360 chars. 2-3 sentences. MUST contain at least one concrete \
-number sourced from the metrics table (Step 4). Opens with Ron's clearest quantified \
+number sourced from the metrics table (Step 4). Opens with the candidate's clearest quantified \
 strength for THIS role — never with 'I am' or a passive clause. Second sentence adds \
 a differentiated proof point. Closes with a forward-looking signal that mirrors JD \
 language. Ends with a full stop. No banned verbs, no hollow adverbs.>",
@@ -1440,7 +1440,7 @@ class TailorAgent:
             f"{investigation_block}"
             f"{supplemental_block}"
             f"{entity_intelligence_block}"
-            f"\nWHY_CANDIDATE:\n{job.why_ron or 'N/A'}\n"
+            f"\nWHY_CANDIDATE:\n{job.fit_brief or 'N/A'}\n"
             f"\nJOB_URL: {job.apply_url or 'N/A'}\n"
             "\nRun the pre-generation audit (STEP 0 keyword extraction first — "
             "PRIMARY source is JD_STRUCTURED above; extract exact terms verbatim. "

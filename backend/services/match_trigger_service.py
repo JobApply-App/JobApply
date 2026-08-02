@@ -159,7 +159,7 @@ async def evaluate_match_trigger(
         "title":   job_title,
         "company": company_name,
         "score":   round(float(score_data.get("total", 0.0)), 1),
-        "why_ron": (score_data.get("why_ron") or "")[:250],
+        "fit_brief": (score_data.get("fit_brief") or "")[:250],
     }
 
     inserted = await asyncio.to_thread(

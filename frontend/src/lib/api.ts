@@ -355,7 +355,7 @@ export async function forceRefreshAllScores(): Promise<RefreshResponse> {
   return post<null, RefreshResponse>('/api/jobs/feed/refresh-all', null)
 }
 
-/** Poll the analysis state for a single job. Cheap — returns only why_ron + proxy flag + failure count. */
+/** Poll the analysis state for a single job. Cheap — returns only fit_brief + proxy flag + failure count. */
 export async function fetchJobAnalysis(jobId: string): Promise<JobAnalysisState> {
   return get<JobAnalysisState>(`/api/jobs/${encodeURIComponent(jobId)}/analysis`)
 }
@@ -968,6 +968,6 @@ export function normaliseJob(m: ApiJobMatch, rank: number): Job {
     score:      m.score,
     isNew:      m.is_new,
     reasons:    m.reasons,
-    whyRon:     m.why_ron,
+    fitBrief:     m.fit_brief,
   }
 }

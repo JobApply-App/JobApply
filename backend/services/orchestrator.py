@@ -171,7 +171,7 @@ class AnalysisState(TypedDict):
     profile:      dict
     job_info:     dict
     gap_analysis: dict
-    why_ron:      str
+    fit_brief:      str
     truth_report: dict
     passed:       bool
     error:        Optional[str]
@@ -265,7 +265,7 @@ Match Score: {score}/100
 The candidate demonstrates strong alignment based on {role_count} verified roles.
 Key highlight: {_get_candidate_seniority(profile)} years of cumulative professional impact.
 """
-    return {"why_ron": report}
+    return {"fit_brief": report}
 
 # ── Node 4: Quality Guard ─────────────────────────────────────────────────────
 
@@ -302,7 +302,7 @@ async def run_analysis(url: str, user_id: str) -> AnalysisState:
     """
     initial = {
         "url": url, "user_id": user_id, "profile": get_profile(user_id),
-        "job_info": {}, "gap_analysis": {}, "why_ron": "", "passed": False,
+        "job_info": {}, "gap_analysis": {}, "fit_brief": "", "passed": False,
     }
     result = await _compiled.ainvoke(initial)
     return result
@@ -316,6 +316,6 @@ if __name__ == "__main__":
         print("\n--- Result Summary ---")
         print(f"Candidate: {result['gap_analysis']['candidate']}")
         print(f"Final Score: {result['gap_analysis']['overall_fit_score']}")
-        print(f"Report Preview:\n{result['why_ron'][:500]}...")
+        print(f"Report Preview:\n{result['fit_brief'][:500]}...")
 
     asyncio.run(test())

@@ -132,7 +132,7 @@ _SELECT_JOINED = """
         ujm.culture_fit_score, ujm.culture_delta, ujm.culture_alignment,
         ujm.culture_category, ujm.culture_note, ujm.trajectory_alignment,
         ujm.company_dna_inference, ujm.investigation_points, ujm.detailed_analysis,
-        ujm.reasons, ujm.why_ron, ujm.scoring_rationale, ujm.category,
+        ujm.reasons, ujm.fit_brief, ujm.scoring_rationale, ujm.category,
         ujm.tailored_cv, ujm.applied, ujm.applied_at, ujm.status, ujm.is_new,
         ujm.score_is_proxy, ujm.enrichment_failures, ujm.outreach_text,
         ujm.created_at AS match_created_at,
@@ -171,7 +171,7 @@ def _row_to_jobmatch(r) -> JobMatch:
         apply_url=r.apply_url,
         is_new=bool(r.is_new),
         posted_at=(r.posted_at.isoformat() if r.posted_at else ""),
-        why_ron=r.why_ron,
+        fit_brief=r.fit_brief,
         scoring_rationale=r.scoring_rationale,
         category=r.category,
         applied=bool(r.applied),
@@ -281,7 +281,7 @@ def _insert_match(session, job: JobMatch, posting_id) -> None:
             INSERT INTO public.user_job_matches
                 (user_id, job_posting_id, job_id, score, match_score, confidence_score,
                  culture_fit_score, trajectory_alignment, company_dna_inference,
-                 investigation_points, detailed_analysis, reasons, why_ron, scoring_rationale,
+                 investigation_points, detailed_analysis, reasons, fit_brief, scoring_rationale,
                  tailored_cv, status, is_new, applied, applied_at, category, score_is_proxy,
                  enrichment_failures, outreach_text, culture_delta, culture_alignment,
                  culture_category, culture_note)
@@ -289,7 +289,7 @@ def _insert_match(session, job: JobMatch, posting_id) -> None:
                 (CAST(:user_id AS uuid), :posting_id, :job_id, :score, :match_score,
                  :confidence_score, :culture_fit_score, :trajectory_alignment,
                  :company_dna_inference, CAST(:investigation_points AS jsonb),
-                 CAST(:detailed_analysis AS jsonb), CAST(:reasons AS jsonb), :why_ron,
+                 CAST(:detailed_analysis AS jsonb), CAST(:reasons AS jsonb), :fit_brief,
                  :scoring_rationale, CAST(:tailored_cv AS jsonb), :status, :is_new, :applied,
                  :applied_at, :category, :score_is_proxy, :enrichment_failures, :outreach_text,
                  :culture_delta, :culture_alignment, :culture_category, :culture_note)
@@ -307,7 +307,7 @@ def _insert_match(session, job: JobMatch, posting_id) -> None:
                 "strategic_advice": list(job.detailed_analysis.strategic_advice),
             }),
             "reasons": json.dumps([{"kind": r.kind, "label": r.label} for r in job.reasons]),
-            "why_ron": job.why_ron, "scoring_rationale": job.scoring_rationale,
+            "fit_brief": job.fit_brief, "scoring_rationale": job.scoring_rationale,
             "tailored_cv": json.dumps(job.tailored_cv) if getattr(job, "tailored_cv", None) else None,
             "status": job.status, "is_new": job.is_new, "applied": job.applied,
             "applied_at": job.applied_at, "category": job.category,
@@ -342,7 +342,7 @@ def _update_match_from_jobmatch(session, job_id: str, user_id: str, job: JobMatc
                 company_dna_inference = :company_dna_inference,
                 investigation_points = CAST(:investigation_points AS jsonb),
                 detailed_analysis = CAST(:detailed_analysis AS jsonb),
-                reasons = CAST(:reasons AS jsonb), why_ron = :why_ron,
+                reasons = CAST(:reasons AS jsonb), fit_brief = :fit_brief,
                 scoring_rationale = :scoring_rationale, status = :status, is_new = :is_new,
                 applied = :applied, applied_at = :applied_at, category = :category,
                 score_is_proxy = :score_is_proxy, enrichment_failures = :enrichment_failures,
@@ -362,7 +362,7 @@ def _update_match_from_jobmatch(session, job_id: str, user_id: str, job: JobMatc
                 "strategic_advice": list(job.detailed_analysis.strategic_advice),
             }),
             "reasons": json.dumps([{"kind": r.kind, "label": r.label} for r in job.reasons]),
-            "why_ron": job.why_ron, "scoring_rationale": job.scoring_rationale,
+            "fit_brief": job.fit_brief, "scoring_rationale": job.scoring_rationale,
             "status": job.status, "is_new": job.is_new, "applied": job.applied,
             "applied_at": job.applied_at, "category": job.category,
             "score_is_proxy": job.score_is_proxy, "enrichment_failures": job.enrichment_failures,
@@ -718,24 +718,24 @@ def get_unscored_new_jobs(user_id: str) -> List[JobMatch]:
 def get_jobs_needing_llm_enrichment(user_id: str) -> List[JobMatch]:
     """
     Return all jobs for user_id that need the s2 LLM enrichment pass:
-    match_score == 0.0 OR why_ron IS NULL, ordered by match_score DESC.
+    match_score == 0.0 OR fit_brief IS NULL, ordered by match_score DESC.
     """
     with Session(ENGINE) as session:
         rows = _get_joined(
             session, user_id=user_id,
-            extra_where="ujm.status IN ('new', 'saved') AND (ujm.match_score = 0.0 OR ujm.why_ron IS NULL)",
+            extra_where="ujm.status IN ('new', 'saved') AND (ujm.match_score = 0.0 OR ujm.fit_brief IS NULL)",
         )
         rows = sorted(rows, key=lambda r: (r.match_score if r.match_score is not None else 0), reverse=True)
         return [_row_to_jobmatch(r) for r in rows]
 
 
-def update_why_ron(job_id: str, user_id: str, why_ron: str) -> None:
+def update_fit_brief(job_id: str, user_id: str, fit_brief: str) -> None:
     """Persist the LLM-generated 'why apply' brief onto a job row owned by user_id."""
     with Session(ENGINE) as session:
         session.execute(
-            text("UPDATE public.user_job_matches SET why_ron = :why_ron "
+            text("UPDATE public.user_job_matches SET fit_brief = :fit_brief "
                  "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid)"),
-            {"why_ron": why_ron, "job_id": job_id, "user_id": user_id},
+            {"fit_brief": fit_brief, "job_id": job_id, "user_id": user_id},
         )
         session.commit()
 
@@ -784,7 +784,7 @@ def update_enrichment_result(
     score: float,
     is_proxy: bool,
     reasons: list[dict],
-    why_ron: Optional[str] = None,
+    fit_brief: Optional[str] = None,
     culture_delta: Optional[float] = None,
     culture_alignment: Optional[float] = None,
     culture_category: Optional[str] = None,
@@ -807,9 +807,9 @@ def update_enrichment_result(
             "score": score, "is_proxy": is_proxy, "reasons": json.dumps(reasons),
             "job_id": job_id, "user_id": user_id,
         }
-        if why_ron is not None:
-            sets.append("why_ron = :why_ron")
-            params["why_ron"] = why_ron
+        if fit_brief is not None:
+            sets.append("fit_brief = :fit_brief")
+            params["fit_brief"] = fit_brief
         if culture_delta is not None:
             sets.append("culture_delta = :culture_delta")
             params["culture_delta"] = culture_delta
@@ -842,7 +842,7 @@ def reset_job_for_enrichment(job_id: str) -> bool:
     """
     with Session(ENGINE) as session:
         result = session.execute(
-            text("UPDATE public.user_job_matches SET match_score = 0.0, why_ron = NULL "
+            text("UPDATE public.user_job_matches SET match_score = 0.0, fit_brief = NULL "
                  "WHERE job_id = :job_id"),
             {"job_id": job_id},
         )
@@ -905,7 +905,7 @@ def build_from_result(result: dict) -> JobMatch:
         apply_url=url or None,
         is_new=True,
         posted_at=posted_at,
-        why_ron=result.get("why_ron") or None,
+        fit_brief=result.get("fit_brief") or None,
     )
 
 

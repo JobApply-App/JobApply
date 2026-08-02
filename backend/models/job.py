@@ -28,7 +28,7 @@ class JobRow(Base):
     apply_url             = Column(String,  nullable=True)
     is_new                = Column(Boolean, nullable=False, default=True)
     posted_at             = Column(String,  nullable=False, default="")
-    why_ron               = Column(Text,    nullable=True)
+    fit_brief               = Column(Text,    nullable=True)
     scoring_rationale     = Column(Text,    nullable=True)
     category              = Column(String,  nullable=True)
     # Cached tailored CV — set by the tailor endpoint after first generation

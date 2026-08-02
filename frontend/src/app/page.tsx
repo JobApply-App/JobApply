@@ -252,7 +252,7 @@ function HomePageContent() {
         score:      f.match_score,
         isNew:      f.is_new,
         reasons:    f.reasons,
-        whyRon:     f.why_ron ?? null,
+        fitBrief:     f.fit_brief ?? null,
       })),
       ...rawJobs,
     ]
@@ -299,7 +299,7 @@ function HomePageContent() {
       score:      feedJob.match_score,
       isNew:      feedJob.is_new,
       reasons:    feedJob.reasons,
-      whyRon:     feedJob.why_ron ?? null,
+      fitBrief:     feedJob.fit_brief ?? null,
     }
     setReviewJob({ job, feedJob })
   }

@@ -147,7 +147,7 @@ async def run(title: str, company: str, location: str, url: str, description: st
         user_id=user_id,
     )
     final_score = round(float(result.total), 1)
-    analysis_ok = is_substantive_analysis(result.why_ron)
+    analysis_ok = is_substantive_analysis(result.fit_brief)
 
     is_linkedin = "linkedin.com" in url.lower()
     match = match.model_copy(update={
@@ -160,13 +160,13 @@ async def run(title: str, company: str, location: str, url: str, description: st
         "score_is_proxy": not analysis_ok,
         "jd_structured": structured_json,
         "jd_text": jd_text,
-        "why_ron": result.why_ron if analysis_ok else None,
+        "fit_brief": result.fit_brief if analysis_ok else None,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
 
     job_store.save(match)
     if analysis_ok:
-        job_store.update_why_ron(match.job_id, user_id, result.why_ron)
+        job_store.update_fit_brief(match.job_id, user_id, result.fit_brief)
 
     logger.info(
         "Done — job_id=%s title=%r company=%r match_score=%.1f%s",

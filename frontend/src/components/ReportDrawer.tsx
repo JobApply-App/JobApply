@@ -297,7 +297,7 @@ export function ReportDrawer({ job, onClose }: ReportDrawerProps) {
 
         {/* Scrollable body */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-5">
-          {!job ? null : !job.whyRon ? (
+          {!job ? null : !job.fitBrief ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
               <p className="text-[13px] text-slate-500">
                 No analysis report available for this job.
@@ -308,7 +308,7 @@ export function ReportDrawer({ job, onClose }: ReportDrawerProps) {
             </div>
           ) : (
             <div className="space-y-0">
-              {parseReport(job.whyRon).map((block, i) => renderBlock(block, i))}
+              {parseReport(job.fitBrief).map((block, i) => renderBlock(block, i))}
             </div>
           )}
         </div>
