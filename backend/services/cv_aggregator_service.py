@@ -195,7 +195,10 @@ def _compute_tenure_years(experiences: list[dict]) -> float:
 # Keywords that signal a SaaS / tech environment when found in a role or company name.
 _SAAS_SIGNALS = frozenset([
     "saas", "software", "tech", "platform", "app", "digital", "product",
-    "startup", "scale-up", "scaleup", "go-out", "goout",
+    "startup", "scale-up", "scaleup",
+    # Deliberately no company names here: a specific employer in this set
+    # classifies one person's history correctly and mis-classifies everyone
+    # else's. The generic terms above carry the signal.
 ])
 
 # Keywords that signal a non-SaaS industry (insurance, finance, events, etc.)
@@ -267,7 +270,7 @@ def _cross_validate_experience_claims(claims: dict) -> dict:
     Examples
     --------
     Summary: "5+ years of SaaS experience"
-    SaaS timeline: GO-OUT 2023–2025 = 2 years
+    SaaS timeline: the profile's one SaaS role spans 2023-2025 = 2 years
     Corrected: "2 years of SaaS experience (date-anchored)"
     """
     experiences = claims.get("experiences", [])

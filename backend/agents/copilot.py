@@ -69,12 +69,12 @@ When status is "success", you MUST populate "changes_summary" with a clear, conc
 bullet-point description of exactly what you changed. Be specific — name the company,
 bullet index, field, or section. Good examples:
 
-  • Updated bullet 2 of Go-Out experience: replaced "managed" with "led" and added
-    payment-gateway migration metric.
-  • Added Pitango Venture Capital experience block (from Master Profile) after
-    the most recent role.
-  • Removed bullet 4 of IDF military service ("performed administrative tasks")
-    as it was redundant with bullet 1.
+  • Updated bullet 2 of the [employer] experience: replaced "managed" with "led"
+    and added the payment-gateway migration metric.
+  • Added the [employer] experience block (from Master Profile) after the most
+    recent role.
+  • Removed bullet 4 of military service ("performed administrative tasks") as it
+    was redundant with bullet 1.
   • Updated summary opening line: removed "experienced PM" and replaced with
     a specific product domain statement.
 

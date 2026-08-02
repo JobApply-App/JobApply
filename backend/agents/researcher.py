@@ -88,9 +88,39 @@ class EnrichedEntity:
 
 # ── Entity extraction from the active user's profile ─────────────────────────
 
-# High-impact flags: if these entity names appear in the profile's achievements,
-# failure to verify them triggers a clarification request
-_HIGH_IMPACT_MARKERS = {"go-out", "goout", "go out"}
+def _high_impact_companies(experience: list[dict]) -> set[str]:
+    """
+    Return the lower-cased company names whose claims warrant a clarification
+    request when they cannot be verified (see _research_entity's `not verified
+    and is_high_impact` branch).
+
+    Derived from the profile, not from a fixed list. This used to be a hardcoded
+    set naming one specific company, which meant every other account had its own
+    most important employer silently treated as low-impact while an unrelated
+    name matched.
+
+    Two signals, both read off the candidate's own history:
+      • the most recent employer — the one a hiring manager scrutinises hardest;
+      • any employer appearing more than once, since multiple roles at one place
+        is progression, which is what makes an unverified claim there costly.
+
+    `experience` is most-recent-first (ariel_tools sorts current roles first,
+    then by start date descending, and get_profile preserves that order).
+    """
+    counts: dict[str, int] = {}
+    order: list[str] = []
+    for exp in experience:
+        name = (exp.get("company") or exp.get("unit") or "").strip().lower()
+        if not name:
+            continue
+        if name not in counts:
+            order.append(name)
+        counts[name] = counts.get(name, 0) + 1
+
+    high = {name for name, n in counts.items() if n > 1}
+    if order:
+        high.add(order[0])
+    return high
 
 
 def extract_profile_entities(user_id: str) -> list[dict]:
@@ -106,7 +136,10 @@ def extract_profile_entities(user_id: str) -> list[dict]:
     entities: list[dict] = []
     seen: set[str] = set()
 
-    for exp in resolve_profile(user_id).get("experience", []):
+    experience = resolve_profile(user_id).get("experience", [])
+    high_impact = _high_impact_companies(experience)
+
+    for exp in experience:
         company = (exp.get("company") or exp.get("unit") or "").strip()
         if not company:
             continue
@@ -117,7 +150,7 @@ def extract_profile_entities(user_id: str) -> list[dict]:
         entities.append({
             "name":           company,
             "entity_type":    "company",
-            "is_high_impact": any(m in key for m in _HIGH_IMPACT_MARKERS),
+            "is_high_impact": key in high_impact,
         })
 
     # Projects / side ventures — extend this list as the profile grows

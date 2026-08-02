@@ -165,3 +165,81 @@ class TestSingletonIsNotImportedByCallers:
             "these modules import the legacy USER_PROFILE singleton; read the "
             f"caller's own profile instead: {offenders}"
         )
+
+
+class TestPromptsCarryNoPersonalFacts:
+    """
+    The system prompts are shared by every user, so a name, employer or metric
+    written into one is that person's data injected into everyone else's output.
+
+    This is a different failure mode from the singleton leaks above and was a
+    real one: tailor.py's CV doctrine used to be a per-employer strategy table
+    ("GO-OUT ... Always gets primary slot. Lead with scope: 800+ clients, 7
+    direct reports"), and outreach_service.py hardcoded one candidate's career
+    domain into messages sent to real recruiters. Both now derive from the
+    profile the prompt already receives.
+
+    A find/replace here is worse than nothing, so the guard is on the facts,
+    not the labels: renaming "Ron's" to "the candidate's" while leaving
+    "800+ clients" in place would read generic and behave wrong.
+    """
+
+    # Employers, metrics and tooling that belonged to one real profile.
+    _PERSONAL_FACTS = (
+        "GO-OUT", "GO_OUT", "Pitango", "Reuveni", "Aldo (Gelato",
+        "Insurance Agency", "Seats.io", "TAMA AR",
+        "800+ clients", "40+ B2B", "7 direct reports", "120 accounts",
+        "Israel + Greece", "3 concurrent jobs",
+    )
+
+    @pytest.mark.parametrize(
+        "module_path, attr",
+        [
+            ("backend.agents.tailor", "_SYSTEM_PROMPT"),
+            ("backend.services.outreach_service", "_SYSTEM"),
+            ("backend.services.outreach_service", "_CONSULTATION_TMPL"),
+            ("backend.services.outreach_service", "_ESCALATION_TMPL"),
+            ("backend.services.outreach_service", "_HEADHUNTER_TMPL"),
+            ("backend.agents.copilot", "_SYSTEM_PROMPT"),
+        ],
+    )
+    def test_prompt_names_no_specific_person_or_employer(self, module_path, attr):
+        import importlib
+
+        module = importlib.import_module(module_path)
+        prompt = getattr(module, attr, None)
+        if prompt is None:
+            pytest.skip(f"{module_path}.{attr} no longer exists")
+
+        found = [fact for fact in self._PERSONAL_FACTS if fact.lower() in prompt.lower()]
+        assert not found, (
+            f"{module_path}.{attr} contains one profile's specific facts {found}. "
+            "Prompts are shared by every user — take these from CANDIDATE_PROFILE "
+            "at build time instead."
+        )
+
+    @pytest.mark.parametrize(
+        "module_path, attr",
+        [
+            ("backend.agents.tailor", "_SYSTEM_PROMPT"),
+            ("backend.services.outreach_service", "_SYSTEM"),
+            ("backend.services.outreach_service", "_CONSULTATION_TMPL"),
+            ("backend.services.outreach_service", "_HEADHUNTER_TMPL"),
+        ],
+    )
+    def test_prompt_refers_to_the_candidate_generically(self, module_path, attr):
+        """Catches the possessive form a rename usually misses first."""
+        import importlib
+        import re
+
+        prompt = getattr(importlib.import_module(module_path), attr, None)
+        if prompt is None:
+            pytest.skip(f"{module_path}.{attr} no longer exists")
+
+        # A bare given name followed by "'s" — the shape "Ron's background" had.
+        offenders = re.findall(r"\b[A-Z][a-z]{2,}'s\b", prompt)
+        allowed = {"Today's", "Candidate's", "Company's", "Manager's", "Dean's", "Hiring's"}
+        offenders = [o for o in offenders if o not in allowed]
+        assert not offenders, (
+            f"{module_path}.{attr} refers to a specific person: {sorted(set(offenders))}"
+        )
