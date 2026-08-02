@@ -43,8 +43,10 @@ handling/ProfileHandle handling/ — the mutation logic inside each handler
 from __future__ import annotations
 
 import json
+import logging
 import uuid as _uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import text
@@ -52,6 +54,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from backend.core.database import ENGINE
+
+logger = logging.getLogger(__name__)
 
 # Top-level document keys backed by cv_documents/cv_claims rather than a
 # generic profile_answers row.
@@ -94,17 +98,35 @@ def _read_cv(session: Session, user_id: str) -> dict:
     result["professional_summary"] = doc.summary or ""
     result["cv_imported_at"] = doc.uploaded_at.isoformat() if doc.uploaded_at else None
 
+    # Employment and education records stay in cv_claims — they are dated CV
+    # entries, not capabilities (see migration fa884910ef1d).
     claims = session.execute(
         text("SELECT claim_type, content FROM public.cv_claims WHERE document_id = :doc ORDER BY created_at"),
         {"doc": doc.id},
     ).fetchall()
     for claim_type, content in claims:
-        if claim_type == "skill":
-            result["skills"].append(content.get("name") if isinstance(content, dict) else content)
-        elif claim_type == "experience":
+        if claim_type == "experience":
             result["experience"].append(content)
         elif claim_type == "education":
             result["education"].append(content)
+
+    # Skills live in profile_entities, where they also carry a confidence
+    # score. source_document_id is what marks a capability as currently
+    # claimed on the CV, so this returns exactly the list that used to come
+    # back from cv_claims — the other ~80 scored entities (inferred, derived,
+    # conversation-sourced) are Confidence Matrix state, not CV content, and
+    # must not leak into the profile document.
+    skills = session.execute(
+        text("""
+            SELECT name FROM public.profile_entities
+            WHERE user_id = CAST(:uid AS uuid)
+              AND entity_type = 'skill'
+              AND source_document_id = :doc
+            ORDER BY created_at
+        """),
+        {"uid": user_id, "doc": doc.id},
+    ).fetchall()
+    result["skills"] = [r[0] for r in skills]
     return result
 
 
@@ -209,6 +231,102 @@ def get_or_create(session: Session, user_id: str, *, now: str) -> tuple[ProfileH
     return handle, True
 
 
+def _normalize_entity_name(name: str) -> str:
+    """Mirror ProfileUpdateService's normalized_name derivation."""
+    return name.strip().lower().replace(" ", "_").replace("-", "_")
+
+
+def _write_skill_entities(session: Session, user_id: str, doc_id, skills) -> None:
+    """
+    Reconcile the profile document's skill list against profile_entities.
+
+    Three rules, all of them load-bearing:
+
+    1. NEVER writes confidence_score. ProfileUpdateService owns that column
+       (it derives it from evidence_records); this function only marks which
+       capabilities are currently claimed on the CV. save() runs on every
+       profile mutation, so a wholesale rewrite here would flatten scores that
+       took real evidence to earn.
+
+    2. Removing a skill CLEARS source_document_id rather than deleting the
+       entity. evidence_records and confidence_audit_log reference entity_id
+       and are append-only — deleting the row would orphan a permanent audit
+       trail because someone edited a CV.
+
+    3. A skill with no entity yet gets a minimal placeholder at score 0.
+       In practice every real write path (ariel_tools' handlers, the CV-upload
+       routes) calls ProfileUpdateService first, so this is a safety net for
+       an unexpected path rather than the main road — losing the skill
+       silently would be worse. It is logged so such a path is findable.
+    """
+    wanted: dict[str, str] = {}          # normalized -> display name
+    for skill in (skills or []):
+        raw = skill.get("name") if isinstance(skill, dict) else skill
+        display = str(raw or "").strip()
+        if display:
+            wanted[_normalize_entity_name(display)] = display
+
+    existing = {
+        r.normalized_name: r
+        for r in session.execute(
+            text("""
+                SELECT entity_id, normalized_name, name, source_document_id
+                FROM public.profile_entities
+                WHERE user_id = CAST(:uid AS uuid) AND entity_type = 'skill'
+            """),
+            {"uid": user_id},
+        ).fetchall()
+    }
+
+    for norm, display in wanted.items():
+        row = existing.get(norm)
+        if row is not None:
+            session.execute(
+                text("""
+                    UPDATE public.profile_entities
+                    SET source_document_id = :doc, content = CAST(:content AS jsonb)
+                    WHERE entity_id = :eid
+                """),
+                {"doc": doc_id, "eid": row.entity_id, "content": json.dumps({"name": display})},
+            )
+        else:
+            logger.info(
+                "[profile_repository] skill %r had no profile_entities row for user=%s — "
+                "creating an unscored placeholder; the ProfileUpdateService ingest path "
+                "should normally have created it first.",
+                display, user_id,
+            )
+            session.execute(
+                text("""
+                    INSERT INTO public.profile_entities
+                        (entity_id, user_id, entity_type, name, normalized_name,
+                         confidence_score, verification_status, source_document_id,
+                         content, origin, created_at, updated_at)
+                    VALUES
+                        (:eid, CAST(:uid AS uuid), 'skill', :name, :norm,
+                         0.0, 'unverified', :doc,
+                         CAST(:content AS jsonb), 'cv_parse', :now, :now)
+                """),
+                {
+                    "eid": str(_uuid.uuid4()), "uid": user_id, "name": display, "norm": norm,
+                    "doc": doc_id, "content": json.dumps({"name": display}),
+                    "now": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+    stale = [r.entity_id for norm, r in existing.items()
+             if norm not in wanted and r.source_document_id is not None]
+    if stale:
+        session.execute(
+            text("""
+                UPDATE public.profile_entities
+                SET source_document_id = NULL
+                WHERE entity_id = ANY(:ids)
+            """),
+            {"ids": stale},
+        )
+
+
 def _write_cv(session: Session, user_id: str, *, skills, experience, education, professional_summary, cv_imported_at) -> None:
     doc_id = session.execute(
         text("SELECT id FROM public.cv_documents WHERE user_id = CAST(:uid AS uuid) LIMIT 1"),
@@ -230,12 +348,8 @@ def _write_cv(session: Session, user_id: str, *, skills, experience, education, 
         )
         session.execute(text("DELETE FROM public.cv_claims WHERE document_id = :doc"), {"doc": doc_id})
 
-    for skill in (skills or []):
-        content = skill if isinstance(skill, dict) else {"name": skill}
-        session.execute(
-            text("INSERT INTO public.cv_claims (document_id, claim_type, content) VALUES (:doc, 'skill', CAST(:content AS jsonb))"),
-            {"doc": doc_id, "content": json.dumps(content)},
-        )
+    _write_skill_entities(session, user_id, doc_id, skills)
+
     for exp in (experience or []):
         session.execute(
             text("INSERT INTO public.cv_claims (document_id, claim_type, content) VALUES (:doc, 'experience', CAST(:content AS jsonb))"),

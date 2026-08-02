@@ -228,30 +228,54 @@ job_postings  :   4 שורות, canonical_job_key = "9ca83e8de4e16f8a" ← hash 
 
 ## 4. פירוט השינויים
 
-### 4.1 איחוד הפרופיל: `cv_claims` → `profile_entities`
+### 4.1 איחוד הפרופיל: כישורי `cv_claims` → `profile_entities` `[✅ בוצע · מיגרציה fa884910ef1d]`
 
-זו התשובה לשאלה "למה ה-Confidence Matrix לא בפרופיל". התשובה: **הוא כן צריך להיות**, וזה האיחוד שעושה את זה.
+זו התשובה לשאלה "למה ה-Confidence Matrix לא בפרופיל". התשובה: **הוא כן צריך להיות** — אבל רק לגבי הכישורים.
+
+**תיקון להיקף שנרשם כאן במקור.** הסעיף אמר למזג את `cv_claims` במלואה. בדיקה בדאטה בפועל, לפני הביצוע, הראתה שזה נכון רק לחלק:
+
+| סוג | שורות | חפיפה ל-`profile_entities` | הוחלט |
+|-----|-------|---------------------------|--------|
+| `skill` | 36 | **36/36 לפי `(user_id, lower(name))`** | **מוזג** |
+| `experience` | 14 | **0/14** | **לא מוזג** |
+
+שני סוגי ה-`experience` הם אונטולוגיות שונות שחולקות מילה:
+
+- `cv_claims.experience` = **רשומת תעסוקה**: `{company, role, start, end, bullets}`. נצרכת ב-`match_score_service.py:754,919` וב-`tailor.py` כטיימליין הקריירה המתוארך — בדיוק מה ש-CLAUDE.md דורש בעיקרון "Data Completeness — No Truncation".
+- `profile_entities.experience` = **יכולת מנוקדת** שנגזרה מניסיון: `"Product Ownership (de facto PM)" · score=52.6`.
+
+מיזוגם היה שובר את שניהם: הטיימליין המתוארך היה נעלם מהניקוד, והגרף היה מזוהם ברשומות תעסוקה שאינן יכולות.
+
+**התוצאה:** `cv_claims` מצטמצם למה שהוא באמת טוב בו — רשומות תעסוקה והשכלה — במקום להימחק. ה-CHECK שלו כבר לא מקבל `'skill'`, כך שהפיצול לא יכול לחזור בשקט. יעד ה-19 טבלאות לא משתנה.
 
 היום כישור נולד ב-`cv_claims` (טענה מהקו"ח) ומקבל חיים שניים ב-`profile_entities` (ישות מנוקדת) — בלי קשר. אחרי האיחוד יש שורה אחת שמחזיקה גם את הטענה וגם את ציון האמינות שלה.
 
 ```sql
--- profile_entities הופכת לטבלת היכולות המרכזית
 ALTER TABLE public.profile_entities
-  ADD COLUMN content          JSONB,           -- התוכן העשיר שהיה ב-cv_claims
+  ADD COLUMN content            JSONB,   -- התוכן העשיר שהיה ב-cv_claims
   ADD COLUMN source_document_id UUID REFERENCES public.cv_documents(id) ON DELETE SET NULL,
-  ADD COLUMN origin           TEXT NOT NULL DEFAULT 'self_assertion';
-                                               -- cv_parse | self_assertion | conversation | inferred
+  ADD COLUMN origin             TEXT NOT NULL DEFAULT 'self_assertion';
+          -- cv_parse | self_assertion | conversation | inferred
 
--- הרחבת הטקסונומיה לקלוט את education מ-cv_claims
-ALTER TABLE public.profile_entities
-  DROP CONSTRAINT IF EXISTS profile_entities_entity_type_check,
-  ADD CONSTRAINT profile_entities_entity_type_check
-    CHECK (entity_type IN ('skill','trait','domain','experience','education'));
+-- הפיצול לא יכול לחזור בשקט
+ALTER TABLE public.cv_claims
+  DROP CONSTRAINT ck_cv_claims_claim_type,
+  ADD CONSTRAINT ck_cv_claims_claim_type CHECK (claim_type IN ('experience','education'));
 ```
 
-**כלל המיזוג:** התאמה לפי `(user_id, normalized_name, entity_type)`. טענה מ-`cv_claims` שכבר קיימת כישות — מעדכנת את `content` ו-`source_document_id` בלבד ולא נוגעת ב-`confidence_score`. טענה שאין לה ישות — נוצרת עם `origin='cv_parse'` וציון התחלתי לפי משקל מקור ה-CV.
+*(הערה: האפיון המקורי כלל כאן גם `DROP CONSTRAINT profile_entities_entity_type_check` — אילוץ כזה מעולם לא היה קיים בטבלה. נבדק ונמחק מהתוכנית.)*
 
-**הרווח:** `get_profile()` מחזיר כישורים **עם ציון אמינות מובנה**. ה-Gatekeeper לא צריך שתי שאילתות. עדכון כישור בצ'אט מתגלגל אוטומטית לקו"ח.
+**כלל המיזוג:** התאמה לפי `(user_id, lower(trim(name)))` בתוך `entity_type='skill'`. המיגרציה **נכשלת במפורש** אם נמצאת טענה בלי ישות מתאימה, במקום למחוק אותה בשקט (בדאטה בפועל: 0).
+
+**שלושת הכללים שמחזיקים את זה בטוח** — `save()` רץ בכל עריכת פרופיל, ועכשיו הוא כותב לטבלה שציוניה נגזרים מראיות append-only:
+
+1. **לעולם לא כותב `confidence_score`.** `ProfileUpdateService` נשאר הבעלים היחיד של העמודה. כתיבה גורפת כאן הייתה משטחת ציונים שנצברו מראיות אמיתיות.
+2. **הסרת כישור מנקה את `source_document_id`, לא מוחקת את הישות.** `evidence_records` ו-`confidence_audit_log` מצביעים על `entity_id` והם append-only — מחיקה הייתה מייתמת יומן ביקורת קבוע בגלל עריכת קו"ח.
+3. **`get_profile()` מסנן לפי `source_document_id IS NOT NULL`.** בטבלה 119 ישויות כישור, בקו"ח 36. בלי הסינון כל קו"ח שנוצר היה מתנפח פי שלושה בשקט.
+
+**הרווח:** `get_profile()` מחזיר את אותה רשימת כישורים בדיוק כמו קודם — אבל כל אחד נושא עכשיו את ציון האמינות שלו (`Jira · 45.5 · partial`). עדכון כישור בצ'אט מתגלגל לקו"ח בלי סנכרון נפרד.
+
+**אימות:** 36 כישורים ו-14 רשומות ניסיון לפני ואחרי; סכום הציונים (2393.2) ומספר הראיות (261) ללא שינוי; מחזור הסרה→החזרה חוזר בדיוק למצב ההתחלתי. `test_skill_entity_merge.py` שומר על שלושת הכללים, ואומת ע"י הכנסת רגרסיה מכוונת.
 
 ### 4.2 `user_job_matches` קולטת שלוש טבלאות
 

@@ -109,6 +109,23 @@ class ProfileEntityRow(Base):
     syntax_confidence       = Column(Float,  nullable=False, default=0.0, server_default="0.0")
     verification_level      = Column(String, nullable=False, default="UNVERIFIED", server_default="UNVERIFIED")
     last_evidence_at       = Column(String,  nullable=True)
+    # ── CV-claim merge (migration fa884910ef1d) ───────────────────────────────
+    # A skill used to exist twice: as a raw cv_claims row and as a scored entity
+    # here, unlinked. These three columns absorbed the cv_claims side.
+    #   content            — the rich claim payload from cv_claims.content
+    #   source_document_id — the cv_document this capability is CURRENTLY claimed
+    #                        on; NULL when it isn't. profile_repository sets and
+    #                        clears it, and get_profile() filters on it, so the
+    #                        profile document still returns only CV-claimed
+    #                        skills rather than the whole Confidence Matrix.
+    #                        Removing a skill clears this instead of deleting the
+    #                        row — evidence_records/confidence_audit_log point at
+    #                        entity_id and are append-only.
+    #   origin             — cv_parse | self_assertion | conversation | inferred
+    content                = Column(JSON,    nullable=True)
+    source_document_id     = Column(String,  nullable=True, index=True)
+    origin                 = Column(String,  nullable=False, default="self_assertion",
+                                    server_default="self_assertion")
     created_at             = Column(String,  nullable=False)
     updated_at             = Column(String,  nullable=False)
 
