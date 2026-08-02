@@ -36,7 +36,7 @@ from dotenv import load_dotenv
 
 from backend.repositories import job_repository as job_store
 from backend.services.llm_client import call_llm, LLMCallError
-from backend.services.user_profile import USER_PROFILE, build_full_text
+from backend.services.user_profile import build_full_text, resolve_profile
 from backend.services.llm_validation import harden_system_prompt, sanitize_text
 from backend.services.master_profile_service import get_skill_proficiencies
 from backend.schemas.job import JobMatch
@@ -297,7 +297,10 @@ async def _build_verified_assembly(job: JobMatch, jd_text: str, user_id: str, co
         facts            = facts,
         gap_entities     = gap_ents,
         matched_entities = matched,
-        candidate_title  = USER_PROFILE.get("personal", {}).get("title", "") or job.title,
+        # Resolved per-user, not from the legacy singleton: that read happened to
+        # be harmless only because the singleton has no "title" key — adding one
+        # would have silently put one user's headline on everyone's CV.
+        candidate_title  = (resolve_profile(user_id).get("personal", {}) or {}).get("title", "") or job.title,
         use_llm_phrasing = use_llm_phrasing,
         company_vibe     = company_vibe,   # strategy biases fact SELECTION only
     )

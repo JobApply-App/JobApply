@@ -47,27 +47,21 @@ def _now_iso() -> str:
 
 
 def _empty_profile() -> dict:
-    """Return a fresh profile scaffold seeded from USER_PROFILE where possible."""
-    try:
-        from backend.services.user_profile import USER_PROFILE
-        p = USER_PROFILE.get("personal", {})
-        personal = {
-            "full_name":    p.get("name",     ""),
-            "email":        p.get("email",    ""),
-            "phone":        p.get("phone",    ""),
-            "linkedin_url": p.get("linkedin", ""),
-            "location":     p.get("location", ""),
-        }
-    except Exception:
-        personal = {
-            "full_name": "", "email": "", "phone": "",
-            "linkedin_url": "", "location": "",
-        }
+    """
+    Return a fresh, genuinely empty profile scaffold.
 
+    This used to seed `personal` from the module-level USER_PROFILE singleton,
+    so every brand-new account was created pre-filled with the legacy user's
+    contact details — including their real phone number. Blank is correct: the
+    fields are populated from the account's own CV import or profile UI.
+    """
     return {
         "version":          1,
         "last_updated":     _now_iso(),
-        "personal":         personal,
+        "personal": {
+            "full_name": "", "email": "", "phone": "",
+            "linkedin_url": "", "location": "",
+        },
         "metrics":          {},
         "role_preferences": {
             "target_titles":       [],

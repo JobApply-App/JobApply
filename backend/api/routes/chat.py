@@ -40,7 +40,7 @@ from sqlalchemy.orm import Session
 from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit, standard_rate_limit
 from backend.core.database import ENGINE
 from backend.agents.ariel_tools import ARIEL_TOOLS, execute_tool
-from backend.services.user_profile import USER_PROFILE, get_profile, format_profile_compact
+from backend.services.user_profile import get_profile, format_profile_compact
 from backend.services.llm_validation import harden_system_prompt, sanitize_text
 from backend.services.llm_client import call_llm, stream_llm, LLMCallError
 from backend.config import GEMINI_API_KEY
@@ -143,7 +143,17 @@ class ChatStreamRequest(BaseModel):
 
 # ── System prompt builder (general chat / job-context endpoint) ───────────────
 
-def _build_system_prompt(job_context: Optional[JobContext]) -> str:
+def _build_system_prompt(job_context: Optional[JobContext], user_id: str) -> str:
+    """
+    Build Ariel's system prompt for one specific user.
+
+    user_id is required, not optional: this prompt embeds the candidate profile
+    labelled "treat as ground truth", so resolving it from anything other than
+    the calling user's own record puts one person's career history — and their
+    real phone number — into another person's conversation. This function used
+    to read the module-level USER_PROFILE singleton instead, which did exactly
+    that for every authenticated caller.
+    """
     import json as _json
     parts: list[str] = [
         "You are Ariel, a sharp, direct Career Intelligence Agent (female). "
@@ -177,10 +187,11 @@ def _build_system_prompt(job_context: Optional[JobContext]) -> str:
             ctx_parts.append(f"COMPANY: {job_context.company}")
         parts.append("JOB CONTEXT\n" + "\n".join(ctx_parts))
 
-    if USER_PROFILE:
+    caller_profile = get_profile(user_id)
+    if caller_profile:
         parts.append(
             "CANDIDATE PROFILE (verified — treat as ground truth):\n"
-            + sanitize_text(_json.dumps(USER_PROFILE, ensure_ascii=False, indent=2))
+            + sanitize_text(_json.dumps(caller_profile, ensure_ascii=False, indent=2))
         )
 
     return harden_system_prompt("\n\n---\n\n".join(parts))
@@ -319,7 +330,7 @@ async def chat_stream(
         user.user_id, len(body.messages), body.job_context,
     )
 
-    system = _build_system_prompt(body.job_context)
+    system = _build_system_prompt(body.job_context, user.user_id)
     _check_anthropic_key()
 
     return StreamingResponse(

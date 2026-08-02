@@ -813,19 +813,30 @@ def resolve_profile(user_id: str) -> dict:
     single-user data into every real account's output. They resolve through
     here instead.
 
-    A DB lookup failure falls back to the legacy singleton rather than raising:
-    a CV built from a stale profile is still deliverable, a 500 is not. The
-    fallback is logged loudly because it silently degrades output quality.
+    A DB lookup failure returns an EMPTY dict, never the legacy singleton.
+
+    This used to fall back to USER_PROFILE, reasoning that "a CV built from a
+    stale profile is still deliverable, a 500 is not". That reasoning held only
+    while there was one user and the singleton was that user. With real
+    accounts it is a cross-tenant leak on an error path: a transient DB hiccup
+    during CV generation would serve one person's employers, education and
+    phone number into a different person's document, silently and plausibly.
+
+    Every caller here reads the result with .get() and iterates, so {} degrades
+    cleanly — the CV simply omits the section rather than filling it with
+    someone else's facts. gaps_for_missing_core_fields() even improves: it asks
+    the user for their own contact details instead of waving them through on
+    the singleton's.
     """
     try:
         return get_profile(user_id)
     except Exception:
         logger.exception(
-            "[user_profile] resolve_profile(%s) failed — falling back to the LEGACY "
-            "singleton. Downstream output may not match this user.",
+            "[user_profile] resolve_profile(%s) failed — returning an empty profile. "
+            "Downstream output will be missing profile-derived sections.",
             user_id,
         )
-        return USER_PROFILE
+        return {}
 
 
 def format_profile_compact(profile: dict) -> str:

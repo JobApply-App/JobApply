@@ -46,7 +46,7 @@ from dotenv import load_dotenv
 
 from backend.services.llm_client import call_llm
 from backend.services.web_search import search, SearchResult
-from backend.services.user_profile import USER_PROFILE, build_full_text, resolve_profile
+from backend.services.user_profile import build_full_text, resolve_profile
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
