@@ -47,7 +47,7 @@ _TEST_ENGINE = create_engine(
 
 def _setup_schema() -> None:
     from backend.core.database import Base
-    from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
+    from backend.models import application, ariel, kv, matching, profile  # noqa: F401
     Base.metadata.create_all(_TEST_ENGINE)
 
 

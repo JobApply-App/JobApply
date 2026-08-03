@@ -64,7 +64,7 @@ _TEST_ENGINE = create_engine(
 def _setup_schema() -> None:
     """Create all tables required by the confidence matrix in the test engine."""
     from backend.core.database import Base
-    from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
+    from backend.models import application, ariel, kv, matching, profile  # noqa: F401
 
     # Create the standard ORM-mapped tables (jobs, applications, etc.)
     Base.metadata.create_all(_TEST_ENGINE)

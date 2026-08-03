@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Importing the model modules registers every ORM class on Base.metadata so
 # that Base.metadata.create_all() below creates all tables, not just the ones
 # some other import happened to touch first.
-from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
+from backend.models import application, ariel, kv, matching, profile  # noqa: F401
 
 
 def _migrate() -> None:
@@ -100,62 +100,13 @@ def _migrate() -> None:
             """))
             conn.commit()
 
-    new_job_columns = [
-        ("applied",              "BOOLEAN NOT NULL DEFAULT 0"),
-        ("applied_at",           "TEXT"),
-        ("source",               "TEXT NOT NULL DEFAULT 'automatic'"),
-        ("is_open",              "BOOLEAN NOT NULL DEFAULT 1"),
-        ("scoring_rationale",    "TEXT"),
-        ("tailored_cv",          "JSON"),
-        ("jd_text",              "TEXT"),
-        ("user_id",              "TEXT NOT NULL DEFAULT 'default'"),
-        ("source_type",          "TEXT NOT NULL DEFAULT 'other'"),
-        ("company_website_url",  "TEXT"),
-        ("status",               "TEXT NOT NULL DEFAULT 'new'"),
-        ("match_score",          "REAL NOT NULL DEFAULT 0.0"),
-        ("score_is_proxy",       "BOOLEAN NOT NULL DEFAULT 1"),
-        ("created_at",           "TEXT"),
-        ("locale",               "TEXT"),
-        ("dedup_key",            "TEXT"),
-        ("jd_structured",        "TEXT"),
-        ("enrichment_failures",  "INTEGER NOT NULL DEFAULT 0"),
-        ("outreach_text",        "TEXT"),   # Phase 3 — persisted outreach message
-    ]
-    with ENGINE.connect() as conn:
-        result  = conn.execute(text("PRAGMA table_info(jobs)"))
-        existing = {row[1] for row in result}
-        for col, definition in new_job_columns:
-            if col not in existing:
-                conn.execute(text(f"ALTER TABLE jobs ADD COLUMN {col} {definition}"))
-
-        # Add dedup_key index if not already present (SQLite: CREATE INDEX IF NOT EXISTS)
-        conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS ix_jobs_dedup_key ON jobs (dedup_key)"
-        ))
-        conn.commit()
-
-    # ── JOB-6: indexes on jobs/applications filter+sort columns ──────────────
+    # ── JOB-6: indexes on applications filter+sort columns ───────────────────
     # CREATE INDEX IF NOT EXISTS is idempotent — safe to run on every startup
     # against an existing populated DB, no data migration required.
-    #
-    # Targets the actual predicates in job_repository.py / application_repository.py / the crm
-    # and applications routes (not speculative columns):
-    #   get_feed()                      user_id == ? AND status (==|!=) ?
-    #   get_eligible_for_apply()        user_id == ? AND applied == ? [+ score]
-    #   get_unscored_new_jobs()         user_id == ? AND status == 'new'
-    #   get_jobs_needing_llm_enrichment user_id == ? AND status IN (...)
-    #   has_application()/mark_applied  job_id == ? AND user_id == ?
-    #   crm.get_crm_board()             user_id == ? AND status IN (...)
-    #   get_all()/get_crm_board() ORDER BY submitted_at DESC
-    #   get_feed() ORDER BY match_score DESC, created_at DESC
+    # (The matching `jobs` table indexes/columns were removed along with
+    # JobRow — see TENANT_SCOPED_TABLES comment above.)
     with ENGINE.connect() as conn:
         for stmt in (
-            "CREATE INDEX IF NOT EXISTS ix_jobs_user_status   ON jobs (user_id, status)",
-            "CREATE INDEX IF NOT EXISTS ix_jobs_user_applied  ON jobs (user_id, applied)",
-            "CREATE INDEX IF NOT EXISTS ix_jobs_status        ON jobs (status)",
-            "CREATE INDEX IF NOT EXISTS ix_jobs_source        ON jobs (source)",
-            "CREATE INDEX IF NOT EXISTS ix_jobs_is_open       ON jobs (is_open)",
-            "CREATE INDEX IF NOT EXISTS ix_jobs_created_at    ON jobs (created_at)",
             "CREATE INDEX IF NOT EXISTS ix_applications_job_id       ON applications (job_id)",
             "CREATE INDEX IF NOT EXISTS ix_applications_status       ON applications (status)",
             "CREATE INDEX IF NOT EXISTS ix_applications_submitted_at ON applications (submitted_at)",
@@ -495,18 +446,6 @@ def _migrate_confidence_matrix(conn) -> None:
                 "ADD COLUMN manual_review_required INTEGER NOT NULL DEFAULT 0"
             ))
 
-    # ── Migration 005: add culture fit columns to jobs (JOB-20) ───────────────
-    if "jobs" in tables:
-        existing_job_cols = {
-            row[1]
-            for row in conn.execute(text("PRAGMA table_info(jobs)"))
-        }
-        if "culture_delta" not in existing_job_cols:
-            conn.execute(text("ALTER TABLE jobs ADD COLUMN culture_delta REAL"))
-            conn.execute(text("ALTER TABLE jobs ADD COLUMN culture_alignment REAL"))
-            conn.execute(text("ALTER TABLE jobs ADD COLUMN culture_category TEXT"))
-            conn.execute(text("ALTER TABLE jobs ADD COLUMN culture_note TEXT"))
-
     conn.commit()
 
 
@@ -527,12 +466,9 @@ def _migrate_confidence_matrix(conn) -> None:
 # Postgres. The deciding question for each table is whether an ORM model still
 # creates it via create_all(), not whether Postgres still has it:
 #
-#   jobs             DROPPED in Postgres (migration 3a6b5cab3433) but JobRow
-#                    still exists in backend/models/job.py, so create_all()
-#                    still builds it on SQLite and the backfill still applies.
-#                    STAYS. (Removing it here broke
-#                    test_tenant_isolation.py::test_tenant_id_backfilled_correctly_per_user,
-#                    which exercises exactly that path.)
+#   jobs             dropped in Postgres (migration 3a6b5cab3433) AND JobRow
+#                     deleted (backend/models/job.py) — never created anywhere
+#                     now. REMOVED.
 #   master_profiles  dropped AND MasterProfileRow deleted — never created
 #                    anywhere now. REMOVED.
 #   match_triggers   folded into user_job_matches (3542b0021d6b) and their ORM
@@ -542,7 +478,7 @@ def _migrate_confidence_matrix(conn) -> None:
 # at runtime — but an entry missing for a table that DOES exist silently skips
 # a real migration, which is the failure mode above.
 TENANT_SCOPED_TABLES: tuple[str, ...] = (
-    "jobs", "profile_interviews", "applications", "recruiter_reply_drafts",
+    "profile_interviews", "applications", "recruiter_reply_drafts",
     "profile_entities", "evidence_records", "shadow_match_scores",
     "ariel_sessions", "conversation_events", "confidence_audit_log",
     "ariel_gap_queue",
@@ -602,10 +538,9 @@ def _migrate_tenant_id(conn) -> None:
         conn.execute(text(
             f"CREATE INDEX IF NOT EXISTS ix_{table}_tenant_id ON {table} (tenant_id)"
         ))
-        # Composite index for the two highest-traffic tables — mirrors the
-        # (user_id, status) / (user_id, applied) composites the JOB-6 indexing
-        # pass already added for these exact tables.
-        if table in ("jobs", "applications"):
+        # Composite index for the highest-traffic table — mirrors the
+        # (user_id, applied) composite the JOB-6 indexing pass already added.
+        if table == "applications":
             conn.execute(text(
                 f"CREATE INDEX IF NOT EXISTS ix_{table}_tenant_user "
                 f"ON {table} (tenant_id, user_id)"
@@ -654,7 +589,7 @@ def _rollback_tenant_id(conn) -> None:
             # SQLite's DROP COLUMN does not implicitly drop them and errors
             # ("error in index ... after drop column") if they're left in place.
             conn.execute(text(f"DROP INDEX IF EXISTS ix_{table}_tenant_id"))
-            if table in ("jobs", "applications"):
+            if table == "applications":
                 conn.execute(text(f"DROP INDEX IF EXISTS ix_{table}_tenant_user"))
             conn.execute(text(f"ALTER TABLE {table} DROP COLUMN tenant_id"))
 

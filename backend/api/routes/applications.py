@@ -124,11 +124,11 @@ async def mark_applied(
     """
     Explicitly record that the user submitted their tailored CV for a job.
 
-    - Looks up the JobRow to get company/title/score.
+    - Looks up the user_job_matches row to get company/title/score.
     - Checks whether an ApplicationRow already exists for this job.
       If yes → updates status to 'submitted' and returns it.
       If no  → creates a new ApplicationRow with status='submitted'.
-    - Marks JobRow.applied = True and sets applied_at timestamp.
+    - Marks user_job_matches.applied = True and sets applied_at timestamp.
 
     This is the canonical action that moves a job card into the Kanban pipeline.
     Calling /tailor-cv does NOT trigger this — the user must explicitly click

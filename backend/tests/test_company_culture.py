@@ -40,7 +40,7 @@ from backend.core.database import Base
 # discriminator (migration e8f4c2a71b93) — the culture agent's rows are the
 # profile_type='culture' half of that table.
 from backend.models.matching import CompanyIntelRow
-from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
+from backend.models import application, ariel, kv, matching, profile  # noqa: F401
 
 NOW = datetime(2026, 7, 10, tzinfo=timezone.utc)
 

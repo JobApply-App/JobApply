@@ -3,9 +3,9 @@ Analytics service — daily activity KPIs for one user's Overview dashboard.
 
 compute_overview(user_id) -> dict
   {
-    "jobs_scanned_today":  int,    # JobRow created since UTC midnight today
+    "jobs_scanned_today":  int,    # user_job_matches created since UTC midnight today
     "actions_taken_today": int,    # applications submitted since UTC midnight today
-    "average_match_score": float,  # AVG(JobRow.match_score) across scored jobs, 1dp
+    "average_match_score": float,  # AVG(user_job_matches.match_score) across scored jobs, 1dp
   }
 
 The Overview is a *daily snapshot* ("here's what happened overnight"), so the

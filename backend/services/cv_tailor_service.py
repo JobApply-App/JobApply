@@ -480,7 +480,7 @@ async def generate_tailor_brief(job_id: str, force_refresh: bool = False, *, use
 #
 # Ariel does NOT build CVs (that is generate_tailor_brief / the Tailor engine).
 # She performs localized edits on the document the user is currently reviewing:
-# the JobRow.tailored_cv JSON ({"cv_data", "match_score", "tailor_brief"}).
+# the user_job_matches.tailored_cv JSON ({"cv_data", "match_score", "tailor_brief"}).
 #
 # Zero-hallucination contract (enforced HERE, at the logic level — never
 # delegated to the model's good behaviour):

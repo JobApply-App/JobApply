@@ -22,7 +22,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
+from backend.models import application, ariel, kv, matching, profile  # noqa: F401
 from backend.services.profile_baseline_service import (
     apply_proficiency_override,
     assess_completeness,
