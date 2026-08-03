@@ -1,9 +1,18 @@
+"""
+Live-model tests for the JD parser.
+
+These call Anthropic for real — that is the point, since what they check is
+how the model handles noisy HTML, mixed Hebrew/English, and a JD too thin to
+pad. They take the llm_available fixture so they skip cleanly wherever no
+ANTHROPIC_API_KEY is set (CI), instead of failing on a 401 that reads like a
+product bug.
+"""
 import pytest
 
 from backend.agents.jd_parser import JDParserAgent
 
 @pytest.mark.asyncio
-async def test_jd_parser_noisy_html():
+async def test_jd_parser_noisy_html(llm_available):
     parser = JDParserAgent()
     noisy_html = """
     <html>
@@ -39,7 +48,7 @@ async def test_jd_parser_noisy_html():
 
 
 @pytest.mark.asyncio
-async def test_jd_parser_bilingual():
+async def test_jd_parser_bilingual(llm_available):
     parser = JDParserAgent()
     bilingual_text = """
     דרוש/ה מפתח/ת Full Stack לחברת TechFlow.
@@ -61,7 +70,7 @@ async def test_jd_parser_bilingual():
 
 
 @pytest.mark.asyncio
-async def test_jd_parser_thin_jd_fallback():
+async def test_jd_parser_thin_jd_fallback(llm_available):
     parser = JDParserAgent()
     thin_jd = """
     <div class="cookie-banner">Please accept our cookies to continue.</div>

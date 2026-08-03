@@ -14,7 +14,6 @@ from backend.schemas.application import Application, ApplicationStatus
 from backend.repositories import application_repository as app_store
 from backend.repositories import job_repository as job_store
 from backend.core.database import ENGINE
-from backend.models.job import JobRow
 
 logger = logging.getLogger(__name__)
 
@@ -137,27 +136,22 @@ async def mark_applied(
     """
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    with Session(ENGINE) as db:
-        # ── Verify job exists AND belongs to the caller ───────────────────────
-        # Filtering by user_id here (not just job_id) prevents a caller from
-        # mutating another user's JobRow.applied/status by guessing a job_id —
-        # a mismatch is indistinguishable from "not found" (never leak
-        # cross-tenant existence).
-        job_row = (
-            db.query(JobRow)
-            .filter(JobRow.job_id == body.job_id, JobRow.user_id == user.user_id)
-            .first()
+    # ── Verify job exists AND belongs to the caller ───────────────────────────
+    # Filtering by user_id here (not just job_id) prevents a caller from
+    # mutating another user's job match by guessing a job_id — a mismatch is
+    # indistinguishable from "not found" (never leak cross-tenant existence).
+    job = job_store.get_by_id(body.job_id, user.user_id)
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Job '{body.job_id}' not found.",
         )
-        if not job_row:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Job '{body.job_id}' not found.",
-            )
 
-        company = job_row.company or ""
-        title   = job_row.title   or ""
-        score   = float(job_row.score or 0.0)
+    company = job.company or ""
+    title   = job.title   or ""
+    score   = float(job.score or 0.0)
 
+    with Session(ENGINE) as db:
         # ── Upsert ApplicationRow ─────────────────────────────────────────────
         application_id, created = app_store.upsert_submitted(
             db,
@@ -169,13 +163,12 @@ async def mark_applied(
             score               = score,
             now                 = now_str,
         )
-
-        # ── Mark job as applied ───────────────────────────────────────────────
-        job_row.applied    = True
-        job_row.applied_at = now_str
-        job_row.status     = "applied"   # feed-level status
-
         db.commit()
+
+    # ── Mark job as applied (separate transaction — job_repository.py's
+    # functions are all self-contained, own-session; see its module docstring) ─
+    job_store.update_status(body.job_id, user.user_id, "applied")
+    job_store.mark_applied(body.job_id, now_str, user.user_id)
 
     logger.info(
         "[applications/mark-applied] job=%s → application=%s  created=%s",

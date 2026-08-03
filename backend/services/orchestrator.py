@@ -64,10 +64,6 @@ async def draft_recruiter_reply(user_id: str, job_id: str, email_text: str) -> s
     import uuid
     from datetime import datetime, timezone
 
-    from sqlalchemy.orm import Session
-
-    from backend.core.database import ENGINE
-    from backend.models.job import JobRow
     from backend.repositories import recruiter_reply_draft_repository
     from backend.services.llm_client import call_llm
     from backend.services.llm_validation import harden_system_prompt, sanitize_text
@@ -84,12 +80,7 @@ async def draft_recruiter_reply(user_id: str, job_id: str, email_text: str) -> s
         return ""
 
     # Tenant-isolated job lookup — job_id alone is NOT sufficient.
-    with Session(ENGINE) as db:
-        job: JobRow | None = (
-            db.query(JobRow)
-            .filter(JobRow.job_id == job_id, JobRow.user_id == user_id)
-            .first()
-        )
+    job = job_store.get_by_id(job_id, user_id)
     if job is None:
         logger.warning(
             "[reply-draft] job %r not found for user %r — refusing to draft",
@@ -180,7 +171,7 @@ class AnalysisState(TypedDict):
     profile:      dict
     job_info:     dict
     gap_analysis: dict
-    why_ron:      str
+    fit_brief:      str
     truth_report: dict
     passed:       bool
     error:        Optional[str]
@@ -274,7 +265,7 @@ Match Score: {score}/100
 The candidate demonstrates strong alignment based on {role_count} verified roles.
 Key highlight: {_get_candidate_seniority(profile)} years of cumulative professional impact.
 """
-    return {"why_ron": report}
+    return {"fit_brief": report}
 
 # ── Node 4: Quality Guard ─────────────────────────────────────────────────────
 
@@ -311,7 +302,7 @@ async def run_analysis(url: str, user_id: str) -> AnalysisState:
     """
     initial = {
         "url": url, "user_id": user_id, "profile": get_profile(user_id),
-        "job_info": {}, "gap_analysis": {}, "why_ron": "", "passed": False,
+        "job_info": {}, "gap_analysis": {}, "fit_brief": "", "passed": False,
     }
     result = await _compiled.ainvoke(initial)
     return result
@@ -325,6 +316,6 @@ if __name__ == "__main__":
         print("\n--- Result Summary ---")
         print(f"Candidate: {result['gap_analysis']['candidate']}")
         print(f"Final Score: {result['gap_analysis']['overall_fit_score']}")
-        print(f"Report Preview:\n{result['why_ron'][:500]}...")
+        print(f"Report Preview:\n{result['fit_brief'][:500]}...")
 
     asyncio.run(test())

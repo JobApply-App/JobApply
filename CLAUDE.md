@@ -16,7 +16,7 @@ uvicorn backend.main:app --reload
 - Env vars come from `backend/.env` (not root `.env`): `ANTHROPIC_API_KEY`, `DATABASE_URL`, `REDIS_URL`, `SUPABASE_URL`, `SUPABASE_JWT_SECRET`.
 - Single test: `pytest backend/tests/test_profile_trust.py`. Test-only deps (`pytest`, `pytest-asyncio`) live in `backend/requirements-dev.txt`, not `backend/requirements.txt` — install with `pip install -r backend/requirements-dev.txt` (this also pulls in `requirements.txt` via `-r`). `backend/pytest.ini` sets `asyncio_mode = auto`; a venv missing `pytest-asyncio` will fail every `@pytest.mark.asyncio` test with "Unknown pytest.mark.asyncio" rather than skip cleanly, so this step is easy to silently miss — see `docs/environment-setup.md`.
 
-**Frontend** (Next.js, run from `web_dashboard/`):
+**Frontend** (Next.js, run from `frontend/`):
 ```bash
 npm run dev      # next dev
 npm run build     # next build
@@ -42,8 +42,10 @@ No test framework is configured for the frontend.
 ### Legacy standalone Streamlit app (not part of the FastAPI product)
 Root `app.py` is a separate Streamlit dashboard that imports `orchestrator.py` and `backend/logic/*`. `orchestrator.py` defines `analyze_fit()` and a hardcoded `_TARGET_JOB`. Do not confuse this with the FastAPI backend — it's a parallel/older UI kept for reference. See `docs/architecture-boundaries.md` for the full dependency-direction audit and multi-tenant preparation notes.
 
-### Frontend (`web_dashboard/`)
-App root and package name are `job-apply-web`; source lives in `web_dashboard/src/{app,components,contexts,hooks,lib,locales}`. Next.js 14 (app router), Tailwind, Supabase JS client. `web_dashboard/job-apply-web/` is **not** a nested app — it's a stray build-cache leftover with no source, safe to ignore.
+### Frontend (`frontend/`)
+App root is `frontend/`; the package name is `job-apply-web` (the two differ — don't infer the directory from the package name). Source lives in `frontend/src/{app,components,contexts,hooks,lib,locales}`. Next.js 14 (app router), Tailwind, Supabase JS client.
+
+There is no `web_dashboard/` directory. Earlier revisions of this file said there was, which is worse than saying nothing: a `grep` scoped to a path that doesn't exist returns empty and reads exactly like "this symbol is unused." That misread once cost a full-stack rename being scoped as backend-only. When checking whether the frontend uses something, scope the search with `git ls-files` rather than a hardcoded directory.
 
 ### Shared Pydantic models (`models/`)
 - `agent.py` — agent state/stats for UI agent cards.

@@ -33,7 +33,7 @@ from typing import Optional
 from dotenv import load_dotenv
 
 from backend.services.llm_client import call_llm
-from backend.services.user_profile import USER_PROFILE, build_full_text, resolve_profile
+from backend.services.user_profile import build_full_text, resolve_profile
 from backend.schemas.job import JobMatch
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
@@ -113,7 +113,7 @@ UNVERIFIED entities (absent from ENTITY_INTELLIGENCE or not marked VERIFIED):
   • Do not guess industry terminology for unverified employers.
 
 FACT INTEGRITY — absolute, same weight as FORBIDDEN SHORTCUTS:
-  • Enriched vocabulary describes the industry context of what Ron actually did.
+  • Enriched vocabulary describes the industry context of what the candidate actually did.
     It NEVER creates new experiences or metrics.
   • VALID bridge:  "event ticketing revenue" → "GMV" if domain confirms that
     GMV is the standard term for that revenue type in this industry.
@@ -136,7 +136,7 @@ PHASE A — Entity gap terms (fill slots K1..K5 first):
   terms and assign them to K1..K5. These slots are reserved — JD terms
   do not displace them. Mark each as "entity-mandated".
 
-  Example: if GO-OUT is VERIFIED and cv_vocabulary_gap = [ARR, churn rate,
+  Example: if a role is VERIFIED and cv_vocabulary_gap = [ARR, churn rate,
   CAC, ...], then K1=ARR, K2=churn rate, K3=CAC, etc.
 
 PHASE B — JD keyword extraction (fill slots K6..K20):
@@ -188,7 +188,8 @@ STEP 2 — DATE CHECK: For every role you plan to INCLUDE, verify it has a
           valid year range in the profile (YYYY, YYYY - YYYY, or YYYY - Present).
           "During degree", "Early career", and age references do NOT qualify.
           — A role to include with no valid year → trigger missing_data for it.
-          — NEVER ask for dates of permanently excluded roles (Aldo, River).
+          — NEVER ask for dates of roles excluded from experience
+            (see EXCLUDE FROM EXPERIENCE above).
 
 STEP 3 — JD GAP ANALYSIS
           Primary inputs: CRITICAL_GAPS, INVESTIGATION_POINTS, JOB_TITLE/CATEGORY.
@@ -200,9 +201,9 @@ STEP 3 — JD GAP ANALYSIS
              NO  → skip entirely, never ask.
           2. Does the profile EXPLICITLY cover it?
              YES → proceed, do not ask.
-          3. Is it a GENUINE DISQUALIFIER (e.g., 10 yrs required, Ron has 2)?
+          3. Is it a GENUINE DISQUALIFIER (e.g., 10 yrs required, the candidate has 2)?
              YES → note silently, NEVER ask.
-          4. Could Ron plausibly have this experience given his background,
+          4. Could the candidate plausibly have this experience given their background,
              AND would his answer change a bullet, skill, or role inclusion?
              YES → TRIGGER missing_data.
              NO  → skip.
@@ -220,9 +221,9 @@ STEP 3 — JD GAP ANALYSIS
           projects, self-study, or general mentions elsewhere in the profile
           do NOT authorise placing the skill under a specific employer.
 
-          WRONG: "Used SQL for data analysis at GO-OUT" when SQL only appears in
-                 the candidate's personal projects or general skills list.
-          WRONG: Writing "built dashboards in Python at Insurance Agency" because
+          WRONG: "Used SQL for data analysis at [employer]" when SQL only appears
+                 in the candidate's personal projects or general skills list.
+          WRONG: Writing "built dashboards in Python at [employer]" because
                  Python is listed as a general skill and the JD requires data skills.
           RIGHT: If the profile is silent → trigger missing_data:
                  "Did you use [tool/skill] in your work at [employer]?"
@@ -234,8 +235,9 @@ STEP 3 — JD GAP ANALYSIS
             monitoring — that is an invented capability, not a vocabulary bridge.
 
           QUESTION QUALITY STANDARDS:
-          ✓ Specific, not vague: "Did you support US-based clients at GO-OUT?"
-            not "Do you have international experience?"
+          ✓ Specific, not vague: "Did you support US-based clients at
+            [the employer where it most plausibly happened]?" — not
+            "Do you have international experience?"
           ✓ Name the most plausible context: reference where it likely happened.
           ✓ Binary + scope: "Yes/no — and if yes, what tool/volume/duration?"
           ✓ One question per gap — never bundle multiple gaps into one question.
@@ -243,19 +245,19 @@ STEP 3 — JD GAP ANALYSIS
           COMMON TRIGGER SCENARIOS (use as templates, adapt to actual JD):
           — JD: US/international clients + profile silent →
             "The JD requires US client experience. Did you support US or
-            international accounts at GO-OUT or elsewhere?"
+            international accounts at [employer] or elsewhere?"
           — JD: specific CRM (Salesforce, HubSpot, Intercom) + profile silent →
             "The JD requires [CRM]. Have you used [CRM] or a comparable tool,
             and if so in which role?"
           — JD: English-language client communication + profile silent →
             "The JD emphasises English communication. Did your CS or onboarding
-            work at GO-OUT involve English-speaking clients or partners?"
+            work at [employer] involve English-speaking clients or partners?"
           — JD: ticketing/support tool (Zendesk, Freshdesk, Jira) + profile silent →
             "The JD requires [tool]. Have you used [tool] or a similar ticketing
             system in your support or CS work?"
           — JD: specific industry context (fintech, marketplace, B2B SaaS) + unclear →
-            "The JD is specific to [industry]. Did your work at GO-OUT involve
-            [industry] customers, or did you support that segment?"
+            "The JD is specific to [industry]. Did your work at [employer]
+            involve [industry] customers, or did you support that segment?"
 
 TRIGGER missing_data (output ONLY this JSON, no cv_data) when any check above fires:
 {{
@@ -335,42 +337,48 @@ reframe each selected role's bullets in JD vocabulary.
   An empty bottom third is worse than a dropped low-signal role.
 
 ── STEP C: REFRAME EACH SELECTED ROLE ───────────────────────────────────────
-  Apply these per-role reframing hints to any role that makes the cut:
+  Derive every reframing decision from the CANDIDATE PROFILE in front of you.
+  Do not assume any particular employer, industry, or career shape.
 
-  GO-OUT (Customer Success / Team Lead / Product):
-    Highest-signal role for almost every JD. Always gets primary slot.
-    Lead with scope: 800+ clients, 40+ B2B partners, 7 direct reports,
-    cross-border (Israel + Greece), rapid 3-level progression.
+  C1. LEAD WITH SCOPE.
+      Open the role with the largest verifiable figure it carries — people
+      managed, accounts or clients owned, partners, users, revenue, budget,
+      geographies, uptime. A role with quantified scope outranks an
+      unquantified one for almost any JD, regardless of title.
 
-  Insurance Agency (Operations & Pension Referent):
-    CS / Account Management JDs: frame around portfolio scale (800+ clients),
-      renewal ownership, and relationship management. Never say "pension"
-      unless the JD has financial-services context.
-    PM / Technical JDs: low keyword overlap — likely scores low; do not force.
-    Leadership JDs: include for the resilience narrative if space permits.
+  C2. RANK ROLES BY KEYWORD OVERLAP WITH THE JD, NOT BY RECENCY.
+      The role sharing the most vocabulary and responsibility with the JD gets
+      the primary slot and the most bullets. A role with low overlap gets 1-2
+      bullets or is dropped — never padded to force a fit it does not have.
 
-  Microsoft × TAMA AR Web App (Product & UX Contributor):
-    PM / Product JDs: foreground UX-to-launch ownership, cross-institutional
-      collaboration (Microsoft × Reichman × Tel Aviv Museum of Art), and
-      shipping a consumer-facing AR digital product.
-    CS / Leadership JDs: include for the cross-functional stakeholder signal.
-    Technical SWE JDs: low keyword overlap — 1-2 bullets max.
+  C3. STRIP DOMAIN JARGON THE JD DOES NOT SHARE.
+      A term that is precise inside the candidate's former industry reads as
+      noise or as the wrong specialisation outside it. If the JD gives no
+      context for a domain word, describe the underlying work instead:
+      the transferable responsibility, not the sector label for it.
 
-  Reuveni Pridan (Reception & Admin):
-    CS / Coordination-heavy JDs with space: frame as enterprise stakeholder
-      coordination. Bullets: scheduling, external communications, senior-team
-      support. Include only if it adds at least 2 JD keywords.
-    PM / Technical / Leadership JDs: scores low — generally omit.
+  C4. PROGRESSION IS ITSELF A SIGNAL.
+      Multiple roles at one employer showing advancement is stronger evidence
+      than any single title. State the arc explicitly (first role → last role)
+      for leadership and ownership JDs.
 
-  Product Management Certification (Pitango Academy / Triola):
-    PM JDs: always include in education as a standalone entry.
-    CS JDs: omit — signals role confusion.
+  C5. CERTIFICATIONS AND COURSES FOLLOW THE JD ARCHETYPE.
+      Include one as a standalone education entry when it matches the target
+      discipline. Omit it when it points at a different discipline than the
+      role — a mismatched credential reads as role confusion, which costs more
+      than the empty line it fills.
 
-── PERMANENTLY EXCLUDED ──────────────────────────────────────────────────────
-  Aldo (Gelato Shop) — food service, no valid year range, zero professional signal.
-  River (Restaurant) — food service, no valid year range, zero professional signal.
-  These contribute to the resilience narrative, expressed in education.honors
-  or the summary — NEVER as experience entries.
+── EXCLUDE FROM EXPERIENCE ───────────────────────────────────────────────────
+  A role belongs out of the experience array when it carries NO professional
+  signal for any archetype: no valid date range, no transferable
+  responsibility, and no quantified outcome. Early service or retail jobs held
+  during study are the usual case.
+
+  Excluded does not mean irrelevant. Holding such jobs — especially several at
+  once, or alongside study — is real evidence of work ethic and resilience. It
+  belongs in education.honors or in one clause of the summary, and NEVER as an
+  experience entry, where it dilutes the professional narrative it is meant to
+  support.
 
 ── MILITARY SERVICE ──────────────────────────────────────────────────────────
   CS / PM / Leadership roles: INCLUDE in sidebar (discipline, operational credibility).
@@ -405,20 +413,23 @@ CUSTOMER SUCCESS JDs — strict narrative lockdown:
 
 PRODUCT MANAGER JDs:
   ALLOW: PRD authorship, cross-functional product ownership, data-driven
-    decisions, SQL/Python for analysis, Seats.io configuration, stakeholder
-    alignment, product strategy, roadmap input.
+    decisions, SQL/Python for analysis, configuration of the domain tooling the
+    profile actually names, stakeholder alignment, product strategy,
+    roadmap input.
   DE-EMPHASIZE: pure customer support framing.
 
 LEADERSHIP / TEAM LEAD JDs:
-  FOREGROUND: headcount (7), cross-border scope (Israel + Greece), rapid
-    three-level progression at GO-OUT (Support → PM → Team Lead), resilience
-    narrative (3 concurrent jobs + Dean's List), hiring and performance management.
+  FOREGROUND, taking each value from the profile rather than assuming one:
+    headcount managed, scope spanning sites/regions/time zones, progression
+    through successive roles at one employer (state the arc), hiring and
+    performance management, and any evidence of sustained load — concurrent
+    responsibilities, work alongside study — as the resilience narrative.
 
 ════════════════════════
 SIGNAL SELECTION DOCTRINE
 ════════════════════════
 For each section ask: "Which 1-3 facts give this hiring manager the highest
-confidence that Ron will succeed in THIS exact role?" Lead with those.
+confidence that the candidate will succeed in THIS exact role?" Lead with those.
 Each signal gets exactly one placement — where it has maximum impact.
 Never repeat the same fact across multiple sections.
 
@@ -433,8 +444,10 @@ duration, and dollar figure you can find:
   Sources (in priority order):
     1. SUPPLEMENTAL_ANSWERS — treat user-supplied numbers as authoritative.
        If the user wrote "cut churn by 18%", that exact figure goes in the bullet.
-    2. CANDIDATE PROFILE — every explicit number already in the profile
-       (800+ clients, 7 employees, 120 accounts, Tier-1 SLA, etc.).
+    2. CANDIDATE PROFILE — every explicit number already in the profile.
+       Look for counts (clients, accounts, partners, reports, users), rates
+       and percentages, volumes, durations, headcount, geographies, service
+       levels, and currency figures.
     3. Derivable approximations — only when the source gives enough context to
        estimate honestly (e.g. "weekly syncs for 40+ partners over 18 months"
        = ~78 syncs). Never fabricate a number that has no source basis.
@@ -497,7 +510,7 @@ Validated bridge patterns (apply analogously to the actual JD):
   "Usage Tracking"         → "Product Adoption Metrics"    (if JD uses "adoption")
 
 Invalid bridges (fabrication — hard error):
-  ✗ Saying Ron "built a health-score model" when the profile shows only that he
+  ✗ Saying the candidate "built a health-score model" when the profile shows only that he
     monitored accounts in a spreadsheet.
   ✗ Writing "managed $2M ARR book" when no revenue figure exists anywhere in
     the profile or SUPPLEMENTAL_ANSWERS.
@@ -510,7 +523,7 @@ XYZ FRAMEWORK — mandatory for every bullet, zero exceptions:
 Structure: "Accomplished [X] as measured by [Y], by doing [Z]"
   X = the concrete achievement (what changed, what was delivered)
   Y = the measurable proof  (a number, %, rate, volume, or verifiable scope)
-  Z = the specific method   (the action Ron took — not a vague verb)
+  Z = the specific method   (the action the candidate took — not a vague verb)
 
 The three elements must all be present. Phrasing must be natural — do not
 write the labels literally. Test each bullet against this checklist:
@@ -520,13 +533,15 @@ write the labels literally. Test each bullet against this checklist:
   [ ] Is it free of passive voice?  (see PASSIVE VOICE BAN below)
   [ ] Does it open with an active verb from the approved list?
 
-GOOD (all three elements, active voice, concrete number):
-  "Cut partner churn by 18% across 120 accounts by redesigning the onboarding
-   flow to surface value in the first two weeks."
-  "Kept 95% of Tier-1 escalations within SLA by writing a triage playbook the
-   full 7-person team adopted on day one."
-  "Grew gross ticket revenue 23% YoY by restructuring the partner commission
-   model for 40+ event organizers across Israel and Greece."
+GOOD — study the SHAPE, never the values. These are drawn from an unrelated
+domain on purpose: the numbers below belong to no one and must never appear in
+your output. Every figure you write comes from THIS candidate's profile.
+  "Cut warehouse pick errors by 22% across four distribution sites by
+   rewriting the scan-verification step operators had been skipping."
+  "Held 98% on-time dispatch through peak season by rebuilding the driver
+   rota around historical volume instead of headcount."
+  "Grew repeat orders 31% YoY by moving the reorder prompt from email to the
+   delivery confirmation SMS."
 
 BAD — forbidden for these specific reasons:
   "Managed client relationships and improved satisfaction."
@@ -541,18 +556,18 @@ Never write a bullet that begins with or relies on:
   "Was responsible for", "Was tasked with", "Helped to", "Assisted in",
   "Supported the team", "Contributed to", "Involved in", "Part of".
 These phrases describe a job description, not an achievement.
-Every bullet must begin with an active verb that names Ron's direct action.
+Every bullet must begin with an active verb that names the candidate's direct action.
 
 SUMMARY RULES — same standards apply:
 The professional summary is not exempt from the XYZ discipline.
 It must contain at least one concrete number from the metrics table.
 It cannot open with "I am" or a passive construction.
-It must name Ron's clearest quantified strength in the first sentence.
+It must name the candidate's clearest quantified strength in the first sentence.
 
 AUTHENTIC STORYTELLING:
 Write like a sharp professional explaining their actual experience to a colleague
 who is also an industry expert. Grounded, direct, specific. Tell the story:
-what was the problem, what did Ron do, what measurably changed.
+what was the problem, what did the candidate do, what measurably changed.
 When drawing on SUPPLEMENTAL_ANSWERS, always embed the number the user gave —
 never paraphrase it into a vague adjective.
 Rich multi-clause bullets (up to 240 chars) are preferred when the fuller
@@ -561,9 +576,9 @@ should demonstrate depth: 4-6 strong bullets, not 2-3 thin ones.
 
 Weak (forbidden):
   "Orchestrated seamless cross-functional alignment to drive partner success."
-Strong (required):
-  "Ran weekly syncs between sales, ops, and finance to keep 40+ B2B partners
-   unblocked during our busiest event weekends."
+Strong (required) — again, shape only; these values are not this candidate's:
+  "Ran weekly syncs between planning, ops, and finance to keep 40+ suppliers
+   unblocked through the pre-holiday surge."
 
 DEPTH OVER PADDING:
 4-6 metrics-grounded, story-driven bullets for the primary role demonstrate
@@ -617,10 +632,10 @@ No markdown fences. No prose. Only the JSON object.
 {{
   "type": "cv",
   "cv_data": {{
-    "title": "<role-specific positioning, <=58 chars. What Ron IS, not what he is applying for.>",
+    "title": "<role-specific positioning, <=58 chars. What the candidate IS, not what they are applying for.>",
 
     "summary": "<<=360 chars. 2-3 sentences. MUST contain at least one concrete \
-number sourced from the metrics table (Step 4). Opens with Ron's clearest quantified \
+number sourced from the metrics table (Step 4). Opens with the candidate's clearest quantified \
 strength for THIS role — never with 'I am' or a passive clause. Second sentence adds \
 a differentiated proof point. Closes with a forward-looking signal that mirrors JD \
 language. Ends with a full stop. No banned verbs, no hollow adverbs.>",
@@ -650,7 +665,8 @@ Supporting roles: 2-3 focused bullets. Never pad with weak bullets to hit a coun
         "dates":       "<copied exactly from profile, <=20 chars>",
         "honors":      "<FACTUAL HONORS ONLY <=60 chars: 'Dean's List', 'GPA: X.X', \
 'Graduated with Distinction'. NEVER add contextual commentary, personal narrative, \
-or circumstantial notes (e.g., do NOT write 'while working 3 concurrent roles' or \
+or circumstantial notes (e.g., do NOT append the circumstances under which a
+credential was earned, such as 'while working full-time', or \
 'achieved while employed full-time'). Credential record only. Empty string if none.>",
         "coursework":  "<string <=80 chars — only courses directly relevant to THIS JD, or empty>"
       }}
@@ -741,9 +757,10 @@ LANGUAGE & TONE — ABSOLUTE RULES (violations = disqualification)
    "Reduced churn by Y%" not "drove retention through a customer-centric approach"
 
 6. Numbers and scope beat adjectives — every time, no exceptions.
-   "800+ clients" outperforms "large client portfolio".
-   "7 direct reports" outperforms "a team of people".
-   "18% churn reduction" outperforms "significantly improved retention".
+   A stated count outperforms "large portfolio".
+   A stated headcount outperforms "a team of people".
+   A stated percentage outperforms "significantly improved".
+   Take the value from the profile — never invent one to fill the pattern.
    If the profile or SUPPLEMENTAL_ANSWERS contains a number, that number is mandatory.
 
 7. Bullets: specific, direct, no padding. Sound like a professional who wrote
@@ -755,7 +772,7 @@ LANGUAGE & TONE — ABSOLUTE RULES (violations = disqualification)
     EXAMPLES of banned repetition:
       ✗ Two bullets both ending "...with no dedicated sales support"
       ✗ Two bullets both opening "Managed portfolio of..."
-      ✗ Same metric (e.g. "800+ clients") appearing in two separate bullets
+      ✗ The same metric appearing in two separate bullets
     Each bullet must express a UNIQUE facet of the candidate's experience.
     If you find yourself reusing a phrase: rewrite one of the bullets to
     surface a different achievement, scope, or method entirely.
@@ -946,7 +963,8 @@ _resolve_profile = resolve_profile
 def _inject_static_sections(
     data: dict,
     respect_deletions: bool = False,
-    user_id: str = "default",
+    *,
+    user_id: str,
 ) -> dict:
     """
     Overwrite Education, Skills, and Military with the canonical values from
@@ -1037,7 +1055,7 @@ def _inject_static_sections(
                     })
             if canonical_edu:
                 data["education"] = canonical_edu
-        elif user_id != "default":
+        else:
             logger.info(
                 "[tailor] user=%s has no education in their DB profile — leaving the "
                 "CV's education section as generated (no legacy back-fill).",
@@ -1083,33 +1101,23 @@ def _inject_static_sections(
 
 # ── All-employer enforcement (mechanical safety net) ─────────────────────────
 
-# Company tokens that are permanently excluded from the experience array.
-_EXCLUDED_EMPLOYER_TOKENS = frozenset({"aldo", "river"})
-
-
 def _norm_company(name: str) -> str:
     """Strip parenthetical suffixes and lower-case for fuzzy comparison."""
     return re.sub(r'\s*\(.*?\)', '', name or "").strip().lower()
 
 
-def _required_profile_employers(user_id: str = "default") -> list[dict]:
+def _required_profile_employers(user_id: str) -> list[dict]:
     """
-    Return every non-excluded, non-military employer for user_id that must
-    produce an experience entry in the final cv_data.
-
-    The aldo/river exclusion list is LEGACY-ONLY and is applied solely to the
-    'default' singleton. Applying it to a real user's DB profile is exactly the
-    corruption this refactor removes — user e2472fa3, for instance, has a
-    genuine "Restaurant River" role that the bare-substring "river" token would
-    silently delete from their CV.
+    Return every non-military employer for user_id that must produce an
+    experience entry in the final cv_data.
 
     Employers are de-duplicated by normalised name, keeping the FIRST
     occurrence. The DB profile stores one row per role, so a multi-role
-    employer (e.g. GO-OUT, 5 rows) would otherwise be demanded 5 times; the
+    employer (one with several roles, so several rows) would otherwise be
+    demanded once per row; the
     profile is most-recent-first, so the first row carries the current title.
     """
     profile = _resolve_profile(user_id)
-    apply_legacy_exclusions = user_id == "default"
 
     required: list[dict] = []
     seen: set[str] = set()
@@ -1118,10 +1126,6 @@ def _required_profile_employers(user_id: str = "default") -> list[dict]:
         if not company:
             continue  # military entry uses "unit", not "company"
         c_norm = _norm_company(company)
-        if apply_legacy_exclusions and any(
-            tok in c_norm for tok in _EXCLUDED_EMPLOYER_TOKENS
-        ):
-            continue
         if c_norm in seen:
             continue
         seen.add(c_norm)
@@ -1139,7 +1143,7 @@ def _required_profile_employers(user_id: str = "default") -> list[dict]:
     return required
 
 
-def _get_profile_stub(company: str, user_id: str = "default") -> str:
+def _get_profile_stub(company: str, user_id: str) -> str:
     """
     Extract a single-sentence stub bullet from user_id's profile for a company
     that was dropped by the LLM.  Used only as a safety-net placeholder —
@@ -1149,7 +1153,8 @@ def _get_profile_stub(company: str, user_id: str = "default") -> str:
     for exp in _resolve_profile(user_id).get("experience", []):
         if _norm_company(exp.get("company", "")) != c_norm:
             continue
-        # Multi-role entry (GO-OUT style): use the most recent role's details.
+        # Multi-role entry (one employer, several titles): use the most
+        # recent role's details.
         roles = exp.get("roles", [])
         raw = roles[0].get("details", "") if roles else exp.get("details", "")
         if raw:
@@ -1159,7 +1164,7 @@ def _get_profile_stub(company: str, user_id: str = "default") -> str:
     return ""
 
 
-def _enforce_all_employers(cv_data: dict, user_id: str = "default") -> dict:
+def _enforce_all_employers(cv_data: dict, user_id: str) -> dict:
     """
     Guarantee every non-excluded employer from user_id's profile appears in
     cv_data["experience"].  Any that the LLM silently dropped are added
@@ -1258,7 +1263,7 @@ def _sanitize_ai_tells(data: object) -> object:
 
 # ── Entity intelligence block ────────────────────────────────────────────────
 
-def _build_entity_intelligence_block(user_id: str = "default") -> str:
+def _build_entity_intelligence_block(user_id: str) -> str:
     """
     Load verified enriched entities for user_id from their master profile and
     format them as a compact intelligence block for injection into the
@@ -1316,7 +1321,7 @@ _CORE_QUESTIONS = {
 }
 
 
-def _core_profile_gaps(user_id: str = "default") -> list[dict]:
+def _core_profile_gaps(user_id: str) -> list[dict]:
     """
     Return missing_data requests for any essential personal fields that are
     still empty for user_id.  Runs before the LLM so we never waste a
@@ -1338,17 +1343,15 @@ def _core_profile_gaps(user_id: str = "default") -> list[dict]:
 # ── Agent ─────────────────────────────────────────────────────────────────────
 
 class TailorAgent:
-    def __init__(self, user_id: str = "default") -> None:
+    def __init__(self, user_id: str) -> None:
         """
         user_id scopes EVERY profile read this agent makes — the prompt's
         profile blob, the core-field gate, entity intelligence, and the static
-        section injection. Callers holding an authenticated user MUST pass it;
-        the 'default' fallback exists only for pre-migration dev paths and
-        resolves to the legacy single-user singleton.
+        section injection.
         """
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not set")
-        self.user_id = user_id or "default"
+        self.user_id = user_id
 
     async def tailor(
         self,
@@ -1456,7 +1459,7 @@ class TailorAgent:
             f"{investigation_block}"
             f"{supplemental_block}"
             f"{entity_intelligence_block}"
-            f"\nWHY_CANDIDATE:\n{job.why_ron or 'N/A'}\n"
+            f"\nWHY_CANDIDATE:\n{job.fit_brief or 'N/A'}\n"
             f"\nJOB_URL: {job.apply_url or 'N/A'}\n"
             "\nRun the pre-generation audit (STEP 0 keyword extraction first — "
             "PRIMARY source is JD_STRUCTURED above; extract exact terms verbatim. "

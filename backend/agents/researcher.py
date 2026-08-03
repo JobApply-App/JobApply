@@ -46,7 +46,7 @@ from dotenv import load_dotenv
 
 from backend.services.llm_client import call_llm
 from backend.services.web_search import search, SearchResult
-from backend.services.user_profile import USER_PROFILE, build_full_text, resolve_profile
+from backend.services.user_profile import build_full_text, resolve_profile
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
@@ -88,20 +88,42 @@ class EnrichedEntity:
 
 # ── Entity extraction from the active user's profile ─────────────────────────
 
-# Entities we never research — food service, zero professional signal.
-# LEGACY-ONLY: these are names from the user_id='default' singleton. They are
-# NOT applied to a real user's DB profile, where a same-named entry can be a
-# genuine role (e.g. user e2472fa3's "Restaurant River").
-_EXCLUDED_COMPANIES = frozenset({
-    "aldo", "aldo (gelato shop)", "river", "river (restaurant)",
-})
+def _high_impact_companies(experience: list[dict]) -> set[str]:
+    """
+    Return the lower-cased company names whose claims warrant a clarification
+    request when they cannot be verified (see _research_entity's `not verified
+    and is_high_impact` branch).
 
-# High-impact flags: if these entity names appear in the profile's achievements,
-# failure to verify them triggers a clarification request
-_HIGH_IMPACT_MARKERS = {"go-out", "goout", "go out"}
+    Derived from the profile, not from a fixed list. This used to be a hardcoded
+    set naming one specific company, which meant every other account had its own
+    most important employer silently treated as low-impact while an unrelated
+    name matched.
+
+    Two signals, both read off the candidate's own history:
+      • the most recent employer — the one a hiring manager scrutinises hardest;
+      • any employer appearing more than once, since multiple roles at one place
+        is progression, which is what makes an unverified claim there costly.
+
+    `experience` is most-recent-first (ariel_tools sorts current roles first,
+    then by start date descending, and get_profile preserves that order).
+    """
+    counts: dict[str, int] = {}
+    order: list[str] = []
+    for exp in experience:
+        name = (exp.get("company") or exp.get("unit") or "").strip().lower()
+        if not name:
+            continue
+        if name not in counts:
+            order.append(name)
+        counts[name] = counts.get(name, 0) + 1
+
+    high = {name for name, n in counts.items() if n > 1}
+    if order:
+        high.add(order[0])
+    return high
 
 
-def extract_profile_entities(user_id: str = "default") -> list[dict]:
+def extract_profile_entities(user_id: str) -> list[dict]:
     """
     Extract key entities worth researching from user_id's profile.
     Returns a list of dicts with keys: name, entity_type, is_high_impact.
@@ -114,20 +136,21 @@ def extract_profile_entities(user_id: str = "default") -> list[dict]:
     entities: list[dict] = []
     seen: set[str] = set()
 
-    for exp in resolve_profile(user_id).get("experience", []):
+    experience = resolve_profile(user_id).get("experience", [])
+    high_impact = _high_impact_companies(experience)
+
+    for exp in experience:
         company = (exp.get("company") or exp.get("unit") or "").strip()
         if not company:
             continue
         key = company.lower()
-        if user_id == "default" and key in _EXCLUDED_COMPANIES:
-            continue
         if key in seen:
             continue
         seen.add(key)
         entities.append({
             "name":           company,
             "entity_type":    "company",
-            "is_high_impact": any(m in key for m in _HIGH_IMPACT_MARKERS),
+            "is_high_impact": key in high_impact,
         })
 
     # Projects / side ventures — extend this list as the profile grows
@@ -144,7 +167,7 @@ def extract_profile_entities(user_id: str = "default") -> list[dict]:
     return entities
 
 
-def _extract_project_names(user_id: str = "default") -> list[str]:
+def _extract_project_names(user_id: str) -> list[str]:
     """
     Scan user_id's profile achievements for explicitly named projects.
     Uses a simple regex heuristic on the full profile text.
@@ -162,9 +185,6 @@ def _extract_project_names(user_id: str = "default") -> list[str]:
     ):
         name = m.group(1).strip()
         key  = name.lower()
-        # Skip if it overlaps with an excluded company name (legacy profile only)
-        if user_id == "default" and any(excl in key for excl in _EXCLUDED_COMPANIES):
-            continue
         if key not in seen and len(name.split()) <= 4:
             seen.add(key)
             projects.append(name)
@@ -233,17 +253,14 @@ class ResearcherAgent:
     and returns enriched data including domain, industry keywords, and vocabulary gaps.
     """
 
-    def __init__(self, user_id: str = "default") -> None:
+    def __init__(self, user_id: str) -> None:
         """
         user_id scopes the CV text that cv_vocabulary_gap is computed against,
-        and the default entity extraction. Callers holding an authenticated
-        user MUST pass it — the gap terms are the whole point of the research,
-        and computing them against the legacy singleton's CV yields gaps that
-        are wrong for the account the results get saved under.
+        and the default entity extraction.
         """
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not set")
-        self.user_id  = user_id or "default"
+        self.user_id  = user_id
         self._cv_text = build_full_text(self.user_id).lower()
 
     async def research(

@@ -159,7 +159,7 @@ async def evaluate_match_trigger(
         "title":   job_title,
         "company": company_name,
         "score":   round(float(score_data.get("total", 0.0)), 1),
-        "why_ron": (score_data.get("why_ron") or "")[:250],
+        "fit_brief": (score_data.get("fit_brief") or "")[:250],
     }
 
     inserted = await asyncio.to_thread(
@@ -236,23 +236,30 @@ def _on_trigger_done(task: "asyncio.Task") -> None:
 def fetch_pending_triggers(user_id: str, engine=None, limit: int = 50) -> list[dict]:
     """
     Return the user's un-consumed trigger events, newest first, each as
-    {id, job_id, score, created_at, **payload}. Consumers acknowledge with
-    mark_triggers_consumed() — never by deleting rows (the row is the dedup
-    record).
+    {id, job_id, score, created_at, title, company, fit_brief}. Consumers
+    acknowledge with mark_triggers_consumed() — never by clearing the state
+    (it is the dedup record that stops a job re-notifying on every re-score).
     """
     from backend.repositories import match_trigger_repository
 
     return match_trigger_repository.fetch_pending(user_id, limit=limit, engine=engine)
 
 
-def mark_triggers_consumed(trigger_ids: list[int], engine=None) -> int:
-    """Acknowledge delivered triggers. Returns the number of rows updated."""
-    if not trigger_ids:
+def mark_triggers_consumed(job_ids: list[str], engine=None) -> int:
+    """
+    Acknowledge delivered triggers. Returns the number of rows updated.
+
+    Takes job_ids since the fold into user_job_matches (migration
+    3542b0021d6b) removed the integer surrogate key the dedicated table used
+    to issue; fetch_pending_triggers returns the job_id under both "id" and
+    "job_id" so either key works at the call site.
+    """
+    if not job_ids:
         return 0
     from backend.repositories import match_trigger_repository
 
     return match_trigger_repository.mark_consumed(
-        trigger_ids,
+        job_ids,
         consumed_at = datetime.now(timezone.utc).isoformat(),
         engine      = engine,
     )

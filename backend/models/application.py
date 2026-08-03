@@ -6,7 +6,12 @@ from __future__ import annotations
 
 from sqlalchemy import Column, Float, Integer, String, Text, UniqueConstraint
 
+from sqlalchemy.dialects import postgresql
+
 from backend.core.database import Base
+
+# Shared tenancy-key type — see the UUID_FK comment on any user_id column below.
+UUID_FK = String().with_variant(postgresql.UUID(as_uuid=False), "postgresql")
 
 
 class ApplicationRow(Base):
@@ -14,9 +19,13 @@ class ApplicationRow(Base):
     __tablename__ = "applications"
 
     application_id = Column(String, primary_key=True)
-    # Multi-tenant owner — added in v2; existing rows migrated to 'default'
-    user_id        = Column(String, nullable=False, default="default", index=True)
-    tenant_id      = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id        = Column(UUID_FK, nullable=False, index=True)
     job_id         = Column(String, nullable=False, index=True)
     title          = Column(String, nullable=False)
     company        = Column(String, nullable=False)
@@ -42,8 +51,13 @@ class RecruiterReplyDraftRow(Base):
     __tablename__ = "recruiter_reply_drafts"
 
     draft_id      = Column(String, primary_key=True)
-    user_id       = Column(String, nullable=False, index=True)
-    tenant_id     = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id       = Column(UUID_FK, nullable=False, index=True)
     job_id        = Column(String, nullable=False, index=True)
     # Sanitized excerpt of the inbound email the draft responds to (audit trail)
     email_excerpt = Column(Text,   nullable=False, default="")
@@ -52,28 +66,8 @@ class RecruiterReplyDraftRow(Base):
     created_at    = Column(String, nullable=False, default="")
 
 
-class JobFeedbackRow(Base):
-    """
-    User thumbs-up / thumbs-down feedback on job matches (JOB-57).
-
-    One row per (user, job) — re-rating updates the row in place (latest
-    opinion wins), enforced by UNIQUE(user_id, job_id). snapshot_json freezes
-    the job's characteristics at rating time (match score, culture axis/
-    category, pace, work model) so preference learning keeps working even if
-    the job row is later re-scored, archived, or purged.
-    """
-    __tablename__ = "job_feedback"
-
-    id            = Column(Integer, primary_key=True, autoincrement=True)
-    user_id       = Column(String,  nullable=False, index=True)
-    tenant_id     = Column(String,  nullable=True, index=True)   # see JobRow.tenant_id docstring
-    job_id        = Column(String,  nullable=False)
-    feedback_type = Column(String,  nullable=False)               # thumbs_up | thumbs_down
-    reason        = Column(Text,    nullable=True)                # optional free-text why
-    snapshot_json = Column(Text,    nullable=False, default="{}") # job characteristics at rating time
-    created_at    = Column(String,  nullable=False)
-    updated_at    = Column(String,  nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("user_id", "job_id", name="uq_job_feedback_user_job"),
-    )
+## JobFeedbackRow (job_feedback table) removed — folded into
+## user_job_matches as feedback_type/feedback_reason/feedback_snapshot/
+## feedback_at (migration 3542b0021d6b). Feedback is 1:1 with the match it
+## is about; the old table enforced that with UNIQUE(user_id, job_id) and
+## its writer was already an upsert.

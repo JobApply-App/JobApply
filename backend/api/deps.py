@@ -54,18 +54,9 @@ class CurrentUser:
 
 
 def _load_is_admin(user_id: str) -> bool:
-    """Cheap master_profiles lookup; absent row (or any DB error) → False."""
-    try:
-        from sqlalchemy import text as _text
-        from backend.core.database import ENGINE
-        with ENGINE.connect() as conn:
-            row = conn.execute(
-                _text("SELECT is_admin FROM master_profiles WHERE user_id = :uid"),
-                {"uid": user_id},
-            ).fetchone()
-        return bool(row[0]) if row else False
-    except Exception:
-        return False
+    """Cheap profiles.is_admin lookup; absent row (or any DB error) → False."""
+    from backend.repositories.profile_repository import is_admin_lookup
+    return is_admin_lookup(user_id)
 
 
 async def get_current_user(

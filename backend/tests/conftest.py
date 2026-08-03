@@ -59,6 +59,30 @@ def db_available():
 
 
 @pytest.fixture()
+def llm_available():
+    """
+    Skip a test that makes a real Anthropic call when no usable key is set.
+
+    The sibling of db_available, and added for the same reason: CI has no
+    ANTHROPIC_API_KEY, so a live-LLM test fails there with a 401 that looks
+    like a product bug rather than a missing secret. These tests exist to check
+    behaviour against the real model — mocking them would only assert that the
+    mock was called — so skipping is the honest option.
+
+    Reads the key through backend.config rather than os.environ directly. The
+    key lives in backend/.env and only reaches the process via config's
+    load_dotenv, so an os.environ check passes locally at import time but is
+    empty here — which would skip the tests everywhere, silently disabling them
+    instead of just in CI. That is the worse failure of the two, since a green
+    run would then mean nothing was checked.
+    """
+    from backend.config import ANTHROPIC_API_KEY
+
+    if not ANTHROPIC_API_KEY or not ANTHROPIC_API_KEY.startswith("sk-ant-"):
+        pytest.skip("ANTHROPIC_API_KEY not configured — skipping live-LLM test")
+
+
+@pytest.fixture()
 def clean_jobs_table(db_available):
     from backend.core.postgres import get_pg_session
     with get_pg_session() as session:

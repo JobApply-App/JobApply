@@ -195,7 +195,6 @@ def _migrate_confidence_matrix(conn) -> None:
             CREATE TABLE IF NOT EXISTS profile_entities (
                 entity_id               TEXT PRIMARY KEY,
                 user_id                 TEXT NOT NULL,
-                tenant_id               TEXT,
                 entity_type             TEXT NOT NULL,
                 name                    TEXT NOT NULL,
                 normalized_name         TEXT NOT NULL,
@@ -221,7 +220,6 @@ def _migrate_confidence_matrix(conn) -> None:
             CREATE TABLE IF NOT EXISTS ariel_sessions (
                 session_id              TEXT PRIMARY KEY,
                 user_id                 TEXT NOT NULL,
-                tenant_id               TEXT,
                 session_type            TEXT NOT NULL,
                 target_job_id           TEXT,
                 target_entities         TEXT,
@@ -241,7 +239,6 @@ def _migrate_confidence_matrix(conn) -> None:
                 event_id                TEXT PRIMARY KEY,
                 session_id              TEXT NOT NULL REFERENCES ariel_sessions (session_id),
                 user_id                 TEXT NOT NULL,
-                tenant_id               TEXT,
                 star_situation          TEXT,
                 star_task               TEXT,
                 star_action             TEXT,
@@ -249,10 +246,22 @@ def _migrate_confidence_matrix(conn) -> None:
                 extracted_entity_ids    TEXT NOT NULL,
                 extraction_confidence   REAL NOT NULL,
                 raw_quote               TEXT,
-                analyzed_at             TEXT NOT NULL
+                analyzed_at             TEXT NOT NULL,
+                -- Probe events share this table since migration 32d536527e9a:
+                -- a probe and a STAR extraction are both events inside one
+                -- ariel_session. star_extraction rows leave the probe columns
+                -- NULL and vice versa.
+                event_kind              TEXT NOT NULL DEFAULT 'star_extraction',
+                probe_outcome           TEXT,
+                entity_id               TEXT REFERENCES profile_entities (entity_id)
             )
         """))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_ce_session ON conversation_events (session_id)"))
+        # Backs the probe-cooldown LEFT JOIN in ariel_probe_service.
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_ce_probe_cooldown "
+            "ON conversation_events (user_id, entity_id, analyzed_at DESC)"
+        ))
 
     # Full CREATE DDL for evidence_records — includes all source_type values.
     # base_weight is REAL (not constrained to positive) so negative_flag rows
@@ -277,7 +286,6 @@ def _migrate_confidence_matrix(conn) -> None:
             evidence_id     TEXT PRIMARY KEY,
             entity_id       TEXT NOT NULL REFERENCES profile_entities (entity_id),
             user_id         TEXT NOT NULL,
-            tenant_id       TEXT,
             source_type     TEXT NOT NULL
                                 CHECK (source_type IN (
                                     'cv_parse', 'self_assertion',
@@ -317,10 +325,10 @@ def _migrate_confidence_matrix(conn) -> None:
             conn.execute(text(_EVIDENCE_RECORDS_DDL))
             conn.execute(text("""
                 INSERT INTO evidence_records
-                    (evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                    (evidence_id, entity_id, user_id, source_type, base_weight,
                      raw_content, verified_at, hard_expires_at, session_id,
                      event_id, extra_metadata, is_ai_assisted)
-                SELECT evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                SELECT evidence_id, entity_id, user_id, source_type, base_weight,
                        raw_content, verified_at, hard_expires_at, session_id,
                        event_id, extra_metadata, is_ai_assisted
                 FROM evidence_records_old
@@ -342,10 +350,10 @@ def _migrate_confidence_matrix(conn) -> None:
             conn.execute(text(_EVIDENCE_RECORDS_DDL))
             conn.execute(text("""
                 INSERT INTO evidence_records
-                    (evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                    (evidence_id, entity_id, user_id, source_type, base_weight,
                      raw_content, verified_at, hard_expires_at, session_id,
                      event_id, extra_metadata)
-                SELECT evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                SELECT evidence_id, entity_id, user_id, source_type, base_weight,
                        raw_content, verified_at, hard_expires_at, session_id,
                        event_id, metadata
                 FROM evidence_records_old
@@ -404,10 +412,10 @@ def _migrate_confidence_matrix(conn) -> None:
             conn.execute(text(_EVIDENCE_RECORDS_DDL))
             conn.execute(text("""
                 INSERT INTO evidence_records
-                    (evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                    (evidence_id, entity_id, user_id, source_type, base_weight,
                      raw_content, verified_at, hard_expires_at, session_id,
                      event_id, extra_metadata, is_ai_assisted)
-                SELECT evidence_id, entity_id, user_id, tenant_id, source_type, base_weight,
+                SELECT evidence_id, entity_id, user_id, source_type, base_weight,
                        raw_content, verified_at, hard_expires_at, session_id,
                        event_id, extra_metadata, is_ai_assisted
                 FROM evidence_records_old
@@ -438,7 +446,6 @@ def _migrate_confidence_matrix(conn) -> None:
                 log_id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 entity_id       TEXT NOT NULL REFERENCES profile_entities (entity_id),
                 user_id         TEXT NOT NULL,
-                tenant_id       TEXT,
                 old_score       REAL NOT NULL,
                 new_score       REAL NOT NULL,
                 delta           REAL NOT NULL,
@@ -456,7 +463,6 @@ def _migrate_confidence_matrix(conn) -> None:
             CREATE TABLE IF NOT EXISTS ariel_gap_queue (
                 gap_id              TEXT PRIMARY KEY,
                 user_id             TEXT NOT NULL,
-                tenant_id           TEXT,
                 entity_id           TEXT NOT NULL REFERENCES profile_entities (entity_id),
                 job_id              TEXT,
                 current_confidence  REAL NOT NULL,
@@ -470,24 +476,10 @@ def _migrate_confidence_matrix(conn) -> None:
         """))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_agq_user ON ariel_gap_queue (user_id, gap_severity, status)"))
 
-    # ── Migration 004: ariel_probe_log ────────────────────────────────────────
-    # Tracks every probe session opened by ArielProbeService so that the
-    # 48-hour cooldown can be enforced without re-probing a recently-addressed entity.
-    if "ariel_probe_log" not in tables:
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS ariel_probe_log (
-                probe_id        TEXT PRIMARY KEY,
-                user_id         TEXT NOT NULL,
-                entity_id       TEXT NOT NULL REFERENCES profile_entities (entity_id),
-                session_id      TEXT NOT NULL REFERENCES ariel_sessions (session_id),
-                outcome         TEXT,
-                probed_at       TEXT NOT NULL
-            )
-        """))
-        conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS idx_apl_user_entity "
-            "ON ariel_probe_log (user_id, entity_id, probed_at DESC)"
-        ))
+    # Migration 004 (ariel_probe_log) intentionally removed: probe events
+    # moved into conversation_events with event_kind='probe'
+    # (migration 32d536527e9a). The columns and the cooldown index are
+    # created with that table above.
 
     # ── Migration 002: add manual_review_required to profile_entities ─────────
     # ALTER TABLE to add the column if the table already exists from migration 001.
@@ -530,14 +522,30 @@ def _migrate_confidence_matrix(conn) -> None:
 # each call site (mechanical, not a redesign — every call site already takes
 # user_id as an explicit parameter, never a global).
 #
-# `ariel_probe_log` has no ORM class (created via raw DDL in
-# _migrate_confidence_matrix) but is tenant-scoped and handled below too.
+# This list drives the SQLite-only tenant_id backfill, so membership tracks
+# what still exists ON SQLITE — which is not the same as what exists in
+# Postgres. The deciding question for each table is whether an ORM model still
+# creates it via create_all(), not whether Postgres still has it:
+#
+#   jobs             DROPPED in Postgres (migration 3a6b5cab3433) but JobRow
+#                    still exists in backend/models/job.py, so create_all()
+#                    still builds it on SQLite and the backfill still applies.
+#                    STAYS. (Removing it here broke
+#                    test_tenant_isolation.py::test_tenant_id_backfilled_correctly_per_user,
+#                    which exercises exactly that path.)
+#   master_profiles  dropped AND MasterProfileRow deleted — never created
+#                    anywhere now. REMOVED.
+#   match_triggers   folded into user_job_matches (3542b0021d6b) and their ORM
+#   job_feedback     models deleted with them. REMOVED.
+#
+# The loop below skips a missing table silently, so a stale entry costs nothing
+# at runtime — but an entry missing for a table that DOES exist silently skips
+# a real migration, which is the failure mode above.
 TENANT_SCOPED_TABLES: tuple[str, ...] = (
     "jobs", "profile_interviews", "applications", "recruiter_reply_drafts",
-    "master_profiles", "profile_entities", "evidence_records",
-    "shadow_match_scores", "match_triggers", "job_feedback",
+    "profile_entities", "evidence_records", "shadow_match_scores",
     "ariel_sessions", "conversation_events", "confidence_audit_log",
-    "ariel_gap_queue", "ariel_probe_log",
+    "ariel_gap_queue",
 )
 
 # Intentionally global / shared across all tenants — never add tenant_id here

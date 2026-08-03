@@ -36,7 +36,10 @@ from backend.agents.company_culture import (
     save_cached_profile,
 )
 from backend.core.database import Base
-from backend.models.matching import CompanyCultureRow
+# company_culture was merged into company_intel with a profile_type
+# discriminator (migration e8f4c2a71b93) — the culture agent's rows are the
+# profile_type='culture' half of that table.
+from backend.models.matching import CompanyIntelRow
 from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
 
 NOW = datetime(2026, 7, 10, tzinfo=timezone.utc)
@@ -287,8 +290,8 @@ def test_staleness_window():
 
 def test_corrupt_cache_row_treated_as_miss(engine):
     with Session(engine) as s:
-        s.add(CompanyCultureRow(
-            company_key="acme", display_name="Acme",
+        s.add(CompanyIntelRow(
+            company_key="acme", profile_type="culture", display_name="Acme",
             profile_json="{not valid json", researched_at=NOW.isoformat(),
         ))
         s.commit()

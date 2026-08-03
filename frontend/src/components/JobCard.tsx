@@ -479,8 +479,8 @@ function JdPanel({ text, expanded, onToggleExpand, isHebrewLocale = false }: JdP
 // ── Agent Analysis box ────────────────────────────────────────────────────────
 //
 // Three visual states:
-//   pending  — score_is_proxy=true OR why_ron absent: animated skeleton
-//   ready    — substantive why_ron text: rendered analysis
+//   pending  — score_is_proxy=true OR fit_brief absent: animated skeleton
+//   ready    — substantive fit_brief text: rendered analysis
 //   (dev)    — Retry button appears in both pending states when IS_DEV=true
 
 function AnalysisSkeleton() {
@@ -722,7 +722,7 @@ function ArielInsightButton({
 }
 
 function AgentAnalysisBox({ job, userId }: { job: ApiFeedJob; userId?: string }) {
-  const raw           = (job.why_ron ?? '').trim()
+  const raw           = (job.fit_brief ?? '').trim()
   const analysisReady = _isSubstantiveText(raw) && !job.score_is_proxy
   const hardFailed    = (job.enrichment_failures ?? 0) >= ENRICHMENT_MAX_FAILURES
   const isAuthWall    = job.status === 'auth_wall'
@@ -784,7 +784,7 @@ function AgentAnalysisBox({ job, userId }: { job: ApiFeedJob; userId?: string })
 //     Users scan the list quickly with zero visual noise.
 //
 // EXPANDED (on click):
-//   ① AI Analysis box  — why_ron first; highest decision-relevance per word.
+//   ① AI Analysis box  — fit_brief first; highest decision-relevance per word.
 //   ② Action bar       — all CTAs appear only after the user signals intent.
 //   ③ Job description  — full formatted JD; fetched inline if not yet stored.
 //   ④ ATS keyword gap  — power-user detail, collapsed within the panel.

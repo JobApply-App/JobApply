@@ -28,7 +28,7 @@ class JobRow(Base):
     apply_url             = Column(String,  nullable=True)
     is_new                = Column(Boolean, nullable=False, default=True)
     posted_at             = Column(String,  nullable=False, default="")
-    why_ron               = Column(Text,    nullable=True)
+    fit_brief               = Column(Text,    nullable=True)
     scoring_rationale     = Column(Text,    nullable=True)
     category              = Column(String,  nullable=True)
     # Cached tailored CV — set by the tailor endpoint after first generation
@@ -45,12 +45,7 @@ class JobRow(Base):
     # LLM-structured JD stored as JSON string (set by jd_structure_service)
     jd_structured         = Column(Text,    nullable=True)
     # Multi-user & feed columns
-    user_id               = Column(String,  nullable=False, default='default', index=True)
-    # Forward-compatible tenant scoping (Infra & Multi-Tenant Architecture).
-    # Nullable during rollout; backfilled to match user_id (1 account == 1
-    # tenant today). Not yet enforced at the query layer — see
-    # docs/multi-tenant-erd.md §"What tenant_id does NOT do yet".
-    tenant_id              = Column(String,  nullable=True, index=True)
+    user_id               = Column(String,  nullable=False, index=True)
     source_type           = Column(String,  nullable=False, default='other')
     company_website_url   = Column(String,  nullable=True)
     status                = Column(String,  nullable=False, default='new')

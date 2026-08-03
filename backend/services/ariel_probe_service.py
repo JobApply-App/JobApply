@@ -475,11 +475,12 @@ class ArielProbeService:
                         pe.name,
                         pe.entity_type,
                         pe.confidence_score,
-                        MAX(apl.probed_at) AS last_probed_at
+                        MAX(apl.analyzed_at) AS last_probed_at
                     FROM profile_entities pe
-                    LEFT JOIN ariel_probe_log apl
-                           ON apl.entity_id = pe.entity_id
-                          AND apl.user_id   = pe.user_id
+                    LEFT JOIN conversation_events apl
+                           ON apl.entity_id  = pe.entity_id
+                          AND apl.user_id    = pe.user_id
+                          AND apl.event_kind = 'probe'
                     WHERE pe.user_id               = :uid
                       AND pe.confidence_score       < :threshold
                       AND pe.manual_review_required = 0
@@ -742,16 +743,19 @@ class ArielProbeService:
                 entity_id, method, effective_flag_type, conf, session_id,
             )
 
-        # Write probe log for cooldown tracking
+        # Write the probe event for cooldown tracking. Lives in
+        # conversation_events with event_kind='probe' since migration
+        # 32d536527e9a — a probe and a STAR extraction are both events inside
+        # one ariel_session, so they share a table rather than each having one.
         probe_id = str(uuid.uuid4())
         now      = datetime.now(timezone.utc).isoformat()
         with self._engine.begin() as conn:
             conn.execute(
                 text("""
-                    INSERT INTO ariel_probe_log
-                        (probe_id, user_id, entity_id, session_id, outcome, probed_at)
+                    INSERT INTO conversation_events
+                        (event_id, user_id, entity_id, session_id, event_kind, probe_outcome, analyzed_at)
                     VALUES
-                        (:pid, :uid, :eid, :sid, :outcome, :now)
+                        (:pid, :uid, :eid, :sid, 'probe', :outcome, :now)
                 """),
                 {
                     "pid":     probe_id,

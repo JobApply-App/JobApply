@@ -13,13 +13,14 @@ Coverage:
        - a confidence_audit_log row is written for the change
        - unknown skill → status 'not_found' (no crash, no row created)
 
-  2. ariel_tools._handle_update_skills() UPDATE action
-       - the `update` list routes to apply_chat_proficiency_update and
-         lowers the entity's confidence in place (no delete + re-add)
-       - add / remove / update compose in a single call
+The ariel_tools._handle_update_skills() UPDATE-action handler-level tests
+that used to live here moved to test_profile_isolation.py: that handler now
+goes through profile_repository.py (Postgres-only, profiles.id has a hard FK
+to auth.users(id)), so it can no longer run against this file's isolated
+SQLite database — see that file's module docstring.
 
-All tests run against an isolated in-memory SQLite database built from the
-real ORM metadata, so the live jobs.db is never touched.
+All tests below run against an isolated in-memory SQLite database built from
+the real ORM metadata, so the live jobs.db is never touched.
 """
 from __future__ import annotations
 
@@ -239,71 +240,3 @@ class TestApplyChatProficiencyUpdate:
             ).scalar()
         assert count == 0
 
-
-# ---------------------------------------------------------------------------
-# 2. Handler-level test: _handle_update_skills UPDATE action
-# ---------------------------------------------------------------------------
-
-class TestUpdateSkillsHandlerUpdateAction:
-
-    @pytest.fixture(autouse=True)
-    def _patch_engine(self, monkeypatch):
-        """Point ariel_tools' module-global ENGINE at the in-memory test DB."""
-        import backend.agents.ariel_tools as _tools
-        monkeypatch.setattr(_tools, "ENGINE", _TEST_ENGINE)
-
-    def test_update_action_lowers_existing_skill_in_place(self):
-        """
-        The `update` list routes through apply_chat_proficiency_update and
-        lowers the entity's confidence WITHOUT deleting/recreating it.
-        """
-        from backend.agents.ariel_tools import _handle_update_skills
-
-        uid = "handler-update-" + _uid()
-        eid = _insert_skill_entity(user_id=uid, name="Python", confidence_score=51.7)
-
-        with Session(_TEST_ENGINE) as session:
-            msg = _handle_update_skills(
-                {"update": [{"skill": "Python", "proficiency_level": "beginner"}]},
-                uid,
-                session,
-            )
-
-        assert "Updated" in msg
-        ent = _fetch_entity(eid)
-        assert ent["confidence_score"] == pytest.approx(30.0, abs=0.1)
-        assert ent["proficiency_level"] == "beginner"
-        assert ent["verification_status"] == "verified"
-
-    def test_update_missing_skill_reports_failure(self):
-        """Updating a skill with no entity surfaces a 'could not update' note."""
-        from backend.agents.ariel_tools import _handle_update_skills
-
-        uid = "handler-missing-" + _uid()
-        with Session(_TEST_ENGINE) as session:
-            msg = _handle_update_skills(
-                {"update": [{"skill": "Fortran", "proficiency_level": "beginner"}]},
-                uid,
-                session,
-            )
-        assert "Could not update" in msg
-
-    def test_add_remove_update_compose_in_one_call(self):
-        """add, remove, and update can all run in a single tool call."""
-        from backend.agents.ariel_tools import _handle_update_skills
-
-        uid = "handler-compose-" + _uid()
-        eid = _insert_skill_entity(user_id=uid, name="Django", confidence_score=80.0)
-
-        with Session(_TEST_ENGINE) as session:
-            msg = _handle_update_skills(
-                {
-                    "add":    ["Kubernetes"],
-                    "update": [{"skill": "Django", "new_confidence": 45.0}],
-                },
-                uid,
-                session,
-            )
-
-        assert "Added" in msg and "Updated" in msg
-        assert _fetch_entity(eid)["confidence_score"] == pytest.approx(45.0, abs=0.1)

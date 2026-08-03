@@ -19,8 +19,9 @@ Always returns a structured result:
 - rejected: edit is impossible (hallucination / full rewrite); cv_data is unchanged.
 
 The Master Profile enables restore/add operations: if the user asks to bring back an
-experience that was omitted from the current cv_data (e.g. GO-OUT, Pitango), the agent
-looks it up in the Master Profile and inserts it — this is NOT hallucination.
+experience that was omitted from the current cv_data (a past employer, a role trimmed
+for length), the agent looks it up in the Master Profile and inserts it — this is NOT
+hallucination.
 """
 from __future__ import annotations
 
@@ -68,12 +69,12 @@ When status is "success", you MUST populate "changes_summary" with a clear, conc
 bullet-point description of exactly what you changed. Be specific — name the company,
 bullet index, field, or section. Good examples:
 
-  • Updated bullet 2 of Go-Out experience: replaced "managed" with "led" and added
-    payment-gateway migration metric.
-  • Added Pitango Venture Capital experience block (from Master Profile) after
-    the most recent role.
-  • Removed bullet 4 of IDF military service ("performed administrative tasks")
-    as it was redundant with bullet 1.
+  • Updated bullet 2 of the [employer] experience: replaced "managed" with "led"
+    and added the payment-gateway migration metric.
+  • Added the [employer] experience block (from Master Profile) after the most
+    recent role.
+  • Removed bullet 4 of military service ("performed administrative tasks") as it
+    was redundant with bullet 1.
   • Updated summary opening line: removed "experienced PM" and replaced with
     a specific product domain statement.
 
@@ -131,7 +132,7 @@ STATUS DECISION RULES
   be wrong. Transparency and accuracy are more important than speed.
 
   Use "warning" when the user asks to:
-  • Remove GO-OUT or the most detailed/primary experience entry
+  • Remove the most detailed/primary experience entry
   • Delete more than half the experience entries in one instruction
   • Remove the entire skills section or education section
   • Any change that would clearly tank ATS keyword coverage

@@ -501,10 +501,11 @@ def _build_profile_context(
     """
     Build a structured snapshot of the user's known profile.
 
-    For user_id='default' the authoritative source is USER_PROFILE (the
-    backend constant loaded from the legacy flat-file).  For any real user
-    the per-user store (backend/data/users/{user_id}/profile.json) is used instead,
-    supplemented by the global USER_PROFILE structure for CV data.
+    Everything is resolved from user_id. This function used to read the
+    module-level USER_PROFILE singleton for name, experience and education,
+    on the premise that user_id='default' meant "the one legacy user" —
+    but single-user mode was retired, so that branch ran for every real
+    account and described one person's career back to everyone else.
 
     Optional overrides let the API layer inject frontend-supplied hints
     (e.g. from the auth session) without changing the source of truth.
@@ -516,31 +517,31 @@ def _build_profile_context(
         profile_snapshot – plain-text block for injection into system prompts
     """
     try:
-        from backend.services.user_profile import USER_PROFILE
+        from backend.services.user_profile import resolve_profile
 
-        personal = USER_PROFILE.get("personal", {})
+        caller_profile = resolve_profile(user_id)
+        personal = caller_profile.get("personal", {})
         # Only treat user_name_override as a real name if it contains no @.
         # An email address in this field is a frontend bug — ignore it and
         # fall back to the stored profile name so we never mangle it.
         _name_override = user_name_override if (user_name_override and "@" not in user_name_override) else None
         full_name = _name_override or personal.get("name", "")
 
-        # For real (non-default) users, prefer their stored personal data
-        if user_id != "default":
-            try:
-                from backend.services.user_profile_store import load as _store_load
-                stored = _store_load(user_id)
-                stored_personal = stored.get("personal", {})
-                if not full_name:
-                    full_name = stored_personal.get("full_name", "")
-            except Exception:
-                pass
+        # Prefer the user's stored personal data over the USER_PROFILE fallback.
+        try:
+            from backend.services.user_profile_store import load as _store_load
+            stored = _store_load(user_id)
+            stored_personal = stored.get("personal", {})
+            if not full_name:
+                full_name = stored_personal.get("full_name", "")
+        except Exception:
+            pass
 
         # Resolve first name: profile full_name → name override → email → "there"
         first_name = _extract_first_name(full_name or user_name_override, user_email)
 
         # ── Most recent role ──────────────────────────────────────────────────
-        experience   = USER_PROFILE.get("experience", [])
+        experience   = caller_profile.get("experience", [])
         current_role = current_role_override or ""
         if not current_role:
             for exp in reversed(experience):
@@ -555,7 +556,7 @@ def _build_profile_context(
 
         # ── Education summary ─────────────────────────────────────────────────
         edu_lines: list[str] = []
-        for e in USER_PROFILE.get("education", []):
+        for e in caller_profile.get("education", []):
             if e.get("degree"):
                 edu_lines.append(
                     f"{e['degree']} from {e.get('school', '?')} ({e.get('period', '')})"

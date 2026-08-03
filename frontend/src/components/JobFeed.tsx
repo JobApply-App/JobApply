@@ -99,7 +99,7 @@ function toJob(f: ApiFeedJob, rank: number): Job {
     score:      f.match_score,
     isNew:      f.is_new,
     reasons:    f.reasons.map(r => ({ kind: r.kind as ReasonKind, label: r.label })),
-    whyRon:     f.why_ron,
+    fitBrief:     f.fit_brief,
   }
 }
 

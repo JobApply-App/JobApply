@@ -655,10 +655,6 @@ _load_personal_overrides()
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def get_candidate_name() -> str:
-    return USER_PROFILE["personal"]["name"]
-
-
 def get_all_companies() -> list[str]:
     companies: list[str] = []
     for exp in USER_PROFILE.get("experience", []):
@@ -666,34 +662,6 @@ def get_all_companies() -> list[str]:
         if name:
             companies.append(name)
     return companies
-
-
-def get_all_roles_text() -> list[str]:
-    """Flat list of every role + details as a searchable string."""
-    lines: list[str] = []
-    for exp in USER_PROFILE.get("experience", []):
-        company = exp.get("company") or exp.get("unit", "")
-        period  = exp.get("period", "")
-        if "roles" in exp:
-            for r in exp["roles"]:
-                lines.append(
-                    f"{r['title']} at {company} ({r['period']}): {r['details']}"
-                )
-        else:
-            role    = exp.get("role", "")
-            details = exp.get("details", "")
-            lines.append(f"{role} at {company} ({period}): {details}")
-    return lines
-
-
-def get_volunteering_summary() -> str:
-    v = USER_PROFILE.get("volunteering", {})
-    if isinstance(v, str):
-        return v
-    return (
-        f"{v.get('organization', '')} — {v.get('role', '')} "
-        f"({v.get('duration', '')}): {v.get('description', '')}"
-    )
 
 
 def get_narrative(key: str) -> dict:
@@ -710,26 +678,26 @@ def get_narrative(key: str) -> dict:
 # that Ariel maintains (see agents/ariel_tools.py handlers).
 
 def _onboarding_row_profile(user_id: str) -> dict:
-    """Load the onboarding profile dict from master_profiles for user_id ({} if absent)."""
+    """Load the onboarding profile document for user_id ({} if absent)."""
     try:
-        from backend.repositories import master_profile_repository
-        return master_profile_repository.get_profile_json(user_id)
+        from backend.repositories import profile_repository
+        return profile_repository.get_profile_json(user_id)
     except Exception:
         return {}
 
 
 def _master_profile_verified_email(user_id: str) -> str:
     """
-    The verified-email COLUMN on master_profiles (set from the Supabase JWT
-    at /api/auth/sync-user — see backend/api/routes/auth.py), not the
-    master_profile JSON blob. Reliable for every real account regardless of
-    whether onboarding ever asked for contact info, so this is the primary
-    email source — the JSON blob's personal.email (if ever set some other
-    way) is checked first by get_profile() and this is only the fallback.
+    The verified-email COLUMN on profiles (set from the Supabase JWT at
+    /api/auth/sync-user — see backend/api/routes/auth.py), not the profile
+    document. Reliable for every real account regardless of whether
+    onboarding ever asked for contact info, so this is the primary email
+    source — the document's personal.email (if ever set some other way) is
+    checked first by get_profile() and this is only the fallback.
     """
     try:
-        from backend.repositories import master_profile_repository
-        row = master_profile_repository.get(user_id)
+        from backend.repositories import profile_repository
+        row = profile_repository.get(user_id)
         return (row.email or "") if row else ""
     except Exception:
         return ""
@@ -769,14 +737,10 @@ def get_profile(user_id: str) -> dict:
     experience / skills / key_narratives), so existing consumers (orchestrator
     nodes, tailor context builders) work unchanged.
 
-    user_id='default' returns the legacy singleton verbatim. Other users get
-    an adapter over their master_profiles onboarding row: Ariel-shaped
+    An adapter over the user's master_profiles onboarding row: Ariel-shaped
     experience entries ({company, role, start, end, bullets}) are mapped onto
-    the singleton shape ({company, role, period, details}).
+    the legacy USER_PROFILE shape ({company, role, period, details}).
     """
-    if user_id == "default":
-        return USER_PROFILE
-
     onboarding = _onboarding_row_profile(user_id)
     experience = []
     for e in onboarding.get("experience", []):
@@ -839,7 +803,7 @@ def get_profile(user_id: str) -> dict:
     }
 
 
-def resolve_profile(user_id: str = "default") -> dict:
+def resolve_profile(user_id: str) -> dict:
     """
     get_profile(user_id) that degrades instead of raising.
 
@@ -849,21 +813,30 @@ def resolve_profile(user_id: str = "default") -> dict:
     single-user data into every real account's output. They resolve through
     here instead.
 
-    A DB lookup failure falls back to the legacy singleton rather than raising:
-    a CV built from a stale profile is still deliverable, a 500 is not. The
-    fallback is logged loudly because it silently degrades output quality.
+    A DB lookup failure returns an EMPTY dict, never the legacy singleton.
+
+    This used to fall back to USER_PROFILE, reasoning that "a CV built from a
+    stale profile is still deliverable, a 500 is not". That reasoning held only
+    while there was one user and the singleton was that user. With real
+    accounts it is a cross-tenant leak on an error path: a transient DB hiccup
+    during CV generation would serve one person's employers, education and
+    phone number into a different person's document, silently and plausibly.
+
+    Every caller here reads the result with .get() and iterates, so {} degrades
+    cleanly — the CV simply omits the section rather than filling it with
+    someone else's facts. gaps_for_missing_core_fields() even improves: it asks
+    the user for their own contact details instead of waving them through on
+    the singleton's.
     """
-    if user_id == "default":
-        return USER_PROFILE
     try:
         return get_profile(user_id)
     except Exception:
         logger.exception(
-            "[user_profile] resolve_profile(%s) failed — falling back to the LEGACY "
-            "singleton. Downstream output may not match this user.",
+            "[user_profile] resolve_profile(%s) failed — returning an empty profile. "
+            "Downstream output will be missing profile-derived sections.",
             user_id,
         )
-        return USER_PROFILE
+        return {}
 
 
 def format_profile_compact(profile: dict) -> str:
@@ -928,64 +901,20 @@ def format_profile_compact(profile: dict) -> str:
     return "\n".join(lines)
 
 
-def build_full_text(user_id: str = "default") -> str:
-    """
-    Single searchable blob of all profile facts for user_id.
-
-    DEPRECATED zero-arg form: calling with no argument returns the legacy
-    'default' singleton text — kept only for pre-migration dev paths.
-    """
-    if user_id != "default":
-        profile = get_profile(user_id)
-        parts: list[str] = [f"Candidate: {profile['personal'].get('name', '')}"]
-        if profile.get("summary"):
-            parts.append(f"Summary: {profile['summary']}")
-        for edu in profile.get("education", []):
-            if isinstance(edu, dict):
-                parts.append(" — ".join(str(v) for v in edu.values() if v))
-        for exp in profile.get("experience", []):
-            parts.append(
-                f"{exp.get('role', '')} at {exp.get('company', '')} "
-                f"({exp.get('period', '')}): {exp.get('details', '')}"
-            )
-        if profile.get("skills"):
-            parts.append(f"Skills: {', '.join(str(s) for s in profile['skills'])}")
-        return "\n".join(p for p in parts if p.strip())
-
-    parts: list[str] = [f"Candidate: {get_candidate_name()}"]
-
-    for edu in USER_PROFILE.get("education", []):
-        if "degree" in edu:
-            parts.append(
-                f"Degree: {edu['degree']} at {edu.get('school', '')} "
-                f"— {edu.get('status', '')}. "
-                f"{edu.get('resilience_note', '')}"
-            )
-        if "certification" in edu:
-            parts.append(
-                f"Certification: {edu['certification']} from "
-                f"{edu.get('provider', '')} — {edu.get('details', '')}"
-            )
-
-    parts.extend(get_all_roles_text())
-    parts.append(f"Volunteering: {get_volunteering_summary()}")
-    parts.append(f"Skills: {', '.join(USER_PROFILE.get('skills', []))}")
-
-    for key, narrative in USER_PROFILE.get("key_narratives", {}).items():
+def build_full_text(user_id: str) -> str:
+    """Single searchable blob of all profile facts for user_id."""
+    profile = get_profile(user_id)
+    parts: list[str] = [f"Candidate: {profile['personal'].get('name', '')}"]
+    if profile.get("summary"):
+        parts.append(f"Summary: {profile['summary']}")
+    for edu in profile.get("education", []):
+        if isinstance(edu, dict):
+            parts.append(" — ".join(str(v) for v in edu.values() if v))
+    for exp in profile.get("experience", []):
         parts.append(
-            f"Narrative [{key}]: {narrative.get('headline', '')} — "
-            + "; ".join(narrative.get("evidence", []))
+            f"{exp.get('role', '')} at {exp.get('company', '')} "
+            f"({exp.get('period', '')}): {exp.get('details', '')}"
         )
-
-    # ── Append any answers the user gave in previous sessions ────────────────
-    # These are treated as authoritative profile facts by TailorAgent so it
-    # never re-asks a question the user has already answered.
-    try:
-        from backend.services.supplemental_store import get_as_text
-        saved = get_as_text()
-        if saved:
-            parts.append(saved)
-    except Exception:  # never let a store failure break profile loading
-        pass
-
-    return "\n".join(parts)
+    if profile.get("skills"):
+        parts.append(f"Skills: {', '.join(str(s) for s in profile['skills'])}")
+    return "\n".join(p for p in parts if p.strip())

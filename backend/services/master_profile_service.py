@@ -1,11 +1,9 @@
 """
 MasterProfileService — B2C structured user profile store.
 
-Persists the Master Profile to data/master_profile.json at the project root.
-All writes are atomic (tempfile -> os.replace) so a crash mid-save never
-corrupts the existing file.
-
-This module is intentionally separate from:
+Persists the metrics/supplemental document into the profile document's
+"metrics_doc" key (backend/repositories/profile_repository.py). This module
+is intentionally separate from:
   backend/engines/master_profile.py   — bullet-improvement placeholder system
   backend/supplemental_answers.json   — flat Q&A list for LLM context injection
   backend/personal_overrides.json     — phone/location overrides for USER_PROFILE
@@ -40,8 +38,6 @@ logger = logging.getLogger(__name__)
 #   .parents[1] = backend/
 #   .parents[2] = project root
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR     = _PROJECT_ROOT / "data"
-_PROFILE_PATH = _DATA_DIR / "master_profile.json"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -51,27 +47,21 @@ def _now_iso() -> str:
 
 
 def _empty_profile() -> dict:
-    """Return a fresh profile scaffold seeded from USER_PROFILE where possible."""
-    try:
-        from backend.services.user_profile import USER_PROFILE
-        p = USER_PROFILE.get("personal", {})
-        personal = {
-            "full_name":    p.get("name",     ""),
-            "email":        p.get("email",    ""),
-            "phone":        p.get("phone",    ""),
-            "linkedin_url": p.get("linkedin", ""),
-            "location":     p.get("location", ""),
-        }
-    except Exception:
-        personal = {
-            "full_name": "", "email": "", "phone": "",
-            "linkedin_url": "", "location": "",
-        }
+    """
+    Return a fresh, genuinely empty profile scaffold.
 
+    This used to seed `personal` from the module-level USER_PROFILE singleton,
+    so every brand-new account was created pre-filled with the legacy user's
+    contact details — including their real phone number. Blank is correct: the
+    fields are populated from the account's own CV import or profile UI.
+    """
     return {
         "version":          1,
         "last_updated":     _now_iso(),
-        "personal":         personal,
+        "personal": {
+            "full_name": "", "email": "", "phone": "",
+            "linkedin_url": "", "location": "",
+        },
         "metrics":          {},
         "role_preferences": {
             "target_titles":       [],
@@ -92,62 +82,39 @@ def _empty_profile() -> dict:
 # The metrics/supplemental document lives in master_profiles.master_profile
 # under the dedicated "metrics_doc" key, so it never collides with the
 # onboarding profile fields that ariel_tools maintains in the same JSON column.
-#
-# The legacy single-user file (data/master_profile.json) is a ONE-TIME SEED
-# for user_id='default' only: imported into the row on first load, never
-# written again.
 
 def _get_or_create_profile_row(user_id: str, session):
-    """Return the MasterProfileRow for user_id, creating an empty one if absent."""
-    from backend.repositories import master_profile_repository
-    row, _created = master_profile_repository.get_or_create(session, user_id, now=_now_iso())
+    """Return the ProfileHandle for user_id, creating an empty one if absent."""
+    from backend.repositories import profile_repository
+    row, _created = profile_repository.get_or_create(session, user_id, now=_now_iso())
     return row
-
-
-def _read_legacy_file() -> dict | None:
-    """Read the legacy single-user JSON file, or None if absent/corrupt."""
-    if not _PROFILE_PATH.exists():
-        return None
-    try:
-        profile = json.loads(_PROFILE_PATH.read_text(encoding="utf-8"))
-        if isinstance(profile, dict) and profile.get("version"):
-            return profile
-    except (json.JSONDecodeError, OSError) as exc:
-        logger.warning("[master_profile] Could not read legacy %s: %s", _PROFILE_PATH, exc)
-    return None
 
 
 def load(user_id: str) -> dict:
     """
     Load the metrics/supplemental document for user_id from master_profiles.
 
-    Returns a fresh scaffold when the user has none. For user_id='default'
-    only, seeds once from the legacy data/master_profile.json file, and syncs
-    phone/location into the legacy USER_PROFILE singleton (default-only shim).
+    Returns a fresh scaffold when the user has none.
     """
     from sqlalchemy.orm import Session
     from backend.core.database import ENGINE
 
     try:
+        from backend.repositories import profile_repository
         with Session(ENGINE) as session:
             row = _get_or_create_profile_row(user_id, session)
             doc = (row.master_profile or {}).get("metrics_doc")
             if isinstance(doc, dict) and doc.get("version"):
-                if user_id == "default":
-                    _sync_personal_to_user_profile(doc)
                 return doc
 
-            # No doc yet — seed from legacy file ('default' only) or scaffold.
-            seeded = _read_legacy_file() if user_id == "default" else None
-            doc = seeded if seeded is not None else _empty_profile()
+            # No doc yet — seed a fresh scaffold.
+            doc = _empty_profile()
             merged = dict(row.master_profile or {})
             merged["metrics_doc"] = doc
             row.master_profile = merged
             row.updated_at     = _now_iso()
+            profile_repository.save(session, row)
             session.commit()
-            if seeded is not None:
-                logger.info("[master_profile] Seeded 'default' metrics_doc from legacy %s", _PROFILE_PATH)
-                _sync_personal_to_user_profile(doc)
             return doc
     except Exception as exc:
         logger.error("[master_profile] load failed for user=%s: %s", user_id, exc)
@@ -162,6 +129,8 @@ def save(profile: dict, user_id: str) -> None:
     from sqlalchemy.orm import Session
     from backend.core.database import ENGINE
 
+    from backend.repositories import profile_repository
+
     profile["last_updated"] = _now_iso()
     with Session(ENGINE) as session:
         row = _get_or_create_profile_row(user_id, session)
@@ -169,6 +138,7 @@ def save(profile: dict, user_id: str) -> None:
         merged["metrics_doc"] = profile
         row.master_profile = merged
         row.updated_at     = _now_iso()
+        profile_repository.save(session, row)
         session.commit()
 
 
@@ -607,23 +577,6 @@ def merge_parsed_contact(personal: dict, user_id: str) -> dict:
     return applied
 
 
-# ── Internal helpers ──────────────────────────────────────────────────────────
-
-def _sync_personal_to_user_profile(profile: dict) -> None:
-    """
-    Sync phone and location from the profile back into the in-memory
-    USER_PROFILE so the PDF builder always has the latest contact fields,
-    even if personal_overrides.json and the master profile diverged.
-    """
-    personal = profile.get("personal", {})
-    for field in ("phone", "location"):
-        value = str(personal.get(field, "") or "").strip()
-        if value:
-            try:
-                from backend.services.user_profile import save_personal_field
-                save_personal_field(field, value)
-            except Exception:
-                pass  # never let a sync failure break profile loading
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -700,14 +653,11 @@ def _collect_user_corpus(user_id: str) -> str:
 
 
 def _load_cached_persona(user_id: str) -> dict | None:
-    """Return the cached persona from master_profiles if fresh (< TTL)."""
-    from sqlalchemy.orm import Session
-    from backend.core.database import ENGINE
-    from backend.models.profile import MasterProfileRow
+    """Return the cached persona from the profile document if fresh (< TTL)."""
+    from backend.repositories import profile_repository
 
-    with Session(ENGINE) as s:
-        row = s.get(MasterProfileRow, user_id)
-        persona = (row.master_profile or {}).get("user_persona") if row else None
+    row = profile_repository.get(user_id)
+    persona = (row.master_profile or {}).get("user_persona") if row else None
     if not isinstance(persona, dict) or not persona.get("extracted_at"):
         return None
     try:
@@ -721,15 +671,16 @@ def _save_persona(user_id: str, persona: dict) -> None:
     import copy as _copy
     from sqlalchemy.orm import Session
     from backend.core.database import ENGINE
-    from backend.models.profile import MasterProfileRow
+    from backend.repositories import profile_repository
 
     with Session(ENGINE) as s:
-        row = s.get(MasterProfileRow, user_id)
+        row = profile_repository.get(user_id, engine=ENGINE)
         if row is None:
-            return   # no master profile row yet — persona is cache-only, skip
+            return   # no profile row yet — persona is cache-only, skip
         profile = _copy.deepcopy(row.master_profile or {})
         profile["user_persona"] = persona
         row.master_profile = profile
+        profile_repository.save(s, row)
         s.commit()
 
 

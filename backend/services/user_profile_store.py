@@ -8,13 +8,6 @@ Storage layout
         {user_id}/
           profile.json   ← structured master profile (metrics, personal, etc.)
 
-Backward compatibility
-----------------------
-user_id='default' still falls back to the legacy data/master_profile.json
-path so the existing single-user deployment continues to work without any
-data migration.  New real users get their own isolated subdirectory from
-first write onward.
-
 Public API
 ----------
     load(user_id)                   -> dict
@@ -37,17 +30,12 @@ logger = logging.getLogger(__name__)
 # Project root is three levels up from backend/services/user_profile_store.py
 _PROJECT_ROOT   = Path(__file__).resolve().parents[2]
 _USERS_DIR      = _PROJECT_ROOT / "backend" / "data" / "users"
-# Legacy single-user fallback file was never scoped into the backend/data/
-# move — it still lives at repo-root data/master_profile.json.
-_LEGACY_PROFILE = _PROJECT_ROOT / "data" / "master_profile.json"
 
 
 # ── Path helpers ──────────────────────────────────────────────────────────────
 
 def profile_path(user_id: str) -> Path:
     """Return the profile.json path for a given user_id."""
-    if user_id == "default":
-        return _LEGACY_PROFILE
     return _USERS_DIR / user_id / "profile.json"
 
 
@@ -55,31 +43,12 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def _empty_profile(user_id: str) -> dict:
-    """
-    Return a fresh profile scaffold.
-
-    For user_id='default', seed personal fields from USER_PROFILE so the
-    legacy single-user experience is preserved.  All other users start blank.
-    """
+def _empty_profile() -> dict:
+    """Return a fresh, blank profile scaffold."""
     personal: dict = {
         "full_name": "", "email": "", "phone": "",
         "linkedin_url": "", "location": "",
     }
-
-    if user_id == "default":
-        try:
-            from backend.services.user_profile import USER_PROFILE
-            p = USER_PROFILE.get("personal", {})
-            personal = {
-                "full_name":    p.get("name",     ""),
-                "email":        p.get("email",    ""),
-                "phone":        p.get("phone",    ""),
-                "linkedin_url": p.get("linkedin", ""),
-                "location":     p.get("location", ""),
-            }
-        except Exception:
-            pass
 
     return {
         "version":          1,
@@ -125,7 +94,7 @@ def load(user_id: str) -> dict:
                 path, user_id, exc,
             )
 
-    profile = _empty_profile(user_id)
+    profile = _empty_profile()
     try:
         save(user_id, profile)
         logger.info(

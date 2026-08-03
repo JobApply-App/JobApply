@@ -108,7 +108,7 @@ export interface ApiJobMatch {
   apply_url: string | null
   is_new:    boolean
   posted_at: string
-  why_ron:   string | null
+  fit_brief:   string | null
 }
 
 // ── Multi-source Feed types ───────────────────────────────────────────────────
@@ -174,7 +174,7 @@ export interface ApiFeedJob {
   posted_at:             string
   created_at:            string | null
   reasons:               ApiReasonTag[]
-  why_ron:               string | null
+  fit_brief:               string | null
   jd_text:               string | null   // raw JD text; null until backfill runs
   jd_structured:         string | null   // LLM-structured JSON string; null until structure pass runs
   /** BCP-47 primary tag: 'he' | 'en' | null.
@@ -195,7 +195,7 @@ export interface ApiFeedJob {
 
 export interface JobAnalysisState {
   job_id:              string
-  why_ron:             string | null
+  fit_brief:             string | null
   score_is_proxy:      boolean
   enrichment_failures: number
 }

@@ -4,10 +4,15 @@ Extracted from the former backend/services/db.py.
 """
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Column, Float, Integer, String, Text
+from sqlalchemy import Column, Float, Integer, String, Text
 from sqlalchemy.types import JSON
 
+from sqlalchemy.dialects import postgresql
+
 from backend.core.database import Base
+
+# Shared tenancy-key type — see the UUID_FK comment on any user_id column below.
+UUID_FK = String().with_variant(postgresql.UUID(as_uuid=False), "postgresql")
 
 
 class ProfileInterviewRow(Base):
@@ -30,9 +35,13 @@ class ProfileInterviewRow(Base):
     __tablename__ = "profile_interviews"
 
     session_id     = Column(String, primary_key=True)
-    # Multi-tenant owner — added in v2; existing rows migrated to 'default'
-    user_id        = Column(String, nullable=False, default="default", index=True)
-    tenant_id      = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id        = Column(UUID_FK, nullable=False, index=True)
     messages       = Column(JSON, nullable=False, default=list)
     draft_profile  = Column(JSON, nullable=True)
     confidence_map = Column(JSON, nullable=True)
@@ -45,65 +54,11 @@ class ProfileInterviewRow(Base):
     updated_at     = Column(String, nullable=True)
 
 
-class MasterProfileRow(Base):
-    """
-    Central master profile for each authenticated user.
-
-    Stores the complete, unstructured and structured professional history in a
-    single JSON document (master_profile) alongside a lightweight onboarding
-    state flag.  All Ariel tool calls that mutate profile data write to this
-    table — they never touch the legacy flat JSON files.
-
-    master_profile shape (baseline):
-    {
-        "professional_summary": str,
-        "experience": [
-            {
-                "company":   str,
-                "role":      str,
-                "start":     str,   # e.g. "2021-03"
-                "end":       str,   # e.g. "2024-01" | "present"
-                "bullets":   [str]
-            }
-        ],
-        "skills":       [str],
-        "education":    [
-            {
-                "institution": str,
-                "degree":      str,
-                "field":       str,
-                "year":        str
-            }
-        ],
-        "career_goals": {
-            "target_roles":        [str],
-            "preferred_locations": [str],
-            "work_environment":    str,   # "remote" | "hybrid" | "onsite" | "any"
-            "notes":               str
-        }
-    }
-
-    onboarding_status:
-        "incomplete" — default; Ariel is still collecting information
-        "complete"   — user confirmed all background has been provided;
-                       set exclusively by the finalize_onboarding tool
-    """
-    __tablename__ = "master_profiles"
-
-    user_id            = Column(String, primary_key=True)
-    tenant_id          = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
-    # Verified email from the Supabase JWT — lower-cased. Used by
-    # POST /api/auth/sync-user to link accounts across auth providers
-    # (email login vs Google OAuth) when Supabase issues a different `sub`
-    # for the same person.
-    email              = Column(String, nullable=True, index=True)
-    onboarding_status  = Column(String, nullable=False, default="incomplete")
-    master_profile     = Column(JSON,   nullable=False, default=dict)
-    # Admin-dashboard foundation (Phase 2) — flipped manually in the DB for
-    # now; require_admin (api/deps.py) is the only consumer.
-    is_admin           = Column(Boolean, nullable=False, default=False)
-    created_at         = Column(String, nullable=True)
-    updated_at         = Column(String, nullable=True)
+## MasterProfileRow (master_profiles table) removed — Phase 3/4 of the
+## relational schema redesign (docs/db-redesign-proposal.md) repointed every
+## read/write path at backend/repositories/profile_repository.py (profiles/
+## user_preferences/profile_answers/cv_documents/cv_claims) and the
+## master_profiles table itself was dropped (Alembic revision 3a6b5cab3433).
 
 
 # ── Active Confidence Matrix ORM models ──────────────────────────────────────
@@ -115,8 +70,13 @@ class ProfileEntityRow(Base):
     __tablename__ = "profile_entities"
 
     entity_id              = Column(String,  primary_key=True)
-    user_id                = Column(String,  nullable=False, index=True)
-    tenant_id              = Column(String,  nullable=True, index=True)   # see JobRow.tenant_id docstring
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id                = Column(UUID_FK, nullable=False, index=True)
     entity_type            = Column(String,  nullable=False)   # skill|trait|domain|experience
     name                   = Column(String,  nullable=False)
     normalized_name        = Column(String,  nullable=False)
@@ -149,6 +109,23 @@ class ProfileEntityRow(Base):
     syntax_confidence       = Column(Float,  nullable=False, default=0.0, server_default="0.0")
     verification_level      = Column(String, nullable=False, default="UNVERIFIED", server_default="UNVERIFIED")
     last_evidence_at       = Column(String,  nullable=True)
+    # ── CV-claim merge (migration fa884910ef1d) ───────────────────────────────
+    # A skill used to exist twice: as a raw cv_claims row and as a scored entity
+    # here, unlinked. These three columns absorbed the cv_claims side.
+    #   content            — the rich claim payload from cv_claims.content
+    #   source_document_id — the cv_document this capability is CURRENTLY claimed
+    #                        on; NULL when it isn't. profile_repository sets and
+    #                        clears it, and get_profile() filters on it, so the
+    #                        profile document still returns only CV-claimed
+    #                        skills rather than the whole Confidence Matrix.
+    #                        Removing a skill clears this instead of deleting the
+    #                        row — evidence_records/confidence_audit_log point at
+    #                        entity_id and are append-only.
+    #   origin             — cv_parse | self_assertion | conversation | inferred
+    content                = Column(JSON,    nullable=True)
+    source_document_id     = Column(String,  nullable=True, index=True)
+    origin                 = Column(String,  nullable=False, default="self_assertion",
+                                    server_default="self_assertion")
     created_at             = Column(String,  nullable=False)
     updated_at             = Column(String,  nullable=False)
 
@@ -159,8 +136,13 @@ class EvidenceRecordRow(Base):
 
     evidence_id     = Column(String,  primary_key=True)
     entity_id       = Column(String,  nullable=False, index=True)
-    user_id         = Column(String,  nullable=False, index=True)
-    tenant_id       = Column(String,  nullable=True, index=True)   # see JobRow.tenant_id docstring
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id         = Column(UUID_FK, nullable=False, index=True)
     source_type     = Column(String,  nullable=False)
     base_weight     = Column(Float,   nullable=False)
     raw_content     = Column(Text,    nullable=True)
@@ -182,8 +164,13 @@ class ConfidenceAuditLogRow(Base):
 
     log_id         = Column(Integer, primary_key=True, autoincrement=True)
     entity_id      = Column(String,  nullable=False, index=True)
-    user_id        = Column(String,  nullable=False, index=True)
-    tenant_id      = Column(String,  nullable=True, index=True)   # see JobRow.tenant_id docstring
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id        = Column(UUID_FK, nullable=False, index=True)
     old_score      = Column(Float,   nullable=False)
     new_score      = Column(Float,   nullable=False)
     delta          = Column(Float,   nullable=False)

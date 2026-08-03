@@ -185,12 +185,12 @@ class TailorResponse(BaseModel):
 def _build_jd_proxy(job) -> str:
     """
     Full JD proxy for the TailorAgent prompt — includes AI analysis fields
-    (why_ron, scoring_rationale, critical_gaps) so the agent understands the
+    (fit_brief, scoring_rationale, critical_gaps) so the agent understands the
     gap context.  NOT used for match scoring.
     """
     parts = [f"{job.title} at {job.company}"]
-    if job.why_ron:
-        parts.append(job.why_ron)
+    if job.fit_brief:
+        parts.append(job.fit_brief)
     if job.scoring_rationale:
         parts.append(job.scoring_rationale)
     if job.detailed_analysis and job.detailed_analysis.critical_gaps:
@@ -426,7 +426,7 @@ def _build_match_proxy(job) -> str:
       by stripping AI meta prefixes.  Formatted as "Required: X, Y, Z"
       so the Tier 2 keyword extractor in match_score_service handles them.
 
-    NEVER passes why_ron or scoring_rationale as-is — they contain
+    NEVER passes fit_brief or scoring_rationale as-is — they contain
     inverted-logic AI assessments ("no experience with...") that corrupt
     keyword extraction.
     """

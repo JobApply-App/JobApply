@@ -1,8 +1,8 @@
 """
-seed_ron_entities.py — Load Ron's profile_entities + evidence_records from seed JSON.
+seed_demo_entities.py — Load a user's profile_entities + evidence_records from seed JSON.
 
 Usage (from project root):
-    python -m backend.scripts.seed_ron_entities [--user-id <id>] [--dry-run]
+    python -m backend.scripts.seed_demo_entities [--user-id <id>] [--dry-run]
 
 If --user-id is omitted, it reads AUTH_USER_ID from .env or falls back to
 the first user_id found in the profile_entities table.  If the table is
@@ -21,7 +21,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Allow running as `python -m backend.scripts.seed_ron_entities` from project root
+# Allow running as `python -m backend.scripts.seed_demo_entities` from project root
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from dotenv import load_dotenv
@@ -32,7 +32,7 @@ from backend.core.database import ENGINE
 load_dotenv(Path(__file__).resolve().parents[2] / "backend" / ".env")
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-SEED_FILE = Path(__file__).resolve().parent.parent / "data" / "ron_entities_seed.json"
+SEED_FILE = Path(__file__).resolve().parent.parent / "data" / "demo_entities_seed.json"
 
 
 def _resolve_user_id(override: str | None) -> str:
@@ -203,7 +203,7 @@ def seed(user_id: str, dry_run: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed Ron's profile entities into the DB.")
+    parser = argparse.ArgumentParser(description="Seed a user's profile entities into the DB.")
     parser.add_argument("--user-id", default=None, help="Target user_id (uuid string)")
     parser.add_argument("--dry-run", action="store_true", help="Print what would happen without writing")
     args = parser.parse_args()

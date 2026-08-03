@@ -11,7 +11,7 @@ Three message types
 
 2. ESCALATION    (Step 2 — 24–48 hrs after a positive response)
    A follow-up that transitions the relationship into a referral request.
-   Includes a ready-to-forward, 3rd-person executive summary of Ron's fit
+   Includes a ready-to-forward, 3rd-person executive summary of the candidate's fit
    so the manager can forward it internally with zero effort.
 
 3. HEADHUNTER    (Direct recruiter/agency routing)
@@ -33,7 +33,7 @@ from typing import Literal
 from dotenv import load_dotenv
 
 from backend.services.llm_client import call_llm
-from backend.services.user_profile import USER_PROFILE, build_full_text
+from backend.services.user_profile import build_full_text
 from backend.services.llm_validation import harden_system_prompt, sanitize_text
 import backend.repositories.job_repository as job_store
 from backend.schemas.job import RawJobPosting
@@ -85,8 +85,8 @@ TASK — Write a LinkedIn CONSULTATION message (Step 1):
   you to reach out (use TARGET info to make it specific).
 • Ask for a brief 5-minute conversation or a piece of advice — frame it as \
   seeking perspective from someone in that domain, NOT asking for a job.
-• Reference one credible, relevant piece of Ron's background that earns the \
-  ask (e.g. current role, relevant domain, a transition he's making).
+• Reference one credible, relevant piece of the candidate's background that \
+  earns the ask (e.g. current role, relevant domain, a transition they're making).
 • End with a low-friction call to action (e.g. "Happy to work around your schedule").
 • Tone: warm, direct, peer-level. Max 120 words.
 """
@@ -127,11 +127,13 @@ TARGET RECRUITER:
   Focus:   {target_title}
 
 TASK — Write a LinkedIn HEADHUNTER message:
-• Lead with domain clarity: state Ron's exact domain (Product / CS & Account Management) \
-  and seniority level in the first sentence.
-• Highlight the strongest 2 credentials from the profile (e.g. Team Lead at GO-OUT \
-  managing 7 people across two countries; Dean's List while working 3 concurrent jobs).
-• State immediate readiness and geography explicitly (Israel / Tel Aviv, open to hybrid).
+• Lead with domain clarity: state the candidate's exact domain and seniority \
+  level in the first sentence. Take both from CANDIDATE_PROFILE — never assume \
+  a domain that isn't stated there.
+• Highlight the strongest 2 credentials from CANDIDATE_PROFILE — prefer ones \
+  carrying a concrete number (team size, scope, measurable outcome) over titles alone.
+• State immediate readiness and geography explicitly, using the location in \
+  CANDIDATE_PROFILE.
 • Invite the recruiter to reach out if they have relevant mandates now or soon.
 • Tone: confident, value-first, no begging. Max 160 words.
 """
@@ -175,17 +177,13 @@ async def generate_outreach_message(
             job_context = f"Role: {cached.get('job_title', '')} at {cached.get('company', '')}"
         # Try fetching raw job metadata
         try:
-            from backend.core.database import ENGINE
-            from backend.models.job import JobRow
-            from sqlalchemy.orm import Session
-            with Session(ENGINE) as s:
-                row = s.get(JobRow, job_id)
-                if row and row.user_id == user_id:
-                    job_context = (
-                        f"Role: {row.title} at {row.company}\n"
-                        f"Location: {row.location or 'Israel'}\n"
-                        f"JD snippet: {sanitize_text((row.jd_text or '')[:400])}"
-                    )
+            job = job_store.get_by_id(job_id, user_id)
+            if job:
+                job_context = (
+                    f"Role: {job.title} at {job.company}\n"
+                    f"Location: {job.location or 'Israel'}\n"
+                    f"JD snippet: {sanitize_text((job.jd_text or '')[:400])}"
+                )
         except Exception:
             pass
 

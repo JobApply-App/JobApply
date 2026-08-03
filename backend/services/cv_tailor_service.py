@@ -36,7 +36,7 @@ from dotenv import load_dotenv
 
 from backend.repositories import job_repository as job_store
 from backend.services.llm_client import call_llm, LLMCallError
-from backend.services.user_profile import USER_PROFILE, build_full_text
+from backend.services.user_profile import build_full_text, resolve_profile
 from backend.services.llm_validation import harden_system_prompt, sanitize_text
 from backend.services.master_profile_service import get_skill_proficiencies
 from backend.schemas.job import JobMatch
@@ -229,17 +229,29 @@ def get_cached_tailor_brief(job_id: str, user_id: str) -> Optional[dict]:
 
 def _save_tailor_brief(job_id: str, user_id: str, brief: dict) -> None:
     """Persist the brief under the tailor_brief key — only on a row owned by user_id."""
-    from backend.core.database import ENGINE
-    from backend.models.job import JobRow
+    import json
+
+    from sqlalchemy import text
     from sqlalchemy.orm import Session
 
+    from backend.core.database import ENGINE
+
     with Session(ENGINE) as session:
-        row = session.get(JobRow, job_id)
-        if row and row.user_id == user_id:
-            existing = dict(row.tailored_cv or {})
-            existing["tailor_brief"] = brief
-            row.tailored_cv = existing
-            session.commit()
+        row = session.execute(
+            text("SELECT tailored_cv FROM public.user_job_matches "
+                 "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid)"),
+            {"job_id": job_id, "user_id": user_id},
+        ).fetchone()
+        if row is None:
+            return
+        existing = dict(row.tailored_cv or {})
+        existing["tailor_brief"] = brief
+        session.execute(
+            text("UPDATE public.user_job_matches SET tailored_cv = CAST(:payload AS jsonb) "
+                 "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid)"),
+            {"payload": json.dumps(existing), "job_id": job_id, "user_id": user_id},
+        )
+        session.commit()
 
 
 # ── Main entry point ──────────────────────────────────────────────────────────
@@ -285,7 +297,10 @@ async def _build_verified_assembly(job: JobMatch, jd_text: str, user_id: str, co
         facts            = facts,
         gap_entities     = gap_ents,
         matched_entities = matched,
-        candidate_title  = USER_PROFILE.get("personal", {}).get("title", "") or job.title,
+        # Resolved per-user, not from the legacy singleton: that read happened to
+        # be harmless only because the singleton has no "title" key — adding one
+        # would have silently put one user's headline on everyone's CV.
+        candidate_title  = (resolve_profile(user_id).get("personal", {}) or {}).get("title", "") or job.title,
         use_llm_phrasing = use_llm_phrasing,
         company_vibe     = company_vibe,   # strategy biases fact SELECTION only
     )
@@ -506,23 +521,28 @@ def resolve_editable_cv(job_id: Optional[str] = None, *, user_id: str) -> tuple[
     the brief's generated_at timestamp ("the CV" in conversation means the one
     THIS user just produced and is reviewing).
     """
-    from backend.core.database import ENGINE
-    from backend.models.job import JobRow
+    from sqlalchemy import text
     from sqlalchemy.orm import Session
+
+    from backend.core.database import ENGINE
 
     with Session(ENGINE) as session:
         if job_id:
-            row = session.get(JobRow, job_id)
-            if row and row.user_id == user_id and row.tailored_cv:
+            row = session.execute(
+                text("SELECT tailored_cv FROM public.user_job_matches "
+                     "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid)"),
+                {"job_id": job_id, "user_id": user_id},
+            ).fetchone()
+            if row and row.tailored_cv:
                 return (job_id, dict(row.tailored_cv))
             return (job_id, None)
 
-        rows = (
-            session.query(JobRow)
-            .filter(JobRow.tailored_cv.isnot(None), JobRow.user_id == user_id)
-            .all()
-        )
-        best: Optional[JobRow] = None
+        rows = session.execute(
+            text("SELECT job_id, tailored_cv FROM public.user_job_matches "
+                 "WHERE tailored_cv IS NOT NULL AND user_id = CAST(:user_id AS uuid)"),
+            {"user_id": user_id},
+        ).fetchall()
+        best = None
         best_ts = ""
         for row in rows:
             doc = row.tailored_cv or {}
@@ -604,11 +624,13 @@ def edit_tailored_cv_bullet(
                    and a user-facing refusal. Document untouched.
       "error"    — target not found / bad reference. Document untouched.
     """
+    import json
+
     from backend.services.cv_assembly_engine import (
         _extract_literals, load_verified_facts, validate_bullet,
     )
     from backend.core.database import ENGINE
-    from backend.models.job import JobRow
+    from sqlalchemy import text
     from sqlalchemy.orm import Session
 
     new_text = " ".join((new_text or "").split())
@@ -704,15 +726,23 @@ def edit_tailored_cv_bullet(
     # ── 3. Apply + persist ────────────────────────────────────────────────────
     apply_fn()
     with Session(ENGINE) as session:
-        row = session.get(JobRow, resolved_id)
-        if row is None or row.user_id != user_id:
+        row = session.execute(
+            text("SELECT tailored_cv FROM public.user_job_matches "
+                 "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid)"),
+            {"job_id": resolved_id, "user_id": user_id},
+        ).fetchone()
+        if row is None:
             return {"status": "error", "message": f"Job {resolved_id!r} vanished mid-edit."}
         merged = dict(row.tailored_cv or {})
         if brief:
             merged["tailor_brief"] = brief
         if cv_data:
             merged["cv_data"] = cv_data
-        row.tailored_cv = merged          # reassign — JSON column change detection
+        session.execute(
+            text("UPDATE public.user_job_matches SET tailored_cv = CAST(:payload AS jsonb) "
+                 "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid)"),
+            {"payload": json.dumps(merged), "job_id": resolved_id, "user_id": user_id},
+        )
         session.commit()
 
     logger.info(

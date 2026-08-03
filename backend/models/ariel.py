@@ -6,7 +6,12 @@ from __future__ import annotations
 
 from sqlalchemy import Column, Float, String, Text
 
+from sqlalchemy.dialects import postgresql
+
 from backend.core.database import Base
+
+# Shared tenancy-key type — see the UUID_FK comment on any user_id column below.
+UUID_FK = String().with_variant(postgresql.UUID(as_uuid=False), "postgresql")
 
 
 class ArielSessionRow(Base):
@@ -14,8 +19,13 @@ class ArielSessionRow(Base):
     __tablename__ = "ariel_sessions"
 
     session_id             = Column(String, primary_key=True)
-    user_id                = Column(String, nullable=False, index=True)
-    tenant_id              = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id                = Column(UUID_FK, nullable=False, index=True)
     session_type           = Column(String, nullable=False)
     target_job_id          = Column(String, nullable=True, index=True)
     target_entities        = Column(Text,   nullable=True)    # JSON array
@@ -33,8 +43,13 @@ class ConversationEventRow(Base):
 
     event_id              = Column(String, primary_key=True)
     session_id            = Column(String, nullable=False, index=True)
-    user_id               = Column(String, nullable=False, index=True)
-    tenant_id             = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id               = Column(UUID_FK, nullable=False, index=True)
     star_situation        = Column(Text,   nullable=True)
     star_task             = Column(Text,   nullable=True)
     star_action           = Column(Text,   nullable=True)
@@ -50,8 +65,13 @@ class ArielGapQueueRow(Base):
     __tablename__ = "ariel_gap_queue"
 
     gap_id              = Column(String, primary_key=True)
-    user_id             = Column(String, nullable=False, index=True)
-    tenant_id           = Column(String, nullable=True, index=True)   # see JobRow.tenant_id docstring
+    # UUID_FK: a real UUID column in Postgres (FK to profiles.id, migration
+    # 00eab53e0f00), plain String on SQLite. The variant matters: this codebase
+    # mixes raw text() INSERTs with ORM reads, and a uniform Uuid type would
+    # normalise the ORM side to hex-32 while raw SQL wrote a dashed string —
+    # they would silently stop matching on SQLite. Python always sees a str.
+    # See docs/db-architecture-spec.md principle 1.
+    user_id             = Column(UUID_FK, nullable=False, index=True)
     entity_id           = Column(String, nullable=False)
     job_id              = Column(String, nullable=True,  index=True)
     current_confidence  = Column(Float,  nullable=False)
