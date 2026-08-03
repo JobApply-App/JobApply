@@ -848,7 +848,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
     # user deletion) is honored instead of being overwritten from the Master
     # Profile.
     cv_data = _inject_static_sections(
-        cv_data, respect_deletions=True, user_id=user.user_id
+        cv_data, respect_deletions=True, user_id=user.user_id, jd_text=job.jd_text or ""
     )
 
     try:
