@@ -1262,8 +1262,6 @@ class ProfileUpdateService:
             }
         An empty profile returns all-zero pillars.
         """
-        empty = {"overall": 0.0, "breadth": 0.0, "depth": 0.0, "context": 0.0}
-
         with self._engine.connect() as conn:
             rows = conn.execute(
                 text("""
@@ -1273,6 +1271,37 @@ class ProfileUpdateService:
                 """),
                 {"uid": user_id},
             ).fetchall()
+
+        return self._compute_familiarity_from_rows(rows, user_id, profile)
+
+    def compute_profile_familiarity_from_entities(
+        self, entity_rows, user_id: str, profile: Optional[dict] = None
+    ) -> dict:
+        """
+        Same computation as compute_profile_familiarity(), but from
+        profile_entities rows already loaded by the caller (e.g.
+        profile_entity_repository.get_all_for_user()'s ProfileEntity list)
+        instead of re-querying profile_entities — for callers that already
+        have this exact data loaded in the same request (dashboard.py's
+        aggregated endpoint, build_trust_score_response()), avoiding a second,
+        fully redundant connection + query against the identical table and
+        filter (WHERE user_id = :uid) the caller already ran.
+
+        entity_rows: any iterable of objects with .entity_type,
+        .verification_status, .proficiency_level attributes — i.e.
+        profile_entity_repository.ProfileEntity instances.
+        """
+        rows = [
+            (e.entity_type, e.verification_status, e.proficiency_level)
+            for e in entity_rows
+        ]
+        return self._compute_familiarity_from_rows(rows, user_id, profile)
+
+    def _compute_familiarity_from_rows(
+        self, rows, user_id: str, profile: Optional[dict] = None
+    ) -> dict:
+        """Pure pillar computation shared by both entry points above — no DB access."""
+        empty = {"overall": 0.0, "breadth": 0.0, "depth": 0.0, "context": 0.0}
 
         if not rows:
             return dict(empty)

@@ -44,8 +44,9 @@ from backend.services.master_profile_service import (
 from backend.services.profile_update_service import ProfileUpdateService
 from backend.services.confidence_math import compute_decoupled_score, EvidenceRow, verification_status
 from backend.services.confidence_matrix_service import (
-    get_confidence_matrix,
-    get_entity_breakdown,
+    compute_breakdown,
+    compute_radar,
+    load_entities_and_evidence,
 )
 
 logger = logging.getLogger(__name__)
@@ -712,7 +713,7 @@ _SOURCE_LABELS: dict[str, str] = {
 
 
 @router.get("/{user_id}/trust-score")
-async def get_trust_score(
+def get_trust_score(
     user_id:  str,
     sort_by:  str = Query("score_desc", description="score_desc | needs_verification | category"),
     top_n:    int = Query(0, ge=0, description="Return only the top N entities (0 = all)"),
@@ -763,115 +764,14 @@ async def get_trust_score(
             # ── 1. Load all profile entities for this user ────────────────────
             entity_rows = profile_entity_repository.get_all_for_user(user_id, session=db)
 
-            # ── 2. For each entity, load its non-expired evidence records ─────
-            result_entities = []
-            category_scores: dict[str, list[float]] = {
-                "skill": [], "trait": [], "domain": [], "experience": [],
-            }
+            # ── 2. Batch-load every entity's non-expired evidence in ONE query ─
+            # (not one query per entity — that N+1 pattern took 18-30s for a
+            # 160-entity profile, each entity a separate round-trip to the
+            # remote Postgres; see evidence_repository.get_active_for_entities()).
+            entity_ids = [ent.entity_id for ent in entity_rows]
+            evidence_by_entity = evidence_repository.get_active_for_entities(entity_ids, now_iso, session=db)
 
-            for ent in entity_rows:
-                evidence_rows = evidence_repository.get_active_for_entity(ent.entity_id, now_iso, session=db)
-
-                trust_breakdown = [
-                    {
-                        "evidence_id":   ev.evidence_id,
-                        "source_type":   ev.source_type,
-                        "source_label":  _SOURCE_LABELS.get(ev.source_type, ev.source_type),
-                        "verified_at":   ev.verified_at,
-                        "raw_content":   ev.raw_content,
-                        "base_weight":   ev.base_weight,
-                        "is_ai_assisted": ev.is_ai_assisted,
-                    }
-                    for ev in evidence_rows
-                ]
-
-                # Re-compute decoupled score from live evidence to get the
-                # dynamic multiplier and evidence count for UI transparency.
-                ev_typed: list[EvidenceRow] = [
-                    {
-                        "source_type":    ev.source_type,
-                        "base_weight":    float(ev.base_weight),
-                        "verified_at":    _parse_ev_dt(ev.verified_at),
-                        "is_ai_assisted": ev.is_ai_assisted,
-                    }
-                    for ev in evidence_rows
-                ]
-                dscore = compute_decoupled_score(ev_typed)
-
-                result_entities.append({
-                    "entity_id":               ent.entity_id,
-                    "name":                    ent.name,
-                    "entity_type":             ent.entity_type,
-                    "confidence_score":        ent.confidence_score,
-                    "verification_status":     ent.verification_status,
-                    "manual_review_required":  ent.manual_review_required,
-                    "skill_tier":              ent.skill_tier,
-                    "architecture_confidence": ent.architecture_confidence,
-                    "syntax_confidence":       ent.syntax_confidence,
-                    "verification_level":      ent.verification_level,
-                    "evidence_multiplier":     dscore.evidence_multiplier,
-                    "evidence_count":          dscore.evidence_count,
-                    "trust_breakdown":         trust_breakdown,
-                })
-
-                # Accumulate for category averages
-                if ent.entity_type in category_scores:
-                    category_scores[ent.entity_type].append(ent.confidence_score)
-
-        # ── 2b. Sort and slice entities ───────────────────────────────────────
-        if sort_by == "needs_verification":
-            result_entities.sort(
-                key=lambda e: (
-                    0 if e["verification_level"] in ("UNVERIFIED", "ORCHESTRATION_ONLY") else 1,
-                    -e["confidence_score"],
-                )
-            )
-        elif sort_by == "category":
-            result_entities.sort(key=lambda e: (e["entity_type"], -e["confidence_score"]))
-        else:  # score_desc (default)
-            result_entities.sort(key=lambda e: -e["confidence_score"])
-
-        if top_n > 0:
-            result_entities = result_entities[:top_n]
-
-        # ── 3. Compute category averages (0.0 when no entities in category) ──
-        def _avg(scores: list[float]) -> float:
-            return round(sum(scores) / len(scores), 1) if scores else 0.0
-
-        category_averages = {
-            "skill":      _avg(category_scores["skill"]),
-            "trait":      _avg(category_scores["trait"]),
-            "domain":     _avg(category_scores["domain"]),
-            "experience": _avg(category_scores["experience"]),
-        }
-
-        # ── 4. Holistic Familiarity score + three-pillar breakdown ────────────
-        svc = ProfileUpdateService(ENGINE)
-        familiarity = svc.compute_profile_familiarity(user_id)
-        overall_trust_score = familiarity["overall"]
-
-        logger.info(
-            "[profile/trust-score] user=%s  entities=%d  overall=%.1f "
-            "(breadth=%.1f depth=%.1f context=%.1f)",
-            user_id, len(result_entities), overall_trust_score,
-            familiarity["breadth"], familiarity["depth"], familiarity["context"],
-        )
-
-        return {
-            "user_id":             user_id,
-            "overall_trust_score": overall_trust_score,
-            # Three-pillar breakdown of the Holistic Familiarity score so the UI
-            # can show WHY the score is what it is (Phase 32). Maxes: breadth 40,
-            # depth 40, context 20.
-            "score_breakdown": {
-                "breadth": familiarity["breadth"],
-                "depth":   familiarity["depth"],
-                "context": familiarity["context"],
-            },
-            "entities":            result_entities,
-            "category_averages":   category_averages,
-            "fetched_at":          now_iso,
-        }
+        return build_trust_score_response(user_id, entity_rows, evidence_by_entity, now_iso, sort_by, top_n)
 
     except HTTPException:
         raise
@@ -881,6 +781,137 @@ async def get_trust_score(
             status_code=500,
             detail="Trust score fetch failed. Please try again shortly.",
         ) from exc
+
+
+def build_trust_score_response(
+    user_id: str,
+    entity_rows,
+    evidence_by_entity: dict,
+    now_iso: str,
+    sort_by: str = "score_desc",
+    top_n: int = 0,
+) -> dict:
+    """
+    Build the trust-score response dict from already-loaded entity_rows
+    (profile_entity_repository.get_all_for_user()'s ProfileEntity list) +
+    evidence_by_entity (evidence_repository.get_active_for_entities()'s
+    dict). Pulled out of get_trust_score() so dashboard.py's aggregated
+    endpoint can reuse this exact computation against data it loaded itself
+    (shared session), instead of calling the HTTP route internally.
+    """
+    result_entities = []
+    category_scores: dict[str, list[float]] = {
+        "skill": [], "trait": [], "domain": [], "experience": [],
+    }
+
+    for ent in entity_rows:
+        evidence_rows = evidence_by_entity[ent.entity_id]
+
+        trust_breakdown = [
+            {
+                "evidence_id":   ev.evidence_id,
+                "source_type":   ev.source_type,
+                "source_label":  _SOURCE_LABELS.get(ev.source_type, ev.source_type),
+                "verified_at":   ev.verified_at,
+                "raw_content":   ev.raw_content,
+                "base_weight":   ev.base_weight,
+                "is_ai_assisted": ev.is_ai_assisted,
+            }
+            for ev in evidence_rows
+        ]
+
+        # Re-compute decoupled score from live evidence to get the
+        # dynamic multiplier and evidence count for UI transparency.
+        ev_typed: list[EvidenceRow] = [
+            {
+                "source_type":    ev.source_type,
+                "base_weight":    float(ev.base_weight),
+                "verified_at":    _parse_ev_dt(ev.verified_at),
+                "is_ai_assisted": ev.is_ai_assisted,
+            }
+            for ev in evidence_rows
+        ]
+        dscore = compute_decoupled_score(ev_typed)
+
+        result_entities.append({
+            "entity_id":               ent.entity_id,
+            "name":                    ent.name,
+            "entity_type":             ent.entity_type,
+            "confidence_score":        ent.confidence_score,
+            "verification_status":     ent.verification_status,
+            "manual_review_required":  ent.manual_review_required,
+            "skill_tier":              ent.skill_tier,
+            "architecture_confidence": ent.architecture_confidence,
+            "syntax_confidence":       ent.syntax_confidence,
+            "verification_level":      ent.verification_level,
+            "evidence_multiplier":     dscore.evidence_multiplier,
+            "evidence_count":          dscore.evidence_count,
+            "trust_breakdown":         trust_breakdown,
+        })
+
+        # Accumulate for category averages
+        if ent.entity_type in category_scores:
+            category_scores[ent.entity_type].append(ent.confidence_score)
+
+    # ── 2b. Sort and slice entities ───────────────────────────────────────
+    if sort_by == "needs_verification":
+        result_entities.sort(
+            key=lambda e: (
+                0 if e["verification_level"] in ("UNVERIFIED", "ORCHESTRATION_ONLY") else 1,
+                -e["confidence_score"],
+            )
+        )
+    elif sort_by == "category":
+        result_entities.sort(key=lambda e: (e["entity_type"], -e["confidence_score"]))
+    else:  # score_desc (default)
+        result_entities.sort(key=lambda e: -e["confidence_score"])
+
+    if top_n > 0:
+        result_entities = result_entities[:top_n]
+
+    # ── 3. Compute category averages (0.0 when no entities in category) ──
+    def _avg(scores: list[float]) -> float:
+        return round(sum(scores) / len(scores), 1) if scores else 0.0
+
+    category_averages = {
+        "skill":      _avg(category_scores["skill"]),
+        "trait":      _avg(category_scores["trait"]),
+        "domain":     _avg(category_scores["domain"]),
+        "experience": _avg(category_scores["experience"]),
+    }
+
+    # ── 4. Holistic Familiarity score + three-pillar breakdown ────────────
+    # From the already-loaded entity_rows — NOT a fresh profile_entities
+    # query. compute_profile_familiarity() would re-run the exact same
+    # `WHERE user_id = :uid` query this function's caller already ran to get
+    # entity_rows in the first place; that redundant round trip (its own
+    # connection) was ~850ms for a 160-entity profile.
+    svc = ProfileUpdateService(ENGINE)
+    familiarity = svc.compute_profile_familiarity_from_entities(entity_rows, user_id)
+    overall_trust_score = familiarity["overall"]
+
+    logger.info(
+        "[profile/trust-score] user=%s  entities=%d  overall=%.1f "
+        "(breadth=%.1f depth=%.1f context=%.1f)",
+        user_id, len(result_entities), overall_trust_score,
+        familiarity["breadth"], familiarity["depth"], familiarity["context"],
+    )
+
+    return {
+        "user_id":             user_id,
+        "overall_trust_score": overall_trust_score,
+        # Three-pillar breakdown of the Holistic Familiarity score so the UI
+        # can show WHY the score is what it is (Phase 32). Maxes: breadth 40,
+        # depth 40, context 20.
+        "score_breakdown": {
+            "breadth": familiarity["breadth"],
+            "depth":   familiarity["depth"],
+            "context": familiarity["context"],
+        },
+        "entities":            result_entities,
+        "category_averages":   category_averages,
+        "fetched_at":          now_iso,
+    }
 
 
 # ── POST /api/profile/{user_id}/force-recalculate ─────────────────────────────
@@ -896,7 +927,7 @@ async def get_trust_score(
 # Access: users may only recalculate their own profile.
 
 @router.post("/{user_id}/force-recalculate")
-async def force_recalculate(
+def force_recalculate(
     user_id: str,
     user:    CurrentUser = Depends(get_current_user),
 ):
@@ -925,10 +956,15 @@ async def force_recalculate(
             if not entity_rows:
                 return {"recalculated": 0, "entities": []}
 
+            # Batch-load every entity's evidence in ONE query instead of one
+            # query per entity — see get_active_for_entities()'s docstring.
+            entity_ids = [ent.entity_id for ent in entity_rows]
+            evidence_by_entity = evidence_repository.get_active_for_entities(entity_ids, now_iso, session=db)
+
             results = []
             for ent in entity_rows:
                 print(f"=== DEBUG FORCE_RECALC: Processing entity {ent.entity_id} ===")
-                evidence_rows = evidence_repository.get_active_for_entity(ent.entity_id, now_iso, session=db)
+                evidence_rows = evidence_by_entity[ent.entity_id]
 
                 ev_typed: list[EvidenceRow] = [
                     {
@@ -1201,7 +1237,7 @@ async def upload_verification_document(
 # ── GET /api/profile/{user_id}/confidence-matrix ─────────────────────────────
 
 @router.get("/{user_id}/confidence-matrix")
-async def get_confidence_matrix_endpoint(
+def get_confidence_matrix_endpoint(
     user_id: str,
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -1237,7 +1273,11 @@ async def get_confidence_matrix_endpoint(
         raise HTTPException(status_code=403, detail="You may only access your own confidence matrix.")
 
     try:
-        radar_data = get_confidence_matrix(user_id, ENGINE)
+        # Single load of profile_entities + evidence for both outputs below —
+        # get_confidence_matrix()/get_entity_breakdown() each used to load
+        # this independently (2 extra DB round trips for the same data).
+        entity_rows, evidence_by_entity = load_entities_and_evidence(ENGINE, user_id)
+        radar_data = compute_radar(entity_rows, evidence_by_entity, user_id)
     except Exception as exc:
         logger.exception(
             "[confidence-matrix] radar scoring failed for user=%s: %s", user_id, exc
@@ -1245,7 +1285,7 @@ async def get_confidence_matrix_endpoint(
         raise HTTPException(status_code=500, detail="Radar scoring failed. Please try again shortly.") from exc
 
     try:
-        entity_breakdown = get_entity_breakdown(user_id, ENGINE)
+        entity_breakdown = compute_breakdown(entity_rows, evidence_by_entity)
     except Exception as exc:
         logger.exception(
             "[confidence-matrix] entity breakdown failed for user=%s: %s", user_id, exc

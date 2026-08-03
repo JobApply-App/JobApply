@@ -2584,14 +2584,49 @@ interface TrustDashboardProps {
    *  version bump update in place so the UI never flashes back to a
    *  skeleton mid-session. */
   profileVersion?: number
+  /** Pre-fetched trust-score/confidence-matrix data (from the parent's single
+   *  GET /api/dashboard/overview call) — when provided, the mount-time fetch
+   *  this component would otherwise fire on its own is skipped, avoiding a
+   *  duplicate /trust-score + /confidence-matrix request the aggregated
+   *  endpoint already covered. A later profileVersion bump still triggers a
+   *  normal (independent) refetch, same as before. */
+  initialTrustScore?: TrustScoreResponse
+  initialConfidenceMatrix?: ConfidenceMatrixResponse
+  /** When true, skip the mount-time self-fetch entirely, even before
+   *  initialTrustScore arrives — the parent is streaming this data in
+   *  progressively (see Overview.tsx's NDJSON stream consumer) and will
+   *  supply it via initialTrustScore/initialConfidenceMatrix prop updates
+   *  as each section arrives. Without this, mounting before the streamed
+   *  trust-score section resolves would make this component fire its own
+   *  independent /trust-score + /confidence-matrix fetch, duplicating the
+   *  request the parent's stream already covers. */
+  deferInitialFetch?: boolean
+  /** Set when the parent's stream reported an error for the trust-score (or
+   *  confidence-matrix) section instead of data — shown as this
+   *  component's own error state rather than leaving it stuck on the
+   *  loading skeleton forever. Ignored once real data has arrived. */
+  streamError?: string | null
+}
+
+function _mapRadarData(radar: ConfidenceRadarDatum[]): ConfidenceRadarDatum[] {
+  // The API returns arch_value / syn_value per category directly.
+  return radar.map(d => ({
+    category:   d.category.replace(/_/g, ' '),
+    value:      d.value,
+    arch_value: (d as any).arch_value ?? d.value,
+    syn_value:  (d as any).syn_value  ?? 0,
+  }))
 }
 
 export function TrustDashboard({
   userId, showAuthWall = false, className = '', onScoreChange, profileVersion,
+  initialTrustScore, initialConfidenceMatrix, deferInitialFetch = false, streamError = null,
 }: TrustDashboardProps) {
-  const [data,      setData]      = useState<TrustScoreResponse | null>(null)
-  const [radarData, setRadarData] = useState<ConfidenceRadarDatum[]>([])
-  const [loading,   setLoading]   = useState(true)
+  const [data,      setData]      = useState<TrustScoreResponse | null>(initialTrustScore ?? null)
+  const [radarData, setRadarData] = useState<ConfidenceRadarDatum[]>(
+    initialConfidenceMatrix ? _mapRadarData(initialConfidenceMatrix.radar_data) : []
+  )
+  const [loading,   setLoading]   = useState(!initialTrustScore)
   const [error,     setError]     = useState<string | null>(null)
   const [filter,    setFilter]    = useState<FilterCategory>('all')
 
@@ -2607,6 +2642,45 @@ export function TrustDashboard({
   const [manualSession, setManualSession] = useState<{session_id: string; first_prompt: string} | null>(null)
   const [manualLoading, setManualLoading] = useState(false)
 
+  // Sync in a NEWER initialTrustScore/initialConfidenceMatrix if the parent
+  // passes one after mount (e.g. Overview's background dashboard refresh
+  // resolving) — the useState initializers above only apply once, at mount,
+  // so without this a background refresh would update Overview's own KPI
+  // cards but leave this component showing the stale seeded snapshot
+  // forever. Keyed on fetched_at/computed_at so the initial mount-time value
+  // (already applied via the useState initializer) doesn't get re-applied.
+  const lastAppliedTrustFetchedAtRef = useRef(initialTrustScore?.fetched_at)
+  useEffect(() => {
+    if (!initialTrustScore || initialTrustScore.fetched_at === lastAppliedTrustFetchedAtRef.current) return
+    lastAppliedTrustFetchedAtRef.current = initialTrustScore.fetched_at
+    setData(initialTrustScore)
+    setError(null)
+    setLoading(false)
+    hasLoadedOnceRef.current = true
+    onScoreChangeRef.current?.(initialTrustScore.overall_trust_score ?? 0, initialTrustScore.score_breakdown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTrustScore])
+
+  const lastAppliedMatrixComputedAtRef = useRef(initialConfidenceMatrix?.computed_at)
+  useEffect(() => {
+    if (!initialConfidenceMatrix || initialConfidenceMatrix.computed_at === lastAppliedMatrixComputedAtRef.current) return
+    lastAppliedMatrixComputedAtRef.current = initialConfidenceMatrix.computed_at
+    setRadarData(_mapRadarData(initialConfidenceMatrix.radar_data))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialConfidenceMatrix])
+
+  // Streamed trust-score section reported an error instead of data — surface
+  // it as this component's own error state (per-widget error handling)
+  // rather than leaving the skeleton spinning forever. A later successful
+  // fetchData()/initialTrustScore arrival clears it normally via setError(null).
+  useEffect(() => {
+    if (!streamError || data) return
+    setError(streamError)
+    setLoading(false)
+    hasLoadedOnceRef.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamError])
+
   // Ref so fetchData's identity (and its [userId] dep array) doesn't have to
   // change every time the parent passes a fresh onScoreChange closure.
   const onScoreChangeRef = useRef(onScoreChange)
@@ -2615,7 +2689,14 @@ export function TrustDashboard({
   // Guards the loading skeleton so only the very first fetch shows it —
   // subsequent refetches (triggered by profileVersion) update `data` in
   // place without ever flashing the dashboard back to a skeleton.
-  const hasLoadedOnceRef = useRef(false)
+  const hasLoadedOnceRef = useRef(!!initialTrustScore)
+
+  // When the parent already supplied initialTrustScore, OR is streaming
+  // sections in progressively (deferInitialFetch) and will supply it
+  // shortly, the mount-time fetch effect below skips its very first run —
+  // one-shot, reset to false immediately so a later profileVersion bump
+  // still triggers a normal fetch.
+  const skipInitialFetchRef = useRef(!!initialTrustScore || deferInitialFetch)
 
   // ── Fetch ────────────────────────────────────────────────────────────────
 
@@ -2647,13 +2728,7 @@ export function TrustDashboard({
         })
         if (radarRes.ok) {
           const radarJson = (await radarRes.json()) as ConfidenceMatrixResponse
-          // The API now returns arch_value / syn_value per category directly
-          setRadarData(radarJson.radar_data.map(d => ({
-            category:   d.category.replace(/_/g, ' '),
-            value:      d.value,
-            arch_value: (d as any).arch_value ?? d.value,
-            syn_value:  (d as any).syn_value  ?? 0,
-          })))
+          setRadarData(_mapRadarData(radarJson.radar_data))
         }
       } catch {
         // Radar fetch failure is non-fatal; chart falls back to empty state
@@ -2669,7 +2744,20 @@ export function TrustDashboard({
   // Re-fires whenever profileVersion is bumped (Ariel chat updated the
   // profile) in addition to the initial mount-time fetch — see fetchData's
   // hasLoadedOnceRef guard for why this doesn't re-show the skeleton.
-  useEffect(() => { fetchData() }, [fetchData, profileVersion])
+  // Skips its very first run when initialTrustScore was already supplied
+  // (the aggregated dashboard endpoint already fetched this) — still mirrors
+  // the score up to the parent once, exactly as fetchData would have.
+  useEffect(() => {
+    if (skipInitialFetchRef.current) {
+      skipInitialFetchRef.current = false
+      if (initialTrustScore) {
+        onScoreChangeRef.current?.(initialTrustScore.overall_trust_score ?? 0, initialTrustScore.score_breakdown)
+      }
+      return
+    }
+    fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchData, profileVersion])
 
   // ── Start probe ──────────────────────────────────────────────────────────
 

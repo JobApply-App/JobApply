@@ -1,17 +1,18 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getGreetingName } from '@/lib/nameUtils'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
-import type { ApiFeedJob, ScoreBreakdown } from '@/lib/apiTypes'
+import type { ApiFeedJob, ScoreBreakdown, ConfidenceMatrixResponse, TrustScoreResponse } from '@/lib/apiTypes'
 import { Skeleton } from './ui/Skeleton'
 import { SparkIcon, UserBadgeIcon, FileIcon, SlidersIcon, ArrowIcon, SearchIcon, BoltIcon, CheckIcon } from './icons'
 import { TrustDashboard } from './TrustDashboard'
 import { useChat } from '@/contexts/ChatContext'
 import {
-  fetchAnalyticsOverview, fetchScraperStatus, RateLimitError,
-  type AnalyticsOverview, type ScraperStatus,
+  streamDashboardOverview, fetchScraperStatus, RateLimitError,
+  type AnalyticsOverview, type ScraperStatus, type DashboardOverviewResponse,
 } from '@/lib/api'
+import { getLastKnownDashboardSnapshot, saveDashboardSnapshot, clearDashboardSnapshot } from '@/lib/dashboardLocalCache'
 
 // ── LinkedIn Scraper Status Banners ──────────────────────────────────────────
 //
@@ -667,31 +668,142 @@ export function Overview({
     })
   }, [openChat])
 
-  // ── Server-side analytics (Phase 6) ─────────────────────────────────────────
-  // fetchAnalyticsOverview() awaits ensureFreshToken() before attaching auth
-  // headers, so the mount-time empty-token race cannot 401 this request.
-  const [overview,        setOverview]        = useState<AnalyticsOverview | null>(null)
-  const [overviewLoading, setOverviewLoading] = useState(true)
+  // ── Server-side analytics — progressive streaming ───────────────────────────
+  // GET /api/dashboard/overview streams 4 independent sections as NDJSON —
+  // each one updates its OWN widget's state (and clears that widget's OWN
+  // loading flag) the instant it arrives, instead of the whole page waiting
+  // for the slowest section. See backend/api/routes/dashboard.py's streaming
+  // design — same one-connection, one-JOIN backend work as before, only
+  // delivery changed from buffered to incremental. streamDashboardOverview()
+  // awaits ensureFreshToken() before attaching auth headers, so the
+  // mount-time empty-token race cannot 401 this request.
+  //
+  // Correctness-first design: the backend still has NO server-side cache —
+  // every section is recomputed from the current committed database state on
+  // every call. The ONLY thing cached anywhere is this component's
+  // last-known-result snapshot, kept purely for instant first paint. It is
+  // explicitly presented as such: `isShowingLastKnown` gates a
+  // "Refreshing… as of <time>" label, cleared only once ALL 4 sections have
+  // been confirmed fresh by this mount's stream — never left on, never
+  // implied to be current data before that.
+  const lastKnownSnapshot = getLastKnownDashboardSnapshot(userId)
+
+  const [overview,        setOverview]        = useState<AnalyticsOverview | null>(
+    () => lastKnownSnapshot?.data.overview ?? null
+  )
+  const [overviewLoading, setOverviewLoading] = useState(() => lastKnownSnapshot === null)
   const [overviewError,   setOverviewError]   = useState<'rate_limited' | 'failed' | null>(null)
+
+  const [confidenceMatrixData, setConfidenceMatrixData] = useState<ConfidenceMatrixResponse | undefined>(
+    () => lastKnownSnapshot?.data.confidence_matrix
+  )
+  const [trustScoreData, setTrustScoreData] = useState<TrustScoreResponse | undefined>(
+    () => lastKnownSnapshot?.data.trust_score
+  )
+  const [trustScoreStreamError, setTrustScoreStreamError] = useState<string | null>(null)
+
+  // True until ALL 4 sections have been confirmed fresh by this mount's
+  // stream — a page-level "Refreshing…" signal that sits ALONGSIDE (not
+  // instead of) each widget's own independent loading/error state below.
+  const [isShowingLastKnown, setIsShowingLastKnown] = useState(() => lastKnownSnapshot !== null)
+  const [lastKnownAt,        setLastKnownAt]        = useState<string | null>(() => lastKnownSnapshot?.savedAt ?? null)
 
   const loadOverview = useCallback(() => {
     let cancelled = false
-    setOverviewLoading(true)
-    fetchAnalyticsOverview()
-      .then(d => {
-        if (cancelled) return
-        setOverview(d)
-        setOverviewError(null)
-      })
-      .catch(err => {
-        if (cancelled) return
-        setOverviewError(err instanceof RateLimitError ? 'rate_limited' : 'failed')
-      })
-      .finally(() => { if (!cancelled) setOverviewLoading(false) })
+    if (lastKnownSnapshot === null) {
+      setOverviewLoading(true)
+    }
+    setOverviewError(null)
+
+    // Accumulates sections as they stream in; once all 4 have succeeded,
+    // this mount's data is confirmed fresh (clears the last-known label)
+    // and is saved as the new last-known snapshot for next visit's instant
+    // paint. A section that errors never gets recorded here, so a partial
+    // stream (some sections ok, one failed) never overwrites a good
+    // previous snapshot with incomplete data.
+    const collected: Partial<DashboardOverviewResponse> = {}
+    const maybeFinish = () => {
+      if (cancelled) return
+      if (collected.overview && collected.scraper_status && collected.confidence_matrix && collected.trust_score) {
+        setIsShowingLastKnown(false)
+        setLastKnownAt(null)
+        saveDashboardSnapshot(userId, collected as DashboardOverviewResponse)
+      }
+    }
+
+    streamDashboardOverview(event => {
+      if (cancelled) return
+      if (event.section === 'overview') {
+        if ('data' in event) {
+          setOverview(event.data)
+          setOverviewError(null)
+          setOverviewLoading(false)
+          collected.overview = event.data
+          maybeFinish()
+        } else {
+          setOverviewError('failed')
+          setOverviewLoading(false)
+        }
+      } else if (event.section === 'scraper_status') {
+        if ('data' in event) {
+          setScraperStatus(event.data)
+          collected.scraper_status = event.data
+          maybeFinish()
+        }
+        // Non-fatal on error, same as the 30s polling below — silently keep
+        // whatever scraperStatus already had (last-known snapshot or null);
+        // the banner is absent by default, so "no update yet" reads fine.
+      } else if (event.section === 'confidence_matrix') {
+        if ('data' in event) {
+          setConfidenceMatrixData(event.data)
+          collected.confidence_matrix = event.data
+          maybeFinish()
+        }
+        // Non-fatal — TrustDashboard already renders an empty radar chart
+        // when no confidence-matrix data is available (its own pre-existing
+        // fallback for this exact case).
+      } else if (event.section === 'trust_score') {
+        if ('data' in event) {
+          setTrustScoreData(event.data)
+          setTrustScoreStreamError(null)
+          collected.trust_score = event.data
+          maybeFinish()
+        } else {
+          setTrustScoreStreamError(event.error)
+        }
+      }
+    }).catch(err => {
+      if (cancelled) return
+      // Stream-level failure (network drop, non-200 before any lines
+      // arrived) — surface it on the KPI row, the widget most directly
+      // analogous to the page's overall health; sections that already
+      // streamed in successfully before the drop keep showing their data.
+      setOverviewError(err instanceof RateLimitError ? 'rate_limited' : 'failed')
+      setOverviewLoading(false)
+    })
+
     return () => { cancelled = true }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
 
   useEffect(() => loadOverview(), [loadOverview])
+
+  // Clear the PREVIOUS user's last-known snapshot on an actual user change
+  // (userId prop switching to a different, non-empty value while this
+  // component stays mounted) — belt-and-suspenders alongside
+  // AuthContext.signOut()'s full localStorage.clear(). Deliberately NOT a
+  // plain unmount cleanup: this component remounts on every tab-switch away
+  // from Overview (see the TrustDashboard section comment below), and a
+  // remount must NOT wipe the snapshot — that would defeat the entire
+  // instant-render feature for the normal "switch tabs and come back" case.
+  const previousUserIdRef = useRef(userId)
+  useEffect(() => {
+    const previousUserId = previousUserIdRef.current
+    if (previousUserId && previousUserId !== userId) {
+      clearDashboardSnapshot(previousUserId)
+    }
+    previousUserIdRef.current = userId
+  }, [userId])
 
   // KPIs come EXCLUSIVELY from the analytics API (real per-user DB counts).
   // No client-derived or mock fallbacks: when the API has no data (or fails),
@@ -705,11 +817,13 @@ export function Overview({
   const handleMatchClick    = useCallback(()              => onGo('feed'),         [onGo])
   const handleMatchJobClick = useCallback((jobId: string) => onGo('feed', jobId),  [onGo])
 
-  // ── LinkedIn scraper status — polled on mount + every 30 s ─────────────────
-  // Re-polling is necessary because the Overview component stays mounted even
-  // while the user is on other tabs, and the reset script can change the KV
-  // state at any time.  A stale in-memory snapshot would keep the BLOCKED
-  // banner visible long after the status was cleared.
+  // ── LinkedIn scraper status — initial value from the aggregated fetch
+  // above, then re-polled every 30 s ─────────────────────────────────────────
+  // Re-polling (not the initial fetch — that's covered by loadOverview() now)
+  // is necessary because the Overview component stays mounted even while the
+  // user is on other tabs, and the reset script can change the KV state at
+  // any time. A stale in-memory snapshot would keep the BLOCKED banner
+  // visible long after the status was cleared.
   const [scraperStatus, setScraperStatus] = useState<ScraperStatus | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -718,7 +832,6 @@ export function Overview({
         .then(s => { if (!cancelled) setScraperStatus(s) })
         .catch(() => { /* non-critical — ignore */ })
     }
-    poll()
     const interval = setInterval(poll, 30_000)
     return () => { cancelled = true; clearInterval(interval) }
   }, [])
@@ -753,16 +866,29 @@ export function Overview({
           </p>
         </div>
 
-        {/* Live date pill — grounds the dashboard as a fresh daily snapshot */}
+        {/* Live date pill — grounds the dashboard as a fresh daily snapshot.
+            When showing a last-known snapshot (not yet confirmed by a
+            completed request), this explicitly says "Refreshing… as of
+            <time>" rather than silently presenting it as current. */}
         <span
           className="inline-flex items-center gap-2 h-9 px-3.5 rounded-full bg-white border border-slate-100 text-[12.5px] font-medium text-slate-500 shrink-0"
           style={{ boxShadow: TOKENS.shadow.card }}
         >
           <span
-            className="block h-1.5 w-1.5 rounded-full"
+            className={`block h-1.5 w-1.5 rounded-full ${isShowingLastKnown ? 'animate-pulse' : ''}`}
             style={{ background: TOKENS.color.primary }}
           />
-          {_todayLabel()}
+          {isShowingLastKnown ? (
+            <span aria-live="polite">
+              Refreshing…{lastKnownAt && (
+                <span className="text-slate-400 font-normal">
+                  {' '}(as of {new Date(lastKnownAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })})
+                </span>
+              )}
+            </span>
+          ) : (
+            _todayLabel()
+          )}
         </span>
       </div>
 
@@ -794,12 +920,29 @@ export function Overview({
 
       {/* ── Confidence Matrix (TrustDashboard) ──────────────────────────── */}
       {/* Wrapped in a premium surface so it blends with the KPI cards above. */}
-      {/* Remounts on every tab-switch to Overview, so fetchData fires fresh. */}
+      {/* Mounted immediately (not gated on overview/scraper-status loading —
+          each widget is independent now): TrustDashboard manages its OWN
+          loading skeleton and error state internally. deferInitialFetch
+          tells it the parent is streaming trust_score/confidence_matrix in
+          progressively and it must NOT fire its own independent fetch (that
+          would duplicate the request the stream above already covers);
+          initialTrustScore/initialConfidenceMatrix/streamError feed each
+          section in the instant its own NDJSON line arrives, and it
+          re-renders with real data the moment either resolves, independent
+          of whether the other one (or the KPI/scraper sections) has. */}
       <section
         className="rounded-2xl bg-white border border-slate-100 p-6"
         style={{ boxShadow: TOKENS.shadow.card }}
       >
-        <TrustDashboard userId={userId} onScoreChange={handleScoreChange} profileVersion={profileVersion} />
+        <TrustDashboard
+          userId={userId}
+          onScoreChange={handleScoreChange}
+          profileVersion={profileVersion}
+          deferInitialFetch
+          initialTrustScore={trustScoreData}
+          initialConfidenceMatrix={confidenceMatrixData}
+          streamError={trustScoreStreamError}
+        />
       </section>
 
       {/* ── Quick actions + Top matches, side by side on wide screens ─── */}

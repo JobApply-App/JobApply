@@ -171,7 +171,7 @@ def _apply_sort(jobs: list[JobMatch], sort: str) -> list[JobMatch]:
 
 
 @router.get("/feed", response_model=List[JobMatch])
-async def get_job_feed(
+def get_job_feed(
     status:    Optional[str] = Query(
         None,
         description="Filter by job status: new | saved | ignored | applied. "

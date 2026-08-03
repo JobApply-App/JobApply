@@ -25,23 +25,19 @@ class ScraperStatusResponse(BaseModel):
     cookie_status: Optional[str]  # 'ok' | 'suspicious'
 
 
-@router.get("/scraper-status", response_model=ScraperStatusResponse)
-async def get_scraper_status(user: CurrentUser = Depends(get_current_user)) -> ScraperStatusResponse:
-    """
-    Return the current LinkedIn scraper health status.
+SCRAPER_STATUS_KEYS = [_KV_SCRAPER_STATUS, _KV_BLOCKED_AT, _KV_COOKIE_STATUS, _KV_SCRAPER_PAUSED]
 
-    Reads four KV keys:
-      • linkedin_scraper_status  — 'BLOCKED' when redirect-loop threshold hit
-      • linkedin_scraper_blocked_at — ISO timestamp when BLOCKED was set
-      • linkedin_cookie_status   — 'suspicious' after first redirect error
-      • linkedin_scraper_paused  — '1' when manually paused via reset script
 
-    Priority: BLOCKED > PAUSED > suspicious > ok.
-    Returns status='ok' when no errors have been recorded.
+def build_scraper_status(entries: dict) -> ScraperStatusResponse:
     """
-    entries = kv_repository.get_many(
-        [_KV_SCRAPER_STATUS, _KV_BLOCKED_AT, _KV_COOKIE_STATUS, _KV_SCRAPER_PAUSED]
-    )
+    Turn the 4 raw KV entries into a ScraperStatusResponse.
+
+    Priority: BLOCKED > PAUSED > suspicious > ok. Returns status='ok' when no
+    errors have been recorded. Pulled out of get_scraper_status() so
+    dashboard.py's aggregated endpoint can reuse the same priority logic
+    against KV entries it loaded itself (shared session), instead of calling
+    this HTTP route internally.
+    """
     status_row  = entries.get(_KV_SCRAPER_STATUS)
     blocked_row = entries.get(_KV_BLOCKED_AT)
     cookie_row  = entries.get(_KV_COOKIE_STATUS)
@@ -65,6 +61,24 @@ async def get_scraper_status(user: CurrentUser = Depends(get_current_user)) -> S
         blocked_at=blocked_at,
         cookie_status=cookie_status,
     )
+
+
+@router.get("/scraper-status", response_model=ScraperStatusResponse)
+def get_scraper_status(user: CurrentUser = Depends(get_current_user)) -> ScraperStatusResponse:
+    """
+    Return the current LinkedIn scraper health status.
+
+    Reads four KV keys:
+      • linkedin_scraper_status  — 'BLOCKED' when redirect-loop threshold hit
+      • linkedin_scraper_blocked_at — ISO timestamp when BLOCKED was set
+      • linkedin_cookie_status   — 'suspicious' after first redirect error
+      • linkedin_scraper_paused  — '1' when manually paused via reset script
+
+    Priority: BLOCKED > PAUSED > suspicious > ok.
+    Returns status='ok' when no errors have been recorded.
+    """
+    entries = kv_repository.get_many(SCRAPER_STATUS_KEYS)
+    return build_scraper_status(entries)
 
 # ── Gmail verification code endpoint ─────────────────────────────────────────
 

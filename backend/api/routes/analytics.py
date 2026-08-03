@@ -113,7 +113,7 @@ def _canonical_company(raw_name: str | None) -> str:
 
 
 @router.get("/overview")
-async def analytics_overview(user: CurrentUser = Depends(get_current_user)) -> dict:
+def analytics_overview(user: CurrentUser = Depends(get_current_user)) -> dict:
     """
     Daily Overview KPI values: Jobs Scanned Today, Actions Taken Today
     (applications submitted since UTC midnight), and Average Match Score
@@ -126,7 +126,7 @@ async def analytics_overview(user: CurrentUser = Depends(get_current_user)) -> d
 
 
 @router.get("/summary")
-async def analytics_summary(user: CurrentUser = Depends(get_current_user)) -> dict:
+def analytics_summary(user: CurrentUser = Depends(get_current_user)) -> dict:
     """
     Aggregate job-seeker metrics from the CRM (application tracking) table,
     scoped to the authenticated user.

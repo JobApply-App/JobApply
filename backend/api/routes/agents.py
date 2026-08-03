@@ -295,7 +295,7 @@ async def _run_agent_scrape(agent_id: str, user_id: str) -> None:
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=list[AgentStatus])
-async def list_agents(user: CurrentUser = Depends(get_current_user)):
+def list_agents(user: CurrentUser = Depends(get_current_user)):
     """
     Return live status for all pipeline agents, scoped to the authenticated user.
 

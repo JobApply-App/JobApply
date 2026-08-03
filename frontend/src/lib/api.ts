@@ -1,4 +1,4 @@
-import type { ApiAgentStatus, ApiJobMatch, AnalyzeRequest, AnalyzeResponse, MatchScoreResult, ApiFeedJob, RefreshResponse, BackfillResponse, FetchJdResponse, JobStatus, VerifyChatEntry, VerifyChatResponse, TailorBriefResponse, OutreachRequest, OutreachResponse, HeadhunterRequest, AtsKeywordsResponse, InterviewSession, VerificationResult, CrmBoard, MarkAppliedResponse, JobAnalysisState } from './apiTypes'
+import type { ApiAgentStatus, ApiJobMatch, AnalyzeRequest, AnalyzeResponse, MatchScoreResult, ApiFeedJob, RefreshResponse, BackfillResponse, FetchJdResponse, JobStatus, VerifyChatEntry, VerifyChatResponse, TailorBriefResponse, OutreachRequest, OutreachResponse, HeadhunterRequest, AtsKeywordsResponse, InterviewSession, VerificationResult, CrmBoard, MarkAppliedResponse, JobAnalysisState, TrustScoreResponse, ConfidenceMatrixResponse } from './apiTypes'
 import type { Job } from './data'
 import { supabase } from './supabase'
 
@@ -952,6 +952,86 @@ export async function fetchScraperStatus(): Promise<ScraperStatus> {
   })
   if (!res.ok) throw new Error(`scraper-status HTTP ${res.status}`)
   return res.json() as Promise<ScraperStatus>
+}
+
+// ── Aggregated Overview-page endpoint ──────────────────────────────────────────
+// Bundles overview KPIs + scraper-status + trust-score + confidence-matrix into
+// one response (backend/api/routes/dashboard.py) — replaces 4 independent
+// mount-time requests with 1. The 4 standalone endpoints above still exist and
+// still work (scraper-status polling, TrustDashboard's profileVersion refetch).
+
+export interface DashboardOverviewResponse {
+  overview:          AnalyticsOverview
+  scraper_status:    ScraperStatus
+  trust_score:       TrustScoreResponse
+  confidence_matrix: ConfidenceMatrixResponse
+}
+
+/** Section-keyed data types for the streamed dashboard sections. */
+export interface DashboardSectionDataMap {
+  overview:          AnalyticsOverview
+  scraper_status:    ScraperStatus
+  confidence_matrix: ConfidenceMatrixResponse
+  trust_score:       TrustScoreResponse
+}
+export type DashboardSectionName = keyof DashboardSectionDataMap
+
+/** One parsed NDJSON line from the stream: either {section, data} or
+ *  {section, error} — never both. */
+export type DashboardStreamEvent = {
+  [K in DashboardSectionName]: { section: K; data: DashboardSectionDataMap[K] } | { section: K; error: string }
+}[DashboardSectionName]
+
+/**
+ * Consumes GET /api/dashboard/overview as newline-delimited JSON (NDJSON),
+ * calling onEvent for each section (overview, scraper_status,
+ * confidence_matrix, trust_score) the instant its line arrives — instead of
+ * waiting for the whole response to buffer. Backend still computes every
+ * section fresh from the current committed database state on every call;
+ * this only changes DELIVERY, streaming each section to the UI as soon as
+ * it's ready so independent widgets can render progressively.
+ *
+ * Rejects the returned promise only for a stream-level failure (network
+ * drop, non-200 status) — a single section's own computation failing
+ * arrives as a normal {section, error} event via onEvent, not a rejection,
+ * so one section erroring never aborts the others already delivered or
+ * still in flight.
+ */
+export async function streamDashboardOverview(
+  onEvent: (event: DashboardStreamEvent) => void,
+): Promise<void> {
+  await ensureFreshToken()
+  const res = await fetch(`${BASE}/api/dashboard/overview`, {
+    headers: getAuthHeaders(),
+    cache:   'no-store',
+  })
+  if (res.status === 429) throw new RateLimitError()
+  if (!res.ok) throw new Error(`dashboard/overview HTTP ${res.status}`)
+  if (!res.body) {
+    // Environment without a readable stream (shouldn't happen in a
+    // browser) — fall back to reading the whole body as NDJSON text at once.
+    const text = await res.text()
+    for (const line of text.split('\n')) {
+      if (line.trim()) onEvent(JSON.parse(line) as DashboardStreamEvent)
+    }
+    return
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let newlineIndex: number
+    while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, newlineIndex)
+      buffer = buffer.slice(newlineIndex + 1)
+      if (line.trim()) onEvent(JSON.parse(line) as DashboardStreamEvent)
+    }
+  }
+  if (buffer.trim()) onEvent(JSON.parse(buffer) as DashboardStreamEvent)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

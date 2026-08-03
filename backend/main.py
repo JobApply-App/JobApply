@@ -32,7 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from backend.api.routes import agents, all_jobs, analytics, applications, ariel, auth, chat, crm, history, jobs, linkedin_jobs, outreach, profile, resumes, scraper, settings, webhooks
+from backend.api.routes import agents, all_jobs, analytics, applications, ariel, auth, chat, crm, dashboard, history, jobs, linkedin_jobs, outreach, profile, resumes, scraper, settings, webhooks
 from backend.config import (
     AUTO_DISCOVERY,
     CORS_ORIGINS,
@@ -434,6 +434,7 @@ app.include_router(settings.router,     prefix="/api/settings",     tags=["setti
 app.include_router(profile.router,      prefix="/api/profile",      tags=["profile"])
 app.include_router(outreach.router,     prefix="/api/outreach",     tags=["outreach"])
 app.include_router(analytics.router,    prefix="/api/analytics",    tags=["analytics"])
+app.include_router(dashboard.router,    prefix="/api/dashboard",    tags=["dashboard"])
 app.include_router(webhooks.router,     prefix="/api/webhooks",     tags=["webhooks"])
 app.include_router(crm.router,          prefix="/api/crm",          tags=["crm"])
 app.include_router(scraper.router,      prefix="/api/v1/scraper",   tags=["scraper"])

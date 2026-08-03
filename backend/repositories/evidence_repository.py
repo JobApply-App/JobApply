@@ -46,11 +46,62 @@ def get_active_for_entity(
     entities in one request (e.g. profile.py's trust-score and
     force-recalculate endpoints) can share one session/connection for the
     whole loop instead of opening a new one per entity.
+
+    Prefer get_active_for_entities() (plural) when the caller already has
+    the full list of entity_ids up front — this single-entity form still
+    means one round-trip PER CALL, which is fine for e.g. a single
+    manual-verify action but was the root cause of trust-score taking
+    18-30s for a 160-entity profile (160 sequential round-trips to a
+    remote Postgres) before that endpoint was switched to the batched form.
     """
     if session is not None:
         return _query(session, entity_id, now_iso)
     with Session(ENGINE) as owned_session:
         return _query(owned_session, entity_id, now_iso)
+
+
+def get_active_for_entities(
+    entity_ids: list[str],
+    now_iso: str,
+    session: Session,
+) -> dict[str, list[Evidence]]:
+    """
+    Same "active evidence" filter as get_active_for_entity(), but for many
+    entities in ONE query (WHERE entity_id IN (...)) instead of one query
+    per entity — the fix for the N+1 pattern that made trust-score take
+    18-30s for a profile with 160 entities (160 sequential round-trips to
+    a remote Postgres instance). Returns a dict keyed by entity_id, with
+    every requested id present (empty list if that entity has no active
+    evidence) so callers can use plain dict indexing without a .get()
+    fallback.
+    """
+    if not entity_ids:
+        return {}
+    rows = (
+        session.query(EvidenceRecordRow)
+        .filter(
+            EvidenceRecordRow.entity_id.in_(entity_ids),
+            or_(
+                EvidenceRecordRow.hard_expires_at.is_(None),
+                EvidenceRecordRow.hard_expires_at > now_iso,
+            ),
+        )
+        .order_by(EvidenceRecordRow.verified_at.desc(), EvidenceRecordRow.evidence_id.asc())
+        .all()
+    )
+    result: dict[str, list[Evidence]] = {eid: [] for eid in entity_ids}
+    for r in rows:
+        result[r.entity_id].append(Evidence(
+            evidence_id     = r.evidence_id,
+            entity_id       = r.entity_id,
+            source_type     = r.source_type,
+            base_weight     = r.base_weight,
+            raw_content     = r.raw_content,
+            verified_at     = r.verified_at,
+            hard_expires_at = r.hard_expires_at,
+            is_ai_assisted  = bool(r.is_ai_assisted),
+        ))
+    return result
 
 
 def _query(session: Session, entity_id: str, now_iso: str) -> list[Evidence]:
@@ -63,7 +114,7 @@ def _query(session: Session, entity_id: str, now_iso: str) -> list[Evidence]:
                 EvidenceRecordRow.hard_expires_at > now_iso,
             ),
         )
-        .order_by(EvidenceRecordRow.verified_at.desc())
+        .order_by(EvidenceRecordRow.verified_at.desc(), EvidenceRecordRow.evidence_id.asc())
         .all()
     )
     return [

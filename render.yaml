@@ -1,0 +1,76 @@
+# Render Blueprint — deploys the FastAPI backend as an always-on web
+# service, reusing backend/Dockerfile as-is (no changes to that file).
+# Needed because Vercel (frontend) only hosts static/serverless functions —
+# it can't run this app's background asyncio loops (enrichment/discovery,
+# see backend/main.py's startup) or reach a backend on your own machine.
+# See frontend/next.config.mjs's rewrites() comment for the other half of
+# this wiring (BACKEND_URL).
+#
+# Setup (one-time):
+#   1. https://dashboard.render.com -> New -> Blueprint -> connect this repo.
+#      Render finds this file automatically.
+#   2. Render creates the service below but leaves every `sync: false` env
+#      var empty — fill in real values under the service's Environment tab
+#      (same values as your local backend/.env; never commit them here).
+#   3. Once deployed, copy the service's URL (https://<name>.onrender.com)
+#      into Vercel's project settings -> Environment Variables -> BACKEND_URL,
+#      then redeploy the Vercel frontend so the rewrite proxy picks it up.
+#
+# Local dev/Docker are UNAFFECTED by this file — docker-compose.yml and
+# `uvicorn --reload` keep working exactly as before.
+services:
+  - type: web
+    name: jobapply-backend
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    # Overrides the Dockerfile's own dev CMD (which uses --reload — fine
+    # locally with a bind-mounted volume, wasteful/pointless on a static
+    # deployed image) and binds to Render's own dynamic $PORT instead of
+    # the hardcoded 8000 the local Dockerfile/docker-compose.yml use.
+    dockerCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_ENV
+        value: production
+      # Required — without this, both Postgres writes (linkedin.jobs +
+      # public.all_jobs) and every other DB-backed route fail. Use the
+      # Supabase Session pooler connection string (Project Settings ->
+      # Database -> Connection string -> Session pooler) — the Direct
+      # connection is IPv6-only and unreachable from most PaaS networks,
+      # same issue hit earlier with GitHub Actions runners.
+      - key: DATABASE_URL
+        sync: false
+      # Required for authenticated routes (backend/api/deps.py 503s
+      # without at least one of SUPABASE_URL / SUPABASE_JWT_SECRET set).
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      # Required for Ariel/chat and every LLM-backed feature (CV tailoring,
+      # match scoring, etc.) — those routes 503 without it, everything else
+      # still works.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Optional — feature-specific keys. Leave blank in the dashboard to
+      # simply disable that one feature rather than the whole app; every
+      # call site already guards for a missing key.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: RAPIDAPI_LINKEDIN_HOST
+        sync: false
+      - key: RAPIDAPI_LINKEDIN_PATH
+        sync: false
+      - key: RAPIDAPI_LINKEDIN_TIME_FRAME
+        sync: false
+      - key: SCRAPER_API_KEY
+        sync: false
+      - key: USE_SCRAPER_API
+        sync: false
+      - key: EMAIL_WEBHOOK_SECRET
+        sync: false

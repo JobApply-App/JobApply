@@ -254,7 +254,7 @@ def _compute_weighted_score(evidence_rows: list[dict], entity_name: str = "") ->
     return final
 
 
-def _parse_dt(value) -> datetime:
+def parse_dt(value) -> datetime:
     if isinstance(value, datetime):
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
     try:
@@ -294,7 +294,7 @@ def _fetch_evidence(conn, entity_ids: list[str]) -> dict[str, list[dict]]:
             result[eid].append({
                 "source_type":    row[1],
                 "base_weight":    float(row[2]),
-                "verified_at":    _parse_dt(row[3]),
+                "verified_at":    parse_dt(row[3]),
                 "is_ai_assisted": bool(row[4]) if row[4] is not None else False,
             })
 
@@ -306,44 +306,76 @@ def _fetch_evidence(conn, entity_ids: list[str]) -> dict[str, list[dict]]:
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
+#
+# get_confidence_matrix() and get_entity_breakdown() both read profile_entities
+# + evidence_records for the same user, just projecting different columns and
+# aggregating differently — so each, called standalone (as several callers
+# across the codebase do: match_score_service, cv_tailor_service,
+# profile_baseline_service, feed_service all call get_entity_breakdown() on
+# its own), still does its own two-query load via load_entities_and_evidence().
+# Callers that need BOTH outputs for the same user in the same request (only
+# profile.py's confidence-matrix route today) should call
+# load_entities_and_evidence() once themselves and pass the result to
+# compute_radar()/compute_breakdown() directly (or use
+# get_confidence_matrix_and_breakdown() below for the common case) — either
+# way, evidence and profile_entities are only loaded once instead of twice.
 
-def get_confidence_matrix(user_id: str, engine: Engine) -> list[RadarDatum]:
-    """
-    Compute the four-category Confidence Matrix for `user_id`.
+# Superset of the columns both outputs need, so one query serves both.
+_ENTITY_COLUMNS = """
+    entity_id, name, entity_type, normalized_name, confidence_score,
+    architecture_confidence, syntax_confidence, skill_tier, verification_level
+"""
 
-    Every category is always present in the output with value ≥ 0.0 so that
-    recharts RadarChart renders all four axes even when some have no evidence.
+
+def load_entities_and_evidence(engine: Engine, user_id: str):
+    """Single load of profile_entities + their evidence for `user_id`.
+
+    Both queries run on ONE checked-out connection (one pool checkout, one
+    close) rather than one per query — halves the connection-lifecycle
+    overhead (checkout + pre-ping + implicit-rollback-on-close) on top of the
+    query count reduction.
+
+    Returns (entity_rows, evidence_by_entity) — entity_rows is `[]` when the
+    user has no entities (evidence_by_entity is then also `{}`), same
+    empty-profile behavior both public functions already relied on.
     """
     with engine.connect() as conn:
         entity_rows = conn.execute(
-            text("""
-                SELECT entity_id, entity_type, normalized_name, confidence_score,
-                       architecture_confidence, syntax_confidence
+            text(f"""
+                SELECT {_ENTITY_COLUMNS}
                 FROM   profile_entities
                 WHERE  user_id = :uid
+                ORDER  BY name
             """),
             {"uid": user_id},
         ).fetchall()
 
+        if not entity_rows:
+            return [], {}
+
+        entity_ids = [r[0] for r in entity_rows]
+        evidence_by_entity = _fetch_evidence(conn, entity_ids)
+
+    return entity_rows, evidence_by_entity
+
+
+def compute_radar(entity_rows, evidence_by_entity, user_id: str) -> list[RadarDatum]:
+    """Every category is always present with value ≥ 0.0 so recharts renders
+    all four axes even when some have no evidence."""
     if not entity_rows:
         logger.warning("[confidence_matrix] no entities found for user_id=%s", user_id)
         return [{"category": c, "value": 0.0, "arch_value": 0.0, "syn_value": 0.0}
                 for c in CATEGORIES]
 
-    entity_ids = [r[0] for r in entity_rows]
-    logger.info(
-        "[confidence_matrix] user=%s  entity_count=%d", user_id, len(entity_ids)
-    )
-
-    with engine.connect() as conn:
-        evidence_by_entity = _fetch_evidence(conn, entity_ids)
+    logger.info("[confidence_matrix] user=%s  entity_count=%d", user_id, len(entity_rows))
 
     cat_scores: dict[str, list[float]] = {c: [] for c in CATEGORIES}
     cat_arch:   dict[str, list[float]] = {c: [] for c in CATEGORIES}
     cat_syn:    dict[str, list[float]] = {c: [] for c in CATEGORIES}
 
     for row in entity_rows:
-        entity_id, entity_type, normalized_name, fallback_score, arch_col, syn_col = row
+        (entity_id, _name, entity_type, normalized_name, fallback_score,
+         arch_col, syn_col, _skill_tier, _vl) = row
         evidence = evidence_by_entity.get(entity_id, [])
         score = (
             _compute_weighted_score(evidence, entity_name=normalized_name or entity_id)
@@ -377,36 +409,11 @@ def get_confidence_matrix(user_id: str, engine: Engine) -> list[RadarDatum]:
     return result
 
 
-def get_entity_breakdown(user_id: str, engine: Engine) -> list[EntityScore]:
-    """
-    Per-entity scores with resolved category — used for RadarChart axis tooltips.
-    Always returns a list (empty when the user has no entities).
-    """
-    with engine.connect() as conn:
-        entity_rows = conn.execute(
-            text("""
-                SELECT entity_id, name, entity_type, normalized_name,
-                       skill_tier, architecture_confidence,
-                       syntax_confidence, verification_level
-                FROM   profile_entities
-                WHERE  user_id = :uid
-                ORDER  BY name
-            """),
-            {"uid": user_id},
-        ).fetchall()
-
-    if not entity_rows:
-        return []
-
-    entity_ids = [r[0] for r in entity_rows]
-
-    with engine.connect() as conn:
-        evidence_by_entity = _fetch_evidence(conn, entity_ids)
-
+def compute_breakdown(entity_rows, evidence_by_entity) -> list[EntityScore]:
     result: list[EntityScore] = []
     for row in entity_rows:
-        (entity_id, name, entity_type, normalized_name,
-         skill_tier, arch_conf, syn_conf, vl) = row
+        (entity_id, name, entity_type, normalized_name, _confidence_score,
+         arch_conf, syn_conf, skill_tier, vl) = row
         evidence = evidence_by_entity.get(entity_id, [])
         score = (
             _compute_weighted_score(evidence, entity_name=name)
@@ -424,5 +431,80 @@ def get_entity_breakdown(user_id: str, engine: Engine) -> list[EntityScore]:
             "verification_level":      vl or "UNVERIFIED",
             "skill_tier":              skill_tier,
         })
-
     return result
+
+
+def get_confidence_matrix(user_id: str, engine: Engine) -> list[RadarDatum]:
+    """
+    Compute the four-category Confidence Matrix for `user_id`.
+
+    Every category is always present in the output with value ≥ 0.0 so that
+    recharts RadarChart renders all four axes even when some have no evidence.
+    """
+    entity_rows, evidence_by_entity = load_entities_and_evidence(engine, user_id)
+    return compute_radar(entity_rows, evidence_by_entity, user_id)
+
+
+def get_entity_breakdown(user_id: str, engine: Engine) -> list[EntityScore]:
+    """
+    Per-entity scores with resolved category — used for RadarChart axis tooltips.
+    Always returns a list (empty when the user has no entities).
+    """
+    entity_rows, evidence_by_entity = load_entities_and_evidence(engine, user_id)
+    return compute_breakdown(entity_rows, evidence_by_entity)
+
+
+def entities_from_profile_entities(entity_rows, evidence_by_entity) -> tuple[list, dict[str, list[dict]]]:
+    """
+    Adapt profile_entity_repository.get_all_for_user()'s `list[ProfileEntity]`
+    + evidence_repository.get_active_for_entities()'s `dict[str, list[Evidence]]`
+    (the objects backend/api/routes/profile.py's trust-score endpoint already
+    loads) into the row-tuple + evidence-dict shapes compute_radar()/
+    compute_breakdown() expect.
+
+    Lets a caller that already loaded entities+evidence for trust-score (e.g.
+    dashboard.py's aggregated endpoint) also drive the confidence-matrix
+    computation from that SAME in-memory data — no extra DB round trip, only
+    reshaping already-fetched objects. Both `ProfileEntity` and `Evidence`
+    happen to carry every column this module's own raw-SQL rows do
+    (including normalized_name), so no data is lost in the conversion.
+    """
+    cm_entity_rows = [
+        (
+            e.entity_id, e.name, e.entity_type, e.normalized_name,
+            e.confidence_score, e.architecture_confidence, e.syntax_confidence,
+            e.skill_tier, e.verification_level,
+        )
+        for e in entity_rows
+    ]
+    cm_evidence_by_entity = {
+        entity_id: [
+            {
+                "source_type":    ev.source_type,
+                "base_weight":    float(ev.base_weight),
+                "verified_at":    parse_dt(ev.verified_at),
+                "is_ai_assisted": bool(ev.is_ai_assisted),
+            }
+            for ev in evidence_list
+        ]
+        for entity_id, evidence_list in evidence_by_entity.items()
+    }
+    return cm_entity_rows, cm_evidence_by_entity
+
+
+def get_confidence_matrix_and_breakdown(
+    user_id: str, engine: Engine
+) -> tuple[list[RadarDatum], list[EntityScore]]:
+    """
+    Both get_confidence_matrix() and get_entity_breakdown() outputs for
+    `user_id`, computed from ONE load of profile_entities + evidence instead
+    of the two independent loads calling them separately would cost.
+
+    For the same caller that needs both (profile.py's confidence-matrix
+    route) — every other call site only ever needs get_entity_breakdown()
+    alone, and keeps using that standalone function unchanged.
+    """
+    entity_rows, evidence_by_entity = load_entities_and_evidence(engine, user_id)
+    radar_data = compute_radar(entity_rows, evidence_by_entity, user_id)
+    entity_breakdown = compute_breakdown(entity_rows, evidence_by_entity)
+    return radar_data, entity_breakdown
