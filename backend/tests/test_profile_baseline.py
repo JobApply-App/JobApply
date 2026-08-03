@@ -22,8 +22,6 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from backend.core.database import Base
-from backend.models.profile import MasterProfileRow
 from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
 from backend.services.profile_baseline_service import (
     apply_proficiency_override,
@@ -364,56 +362,90 @@ def test_all_baseline_scores_are_one_decimal():
 
 
 # ── Baseline persistence (central User Profile update) ───────────────────────
+#
+# These two are the only DB-touching tests in this file. They used to run
+# against an isolated SQLite file holding a MasterProfileRow; persistence now
+# goes through profile_repository into profiles/profile_answers, which are
+# Postgres-only (CAST(... AS uuid), jsonb, `public.` qualification) and whose
+# user_id has a hard FK to auth.users. So they run against Dev via the
+# db_available fixture, on a real QA account, and restore what they touched.
+
+_QA_USER = "b0dbf35a-929c-4db3-a04a-24fbe3a3d59d"   # qa-test-linkedin-tab@example.com
+
 
 @pytest.fixture
-def engine(tmp_path):
-    eng = create_engine(f"sqlite:///{tmp_path / 'baseline_test.db'}")
-    Base.metadata.create_all(eng)
-    return eng
+def qa_profile(db_available):
+    """Give the QA account a known profile document, then put it back."""
+    import copy
 
+    from backend.core.database import ENGINE
+    from backend.repositories import profile_repository as pr
 
-def test_persist_snapshot_is_non_destructive(engine):
-    # Pre-existing row with onboarding data that must survive the merge.
-    with Session(engine) as s:
-        s.add(MasterProfileRow(
-            user_id="u1",
-            onboarding_status="complete",
-            master_profile={"skills": ["Python"], "metrics_doc": {"version": 1}},
-            created_at=_iso(30), updated_at=_iso(30),
-        ))
+    with Session(ENGINE) as s:
+        handle, _ = pr.get_or_create(s, _QA_USER, now=_iso(0))
+        original = copy.deepcopy(handle.master_profile)
+        handle.master_profile = {"skills": ["Python"], "metrics_doc": {"version": 1}}
+        pr.save(s, handle)
         s.commit()
 
+    yield _QA_USER
+
+    with Session(ENGINE) as s:
+        handle, _ = pr.get_or_create(s, _QA_USER, now=_iso(0))
+        handle.master_profile = original
+        pr.save(s, handle)
+        s.commit()
+
+
+def test_persist_snapshot_is_non_destructive(qa_profile):
+    """The snapshot merges in; it never rewrites the document around it."""
+    from backend.repositories import profile_repository as pr
+
     baseline = build_user_baseline(
-        "u1", profile=_profile(),
+        qa_profile, profile=_profile(),
         metrics_doc={"metrics": {}, "last_updated": _iso(1)},
         entity_scores=[], now=NOW,
     )
-    assert persist_baseline_snapshot("u1", baseline, engine=engine) is True
+    assert persist_baseline_snapshot(qa_profile, baseline) is True
 
-    with Session(engine) as s:
-        row = s.get(MasterProfileRow, "u1")
-        mp = row.master_profile
-        # Existing keys untouched
-        assert mp["skills"] == ["Python"]
-        assert mp["metrics_doc"] == {"version": 1}
-        # Snapshot written, cv_data intentionally excluded
-        snap = mp["baseline_snapshot"]
-        assert "cv_data" not in snap
-        assert snap["profile_strength"]["tier"] == "partial"
-        assert snap["skill_confidences"]
+    mp = pr.get(qa_profile).master_profile
+    # Existing keys untouched
+    assert mp["skills"] == ["Python"]
+    assert mp["metrics_doc"] == {"version": 1}
+    # Snapshot written, cv_data intentionally excluded
+    snap = mp["baseline_snapshot"]
+    assert "cv_data" not in snap
+    assert snap["profile_strength"]["tier"] == "partial"
+    assert snap["skill_confidences"]
 
 
-def test_persist_snapshot_creates_row_for_new_user(engine):
-    baseline = build_user_baseline(
-        "new-user", profile=_profile(),
-        metrics_doc={"metrics": {}, "last_updated": _iso(1)},
-        entity_scores=[], now=NOW,
-    )
-    assert persist_baseline_snapshot("new-user", baseline, engine=engine) is True
-    with Session(engine) as s:
-        row = s.get(MasterProfileRow, "new-user")
-        assert row is not None
-        assert "baseline_snapshot" in row.master_profile
+def test_persist_snapshot_creates_the_document_when_absent(db_available):
+    """An account with no baseline yet gets one rather than erroring."""
+    import copy
+
+    from backend.core.database import ENGINE
+    from backend.repositories import profile_repository as pr
+
+    with Session(ENGINE) as s:
+        handle, _ = pr.get_or_create(s, _QA_USER, now=_iso(0))
+        original = copy.deepcopy(handle.master_profile)
+        handle.master_profile = {k: v for k, v in original.items() if k != "baseline_snapshot"}
+        pr.save(s, handle)
+        s.commit()
+    try:
+        baseline = build_user_baseline(
+            _QA_USER, profile=_profile(),
+            metrics_doc={"metrics": {}, "last_updated": _iso(1)},
+            entity_scores=[], now=NOW,
+        )
+        assert persist_baseline_snapshot(_QA_USER, baseline) is True
+        assert "baseline_snapshot" in pr.get(_QA_USER).master_profile
+    finally:
+        with Session(ENGINE) as s:
+            handle, _ = pr.get_or_create(s, _QA_USER, now=_iso(0))
+            handle.master_profile = original
+            pr.save(s, handle)
+            s.commit()
 
 
 def test_persist_snapshot_failure_is_swallowed():
