@@ -89,25 +89,48 @@ def append_turn(
     this user (scoped to user_id, so a mismatch is indistinguishable from
     "not found").
 
-    Uses a single UPDATE ... RETURNING statement with SQLite's json_set() to
-    perform the read, merge, and write as one atomic operation — there is no
-    separate SELECT-then-UPDATE window for a concurrent call on the same
-    session_id to race into, so two overlapping calls (e.g. a client retry)
-    can never silently drop one turn's answer the way a fetch-mutate-save
-    round trip would.
+    Uses a single UPDATE ... RETURNING statement to perform the read, merge,
+    and write as one atomic operation — there is no separate SELECT-then-
+    UPDATE window for a concurrent call on the same session_id to race into,
+    so two overlapping calls (e.g. a client retry) can never silently drop
+    one turn's answer the way a fetch-mutate-save round trip would.
+
+    SQLite's json_set() and Postgres's jsonb_set() take incompatible path
+    syntax ("$.key" dot-path vs a text[] key array), so the statement itself
+    is dialect-branched rather than dialect-agnostic — the atomicity
+    guarantee is what must be preserved across both, not the exact SQL.
     """
     eng = engine or ENGINE
-    path = f"$.turn_{int(turn)}"
+    key = f"turn_{int(turn)}"
     with eng.begin() as conn:
-        row = conn.execute(
-            text("""
+        if eng.dialect.name == "sqlite":
+            stmt = text("""
                 UPDATE ariel_sessions
                 SET    transcript_json = json_set(COALESCE(transcript_json, '{}'), :path, :answer)
                 WHERE  session_id = :sid AND user_id = :uid
                 RETURNING transcript_json
-            """),
-            {"path": path, "answer": answer, "sid": session_id, "uid": user_id},
-        ).fetchone()
+            """)
+            params = {"path": f"$.{key}", "answer": answer, "sid": session_id, "uid": user_id}
+        else:
+            # `key` is an int-coerced turn number, never user-supplied text,
+            # so it's safe to interpolate directly into the array-literal path.
+            # CAST(:answer AS text), not `:answer::text` — a bare `::` cast
+            # directly after a bind param breaks SQLAlchemy's text()
+            # tokenizer (see migrate_jobs_db_to_supabase.py's _insert_sql
+            # docstring for the same issue against this same database).
+            stmt = text(f"""
+                UPDATE ariel_sessions
+                SET    transcript_json = jsonb_set(
+                           COALESCE(transcript_json, '{{}}')::jsonb,
+                           '{{{key}}}',
+                           to_jsonb(CAST(:answer AS text))
+                       )::text
+                WHERE  session_id = :sid AND user_id = :uid
+                RETURNING transcript_json
+            """)
+            params = {"answer": answer, "sid": session_id, "uid": user_id}
+
+        row = conn.execute(stmt, params).fetchone()
         if row is None:
             return None
         return json.loads(row[0] or "{}")

@@ -1,14 +1,15 @@
 """
-Dedicated PostgreSQL engine — separate from backend/core/database.py's SQLite
-ENGINE, which remains the app's primary datastore (see CLAUDE.md).
+Dedicated PostgreSQL engine for the `linkedin` schema — separate from
+backend/core/database.py's ENGINE, which now also points at Postgres (same
+DATABASE_URL, `public` schema) once DATABASE_URL is configured, falling back
+to local SQLite otherwise (see that module's docstring).
 
-This module exists solely for backend/models/linkedin_job.py (schema
-`linkedin`, table `jobs`): the LinkedIn ingestion pipeline needs real
-Postgres features the SQLite ENGINE cannot provide — a non-default schema,
-JSONB, TIMESTAMPTZ, and native `INSERT ... ON CONFLICT DO UPDATE` bulk
-upsert. Nothing else in the codebase should import PG_ENGINE/PGSession;
-every other table stays on the SQLite ENGINE until a real, project-wide
-Postgres migration is planned.
+This module exists for backend/models/linkedin_job.py (schema `linkedin`,
+table `jobs`): the LinkedIn ingestion pipeline needs real Postgres features
+a SQLite ENGINE cannot provide — a non-default schema, JSONB, TIMESTAMPTZ,
+and native `INSERT ... ON CONFLICT DO UPDATE` bulk upsert. `_to_sync_dsn`/
+`ensure_sslmode`/`_engine_kwargs_for` are reused by backend/core/database.py
+so both engines resolve connections identically once they share a target.
 
 DATABASE_URL (backend/.env, resolved in backend/config.py — see that
 module's "App environment" section) may point at any of Supabase's three
