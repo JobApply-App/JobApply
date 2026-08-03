@@ -65,41 +65,6 @@ def _migrate() -> None:
             ))
             conn.commit()
 
-    # ── master_profiles — add is_admin (Phase 2 admin foundation) ────────────
-    with ENGINE.connect() as conn:
-        tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
-        if "master_profiles" in tables:
-            existing_mp = {row[1] for row in conn.execute(text("PRAGMA table_info(master_profiles)"))}
-            if "is_admin" not in existing_mp:
-                conn.execute(text(
-                    "ALTER TABLE master_profiles ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"
-                ))
-                conn.commit()
-            if "email" not in existing_mp:
-                conn.execute(text(
-                    "ALTER TABLE master_profiles ADD COLUMN email TEXT"
-                ))
-                conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS ix_master_profiles_email "
-                    "ON master_profiles (email)"
-                ))
-                conn.commit()
-
-    # ── master_profiles — create if not yet present (safe on existing DBs) ──────
-    with ENGINE.connect() as conn:
-        tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
-        if "master_profiles" not in tables:
-            conn.execute(text("""
-                CREATE TABLE master_profiles (
-                    user_id           TEXT PRIMARY KEY,
-                    onboarding_status TEXT NOT NULL DEFAULT 'incomplete',
-                    master_profile    JSON NOT NULL DEFAULT '{}',
-                    created_at        TEXT,
-                    updated_at        TEXT
-                )
-            """))
-            conn.commit()
-
     # ── JOB-6: indexes on applications filter+sort columns ───────────────────
     # CREATE INDEX IF NOT EXISTS is idempotent — safe to run on every startup
     # against an existing populated DB, no data migration required.
