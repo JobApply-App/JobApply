@@ -27,7 +27,7 @@ import pytest
 from sqlalchemy import text
 
 from backend.core.database import ENGINE
-from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
+from backend.models import application, ariel, kv, matching, profile  # noqa: F401
 from backend.services.match_trigger_service import (
     evaluate_match_trigger,
     fetch_pending_triggers,

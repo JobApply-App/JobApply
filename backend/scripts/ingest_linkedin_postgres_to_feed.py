@@ -3,8 +3,8 @@ ingest_linkedin_postgres_to_feed.py
 
 Bridges backend/models/linkedin_job.py's `linkedin.jobs` table (a separate
 PostgreSQL datastore populated by backend/scripts/linkedin_israel_jobs.py)
-into the app's actual primary datastore — the SQLite `jobs` table that the
-"Matches" feed (GET /api/jobs/feed) reads from.
+into the app's primary datastore — the `job_postings`/`user_job_matches`
+tables that the "Matches" feed (GET /api/jobs/feed) reads from.
 
 No bridge previously existed between these two tables (linkedin.jobs is only
 read by GET /api/linkedin/jobs for its own "All Jobs" tab). This script is

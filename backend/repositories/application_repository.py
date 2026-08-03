@@ -126,9 +126,9 @@ def upsert_submitted(
     Upsert the ApplicationRow for (job_id, user_id) to status='submitted'.
 
     Takes an already-open, uncommitted Session so the caller can combine this
-    write with other mutations (e.g. flipping JobRow.applied) in one atomic
-    commit — mirrors the exact upsert-or-create logic that previously lived
-    inline in the mark_applied route handler.
+    write with other mutations (e.g. flipping user_job_matches.applied) in one
+    atomic commit — mirrors the exact upsert-or-create logic that previously
+    lived inline in the mark_applied route handler.
 
     Returns (application_id, created) — created=True only when a brand new
     row was added under new_application_id.
@@ -210,8 +210,8 @@ def get_all_rows(user_id: str, session: Optional[Session] = None) -> list[Applic
     Application schema returned by get_all().
 
     Accepts an optional already-open Session so a caller reading another
-    table in the same request (e.g. analytics.py also queries JobRow) can
-    share one session instead of opening a new one.
+    table in the same request (e.g. analytics.py also queries
+    user_job_matches) can share one session instead of opening a new one.
     """
     if session is not None:
         return _query_all_rows(session, user_id)

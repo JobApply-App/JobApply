@@ -49,8 +49,8 @@ _VALID_STATUSES: frozenset[str] = frozenset({
 })
 
 # ── DB status string for each parsed stage ────────────────────────────────────
-# These are the values written directly to ApplicationRow.status / JobRow.status.
-# They match the stage keys used by the analytics funnel.
+# These are the values written directly to ApplicationRow.status /
+# user_job_matches.status. They match the stage keys used by the analytics funnel.
 STATUS_TO_DB: dict[str, str] = {
     "Phone Screen": "phone screen",
     "Technical":    "technical",

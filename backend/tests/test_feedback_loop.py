@@ -33,7 +33,7 @@ from sqlalchemy import text
 
 from backend.agents.company_culture import build_profile_from_payload, save_cached_profile
 from backend.core.database import ENGINE
-from backend.models import application, ariel, job, kv, matching, profile  # noqa: F401
+from backend.models import application, ariel, kv, matching, profile  # noqa: F401
 from backend.services.feedback_service import (
     EVIDENCE_THRESHOLD,
     MIN_CULTURE_EVENTS,

@@ -116,8 +116,7 @@ def append_turn(
             # so it's safe to interpolate directly into the array-literal path.
             # CAST(:answer AS text), not `:answer::text` — a bare `::` cast
             # directly after a bind param breaks SQLAlchemy's text()
-            # tokenizer (see migrate_jobs_db_to_supabase.py's _insert_sql
-            # docstring for the same issue against this same database).
+            # tokenizer.
             stmt = text(f"""
                 UPDATE ariel_sessions
                 SET    transcript_json = jsonb_set(

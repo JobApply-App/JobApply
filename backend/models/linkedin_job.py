@@ -6,7 +6,7 @@ Lives on the dedicated Postgres engine in backend/core/postgres.py, NOT the
 app's primary SQLite ENGINE (backend/core/database.py) — see that module's
 docstring for why. Uses real Postgres types (schema, TIMESTAMPTZ, JSONB,
 UUID) rather than this repo's usual String/JSON/String-timestamp house style
-(backend/models/job.py etc.), because those SQLite-compatible types can't
+(backend/models/application.py etc.), because those SQLite-compatible types can't
 express what this table needs (see the project's Postgres migration request:
 native `INSERT ... ON CONFLICT DO UPDATE`, a non-default schema, JSONB).
 

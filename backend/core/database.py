@@ -10,11 +10,11 @@ class in backend/models/ imports from.
 Engine selection: when DATABASE_URL is configured, ENGINE points at that
 Postgres database (same resolution/SSL/pooling logic as backend/core/
 postgres.py's PG_ENGINE, so both point at the same physical Supabase project
-once cut over — see backend/scripts/migrate_jobs_db_to_supabase.py for the
-one-time data copy and backend/alembic_app_schema/ for the schema). When
-DATABASE_URL is unset, ENGINE falls back to the local SQLite file exactly as
-before — this keeps offline/local dev and any test suite that doesn't
-configure DATABASE_URL working unchanged.
+once cut over — schema managed by backend/alembic_app_schema/; the one-time
+SQLite-jobs.db-to-Postgres data copy already ran and its script has since
+been removed). When DATABASE_URL is unset, ENGINE falls back to the local
+SQLite file exactly as before — this keeps offline/local dev and any test
+suite that doesn't configure DATABASE_URL working unchanged.
 """
 from __future__ import annotations
 
