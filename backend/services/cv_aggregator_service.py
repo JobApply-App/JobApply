@@ -333,6 +333,12 @@ ABSOLUTE RULES:
 - Skills should be deduplicated (case-insensitive).
 - Output ONLY a valid raw JSON object — no markdown, no explanation, no preamble.
 - Extract ALL skills present — do not cap or truncate the skills array.
+- skill_details.proficiency_level/years_of_experience/last_used_year: same
+  never-invent rule as everything else — leave empty/null unless the CV text
+  actually supports the value (an explicit level, or dated roles you can
+  compute tenure/recency from). A skill merely being listed, with nothing
+  else said about it, gets no proficiency_level and null for the other two —
+  that is the correct, honest answer, not a gap to fill in.
 - Extract ALL functional and industry domains present — do not cap at 2-4;
   emit every distinct domain the candidate has operated in (Ops, Finance,
   Legal, Product, Insurance, SaaS, etc. are all valid separate domains).
@@ -385,6 +391,14 @@ OUTPUT SCHEMA (all fields required, use empty list/string/array if not found):
   ],
   "skills": [
     "exact skill string — emit every distinct skill found, no upper limit"
+  ],
+  "skill_details": [
+    {
+      "name": "must exactly match one entry in the skills array above",
+      "proficiency_level": "EXACTLY ONE of: beginner, intermediate, advanced, expert — ONLY if the CV states or clearly implies a level (e.g. 'expert in X', '2 years of Y'); empty string if not inferable, never guessed",
+      "years_of_experience": "number of years of experience with this specific skill, computed from dated roles that mention it, or null if not determinable",
+      "last_used_year": "YYYY integer for the most recent year this skill appears to have been used (e.g. the end year of the most recent role that mentions it), or null if not determinable"
+    }
   ],
   "domains": [
     "one high-level professional domain string per distinct domain the candidate
@@ -492,6 +506,7 @@ def _empty_claims() -> dict:
         "personal":    _empty_personal(),
         "languages":   [],
         "skills":      [],
+        "skill_details": [],
         "domains":     [],
         "experiences": [],
         "education":   [],
