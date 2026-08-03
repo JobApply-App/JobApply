@@ -92,3 +92,74 @@ def clean_jobs_table(db_available):
     with get_pg_session() as session:
         session.execute(text("TRUNCATE linkedin.jobs"))
         session.commit()
+
+
+@pytest.fixture()
+def disposable_qa_account(db_available):
+    """
+    A brand-new, real Supabase auth.users row, created via the Admin Auth API
+    and hard-deleted on teardown — true per-test isolation for anything that
+    reads a user's *entire* history (e.g. feedback_service.
+    apply_preference_learning(), which sums every rated job on the account).
+    A shared, reused QA account can't give that: leftover rows from an
+    earlier test or a previous interrupted run silently pollute the mean.
+
+    Deleting the auth.users row cascades through the whole graph on its own
+    (profiles.id -> auth.users.id ON DELETE CASCADE, and every tenant table
+    FK's to profiles.id the same way — see 00eab53e0f00's docstring), so
+    teardown here needs nothing beyond the one DELETE call.
+
+    Skips — not fails — when SUPABASE_URL/SUPABASE_SECRET_KEY aren't
+    configured (e.g. CI, which has no service-role secret), same pattern as
+    llm_available: a green run should mean "checked and passed", not
+    "silently skipped everywhere".
+    """
+    import uuid as _uuid
+
+    from backend.config import SUPABASE_SECRET_KEY, SUPABASE_URL
+
+    if not SUPABASE_URL or not SUPABASE_SECRET_KEY:
+        pytest.skip("SUPABASE_URL/SUPABASE_SECRET_KEY not configured — skipping disposable-account test")
+
+    import httpx
+
+    base = SUPABASE_URL.rstrip("/")
+    headers = {
+        "apikey": SUPABASE_SECRET_KEY,
+        "Authorization": f"Bearer {SUPABASE_SECRET_KEY}",
+        "Content-Type": "application/json",
+    }
+    email = f"qa-disposable-{_uuid.uuid4().hex[:12]}@example.com"
+
+    with httpx.Client(timeout=10.0) as client:
+        resp = client.post(f"{base}/auth/v1/admin/users", headers=headers, json={
+            "email": email,
+            "password": _uuid.uuid4().hex,
+            "email_confirm": True,
+        })
+    if resp.status_code >= 400:
+        pytest.skip(f"Could not create disposable Supabase test account: {resp.status_code} {resp.text}")
+    user_id = resp.json()["id"]
+
+    # auth.users alone isn't enough — every tenant table's FK targets
+    # profiles.id, not auth.users.id directly, so writing anything (a job
+    # match, a feedback row) would fail with a ForeignKeyViolation until a
+    # profiles row exists for this user too. The real app creates it on
+    # first login via /api/profile/init; tests must do the same explicitly.
+    from sqlalchemy.orm import Session
+
+    from backend.core.database import ENGINE
+    from backend.repositories import profile_repository as pr
+
+    with Session(ENGINE) as s:
+        pr.get_or_create(s, user_id, now="2026-01-01T00:00:00")
+        s.commit()
+
+    try:
+        yield user_id
+    finally:
+        with httpx.Client(timeout=10.0) as client:
+            del_resp = client.delete(f"{base}/auth/v1/admin/users/{user_id}", headers=headers)
+        if del_resp.status_code >= 400:
+            print(f"[disposable_qa_account] WARNING: failed to delete {user_id}: "
+                  f"{del_resp.status_code} {del_resp.text}")
