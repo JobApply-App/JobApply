@@ -136,6 +136,12 @@ GEMINI_API_KEY:    Optional[str] = os.getenv("GEMINI_API_KEY")
 SUPABASE_URL:        Optional[str] = _select_env_var("SUPABASE_URL")
 SUPABASE_JWT_SECRET: Optional[str] = _select_env_var("SUPABASE_JWT_SECRET")
 
+# Service-role key — bypasses RLS, required for the Admin Auth API (creating/
+# deleting auth.users rows). Only ever read by test fixtures that need a
+# disposable, isolated account (see backend/tests/conftest.py's
+# disposable_qa_account); never used by the running app itself.
+SUPABASE_SECRET_KEY: Optional[str] = _select_env_var("SUPABASE_SECRET_KEY")
+
 # Real PostgreSQL connection — used ONLY by backend/core/postgres.py (a
 # dedicated engine for the backend/models/linkedin_job.py table, schema
 # `linkedin`). This is NOT the app's primary datastore: backend/core/

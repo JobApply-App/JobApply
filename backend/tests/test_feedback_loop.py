@@ -65,7 +65,8 @@ class _Feedback:
     collide with each other and with real rows.
     """
 
-    def __init__(self):
+    def __init__(self, user_id: str = None):
+        self.user_id = user_id or USER
         self.engine = ENGINE
         self.ns = uuid.uuid4().hex[:8]
         self.job_ids: list[str] = []
@@ -97,7 +98,7 @@ class _Feedback:
                 company_dna_inference="",
                 detailed_analysis=DetailedAnalysis(strengths=[], critical_gaps=[],
                                                    strategic_advice=[]),
-                investigation_points=[], reasons=[], user_id=USER,
+                investigation_points=[], reasons=[], user_id=self.user_id,
                 match_score=score, status="new", is_new=True, posted_at="",
                 source="automatic", is_open=True, source_type="other",
                 score_is_proxy=False,
@@ -125,7 +126,7 @@ class _Feedback:
         """This run's feedback only — the account may carry unrelated rows."""
         from backend.services.feedback_service import fetch_feedback_rows
 
-        return [r for r in fetch_feedback_rows(USER, self.engine)
+        return [r for r in fetch_feedback_rows(self.user_id, self.engine)
                 if r["job_id"] in self.job_ids]
 
     def rated_count(self) -> int:
@@ -141,7 +142,7 @@ class _Feedback:
     def prefs(self) -> dict:
         from backend.repositories import profile_repository as pr
 
-        handle = pr.get(USER)
+        handle = pr.get(self.user_id)
         doc = (handle.master_profile.get("metrics_doc") or {}) if handle else {}
         return dict(doc.get("role_preferences") or {})
 
@@ -151,7 +152,7 @@ class _Feedback:
         from backend.repositories import profile_repository as pr
 
         with Session(ENGINE) as s:
-            handle, _ = pr.get_or_create(s, USER, now="2026-01-01T00:00:00")
+            handle, _ = pr.get_or_create(s, self.user_id, now="2026-01-01T00:00:00")
             if self._profile_backup is None:
                 self._profile_backup = copy.deepcopy(handle.master_profile)
             merged = copy.deepcopy(handle.master_profile)
@@ -169,7 +170,7 @@ class _Feedback:
         from backend.repositories import profile_repository as pr
 
         with Session(ENGINE) as s:
-            handle, _ = pr.get_or_create(s, USER, now="2026-01-01T00:00:00")
+            handle, _ = pr.get_or_create(s, self.user_id, now="2026-01-01T00:00:00")
             merged = copy.deepcopy(handle.master_profile)
             doc = dict(merged.get("metrics_doc") or {"version": 1})
             prefs = {k: v for k, v in (doc.get("role_preferences") or {}).items()
@@ -184,7 +185,7 @@ class _Feedback:
         from backend.repositories import profile_repository as pr
 
         if self._profile_backup is None:
-            handle = pr.get(USER)
+            handle = pr.get(self.user_id)
             self._profile_backup = copy.deepcopy(handle.master_profile) if handle else {}
 
     # ── teardown ──────────────────────────────────────────────────────────
@@ -208,7 +209,7 @@ class _Feedback:
                           {"k": [x.lower() for x in self.companies]})
         if self._profile_backup is not None:
             with Session(ENGINE) as s:
-                handle, _ = pr.get_or_create(s, USER, now="2026-01-01T00:00:00")
+                handle, _ = pr.get_or_create(s, self.user_id, now="2026-01-01T00:00:00")
                 handle.master_profile = self._profile_backup
                 pr.save(s, handle)
                 s.commit()
@@ -414,29 +415,121 @@ def test_explicit_preference_is_never_overwritten(fb):
     assert prefs.get("culture_preference_source") != "learned"
 
 
-# ── Not ported: end-to-end preference WRITES ─────────────────────────────────
+# ── End-to-end preference WRITES (isolated account) ──────────────────────────
 #
-# Four tests were dropped when this file moved off per-test SQLite files:
-#   test_hard_constraints_are_never_touched
-#   test_learned_preference_reverts_when_evidence_fades
-#   test_consistent_corporate_downvotes_gradually_learn_startup
-#   test_learning_is_idempotent_over_repeated_runs
-#
-# They assert that after N rated jobs the learned culture_preference is written
-# into the profile document. Each needs a private profile and a private feedback
-# history, because apply_preference_learning() reads EVERY rated job on the
-# account — which a per-test SQLite file gave them for free and a shared Dev
-# account cannot. Ported as-is they fail non-deterministically: the failing set
-# moved between runs, which is worse than absent coverage because it teaches
-# people to ignore red.
-#
-# The service itself was verified by hand at the MIN_CULTURE_EVENTS boundary
-# (5 downvotes at culture_axis=15 -> evidence 0.7 -> "startup", written with
-# source="learned"), so what is missing is the automated guard, not the
-# behaviour.
-#
-# Still covered here: the learning MATH (culture_evidence,
-# preference_from_evidence, the threshold boundary, the min-events gate) as
-# pure functions, and the recording/upsert semantics against the real schema.
-# Restoring the write-path tests needs a disposable account per test — worth
-# doing when there is a fixture that can mint one.
+# These four were dropped when this file moved off per-test SQLite files:
+# apply_preference_learning() reads EVERY rated job on the account, which a
+# per-test SQLite file gave for free and the shared Dev QA account (`fb`,
+# above) cannot — restored here against disposable_qa_account, a brand-new
+# real auth.users row created and torn down per test (see conftest.py), so
+# each test's "every rated job on the account" is exactly what it created,
+# nothing inherited from another test or a previous run.
+
+@pytest.fixture
+def iso_fb(disposable_qa_account):
+    harness = _Feedback(user_id=disposable_qa_account)
+    yield harness
+    harness.cleanup()
+
+
+def test_consistent_corporate_downvotes_gradually_learn_startup(iso_fb):
+    """The acceptance scenario: no explicit preference, 5 corporate jobs
+    downvoted in a row -> the account converges on a learned 'startup'
+    preference, at the exact MIN_CULTURE_EVENTS boundary."""
+    _cache_culture(iso_fb, "MegaCorp", axis=15.0, category="corporate")
+    result = None
+    for i in range(MIN_CULTURE_EVENTS):
+        result = iso_fb.record(iso_fb.user_id, f"j{i}", "thumbs_down",
+                               job=_job(job_id=f"j{i}", company="MegaCorp", title=f"PM {i}"))
+
+    learning = result["preference_learning"]
+    assert learning["events_with_signal"] == MIN_CULTURE_EVENTS
+    assert learning["culture_evidence"] == 0.7        # -1 * (15-50)/50, x5
+    assert learning["culture_preference"] == "startup"
+    assert learning["status"] == "updated"
+
+    prefs = iso_fb.prefs()
+    assert prefs["culture_preference"] == "startup"
+    assert prefs["culture_preference_source"] == "learned"
+
+
+def test_learning_is_idempotent_over_repeated_runs(iso_fb):
+    """Same history -> same outcome. record_feedback() already re-derives and
+    writes on every call (see feedback_service.record_feedback), so by the
+    5th event the preference has already converged and written — the
+    idempotency this test guards is that re-deriving it again afterward,
+    with no new feedback, doesn't drift the value or flip status back to
+    'updated'."""
+    _cache_culture(iso_fb, "MegaCorp", axis=15.0, category="corporate")
+    last = None
+    for i in range(MIN_CULTURE_EVENTS):
+        last = iso_fb.record(iso_fb.user_id, f"j{i}", "thumbs_down",
+                             job=_job(job_id=f"j{i}", company="MegaCorp", title=f"PM {i}"))
+    assert last["preference_learning"]["status"] == "updated"  # converged during the loop
+
+    from backend.services.feedback_service import apply_preference_learning
+
+    first  = apply_preference_learning(iso_fb.user_id, iso_fb.engine)
+    second = apply_preference_learning(iso_fb.user_id, iso_fb.engine)
+
+    assert first["culture_preference"] == second["culture_preference"] == "startup"
+    assert first["culture_evidence"] == second["culture_evidence"]
+    assert first["status"] == "unchanged"   # already converged, nothing new to write
+    assert second["status"] == "unchanged"  # re-derived again, still nothing to change
+    assert iso_fb.prefs()["culture_preference"] == "startup"
+
+
+def test_learned_preference_reverts_when_evidence_fades(iso_fb):
+    """A learned preference is derived fresh from the FULL history on every
+    call, not stamped in place — so once new feedback pulls the mean past the
+    opposite threshold, the learned value flips to match, exactly like an
+    unlearned account would converge from scratch."""
+    _cache_culture(iso_fb, "MegaCorp", axis=15.0, category="corporate")
+    for i in range(MIN_CULTURE_EVENTS):
+        iso_fb.record(iso_fb.user_id, f"j{i}", "thumbs_down",
+                     job=_job(job_id=f"j{i}", company="MegaCorp", title=f"PM {i}"))
+    assert iso_fb.prefs()["culture_preference"] == "startup"
+
+    # Now outweigh those 5 with 20 upvotes on the same corporate-axis jobs —
+    # direction flips per event (+1 instead of -1). culture_evidence is the
+    # mean over the FULL history, so it takes real weight-of-numbers to drag
+    # a 5-event +0.7 mean past -EVIDENCE_THRESHOLD, not just a majority of
+    # events: (5*0.7 + 20*-0.7) / 25 = -0.42. record_feedback() re-derives and
+    # writes on every call, so the flip to 'corporate' happens mid-loop, not
+    # on the last event — collect every status to prove it happened, rather
+    # than asserting on the (by-then-already-converged) final one.
+    statuses = []
+    result = None
+    for i in range(MIN_CULTURE_EVENTS, MIN_CULTURE_EVENTS + 20):
+        result = iso_fb.record(iso_fb.user_id, f"j{i}", "thumbs_up",
+                               job=_job(job_id=f"j{i}", company="MegaCorp", title=f"PM {i}"))
+        statuses.append(result["preference_learning"]["status"])
+
+    learning = result["preference_learning"]
+    assert learning["culture_evidence"] < -EVIDENCE_THRESHOLD
+    assert learning["culture_preference"] == "corporate"
+    assert "updated" in statuses    # the flip from startup -> corporate happened somewhere in the loop
+    assert iso_fb.prefs()["culture_preference"] == "corporate"
+    assert iso_fb.prefs()["culture_preference_source"] == "learned"
+
+
+def test_hard_constraints_are_never_touched(iso_fb):
+    """_write_learned_preference only ever touches culture_preference/
+    culture_preference_source by construction — an explicit hard constraint
+    (work_type) must survive any amount of culture-preference learning,
+    including a value change, untouched."""
+    iso_fb.set_prefs(work_type="hybrid")
+    _cache_culture(iso_fb, "MegaCorp", axis=15.0, category="corporate")
+
+    for i in range(MIN_CULTURE_EVENTS):
+        iso_fb.record(iso_fb.user_id, f"j{i}", "thumbs_down",
+                     job=_job(job_id=f"j{i}", company="MegaCorp", title=f"PM {i}"))
+    assert iso_fb.prefs()["culture_preference"] == "startup"
+    assert iso_fb.prefs()["work_type"] == "hybrid"
+
+    # Flip the learned preference the other way — work_type must still hold.
+    for i in range(MIN_CULTURE_EVENTS, MIN_CULTURE_EVENTS + 20):
+        iso_fb.record(iso_fb.user_id, f"j{i}", "thumbs_up",
+                     job=_job(job_id=f"j{i}", company="MegaCorp", title=f"PM {i}"))
+    assert iso_fb.prefs()["culture_preference"] == "corporate"
+    assert iso_fb.prefs()["work_type"] == "hybrid"
