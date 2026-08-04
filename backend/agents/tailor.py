@@ -967,28 +967,79 @@ _resolve_profile = resolve_profile
 _SKILLS_CAP = 20
 
 
-def _rank_skills_by_jd_relevance(skills: list[str], jd_text: str) -> list[str]:
+def _rank_skills_by_jd_relevance(
+    skills: list[str],
+    jd_text: str,
+    synonyms: Optional[dict[str, list[str]]] = None,
+) -> list[str]:
     """
     Stable-sort skills so JD-relevant ones come first. Never drops a skill —
     only reorders — so a downstream cap keeps the most useful ones instead of
     whichever happened to be listed first in the profile. A skill counts as
-    relevant if it appears, word-boundary and case-insensitive, anywhere in
-    the JD text. No jd_text (e.g. a thin/un-hydrated JD) leaves the original
-    profile order untouched — there's nothing to rank against.
+    relevant if it — OR any of its known synonyms/canonical name, when
+    `synonyms` is given — appears, word-boundary and case-insensitive,
+    anywhere in the JD text. No jd_text (e.g. a thin/un-hydrated JD) leaves
+    the original profile order untouched — there's nothing to rank against.
+
+    synonyms (JOB-138: global skills taxonomy): optional {skill_display_name:
+    [alternate forms]} map, e.g. {"React": ["ReactJS", "React.js"]} — a JD
+    that says "ReactJS" now credits a profile skill stored as "React". Kept
+    as a plain dict-in, no DB access here on purpose: this function stays a
+    pure, synchronously-testable string operation; whoever has the taxonomy
+    connection (_inject_static_sections) builds the map and passes it in.
     """
     if not jd_text:
         return list(skills)
     jd_lower = jd_text.lower()
+    synonyms = synonyms or {}
 
     def _is_relevant(skill) -> bool:
-        s = str(skill).strip().lower()
+        s = str(skill).strip()
         if not s:
             return False
-        return re.search(rf"\b{re.escape(s)}\b", jd_lower) is not None
+        forms = [s] + list(synonyms.get(s, []))
+        return any(
+            re.search(rf"\b{re.escape(f.strip().lower())}\b", jd_lower) is not None
+            for f in forms if f and f.strip()
+        )
 
     # sorted() is stable — within each relevance bucket, original profile
     # order (e.g. however the user or profile_entities ordered them) holds.
     return sorted(skills, key=lambda s: not _is_relevant(s))
+
+
+def _build_skill_synonym_map(skill_names: list[str]) -> dict[str, list[str]]:
+    """
+    {profile skill display name: [its canonical name + taxonomy synonyms]},
+    for every name in skill_names that resolves to a skills_taxonomy row.
+
+    Best-effort and silent on failure — this only affects ranking quality
+    (a JD-relevant skill sorts earlier), never correctness, so a DB hiccup
+    here must not break CV generation. Skipped entirely on SQLite (no
+    skills_taxonomy table there — see skills_taxonomy_service's module
+    docstring) since _rank_skills_by_jd_relevance already degrades cleanly
+    with an empty map (falls back to exact-name matching only).
+    """
+    mapping: dict[str, list[str]] = {}
+    try:
+        from backend.core.database import ENGINE
+        if ENGINE.dialect.name != "postgresql":
+            return {}
+        from sqlalchemy import text as _sql
+        with ENGINE.connect() as conn:
+            for skill_name in skill_names:
+                row = conn.execute(_sql("""
+                    SELECT canonical_name, synonyms FROM public.skills_taxonomy
+                    WHERE lower(canonical_name) = lower(:name)
+                       OR lower(:name) = ANY(SELECT lower(s) FROM unnest(synonyms) AS s)
+                """), {"name": str(skill_name).strip()}).fetchone()
+                if row is not None:
+                    forms = [row.canonical_name] + list(row.synonyms or [])
+                    mapping[skill_name] = [f for f in forms if f]
+    except Exception:
+        logger.debug("[tailor] skill synonym lookup failed — ranking falls back to exact-name match", exc_info=True)
+        return {}
+    return mapping
 
 
 # ── Static section injection ─────────────────────────────────────────────────
@@ -1124,7 +1175,8 @@ def _inject_static_sections(
             if isinstance(profile_skills, list):
                 # Flat list of strings → rank by JD relevance, then pack into
                 # a single category, capped to fit the page (JOB-121).
-                ranked = _rank_skills_by_jd_relevance(profile_skills, jd_text)
+                synonym_map = _build_skill_synonym_map(profile_skills) if jd_text else {}
+                ranked = _rank_skills_by_jd_relevance(profile_skills, jd_text, synonym_map)
                 data["skills"] = {
                     "categories": [
                         {

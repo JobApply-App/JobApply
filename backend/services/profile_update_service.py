@@ -217,8 +217,49 @@ class ProfileUpdateService:
         """
         Return entity_id for (user_id, normalized_name, entity_type).
         Creates the row with confidence_score=0 if it does not exist yet.
+
+        For skills specifically (Postgres only — see the dialect guard
+        below), this also dedupes across the global taxonomy BEFORE falling
+        back to the normalized_name check: if the user already has a skill
+        entity linked to the same canonical skill_id — even under a
+        completely different raw name/language ("ניהול" vs "לנהל") — that
+        existing entity_id is returned instead of creating a second, unlinked
+        row for what is really the same capability.
         """
         normalized = _normalize(name)
+
+        # Global skills taxonomy canonicalization (skill_id/raw_text) —
+        # Postgres-only: skills_taxonomy_service's lookup queries use real
+        # Postgres array/uuid SQL with no SQLite equivalent, and this
+        # method is exercised against an in-memory SQLite engine by
+        # test_profile_trust.py. Skipping on SQLite leaves skill_id/raw_text
+        # NULL there, exactly like before this feature existed — no
+        # behavior change for that test suite.
+        skill_id = None
+        if entity_type == "skill" and conn.dialect.name == "postgresql":
+            from backend.services.skills_taxonomy_service import resolve_skill
+            try:
+                resolved = resolve_skill(self._engine, name)
+                if resolved:
+                    skill_id = resolved["id"]
+            except Exception:
+                logger.exception(
+                    "[skills_taxonomy] resolve_skill failed for %r user=%s — "
+                    "continuing without canonicalization for this entity",
+                    name, user_id,
+                )
+
+        if skill_id is not None:
+            row = conn.execute(
+                text(
+                    "SELECT entity_id FROM profile_entities "
+                    "WHERE user_id = :u AND entity_type = 'skill' AND skill_id = :sid"
+                ),
+                {"u": user_id, "sid": skill_id},
+            ).fetchone()
+            if row:
+                return row[0]
+
         row = conn.execute(
             text(
                 "SELECT entity_id FROM profile_entities "
@@ -236,10 +277,12 @@ class ProfileUpdateService:
             text("""
                 INSERT INTO profile_entities
                     (entity_id, user_id, entity_type, name, normalized_name,
-                     confidence_score, verification_status, created_at, updated_at)
+                     confidence_score, verification_status, created_at, updated_at,
+                     skill_id, raw_text)
                 VALUES
                     (:eid, :uid, :etype, :name, :norm,
-                     0.0, 'unverified', :now, :now)
+                     0.0, 'unverified', :now, :now,
+                     :skill_id, :raw_text)
             """),
             {
                 "eid":   entity_id,
@@ -248,11 +291,13 @@ class ProfileUpdateService:
                 "name":  name.strip(),
                 "norm":  normalized,
                 "now":   now,
+                "skill_id": skill_id,
+                "raw_text": name.strip(),
             },
         )
         logger.info(
-            "profile_entity created: '%s' (%s) user=%s id=%s",
-            name, entity_type, user_id, entity_id,
+            "profile_entity created: '%s' (%s) user=%s id=%s skill_id=%s",
+            name, entity_type, user_id, entity_id, skill_id,
         )
         return entity_id
 
@@ -419,7 +464,16 @@ class ProfileUpdateService:
                 entity_type : 'skill' | 'trait' | 'domain' | 'experience'
                 name        : str
             Optional:
-                raw_content : str   — the CV line that contained this entity
+                raw_content         : str   — the CV line that contained this entity
+                proficiency_level   : str   — 'beginner'|'intermediate'|'advanced'|'expert',
+                                              best-effort from CV phrasing (skill entities only)
+                years_of_experience : float — best-effort from CV phrasing/dates
+                last_used_year      : int   — most recent year this skill appears to have
+                                              been used, best-effort from CV dates
+            The three metadata fields are never fabricated by this method —
+            they're passed through as-is from whatever the caller (typically
+            _cv_claims_to_parsed_entities, from the CV-extraction LLM) already
+            extracted, and only ever written when actually present.
 
         Returns
         -------
@@ -462,6 +516,25 @@ class ProfileUpdateService:
                     new_evidence_id=ev_id,
                     note=f"CV parse: {item['name']}",
                 )
+
+                # Skill metadata (JOB-138: global skills taxonomy) — only
+                # written when the caller actually supplied a value, so a
+                # parse that doesn't mention e.g. years_of_experience never
+                # clobbers a previously-known value with NULL.
+                metadata_updates = {
+                    k: v for k, v in {
+                        "proficiency_level":   item.get("proficiency_level"),
+                        "years_of_experience": item.get("years_of_experience"),
+                        "last_used_year":      item.get("last_used_year"),
+                    }.items() if v not in (None, "")
+                }
+                if metadata_updates:
+                    set_clause = ", ".join(f"{col} = :{col}" for col in metadata_updates)
+                    conn.execute(
+                        text(f"UPDATE profile_entities SET {set_clause} WHERE entity_id = :eid"),
+                        {**metadata_updates, "eid": entity_id},
+                    )
+
                 entity_ids.append(entity_id)
 
         logger.info(

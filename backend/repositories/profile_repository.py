@@ -270,7 +270,7 @@ def _write_skill_entities(session: Session, user_id: str, doc_id, skills) -> Non
         r.normalized_name: r
         for r in session.execute(
             text("""
-                SELECT entity_id, normalized_name, name, source_document_id
+                SELECT entity_id, normalized_name, name, source_document_id, skill_id
                 FROM public.profile_entities
                 WHERE user_id = CAST(:uid AS uuid) AND entity_type = 'skill'
             """),
@@ -280,14 +280,35 @@ def _write_skill_entities(session: Session, user_id: str, doc_id, skills) -> Non
 
     for norm, display in wanted.items():
         row = existing.get(norm)
+        # Global skills taxonomy canonicalization — same resolve_skill() choke
+        # point _upsert_entity uses, so a skill this function creates and one
+        # ProfileUpdateService creates resolve to the same taxonomy row
+        # instead of disagreeing. Best-effort: a resolution failure must not
+        # block saving the user's CV.
+        skill_id = row.skill_id if row is not None else None
+        if skill_id is None:
+            from backend.services.skills_taxonomy_service import resolve_skill
+            try:
+                resolved = resolve_skill(session.get_bind(), display)
+                if resolved:
+                    skill_id = resolved["id"]
+            except Exception:
+                logger.exception(
+                    "[skills_taxonomy] resolve_skill failed for %r user=%s — "
+                    "continuing without canonicalization for this entity",
+                    display, user_id,
+                )
+
         if row is not None:
             session.execute(
                 text("""
                     UPDATE public.profile_entities
-                    SET source_document_id = :doc, content = CAST(:content AS jsonb)
+                    SET source_document_id = :doc, content = CAST(:content AS jsonb),
+                        skill_id = CAST(:skill_id AS uuid), raw_text = COALESCE(raw_text, :name)
                     WHERE entity_id = :eid
                 """),
-                {"doc": doc_id, "eid": row.entity_id, "content": json.dumps({"name": display})},
+                {"doc": doc_id, "eid": row.entity_id, "content": json.dumps({"name": display}),
+                 "skill_id": skill_id, "name": display},
             )
         else:
             logger.info(
@@ -301,16 +322,17 @@ def _write_skill_entities(session: Session, user_id: str, doc_id, skills) -> Non
                     INSERT INTO public.profile_entities
                         (entity_id, user_id, entity_type, name, normalized_name,
                          confidence_score, verification_status, source_document_id,
-                         content, origin, created_at, updated_at)
+                         content, origin, created_at, updated_at, skill_id, raw_text)
                     VALUES
                         (:eid, CAST(:uid AS uuid), 'skill', :name, :norm,
                          0.0, 'unverified', :doc,
-                         CAST(:content AS jsonb), 'cv_parse', :now, :now)
+                         CAST(:content AS jsonb), 'cv_parse', :now, :now, CAST(:skill_id AS uuid), :name)
                 """),
                 {
                     "eid": str(_uuid.uuid4()), "uid": user_id, "name": display, "norm": norm,
                     "doc": doc_id, "content": json.dumps({"name": display}),
                     "now": datetime.now(timezone.utc).isoformat(),
+                    "skill_id": skill_id,
                 },
             )
 

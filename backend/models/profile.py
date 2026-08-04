@@ -4,7 +4,7 @@ Extracted from the former backend/services/db.py.
 """
 from __future__ import annotations
 
-from sqlalchemy import Column, Float, Integer, String, Text
+from sqlalchemy import Column, DateTime, Float, Integer, Numeric, String, Text, text
 from sqlalchemy.types import JSON
 
 from sqlalchemy.dialects import postgresql
@@ -126,8 +126,61 @@ class ProfileEntityRow(Base):
     source_document_id     = Column(String,  nullable=True, index=True)
     origin                 = Column(String,  nullable=False, default="self_assertion",
                                     server_default="self_assertion")
+    # ── Global skills taxonomy (migration 90b20294d1d3) ───────────────────────
+    # skill_id: FK to skills_taxonomy.id — NULL for non-'skill' entity_types
+    # (trait/domain/experience aren't in scope for the taxonomy) and for any
+    # skill row a canonicalization pass hasn't reached yet. ON DELETE SET NULL:
+    # deleting/merging a taxonomy row must never cascade into deleting a
+    # user's entity (evidence_records/confidence_audit_log point at entity_id
+    # and are append-only, same rationale as source_document_id above).
+    # raw_text: the original extracted phrase verbatim, for auditability —
+    # `name` is the canonical display form once resolved, `raw_text` is what
+    # the CV/chat actually said (may be the same string if not yet resolved).
+    skill_id                = Column(UUID_FK, nullable=True, index=True)
+    raw_text                = Column(Text,    nullable=True)
+    years_of_experience     = Column(Numeric(4, 1), nullable=True)
+    last_used_year          = Column(Integer, nullable=True)
     created_at             = Column(String,  nullable=False)
     updated_at             = Column(String,  nullable=False)
+
+
+class SkillsTaxonomyRow(Base):
+    """
+    Global, cross-tenant reference table — one row per canonical skill
+    concept. No user_id: identical for every viewer, same category as
+    company_intel/job_postings (see docs/db-architecture-spec.md's
+    GLOBAL_TABLES note in backend/core/migrations.py).
+
+    canonical_name is the single source of truth for a skill's display form
+    across the whole platform (always English, per the taxonomy design) —
+    profile_entities.skill_id points here so two accounts' differently-phrased
+    or differently-languaged mentions of the same skill ("React"/"ReactJS"/
+    "ריאקט") resolve to one row instead of three unrelated entities.
+    """
+    __tablename__ = "skills_taxonomy"
+
+    # UUID_FK here is just the dialect-variant String/UUID type (see the
+    # comment on the type definition above) — not literally a foreign key,
+    # this table has none. Reused for the same reason: a real UUID column in
+    # Postgres, plain text on SQLite, Python always sees a str.
+    #
+    # No server_default here even though Postgres has one (gen_random_uuid(),
+    # set by the migration directly via raw DDL) — that function doesn't
+    # exist on SQLite, and this repo's existing convention (see entity_id on
+    # ProfileEntityRow above, always supplied explicitly by the caller via
+    # _uid()) is to generate IDs in application code, not rely on the DB.
+    id             = Column(UUID_FK, primary_key=True)
+    canonical_name = Column(Text, nullable=False, unique=True)
+    category       = Column(Text, nullable=False, default="Uncategorized",
+                             server_default="Uncategorized")
+    # Real Postgres TEXT[]; JSON (stored as text) on SQLite — same
+    # .with_variant() escape hatch as UUID_FK, needed because raw
+    # postgresql.ARRAY has no SQLite equivalent and would break create_all().
+    synonyms       = Column(
+        postgresql.ARRAY(Text).with_variant(JSON(), "sqlite"),
+        nullable=False, default=list, server_default="{}",
+    )
+    created_at     = Column(DateTime(timezone=True), nullable=True)
 
 
 class EvidenceRecordRow(Base):

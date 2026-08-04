@@ -401,18 +401,40 @@ def _cv_claims_to_parsed_entities(cv_claims: dict) -> list[dict]:
 
     Mapping
     -------
-    skills      → entity_type='skill',      name=skill_str
-    domains     → entity_type='domain',     name=domain_str
-    experiences → entity_type='experience', name="{role} at {company}"
-                  raw_content = experience summary (≤ 500 chars)
+    skill_details → entity_type='skill', name=name, plus proficiency_level/
+                    years_of_experience/last_used_year when the extraction
+                    LLM supplied them (JOB-138: global skills taxonomy).
+    skills        → entity_type='skill', name=skill_str, no metadata — the
+                    plain-string fallback for any skill skill_details didn't
+                    cover (or when the LLM only emitted the flat list).
+    domains       → entity_type='domain', name=domain_str
+    experiences   → entity_type='experience', name="{role} at {company}"
+                    raw_content = experience summary (≤ 500 chars)
 
     Traits are excluded — they can only be established through behavioral
     probes (STAR interviews), not inferred from a CV.
     """
     entities: list[dict] = []
+    covered_skill_names: set[str] = set()
+
+    for detail in cv_claims.get("skill_details", []):
+        if not isinstance(detail, dict):
+            continue
+        name = str(detail.get("name") or "").strip()
+        if not name:
+            continue
+        covered_skill_names.add(name.lower())
+        entities.append({
+            "entity_type":         "skill",
+            "name":                name,
+            "raw_content":         "",
+            "proficiency_level":   str(detail.get("proficiency_level") or "").strip().lower() or None,
+            "years_of_experience": detail.get("years_of_experience"),
+            "last_used_year":      detail.get("last_used_year"),
+        })
 
     for skill in cv_claims.get("skills", []):
-        if isinstance(skill, str) and skill.strip():
+        if isinstance(skill, str) and skill.strip() and skill.strip().lower() not in covered_skill_names:
             entities.append({
                 "entity_type": "skill",
                 "name":        skill.strip(),
