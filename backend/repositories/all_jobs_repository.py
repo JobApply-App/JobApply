@@ -321,9 +321,11 @@ def get_paginated_all_jobs(
     columns = [_TABLE.c[name] for name in _LIST_VIEW_COLUMNS]
     total_count_col = func.count().over().label("total_count")
 
+    stmt = select(*columns, total_count_col)
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
     stmt = (
-        select(*columns, total_count_col)
-        .where(and_(*conditions))
+        stmt
         .order_by(*order_clauses, _TABLE.c.id.desc())
         .limit(page_size)
         .offset(offset)
@@ -340,7 +342,9 @@ def get_paginated_all_jobs(
                 for row in rows
             ]
         else:
-            count_stmt = select(func.count()).select_from(_TABLE).where(and_(*conditions))
+            count_stmt = select(func.count()).select_from(_TABLE)
+            if conditions:
+                count_stmt = count_stmt.where(and_(*conditions))
             total_items = session.execute(count_stmt).scalar_one()
             items = []
     finally:
