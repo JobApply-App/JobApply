@@ -958,6 +958,39 @@ def _enforce_limits(data: dict) -> dict:
 _resolve_profile = resolve_profile
 
 
+# JOB-121: was a flat [:12], tuned for the legacy singleton's 6-skill profile.
+# Real DB profiles run well past that (e.g. 36 skills for one real account) —
+# raised to a cap that still respects the CV's fixed A4 page (see
+# _build_skills in pdf_builder.py, which this must stay in lock-step with:
+# raising one without the other either leaves the extra skills silently
+# re-truncated downstream, or renders more than this function ever selected).
+_SKILLS_CAP = 20
+
+
+def _rank_skills_by_jd_relevance(skills: list[str], jd_text: str) -> list[str]:
+    """
+    Stable-sort skills so JD-relevant ones come first. Never drops a skill —
+    only reorders — so a downstream cap keeps the most useful ones instead of
+    whichever happened to be listed first in the profile. A skill counts as
+    relevant if it appears, word-boundary and case-insensitive, anywhere in
+    the JD text. No jd_text (e.g. a thin/un-hydrated JD) leaves the original
+    profile order untouched — there's nothing to rank against.
+    """
+    if not jd_text:
+        return list(skills)
+    jd_lower = jd_text.lower()
+
+    def _is_relevant(skill) -> bool:
+        s = str(skill).strip().lower()
+        if not s:
+            return False
+        return re.search(rf"\b{re.escape(s)}\b", jd_lower) is not None
+
+    # sorted() is stable — within each relevance bucket, original profile
+    # order (e.g. however the user or profile_entities ordered them) holds.
+    return sorted(skills, key=lambda s: not _is_relevant(s))
+
+
 # ── Static section injection ─────────────────────────────────────────────────
 
 def _inject_static_sections(
@@ -965,6 +998,7 @@ def _inject_static_sections(
     respect_deletions: bool = False,
     *,
     user_id: str,
+    jd_text: str = "",
 ) -> dict:
     """
     Overwrite Education, Skills, and Military with the canonical values from
@@ -981,6 +1015,11 @@ def _inject_static_sections(
     user_id is REQUIRED for multi-tenant correctness — the previous
     unconditional USER_PROFILE read injected the legacy singleton's education,
     skills and military block into every user's CV.
+
+    jd_text (optional): when given, skills are ranked by JD relevance before
+    _SKILLS_CAP is applied (see _rank_skills_by_jd_relevance) — a profile with
+    more skills than fit on one page gets the JD-relevant ones kept, not just
+    whichever were listed first. Omitted or empty leaves profile order as-is.
 
     Field-name mapping (profile → cv_data template keys) — both the legacy
     singleton's and the DB profile's spellings are accepted:
@@ -1083,12 +1122,14 @@ def _inject_static_sections(
         profile_skills = profile.get("skills") or []
         if profile_skills:
             if isinstance(profile_skills, list):
-                # Flat list of strings → pack into a single category
+                # Flat list of strings → rank by JD relevance, then pack into
+                # a single category, capped to fit the page (JOB-121).
+                ranked = _rank_skills_by_jd_relevance(profile_skills, jd_text)
                 data["skills"] = {
                     "categories": [
                         {
                             "label": "Core Skills",
-                            "items": [str(s) for s in profile_skills[:12]],
+                            "items": [str(s) for s in ranked[:_SKILLS_CAP]],
                         }
                     ]
                 }
@@ -1538,7 +1579,7 @@ class TailorAgent:
         # ── CV: enforce limits, inject static sections, sanitise AI tells ──────
         cv_data = result.get("cv_data", result)  # tolerate missing wrapper
         cv_data = _enforce_limits(cv_data)
-        cv_data = _inject_static_sections(cv_data, user_id=self.user_id)
+        cv_data = _inject_static_sections(cv_data, user_id=self.user_id, jd_text=job.jd_text or "")
         cv_data = _sanitize_ai_tells(cv_data)
 
         logger.info(
@@ -1644,7 +1685,7 @@ class TailorAgent:
 
         refined = result.get("cv_data", result)
         refined = _enforce_limits(refined)
-        refined = _inject_static_sections(refined, user_id=self.user_id)
+        refined = _inject_static_sections(refined, user_id=self.user_id, jd_text=jd_context or "")
         refined = _sanitize_ai_tells(refined)
 
         logger.info(

@@ -198,6 +198,16 @@ def _build_education(entries: list[dict]) -> str:
     return "\n".join(parts)
 
 
+# JOB-121: must stay >= tailor.py's _SKILLS_CAP (currently 20) — that's where
+# skills are actually ranked by JD relevance and selected; a tighter cap here
+# would silently re-truncate that careful selection down to whatever
+# arbitrary items happen to survive alphabetically/positionally. The A4 page
+# this renders onto has a shrink-to-fit safety net (see the <script> block in
+# each cv/*.html template) rather than a hard clip, so a generous cap here
+# degrades to a slightly smaller page instead of losing content.
+_SKILLS_ITEMS_PER_CATEGORY_CAP = 20
+
+
 def _build_skills(skills_data: dict) -> str:
     """
     Render skills as plain inline text.  Delimiters are written directly into
@@ -210,7 +220,7 @@ def _build_skills(skills_data: dict) -> str:
     cats_html = []
     for cat in categories[:4]:
         label = _t(cat.get("label", ""), 20)
-        items = [_t(s, 25) for s in (cat.get("items") or [])[:6] if s]
+        items = [_t(s, 25) for s in (cat.get("items") or [])[:_SKILLS_ITEMS_PER_CATEGORY_CAP] if s]
         if not items:
             continue
         # Bullet-separated plain text — no background, no border, no badge look.
