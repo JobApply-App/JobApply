@@ -69,7 +69,7 @@ def test_combined_loader_issues_exactly_one_query(db_available):
     assert query_count == 1, f"expected 1 query (one JOIN), got {query_count}"
 
 
-def test_combined_loader_empty_profile():
+def test_combined_loader_empty_profile(db_available):
     from backend.core.database import ENGINE
     from backend.repositories import profile_entity_repository
     import uuid

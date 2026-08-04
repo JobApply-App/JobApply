@@ -281,9 +281,39 @@ interface JobFeedProps {
   expandJobId?: string
   /** Passed to each JobCard to enable Ariel Insight probes. */
   userId?: string
+  /**
+   * page.tsx already fetches the full, unfiltered feed at mount time (via
+   * useJobMatches — needed regardless of which tab is active, to drive the
+   * Header's high-match bell badge). When the user has no minScore
+   * preference set, that data is IDENTICAL to what this component would
+   * fetch itself (fetchFeedJobs(undefined, 100), same "all non-ignored
+   * jobs" scope) — passing it in lets this component seed from it instead
+   * of firing a second, redundant request for the exact same data on every
+   * Matches-tab visit. Only used when preferences.minScore is unset (the
+   * default for most users); a real minScore filters server-side and
+   * requires this component's own independent fetch, same as before.
+   */
+  initialFeedJobs?: ApiFeedJob[]
+  /** True while page.tsx's own initial fetch (above) is still in flight. */
+  initialFeedJobsLoading?: boolean
 }
 
-export function JobFeed({ onFeedRefreshed, preferences, expandJobId, userId }: JobFeedProps = {}) {
+function _applyCompletenessFilter(data: ApiFeedJob[]): ApiFeedJob[] {
+  // Zero-Click contract: only render jobs that are fully processed.
+  // Incomplete rows (missing title, company, score, or structured JD) are
+  // pipeline artefacts that should never surface to the user.
+  return data.filter(j =>
+    j.title?.trim() &&
+    j.company?.trim() &&
+    (j.match_score ?? 0) > 0 &&
+    j.jd_structured?.trim()
+  )
+}
+
+export function JobFeed({
+  onFeedRefreshed, preferences, expandJobId, userId,
+  initialFeedJobs, initialFeedJobsLoading,
+}: JobFeedProps = {}) {
   const [jobs,         setJobs]         = useState<ApiFeedJob[]>([])
   // Raw count before the zero-click completeness filter — distinguishes
   // "pipeline still running" (totalFetched > 0, jobs === 0) from
@@ -344,16 +374,7 @@ export function JobFeed({ onFeedRefreshed, preferences, expandJobId, userId }: J
         minScore: preferences?.minScore,
       })
       setTotalFetched(data.length)
-      // Zero-Click contract: only render jobs that are fully processed.
-      // Incomplete rows (missing title, company, score, or structured JD) are
-      // pipeline artefacts that should never surface to the user.
-      const complete = data.filter(j =>
-        j.title?.trim() &&
-        j.company?.trim() &&
-        (j.match_score ?? 0) > 0 &&
-        j.jd_structured?.trim()
-      )
-      setJobs(complete)
+      setJobs(_applyCompletenessFilter(data))
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load jobs.')
     } finally {
@@ -365,8 +386,27 @@ export function JobFeed({ onFeedRefreshed, preferences, expandJobId, userId }: J
   // Putting loadJobs here would re-fire on every preferences change because
   // useCallback recreates it, causing an infinite request loop.
   // Subsequent loads are explicit: Refresh button (handleSync) or user action.
+  //
+  // Seed from page.tsx's already-fetched feed (initialFeedJobs) instead of
+  // firing a second, identical fetchFeedJobs(undefined, 100) request when
+  // it's safe to do so: no minScore preference (that's a server-side filter
+  // this component's own fetch applies, so it can only be skipped when
+  // there's nothing to filter) and the parent's fetch has already resolved
+  // (if it's still in flight — e.g. a direct deep-link straight to
+  // ?tab=feed on first load — fall back to the normal independent fetch
+  // rather than seeding from not-yet-available data).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadJobs() }, [])
+  useEffect(() => {
+    const canSeedFromParent =
+      !preferences?.minScore && !initialFeedJobsLoading && initialFeedJobs !== undefined
+    if (canSeedFromParent) {
+      setTotalFetched(initialFeedJobs.length)
+      setJobs(_applyCompletenessFilter(initialFeedJobs))
+      setLoading(false)
+    } else {
+      loadJobs()
+    }
+  }, [])
 
   // Reset page when any filter changes
   useEffect(() => { setPageEnd(PAGE_SIZE) }, [status, search, source, sortBy, topFitsOnly])

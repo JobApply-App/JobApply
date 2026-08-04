@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   type ReactNode,
 } from 'react'
 import { dictionaries, type Dict, type Locale } from '@/locales'
@@ -51,12 +52,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(LS_KEY, l) } catch { /* storage quota */ }
   }, [])
 
-  const value: I18nContextValue = {
+  // This is the outermost provider in the app (wraps everything else) — an
+  // unmemoized value here would re-render the entire app on every render of
+  // I18nProvider, not just on an actual locale change.
+  const value: I18nContextValue = useMemo(() => ({
     locale,
     setLocale,
     t: dictionaries[locale],
     dir,
-  }
+  }), [locale, setLocale, dir])
 
   return (
     <I18nContext.Provider value={value}>

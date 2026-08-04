@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, memo } from 'react'
 import { fetchCrmBoard, moveCrmCard, deleteApplication } from '@/lib/api'
 import type { CrmBoard, CrmCard, CrmColumn } from '@/lib/apiTypes'
 import { TOKENS } from '@/lib/tokens'
@@ -193,7 +193,11 @@ function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete
 
 // ── Card ──────────────────────────────────────────────────────────────────────
 
-function KanbanCard({
+// Memoized — a column can hold many cards, and previously every card
+// re-rendered whenever ANY card in the column started/stopped moving
+// (isMoving) since KanbanColumn re-rendering cascaded to all children
+// regardless of whether a given card's own props changed.
+const KanbanCard = memo(function KanbanCard({
   card,
   currentStage,
   onDragStart,
@@ -323,7 +327,7 @@ function KanbanCard({
       </div>
     </div>
   )
-}
+})
 
 // ── Column ────────────────────────────────────────────────────────────────────
 

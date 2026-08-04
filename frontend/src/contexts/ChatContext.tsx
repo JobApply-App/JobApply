@@ -6,6 +6,7 @@ import {
   useState,
   useCallback,
   useRef,
+  useMemo,
   type ReactNode,
 } from 'react'
 import { ensureFreshToken, getAuthHeaders } from '@/lib/api'
@@ -264,13 +265,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, [thinking, jobContext])
 
+  // ChatProvider wraps every page (see app/layout.tsx) — an unmemoized value
+  // here re-renders every consumer (ChatOverlay, ChatLauncher, JobCard, etc.)
+  // on every state change this provider makes, including ones a given
+  // consumer doesn't read (e.g. `thinking` ticking during a send re-renders
+  // ChatLauncher even though it only reads isOpen/isEliyaOpen).
+  const value = useMemo(() => ({
+    isOpen, jobContext, messages, thinking,
+    openChat, closeChat, sendMessage, clearMessages,
+    isEliyaOpen, openEliya, closeEliya,
+    profileVersion, triggerProfileRefresh,
+  }), [
+    isOpen, jobContext, messages, thinking,
+    openChat, closeChat, sendMessage, clearMessages,
+    isEliyaOpen, openEliya, closeEliya,
+    profileVersion, triggerProfileRefresh,
+  ])
+
   return (
-    <Ctx.Provider value={{
-      isOpen, jobContext, messages, thinking,
-      openChat, closeChat, sendMessage, clearMessages,
-      isEliyaOpen, openEliya, closeEliya,
-      profileVersion, triggerProfileRefresh,
-    }}>
+    <Ctx.Provider value={value}>
       {children}
     </Ctx.Provider>
   )

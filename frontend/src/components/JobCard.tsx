@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, memo } from 'react'
 import type { ApiFeedJob, JobSourceType, ReasonKind } from '@/lib/apiTypes'
 import { markJobApplied, refreshFeedScores, fetchJobJd, ensureFreshToken, getAuthHeaders } from '@/lib/api'
 import { getScoreBand as scoreBand } from '@/lib/scoreBand'
@@ -811,7 +811,12 @@ export interface JobCardProps {
   onMarkApplied?:   (jobId: string) => void
 }
 
-export function JobCard({
+// Rendered in a list of up to ~100 items (JobFeed/JobFeed's `visible` slice) —
+// memoized so an unrelated parent re-render (search/filter/toast state) only
+// re-renders cards whose own props actually changed. Safe: every prop passed
+// in from JobFeed is either a primitive, a stable useCallback ref, or an
+// immutably-updated object (only the changed job gets a new reference).
+export const JobCard = memo(function JobCard({
   job, userId, isTopFit = false, belowThreshold = false, initialExpanded = false,
   onSkip, onSave, onTailorCV, onInteractionChange, onMarkApplied,
 }: JobCardProps) {
@@ -1195,4 +1200,4 @@ export function JobCard({
       )}
     </article>
   )
-}
+})

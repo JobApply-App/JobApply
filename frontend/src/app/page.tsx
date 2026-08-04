@@ -346,7 +346,16 @@ function HomePageContent() {
           </div>
         )}
 
-        {tab === 'feed' && <JobFeed key={feedKey} preferences={settings} expandJobId={expandJobId} userId={user?.id ?? ''} />}
+        {tab === 'feed' && (
+          <JobFeed
+            key={feedKey}
+            preferences={settings}
+            expandJobId={expandJobId}
+            userId={user?.id ?? ''}
+            initialFeedJobs={feedJobs}
+            initialFeedJobsLoading={jobsLoading}
+          />
+        )}
 
         {tab === 'apps'  && <ApplicationsTab />}
 

@@ -19,6 +19,7 @@ from sqlalchemy import text
 from backend.core.postgres import get_pg_session
 from backend.repositories.linkedin_job_repository import bulk_upsert_jobs
 from backend.services.linkedin_job_normalize import (
+    _INDUSTRY_KNOWN_TERMS,
     build_normalized_job,
     compute_data_hash,
     extract_linkedin_job_id,
@@ -157,6 +158,29 @@ def test_normalize_list_field_splits_and_strips():
     assert normalize_list_field("Manufacturing, Utilities") == ["Manufacturing", "Utilities"]
     assert normalize_list_field("") == []
     assert normalize_list_field(None) == []
+
+
+def test_normalize_list_field_strips_leading_and_from_every_piece_not_just_the_last():
+    """
+    Regression test for a real production bug: a raw `industries` value
+    confirmed on multiple live all_jobs rows —
+    "Appliances, Electrical, and Electronics Manufacturing, Industrial
+    Machinery Manufacturing, and Manufacturing" — has the Oxford-comma
+    "and" landing on a MID-list piece ("and Electronics Manufacturing"),
+    not just the final one. The old code only stripped `pieces[-1]`,
+    leaving "and Electronics Manufacturing" / "and Transportation"-style
+    fragments as their own garbage filter-dropdown entries.
+    """
+    result = normalize_list_field(
+        "Appliances, Electrical, and Electronics Manufacturing, "
+        "Industrial Machinery Manufacturing, and Manufacturing",
+        known_terms=_INDUSTRY_KNOWN_TERMS,
+    )
+    assert result == [
+        "Appliances", "Electrical", "Electronics Manufacturing",
+        "Industrial Machinery Manufacturing", "Manufacturing",
+    ]
+    assert not any(p.startswith("and ") for p in result)
 
 
 def test_build_normalized_job_from_csv_round_trip():
