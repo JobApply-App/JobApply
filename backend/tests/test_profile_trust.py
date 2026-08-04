@@ -538,6 +538,52 @@ class TestComputeProfileTrustScore:
                                              profile=_complete_profile())
         assert br == {"overall": 0.0, "breadth": 0.0, "depth": 0.0, "context": 0.0}
 
+    def test_familiarity_from_entities_matches_db_backed_version(self):
+        """
+        compute_profile_familiarity_from_entities() (computed from
+        already-loaded ProfileEntity rows, no fresh profile_entities query)
+        must return exactly what compute_profile_familiarity() (which
+        re-queries profile_entities itself) returns for the same user — the
+        whole point of the fix is identical output, fewer round trips.
+        """
+        from backend.repositories import profile_entity_repository
+
+        uid = "test-from-entities-" + _uid()
+        with _TEST_ENGINE.begin() as conn:
+            for i in range(8):
+                _insert_entity(conn, user_id=uid, entity_type="skill",
+                               name=f"S{i}", confidence_score=60.0,
+                               verification_status="verified",
+                               proficiency_level=("intermediate" if i < 2 else None))
+            _insert_entity(conn, user_id=uid, entity_type="domain",
+                           name="Fintech", confidence_score=40.0,
+                           verification_status="unverified")
+
+        svc = self._service()
+        db_backed = svc.compute_profile_familiarity(uid, profile=_complete_profile())
+
+        # Explicit _TEST_ENGINE session — this test class has no autouse
+        # ENGINE-patching fixture (unlike TestTrustScoreEndpoint below), so
+        # profile_entity_repository's own module-level ENGINE would otherwise
+        # point at the real production DB.
+        with Session(_TEST_ENGINE) as sess:
+            entity_rows = profile_entity_repository.get_all_for_user(uid, session=sess)
+        from_entities = svc.compute_profile_familiarity_from_entities(
+            entity_rows, uid, profile=_complete_profile()
+        )
+
+        assert from_entities == db_backed
+
+    def test_familiarity_from_entities_empty_profile_all_zero(self):
+        from backend.repositories import profile_entity_repository
+
+        uid = "empty-from-entities-" + _uid()
+        svc = self._service()
+        with Session(_TEST_ENGINE) as sess:
+            entity_rows = profile_entity_repository.get_all_for_user(uid, session=sess)
+        br = svc.compute_profile_familiarity_from_entities(entity_rows, uid, profile=_complete_profile())
+        assert br == {"overall": 0.0, "breadth": 0.0, "depth": 0.0, "context": 0.0}
+
 
 # ---------------------------------------------------------------------------
 # HTTP integration tests: GET /api/profile/{user_id}/trust-score

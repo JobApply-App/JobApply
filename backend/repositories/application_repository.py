@@ -54,16 +54,29 @@ def save(app: Application) -> None:
         session.commit()
 
 
-def get_all(user_id: str) -> list[Application]:
-    """Return all applications for user_id, ordered by most recently submitted first."""
-    with Session(ENGINE) as session:
-        rows = (
-            session.query(ApplicationRow)
-            .filter(ApplicationRow.user_id == user_id)
-            .order_by(ApplicationRow.submitted_at.desc())
-            .all()
-        )
-        return [_from_row(r) for r in rows]
+def get_all(user_id: str, session: Optional[Session] = None) -> list[Application]:
+    """
+    Return all applications for user_id, ordered by most recently submitted first.
+
+    Accepts an optional already-open Session (e.g. an AUTOCOMMIT-scoped
+    connection from the route layer) so a caller can avoid the implicit
+    transactional-mode rollback cost paid when this function opens its own
+    Session(ENGINE) — same pattern as get_all_rows()/get_by_statuses() below.
+    """
+    if session is not None:
+        return _query_all(session, user_id)
+    with Session(ENGINE) as owned_session:
+        return _query_all(owned_session, user_id)
+
+
+def _query_all(session: Session, user_id: str) -> list[Application]:
+    rows = (
+        session.query(ApplicationRow)
+        .filter(ApplicationRow.user_id == user_id)
+        .order_by(ApplicationRow.submitted_at.desc())
+        .all()
+    )
+    return [_from_row(r) for r in rows]
 
 
 def get_by_id(application_id: str, user_id: str) -> Optional[Application]:

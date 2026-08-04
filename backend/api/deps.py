@@ -20,6 +20,7 @@ dependency) and silently degrades it to a REQUIRED QUERY PARAMETER named
 `request`, making every rate-limited endpoint return 422 for all callers.
 All annotations below are runtime-valid on 3.9 without the future import.
 """
+import asyncio
 import logging
 import threading
 import time
@@ -53,10 +54,40 @@ class CurrentUser:
     is_admin: bool = field(default=False)
 
 
+_IS_ADMIN_CACHE: dict[str, tuple[float, bool]] = {}
+_IS_ADMIN_CACHE_LOCK = threading.Lock()
+_IS_ADMIN_CACHE_TTL_SECONDS = 60.0   # bounds how stale a privilege change can be
+
+
 def _load_is_admin(user_id: str) -> bool:
-    """Cheap profiles.is_admin lookup; absent row (or any DB error) → False."""
+    """
+    profiles.is_admin lookup, cached in-process for _IS_ADMIN_CACHE_TTL_SECONDS.
+
+    Runs on every authenticated request (via get_current_user), but is_admin
+    changes are rare (an operator manually flips one DB row) — a short TTL
+    cache turns almost every call into a dict read instead of a network round
+    trip to Postgres, while still bounding staleness: a privilege change is
+    picked up within _IS_ADMIN_CACHE_TTL_SECONDS by every process on its own,
+    no cross-process invalidation needed. Absent row (or any DB error) →
+    False, same as the uncached lookup.
+
+    Not Redis-backed: this is a single-boolean, per-user value with a
+    deliberately short TTL — the added latency/ops cost of a shared cache
+    only pays off once is_admin needs to be consistent *across* multiple
+    backend instances, which isn't the case here.
+    """
     from backend.repositories.profile_repository import is_admin_lookup
-    return is_admin_lookup(user_id)
+
+    now = time.monotonic()
+    with _IS_ADMIN_CACHE_LOCK:
+        cached = _IS_ADMIN_CACHE.get(user_id)
+        if cached is not None and now - cached[0] < _IS_ADMIN_CACHE_TTL_SECONDS:
+            return cached[1]
+
+    value = is_admin_lookup(user_id)
+    with _IS_ADMIN_CACHE_LOCK:
+        _IS_ADMIN_CACHE[user_id] = (now, value)
+    return value
 
 
 async def get_current_user(
@@ -104,7 +135,11 @@ async def get_current_user(
         identity = _verify_hs256_identity(token, jwt, JWTError)
 
     user = CurrentUser(user_id=identity.user_id, email=identity.email, name=identity.name)
-    user.is_admin = _load_is_admin(user.user_id)
+    # _load_is_admin is a blocking DB round trip. This function is `async def`
+    # (required above for `await _verify_rs256_identity`), so a bare call here
+    # would run ON the event loop and stall every other in-flight request for
+    # its duration — asyncio.to_thread hands it to a worker thread instead.
+    user.is_admin = await asyncio.to_thread(_load_is_admin, user.user_id)
     return user
 
 

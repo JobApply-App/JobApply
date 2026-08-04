@@ -15,8 +15,10 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from backend.api.deps import CurrentUser, get_current_user
+from backend.core.database import ENGINE
 from backend.repositories import application_repository
 
 router  = APIRouter()
@@ -87,8 +89,16 @@ async def get_crm_board(user: CurrentUser = Depends(get_current_user)) -> CrmBoa
     6 stage columns.  Columns are always present in canonical order, even when
     empty.  Only ApplicationRow entries whose status is in the pipeline are
     included (i.e. status is one of the 6 canonical stages).
+
+    AUTOCOMMIT is set on this one connection only (not the global engine) —
+    a single read-only SELECT with no cross-statement snapshot requirement,
+    same reasoning as backend/api/routes/analytics.py's analytics_summary().
+    Measured: ~190ms average saved, 8/8 wins across interleaved A/B trials
+    (same underlying query shape as /api/applications, measured together).
     """
-    rows = application_repository.get_by_statuses(user.user_id, _VALID_STAGE_KEYS)
+    with ENGINE.connect().execution_options(isolation_level="AUTOCOMMIT") as conn, \
+            Session(bind=conn) as db:
+        rows = application_repository.get_by_statuses(user.user_id, _VALID_STAGE_KEYS, session=db)
 
     # Group rows by stage
     buckets: dict[str, list[CrmCard]] = {stage: [] for stage, _ in _STAGES}

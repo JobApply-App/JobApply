@@ -53,12 +53,13 @@ def get_many(keys: list[str], session: Optional[Session] = None) -> dict[str, KV
 
 
 def _get_many(session: Session, keys: list[str]) -> dict[str, KVEntry]:
-    result: dict[str, KVEntry] = {}
-    for key in keys:
-        row = session.get(KVRow, key)
-        if row is not None:
-            result[key] = KVEntry(key=row.key, value=row.value, updated_at=row.updated_at)
-    return result
+    if not keys:
+        return {}
+    rows = session.query(KVRow).filter(KVRow.key.in_(keys)).all()
+    return {
+        row.key: KVEntry(key=row.key, value=row.value, updated_at=row.updated_at)
+        for row in rows
+    }
 
 
 def upsert(

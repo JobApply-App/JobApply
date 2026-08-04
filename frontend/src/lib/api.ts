@@ -1,6 +1,7 @@
-import type { ApiAgentStatus, ApiJobMatch, AnalyzeRequest, AnalyzeResponse, MatchScoreResult, ApiFeedJob, RefreshResponse, BackfillResponse, FetchJdResponse, JobStatus, VerifyChatEntry, VerifyChatResponse, TailorBriefResponse, OutreachRequest, OutreachResponse, HeadhunterRequest, AtsKeywordsResponse, InterviewSession, VerificationResult, CrmBoard, MarkAppliedResponse, JobAnalysisState } from './apiTypes'
+import type { ApiAgentStatus, ApiJobMatch, AnalyzeRequest, AnalyzeResponse, MatchScoreResult, ApiFeedJob, RefreshResponse, BackfillResponse, FetchJdResponse, JobStatus, VerifyChatEntry, VerifyChatResponse, TailorBriefResponse, OutreachRequest, OutreachResponse, HeadhunterRequest, AtsKeywordsResponse, InterviewSession, VerificationResult, CrmBoard, MarkAppliedResponse, JobAnalysisState, TrustScoreResponse, ConfidenceMatrixResponse } from './apiTypes'
 import type { Job } from './data'
 import { supabase } from './supabase'
+import { NdjsonLineSplitter } from './ndjson'
 
 // Empty base → all requests are relative (/api/...) and are proxied to
 // FastAPI by the rewrites rule in next.config.mjs. Set NEXT_PUBLIC_API_URL
@@ -952,6 +953,136 @@ export async function fetchScraperStatus(): Promise<ScraperStatus> {
   })
   if (!res.ok) throw new Error(`scraper-status HTTP ${res.status}`)
   return res.json() as Promise<ScraperStatus>
+}
+
+// ── Aggregated Overview-page endpoint ──────────────────────────────────────────
+// Bundles overview KPIs + scraper-status + trust-score + confidence-matrix into
+// one response (backend/api/routes/dashboard.py) — replaces 4 independent
+// mount-time requests with 1. The 4 standalone endpoints above still exist and
+// still work (scraper-status polling, TrustDashboard's profileVersion refetch).
+
+export interface DashboardOverviewResponse {
+  overview:          AnalyticsOverview
+  scraper_status:    ScraperStatus
+  trust_score:       TrustScoreResponse
+  confidence_matrix: ConfidenceMatrixResponse
+}
+
+/** Section-keyed data types for the streamed dashboard sections. */
+export interface DashboardSectionDataMap {
+  overview:          AnalyticsOverview
+  scraper_status:    ScraperStatus
+  confidence_matrix: ConfidenceMatrixResponse
+  trust_score:       TrustScoreResponse
+}
+export type DashboardSectionName = keyof DashboardSectionDataMap
+
+/** One parsed NDJSON line from the stream: either {section, data} or
+ *  {section, error} — never both. */
+export type DashboardStreamEvent = {
+  [K in DashboardSectionName]: { section: K; data: DashboardSectionDataMap[K] } | { section: K; error: string }
+}[DashboardSectionName]
+
+/**
+ * Extracts a human-readable message from a JSON error body (FastAPI's
+ * {"detail": "..."} shape, or any object with a string `detail`/`message`
+ * field), falling back to `fallback` if the body isn't JSON or has neither.
+ */
+async function _readJsonErrorDetail(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json()
+    if (body && typeof body.detail === 'string')  return body.detail
+    if (body && typeof body.message === 'string') return body.message
+  } catch {
+    // Body wasn't JSON (or was empty) — fall back to the generic message.
+  }
+  return fallback
+}
+
+/**
+ * Consumes GET /api/dashboard/overview as newline-delimited JSON (NDJSON),
+ * calling onEvent for each section (overview, scraper_status,
+ * confidence_matrix, trust_score) the instant its line arrives — instead of
+ * waiting for the whole response to buffer. Backend still computes every
+ * section fresh from the current committed database state on every call;
+ * this only changes DELIVERY, streaming each section to the UI as soon as
+ * it's ready so independent widgets can render progressively.
+ *
+ * Rejects the returned promise only for a stream-level failure: non-200
+ * status (parsed as a normal JSON error body, not NDJSON), an unexpected
+ * Content-Type, or a network-level read failure. A single section's own
+ * computation failing arrives as a normal {section, error} event via
+ * onEvent, not a rejection. Likewise, one malformed NDJSON line is logged
+ * and skipped — it never aborts the stream or discards sections already
+ * delivered, and there is no "fall back to fetching each endpoint
+ * separately" behavior of any kind: this is the only way this data is
+ * fetched.
+ */
+export async function streamDashboardOverview(
+  onEvent: (event: DashboardStreamEvent) => void,
+): Promise<void> {
+  await ensureFreshToken()
+  const res = await fetch(`${BASE}/api/dashboard/overview`, {
+    headers: getAuthHeaders(),
+    cache:   'no-store',
+  })
+  if (res.status === 429) throw new RateLimitError()
+
+  if (!res.ok) {
+    // A non-200 response is always a plain JSON error body (FastAPI's
+    // default error shape), never NDJSON — parse it as such, not as a
+    // stream, and report that message specifically.
+    const detail = await _readJsonErrorDetail(res, `HTTP ${res.status}`)
+    throw new Error(`dashboard/overview failed: ${detail}`)
+  }
+
+  const contentType = res.headers.get('content-type') ?? ''
+  if (!contentType.includes('application/x-ndjson')) {
+    // 200 OK but not the expected NDJSON stream — handle this explicitly
+    // rather than feeding non-NDJSON bytes into the line-oriented parser
+    // (which is what previously surfaced as a confusing
+    // "Unexpected non-whitespace character after JSON" SyntaxError).
+    const detail = await _readJsonErrorDetail(res, `unexpected content-type "${contentType}"`)
+    throw new Error(`dashboard/overview: ${detail}`)
+  }
+
+  const processLine = (line: string) => {
+    if (!line.trim()) return
+    let event: DashboardStreamEvent
+    try {
+      event = JSON.parse(line) as DashboardStreamEvent
+    } catch (err) {
+      // One malformed line must never abort sections already delivered, or
+      // stop the reader from continuing to the next line/chunk.
+      console.error('[streamDashboardOverview] malformed NDJSON line, skipping:', line, err)
+      return
+    }
+    onEvent(event)
+  }
+
+  if (!res.body) {
+    // Environment without a readable stream body (shouldn't happen in a
+    // browser) — read the whole body as text, but still split and parse it
+    // line-by-line via the same splitter, never as one JSON.parse(text) call.
+    const text = await res.text()
+    const splitter = new NdjsonLineSplitter()
+    for (const line of splitter.push(text)) processLine(line)
+    const last = splitter.flush()
+    if (last !== null) processLine(last)
+    return
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  const splitter = new NdjsonLineSplitter()
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    const chunkText = decoder.decode(value, { stream: true })
+    for (const line of splitter.push(chunkText)) processLine(line)
+  }
+  const last = splitter.flush()
+  if (last !== null) processLine(last)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

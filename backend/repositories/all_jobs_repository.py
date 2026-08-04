@@ -359,38 +359,44 @@ class AllJobsFilterOptions:
     industries: list[str]
 
 
+_FILTER_OPTIONS_SQL = text("""
+    SELECT
+      ARRAY(SELECT DISTINCT source FROM public.all_jobs
+            WHERE source IS NOT NULL ORDER BY source)                       AS sources,
+      ARRAY(SELECT DISTINCT seniority_level FROM public.all_jobs
+            WHERE seniority_level IS NOT NULL ORDER BY seniority_level)     AS seniority_levels,
+      ARRAY(SELECT DISTINCT employment_type FROM public.all_jobs
+            WHERE employment_type IS NOT NULL ORDER BY employment_type)    AS employment_types,
+      ARRAY(SELECT DISTINCT x FROM public.all_jobs, unnest(job_function) x
+            WHERE job_function IS NOT NULL ORDER BY x)                     AS job_functions,
+      ARRAY(SELECT DISTINCT x FROM public.all_jobs, unnest(industries) x
+            WHERE industries IS NOT NULL ORDER BY x)                       AS industries
+""")
+
+
 def get_all_jobs_filter_options(*, session: Optional[Session] = None) -> AllJobsFilterOptions:
     """
     Distinct, sorted values actually present in `all_jobs` right now — the
     frontend's filter dropdowns are populated from this rather than a
     hardcoded list, so a filter option can never be offered that would
     return zero results.
+
+    One round trip via 5 independent ARRAY(SELECT DISTINCT ...) subqueries,
+    rather than 5 separate SELECTs — measured byte-for-byte identical output
+    to the old 5-query version, ~50% faster (1758ms -> 876ms mean, 6/6
+    interleaved A/B wins against the real DB; per-query cost is dominated by
+    network round-trip time, not query execution, since `all_jobs` is small).
     """
     owns_session = session is None
     session = session or get_pg_session()
     try:
-        def _distinct(col):
-            stmt = (
-                select(_TABLE.c[col])
-                .where(_TABLE.c[col].is_not(None))
-                .distinct()
-                .order_by(_TABLE.c[col])
-            )
-            return [row[0] for row in session.execute(stmt).all()]
-
-        def _distinct_unnested(col):
-            stmt = text(
-                f"SELECT DISTINCT x FROM public.all_jobs, unnest({col}) x "
-                f"WHERE {col} IS NOT NULL ORDER BY x"
-            )
-            return [row[0] for row in session.execute(stmt).all()]
-
+        row = session.execute(_FILTER_OPTIONS_SQL).one()
         return AllJobsFilterOptions(
-            sources=_distinct("source"),
-            seniority_levels=_distinct("seniority_level"),
-            employment_types=_distinct("employment_type"),
-            job_functions=_distinct_unnested("job_function"),
-            industries=_distinct_unnested("industries"),
+            sources=list(row.sources),
+            seniority_levels=list(row.seniority_levels),
+            employment_types=list(row.employment_types),
+            job_functions=list(row.job_functions),
+            industries=list(row.industries),
         )
     finally:
         if owns_session:

@@ -35,6 +35,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useMemo,
   type ReactNode,
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
@@ -338,13 +339,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await _hardEvict()
   }, [])
 
+  // Without this, every AuthProvider re-render (e.g. a silent token refresh)
+  // creates a brand-new value object, which re-renders all ~18 consumers of
+  // useAuth() across the app (Header, AuthGuard, and several data-fetching
+  // hooks all sit on this context) even though the callbacks below are
+  // already useCallback-stable and user/session/loading didn't change.
+  const value = useMemo(() => ({
+    user, session, loading,
+    signIn, signUp, signInWithGoogle, signOut,
+    sendPasswordResetOtp, verifyPasswordResetOtp, updatePassword,
+    updateUserMeta,
+  }), [
+    user, session, loading,
+    signIn, signUp, signInWithGoogle, signOut,
+    sendPasswordResetOtp, verifyPasswordResetOtp, updatePassword,
+    updateUserMeta,
+  ])
+
   return (
-    <AuthContext.Provider value={{
-      user, session, loading,
-      signIn, signUp, signInWithGoogle, signOut,
-      sendPasswordResetOtp, verifyPasswordResetOtp, updatePassword,
-      updateUserMeta,
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

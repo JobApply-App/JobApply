@@ -278,9 +278,16 @@ def normalize_list_field(value: Any, *, known_terms: frozenset[str] = frozenset(
     for token in sentinels:
         doctored = re.sub(r"\s+and\s+(?=" + re.escape(token) + ")", ", ", doctored)
 
+    # A leading "and " can land on ANY piece, not just the last one: a raw
+    # value like "Appliances, Electrical, and Electronics Manufacturing,
+    # Industrial Machinery Manufacturing, and Manufacturing" (a real,
+    # confirmed-in-production `industries` value) naively comma-splits into
+    # 5 pieces with TWO "and"-prefixed pieces, not one — LinkedIn's own
+    # rendering isn't always a single flat Oxford-comma list with exactly
+    # one "and". No real category name legitimately starts with "and ", so
+    # stripping it from every piece (not just pieces[-1]) is always safe.
     pieces = [piece.strip() for piece in re.split(r",\s*", doctored) if piece.strip()]
-    if pieces:
-        pieces[-1] = _LEADING_AND_RE.sub("", pieces[-1])
+    pieces = [_LEADING_AND_RE.sub("", piece) for piece in pieces]
     pieces = [sentinels.get(piece, piece) for piece in pieces]
 
     if known_terms and len(pieces) == 1 and pieces[0] not in sentinels.values():

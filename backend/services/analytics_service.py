@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -40,39 +41,52 @@ from backend.core.database import ENGINE
 logger = logging.getLogger(__name__)
 
 
-def compute_overview(user_id: str) -> dict:
-    """Return the daily Overview KPI values for `user_id` (and only `user_id`)."""
+def compute_overview(user_id: str, session: Optional[Session] = None) -> dict:
+    """
+    Return the daily Overview KPI values for `user_id` (and only `user_id`).
+
+    Accepts an optional already-open Session so a caller loading several
+    Overview-page datasets in one request (backend/api/routes/dashboard.py)
+    can share one session/connection instead of this opening its own — same
+    optional-session pattern as kv_repository/profile_entity_repository/
+    evidence_repository.
+    """
     midnight_utc = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
-    with Session(ENGINE) as db:
-        # Jobs the scraper surfaced today.
-        jobs_scanned_today = db.execute(
+    def _run(db: Session) -> dict:
+        # All three KPIs in one round trip via conditional aggregation
+        # (SUM/AVG of a CASE WHEN) instead of three separate SELECT count()/
+        # avg() queries against the same table — same filters, same date
+        # boundary, one query instead of three. SUM/AVG over zero matching
+        # rows returns NULL (unlike COUNT(*), which returns 0), so the `or 0`
+        # / `or 0.0` fallbacks below reproduce the original per-query
+        # zero-rows behavior exactly.
+        row = db.execute(
             text("""
-                SELECT count(*) FROM public.user_job_matches
-                WHERE user_id = CAST(:uid AS uuid) AND created_at >= :midnight
+                SELECT
+                    SUM(CASE WHEN created_at >= :midnight THEN 1 ELSE 0 END) AS jobs_scanned_today,
+                    SUM(CASE WHEN applied = true AND applied_at >= :midnight THEN 1 ELSE 0 END) AS actions_taken_today,
+                    AVG(CASE WHEN match_score > 0 THEN match_score END) AS avg_match_score
+                FROM public.user_job_matches
+                WHERE user_id = CAST(:uid AS uuid)
             """),
             {"uid": user_id, "midnight": midnight_utc},
-        ).scalar_one()
+        ).one()
+        return {
+            "jobs_scanned_today":  int(row.jobs_scanned_today or 0),
+            "actions_taken_today": int(row.actions_taken_today or 0),
+            "average_match_score": round(float(row.avg_match_score), 1) if row.avg_match_score else 0.0,
+        }
 
-        # Concrete user actions today — applications submitted. applied_at is
-        # only set when the user applies, so this is the honest "what did I
-        # do today" counter.
-        actions_taken_today = db.execute(
-            text("""
-                SELECT count(*) FROM public.user_job_matches
-                WHERE user_id = CAST(:uid AS uuid) AND applied = true AND applied_at >= :midnight
-            """),
-            {"uid": user_id, "midnight": midnight_utc},
-        ).scalar_one()
+    if session is not None:
+        kpis = _run(session)
+    else:
+        with Session(ENGINE) as db:
+            kpis = _run(db)
 
-        avg_score_raw = db.execute(
-            text("""
-                SELECT avg(match_score) FROM public.user_job_matches
-                WHERE user_id = CAST(:uid AS uuid) AND match_score > 0
-            """),
-            {"uid": user_id},
-        ).scalar_one()
-        average_match_score = round(float(avg_score_raw), 1) if avg_score_raw else 0.0
+    jobs_scanned_today  = kpis["jobs_scanned_today"]
+    actions_taken_today = kpis["actions_taken_today"]
+    average_match_score = kpis["average_match_score"]
 
     logger.info(
         "[analytics] overview user=%s scanned_today=%d actions_today=%d avg_match=%.1f",

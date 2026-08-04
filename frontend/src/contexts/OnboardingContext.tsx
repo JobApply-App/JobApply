@@ -16,6 +16,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useMemo,
   type ReactNode,
 } from 'react'
 
@@ -67,7 +68,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     try { sessionStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
   }, [])
 
-  return <Ctx.Provider value={{ data, set, clear }}>{children}</Ctx.Provider>
+  const value = useMemo(() => ({ data, set, clear }), [data, set, clear])
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
