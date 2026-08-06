@@ -34,6 +34,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.api.routes import agents, all_jobs, analytics, applications, ariel, auth, chat, crm, dashboard, history, jobs, linkedin_jobs, outreach, profile, resumes, scraper, settings, webhooks
 from backend.config import (
+    ALL_JOBS_MATCHING_INTERVAL_SECONDS,
     AUTO_DISCOVERY,
     CORS_ORIGINS,
     CREDIT_CONSERVATION_MODE,
@@ -163,6 +164,48 @@ async def _discovery_loop() -> None:
                 logger.error("[discovery-loop] Error (attempt %d/%d): %s",
                              consecutive_failures, _CONSEC_FAIL_THRESHOLD, exc)
         await asyncio.sleep(DISCOVERY_INTERVAL_SECONDS)
+
+
+async def _all_jobs_matching_loop() -> None:
+    """
+    Background worker that bridges public.all_jobs (the global, read-only
+    job catalog) into each user's Matches feed. Mirrors _discovery_loop's
+    failure-resilience shape; see backend/services/all_jobs_match_service.py
+    for why this loop does no LLM scoring of its own — it only maps and
+    saves, and the existing _enrichment_loop scores whatever lands here.
+    """
+    from backend.services.all_jobs_match_service import run_all_jobs_matching_cycle
+    from backend.services.tenant_registry import list_pipeline_user_ids
+
+    _LONG_BACKOFF_SECONDS  = 1800    # 30-min pause after repeated failures
+    _CONSEC_FAIL_THRESHOLD = 3       # failures before entering long-backoff
+
+    logger.info(
+        "[all-jobs-match-loop] Background task started — interval=%ds",
+        ALL_JOBS_MATCHING_INTERVAL_SECONDS,
+    )
+
+    consecutive_failures = 0
+
+    while True:
+        try:
+            for uid in list_pipeline_user_ids():
+                run_all_jobs_matching_cycle(user_id=uid)
+            consecutive_failures = 0
+        except Exception as exc:
+            consecutive_failures += 1
+            if consecutive_failures >= _CONSEC_FAIL_THRESHOLD:
+                logger.warning(
+                    "[all-jobs-match-loop] %d consecutive failures — entering long-backoff "
+                    "(%ds). Last error: %s",
+                    consecutive_failures, _LONG_BACKOFF_SECONDS, exc,
+                )
+                await asyncio.sleep(_LONG_BACKOFF_SECONDS)
+                consecutive_failures = 0
+            else:
+                logger.error("[all-jobs-match-loop] Error (attempt %d/%d): %s",
+                             consecutive_failures, _CONSEC_FAIL_THRESHOLD, exc)
+        await asyncio.sleep(ALL_JOBS_MATCHING_INTERVAL_SECONDS)
 
 
 def _seed_scraper_registry() -> None:
@@ -351,10 +394,11 @@ async def lifespan(app: FastAPI):
 
     enrich_task    = asyncio.create_task(_enrichment_loop())
     discovery_task = asyncio.create_task(_discovery_loop())
+    all_jobs_match_task = asyncio.create_task(_all_jobs_matching_loop())
     try:
         yield
     finally:
-        for t in (enrich_task, discovery_task):
+        for t in (enrich_task, discovery_task, all_jobs_match_task):
             t.cancel()
             try:
                 await t
