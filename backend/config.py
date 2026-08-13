@@ -365,6 +365,14 @@ CREDIT_CONSERVATION_MODE: bool = True
 #       Switch back to DISCOVERY_INTERVAL_SECONDS = 300.
 DISCOVERY_INTERVAL_SECONDS: int = 86400  # 24 hours — credit-conservation mode
 
+# ── All-jobs matching loop interval ───────────────────────────────────────────
+# How often (in seconds) the background loop that bridges public.all_jobs
+# (the global catalog) into each user's Matches feed runs. This loop only
+# copies metadata + relevancy-filters (no LLM calls of its own — the existing
+# enrichment loop scores whatever it inserts), so it can run far more often
+# than DISCOVERY_INTERVAL_SECONDS without adding to the LLM credit budget.
+ALL_JOBS_MATCHING_INTERVAL_SECONDS: int = 1800  # 30 minutes
+
 # ── Development mode ──────────────────────────────────────────────────────────
 # When DEV_MODE is True, each board scraper is capped at DEV_MAX_JOBS_PER_BOARD
 # detail-page fetches per run.  This keeps the full s1 → s4 pipeline cycle
