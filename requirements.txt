@@ -1,3 +1,17 @@
+# ── Backend runtime dependencies ───────────────────────────────────────────────
+# Pulled in wholesale so this file is a SUPERSET that can satisfy the FastAPI
+# backend as well as the frozen Streamlit app below.
+#
+# Why: a Render service that is not running the Docker blueprint (render.yaml
+# -> backend/Dockerfile, which installs backend/requirements.txt) falls back to
+# Render's native Python detection, which installs THIS file. It was missing 15
+# backend packages, so startup died on the first one imported —
+# ModuleNotFoundError: No module named 'psycopg2' — with alembic, python-jose,
+# google-genai and 11 more queued up behind it.
+#
+# Delegating instead of copying keeps the two lists from drifting apart again.
+-r backend/requirements.txt
+
 # ── Web framework ──────────────────────────────────────────────────────────────
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
