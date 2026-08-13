@@ -24,7 +24,18 @@ services:
     runtime: docker
     dockerfilePath: backend/Dockerfile
     dockerContext: .
-    plan: starter
+    # Free tier: the instance is spun down after ~15 minutes without inbound
+    # requests and cold-starts on the next one. Two consequences specific to
+    # this service, both silent rather than error-producing:
+    #   - the three background loops in main.py (enrichment 30s, all-jobs
+    #     matching 30min, discovery 24h) only run while the instance is awake,
+    #     so match scoring and the Matches feed advance sporadically instead of
+    #     on their configured intervals.
+    #   - memory is capped at 512MB, and the Chromium that backend/Dockerfile
+    #     installs for PDF export routinely needs a large share of that.
+    # Move back to `starter` when either the loops or PDF export need to be
+    # dependable.
+    plan: free
     healthCheckPath: /health
     # Overrides the Dockerfile's own dev CMD (which uses --reload — fine
     # locally with a bind-mounted volume, wasteful/pointless on a static
