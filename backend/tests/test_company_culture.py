@@ -302,7 +302,19 @@ def test_corrupt_cache_row_treated_as_miss(engine):
 
 @pytest.mark.asyncio
 async def test_fresh_cache_short_circuits_research(engine, monkeypatch):
-    p = build_profile_from_payload("Acme", _payload(), now=NOW)
+    # Stamped with the REAL current time, not the frozen NOW the rest of this
+    # module uses. get_culture_profile() takes no `now` parameter — it always
+    # evaluates staleness against the wall clock — so a profile dated NOW
+    # (2026-07-10) silently stopped being "fresh" once real time passed
+    # NOW + _STALE_AFTER (30 days), i.e. on 2026-08-09. From that date this
+    # test failed on every branch and every commit, with a message
+    # ("analyze() must not run on a fresh cache hit") that points at caching
+    # rather than at the expiry that actually caused it.
+    #
+    # Freshness is the entire subject of this test, so it has to be expressed
+    # relative to the clock the code under test actually reads. The frozen NOW
+    # stays correct for the tests that pass an explicit `now=` into is_stale().
+    p = build_profile_from_payload("Acme", _payload(), now=datetime.now(timezone.utc))
     save_cached_profile(p, engine=engine)
 
     async def _explode(self, *a, **k):

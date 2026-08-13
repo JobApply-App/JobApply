@@ -48,6 +48,15 @@ services:
         sync: false
       - key: SUPABASE_JWT_SECRET
         sync: false
+      # Required. APP_ENV=production above makes config._compute_cors_origins()
+      # use THIS list and nothing else — the localhost/dev defaults are not
+      # applied in production. Leaving it unset yields an empty allow-list, so
+      # every browser request is rejected while the service still passes health
+      # checks and logs look clean: the API appears dead from the frontend with
+      # no obvious cause. Comma-separated, scheme included, no trailing slash,
+      # e.g. https://job-apply-chi.vercel.app,https://app.example.com
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
       # Required for Ariel/chat and every LLM-backed feature (CV tailoring,
       # match scoring, etc.) — those routes 503 without it, everything else
       # still works.

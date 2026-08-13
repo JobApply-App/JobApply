@@ -35,7 +35,20 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_table('job_matches', schema='public')
+    # IF EXISTS, because this table is not part of the chain's own lineage.
+    # As the docstring above records, job_matches predates these migrations on
+    # the Dev Supabase project and no upgrade() anywhere creates it — so on
+    # Dev it is present and gets dropped, while on any FRESH database (a new
+    # Production project, a CI scratch DB, a restored-from-empty environment)
+    # it never existed and an unguarded DROP aborts the entire chain.
+    #
+    # Found the hard way standing up JobApply-Production: the whole 28-migration
+    # upgrade rolled back at this statement. Postgres' transactional DDL meant
+    # the failure was clean, but the chain was simply not replayable from
+    # scratch until this line became conditional.
+    #
+    # The intent — "ensure this orphan is gone" — is unchanged on Dev.
+    op.execute("DROP TABLE IF EXISTS public.job_matches")
 
 
 def downgrade() -> None:
