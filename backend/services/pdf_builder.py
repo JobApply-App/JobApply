@@ -31,6 +31,23 @@ import html as _html
 import re
 from pathlib import Path
 
+
+class PdfEngineUnavailable(RuntimeError):
+    """
+    The headless browser this module renders with is not installed.
+
+    Distinct from a transient render failure on purpose. `pip install
+    playwright` provides the Python package but NOT the Chromium binary — that
+    needs a separate `playwright install chromium` plus its system libraries,
+    which backend/Dockerfile does and a plain pip-based deploy does not. So a
+    deployment can import this module, pass every health check, and still be
+    permanently incapable of producing a PDF.
+
+    Callers must not present this as retryable: no amount of retrying installs
+    a browser. Surfacing it as the same "please try again shortly" error used
+    for genuine blips sends users into an infinite retry loop against a wall.
+    """
+
 # ── Template resolution ───────────────────────────────────────────────────────
 # Legacy default (kept for backward-compat — all existing callers pass no template_id)
 TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "cv_template.html"
@@ -372,7 +389,22 @@ async def build_pdf(cv_data: dict, output_path: str | Path | None = None,
     html_str = render_html(cv_data, template_id=template_id, user_id=user_id)
 
     async with async_playwright() as pw:
-        browser = await pw.chromium.launch()
+        try:
+            browser = await pw.chromium.launch()
+        except Exception as exc:
+            # Matched on the message rather than the exception class:
+            # playwright._impl._errors.Error is a private path, and the same
+            # class covers ordinary launch failures too. The wording below is
+            # what Playwright prints when the binary is absent.
+            msg = str(exc).lower()
+            if "executable doesn't exist" in msg or "playwright install" in msg:
+                raise PdfEngineUnavailable(
+                    "Chromium is not installed in this environment — PDF rendering "
+                    "is unavailable. Deploy via backend/Dockerfile (which runs "
+                    "`playwright install --with-deps chromium`), or run that command "
+                    "with system dependencies available."
+                ) from exc
+            raise
         page    = await browser.new_page()
         await page.set_content(html_str, wait_until="networkidle")
         pdf_bytes = await page.pdf(

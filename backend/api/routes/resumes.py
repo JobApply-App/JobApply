@@ -16,7 +16,7 @@ from backend.agents.resume import ResumeAgent
 from backend.agents.tailor import TailorAgent, _inject_static_sections
 from backend.agents.gatekeeper import RevisionGatekeeper
 from backend.agents.copilot import CopilotAgent
-from backend.services.pdf_builder import build_pdf, TEMPLATE_REGISTRY
+from backend.services.pdf_builder import build_pdf, PdfEngineUnavailable, TEMPLATE_REGISTRY
 from backend.services.supplemental_store import save as save_supplemental
 from backend.services.user_profile import get_profile, save_personal_field
 from backend.services.match_score_service import (
@@ -29,6 +29,43 @@ from backend.services.master_profile_service import get_cached_answer, merge_ans
 from backend.repositories.job_repository import clear_tailored_cv, get_tailored_cv, save_tailored_cv
 
 logger = logging.getLogger(__name__)
+
+
+def _pdf_http_error(exc: Exception, *, context: str) -> HTTPException:
+    """
+    Map a PDF-build failure to the response the client should actually get.
+
+    Two genuinely different failures were previously reported identically as
+    502 "Please try again shortly":
+
+      • PdfEngineUnavailable — Chromium isn't installed in this deployment.
+        Permanent. Retrying can never succeed, so telling the user to retry
+        sends them into an endless loop against a wall. 503 + a message that
+        says the feature is unavailable, so they stop and we get a support
+        report naming the real problem.
+
+      • anything else — a real transient render failure (timeout, OOM, a
+        malformed template). 502 + retry advice, which is honest here.
+
+    Centralised so the several call sites can't drift into telling users
+    different stories about the same condition.
+    """
+    if isinstance(exc, PdfEngineUnavailable):
+        logger.error("[%s] PDF engine unavailable — Chromium not installed: %s", context, exc)
+        return HTTPException(
+            status_code=503,
+            detail=(
+                "PDF export is currently unavailable on this server. This is a "
+                "configuration issue on our side, not something retrying will fix — "
+                "your CV content has been saved and can still be edited."
+            ),
+        )
+    logger.exception("[%s] PDF build failed", context)
+    return HTTPException(
+        status_code=502,
+        detail="PDF generation failed. Please try again shortly.",
+    )
+
 
 # Standard budget on every resumes route; the LLM-generation endpoints below
 # additionally carry the strict llm_rate_limit.
@@ -622,8 +659,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
     try:
         pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
     except Exception as exc:
-        logger.exception("[resumes/tailor] PDF build failed for job %s", req.job_id)
-        raise HTTPException(status_code=502, detail="PDF generation failed. Please try again shortly.") from exc
+        raise _pdf_http_error(exc, context=f"resumes/tailor job={req.job_id}") from exc
 
     # ── Compute match score against the freshly generated cv_data ────────────
     # cv_data is always the just-produced output from TailorAgent — never cached.
@@ -854,8 +890,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
     try:
         pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
     except Exception as exc:
-        logger.exception("[resumes/copilot] PDF build failed for job %s", req.job_id)
-        raise HTTPException(status_code=502, detail="PDF generation failed. Please try again shortly.") from exc
+        raise _pdf_http_error(exc, context=f"resumes/copilot job={req.job_id}") from exc
 
     match_score_dict: Optional[dict] = None
     score_result = None
@@ -1139,8 +1174,7 @@ async def render_pdf(req: RenderPdfRequest, user: CurrentUser = Depends(get_curr
     try:
         pdf_bytes = await build_pdf(req.cv_data, template_id=req.template_id, user_id=user.user_id)
     except Exception as exc:
-        logger.exception("[resumes/render-pdf] PDF render failed template=%s", req.template_id)
-        raise HTTPException(status_code=502, detail="PDF render failed. Please try again shortly.") from exc
+        raise _pdf_http_error(exc, context=f"resumes/render-pdf template={req.template_id}") from exc
 
     return {"pdf_b64": base64.b64encode(pdf_bytes).decode()}
 
