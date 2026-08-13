@@ -684,7 +684,16 @@ def update_jd_text(job_id: str, text_: str) -> None:
 
 
 def update_jd_structured(job_id: str, structured_json: str) -> None:
-    """Persist LLM-structured JD JSON string onto the job posting for job_id."""
+    """
+    Persist LLM-structured JD JSON onto the posting behind an external job_id.
+
+    Resolves the posting THROUGH user_job_matches, because job_id is that
+    table's column — job_postings has no job_id of its own (see this module's
+    docstring). That makes this the right entry point for any caller working
+    from a JobMatch, and the wrong one for a posting with no match rows: the
+    subquery yields NULL, the UPDATE matches nothing, and it fails silently.
+    Use update_jd_structured_by_posting_id() when you hold a job_postings.id.
+    """
     with Session(ENGINE) as session:
         session.execute(
             text("""
@@ -694,6 +703,30 @@ def update_jd_structured(job_id: str, structured_json: str) -> None:
             {"structured": structured_json, "job_id": job_id},
         )
         session.commit()
+
+
+def update_jd_structured_by_posting_id(posting_id: str, structured_json: str) -> bool:
+    """
+    Persist LLM-structured JD JSON onto a job_postings row by its own id.
+
+    job_postings is global and its lifecycle is independent of user_job_matches
+    — a posting can exist with no match rows at all (an ingested catalogue row
+    nobody has been matched against yet). Those rows are unreachable from
+    update_jd_structured() above, which is what this exists for.
+
+    Returns True when a row was actually updated, so callers can distinguish
+    "written" from "no such posting" instead of assuming success.
+    """
+    with Session(ENGINE) as session:
+        result = session.execute(
+            text("""
+                UPDATE public.job_postings SET jd_structured = CAST(:structured AS jsonb)
+                WHERE id = CAST(:posting_id AS uuid)
+            """),
+            {"structured": structured_json, "posting_id": posting_id},
+        )
+        session.commit()
+        return result.rowcount > 0
 
 
 def update_company(job_id: str, company: str) -> None:
