@@ -362,6 +362,21 @@ class MatchScoreResult:
     # cv.experience[experience_index].bullets[bullet_index].id when it wants
     # to key Ariel's per-bullet analysis off a persistent id.
     bullet_matches:       list[dict]      = field(default_factory=list)
+    # ── Structural dimensions (backend/services/match_dimensions.py) ──────────
+    # The deterministic 40% term and its four components. All None when the
+    # dimension pass could not run (thin JD, SQLite, DB error) — in which case
+    # the composite fell back to the ATS base score and these carry no signal.
+    # matched/missing_must_haves are JD REQUIREMENTS as stated, distinct from
+    # Phase 1's matched_skills/missing_skills (raw keyword extraction) and from
+    # missing_critical_capabilities (the LLM's conceptual read).
+    structural_score:     Optional[float] = None
+    hard_skills_score:    Optional[float] = None
+    depth_breadth_score:  Optional[float] = None
+    domain_context_score: Optional[float] = None
+    matched_must_haves:   list[str]       = field(default_factory=list)
+    missing_must_haves:   list[str]       = field(default_factory=list)
+    equivalent_matches:   list[str]       = field(default_factory=list)
+    legacy_company:       Optional[str]   = None
 
     def as_dict(self) -> dict:
         return {
@@ -391,6 +406,14 @@ class MatchScoreResult:
             "culture_category":     self.culture_category,
             "culture_note":         self.culture_note,
             "bullet_matches":       self.bullet_matches,
+            "structural_score":     self.structural_score,
+            "hard_skills_score":    self.hard_skills_score,
+            "depth_breadth_score":  self.depth_breadth_score,
+            "domain_context_score": self.domain_context_score,
+            "matched_must_haves":   self.matched_must_haves,
+            "missing_must_haves":   self.missing_must_haves,
+            "equivalent_matches":   self.equivalent_matches,
+            "legacy_company":       self.legacy_company,
         }
 
 
@@ -1577,37 +1600,183 @@ def finalize_composite(
     ats_base: float | None = None,
     knockout_failed: bool = False,
     culture_delta: float | None = None,
+    structural: float | None = None,
 ) -> float:
     """
     Compose the final 0-100 Match Score from its parts. Pure and deterministic.
 
       llm_composite = 0.30 × local + 0.70 × (5/7 × semantic + 2/7 × management)
-      unified       = 0.60 × llm_composite + 0.40 × ats_base   (when ATS ran)
+      unified       = 0.60 × llm_composite + 0.40 × structural
       adjusted      = unified + culture_delta                   (when culture ran;
                       bounded ±CULTURE_MAX_ADJUST, see culture_delta_from_alignment)
       capped        = min(adjusted, 40.0)                       (knockout failed)
 
-    ats_base must be the engine's PRE-knockout base_score — the knockout
-    penalty is applied here, once, as a cap (never also via the engine's
-    0.35 multiplier, which would double-penalise). The knockout cap is applied
-    AFTER the culture delta so a hard-constraint conflict can never be bought
-    back by good vibes.
+    The 40% deterministic term
+    ---------------------------
+    `structural` (backend/services/match_dimensions.py) is what occupies that
+    slot now: taxonomy-equivalent hard-skill coverage, depth-vs-breadth, domain
+    continuity + prior-employer floor, and the ATS engine's impact density.
+    It supersedes `ats_base`, which was the engine's base_score alone.
 
-    Thin-JD callers (Principle 4) do not use this function's ATS or culture
-    paths: they zero semantic/management and pass no ats_base and no
-    culture_delta, preserving exactly 0.30 × local.
+    `ats_base` is still honoured when `structural` is None, and means exactly
+    what it always did. Two live callers still take that path — feed_service's
+    local_stored rebuild branch, which re-finalises from an already-computed
+    MatchScoreResult, and any caller that could not build the dimension inputs
+    — and both should keep producing the score they produced before rather
+    than silently changing shape. Passing both is not an error; `structural`
+    simply wins.
+
+    Whichever term is used must be PRE-knockout: the knockout penalty is
+    applied here, once, as a cap — never also via the ATS engine's own 0.35
+    multiplier, which would double-penalise. The cap lands AFTER the culture
+    delta so a hard-constraint conflict can never be bought back by good vibes.
+
+    Thin-JD callers (Principle 4) use none of this: they zero semantic and
+    management and pass no structural, no ats_base and no culture_delta,
+    preserving exactly 0.30 × local.
     """
     llm_bucket    = _SEMANTIC_SHARE * semantic + _MANAGEMENT_SHARE * management
     llm_composite = _LOCAL_WEIGHT * local + _LLM_BUCKET_WEIGHT * llm_bucket
 
+    deterministic = structural if structural is not None else ats_base
+
     composite = llm_composite
-    if ats_base is not None:
-        composite = _LLM_BLEND_WEIGHT * llm_composite + _ATS_BLEND_WEIGHT * ats_base
+    if deterministic is not None:
+        composite = _LLM_BLEND_WEIGHT * llm_composite + _ATS_BLEND_WEIGHT * deterministic
     if culture_delta is not None:
         composite += culture_delta
     if knockout_failed:
         composite = min(composite, KNOCKOUT_SCORE_CAP)
     return round(min(100.0, max(0.0, composite)), 1)
+
+
+_REQUIRED_YEARS_RE = re.compile(r"(?:minimum|at least|(?<![\w.]))(\d{1,2})\s*\+?\s*years?", re.I)
+
+
+def _jd_requirements(jd_text: str, jd_structured: Optional[str] = None) -> tuple[list[str], list[str]]:
+    """
+    (must_haves, nice_to_haves) for the structural dimensions.
+
+    Prefers the persisted jd_structured JSON (jd_structure_service's schema:
+    requirements / advantages) because it is LLM-parsed and already paid for.
+    Falls back to ats_match_engine.heuristic_structured_jd, the zero-LLM
+    heading/bullet splitter, so a job whose structuring pass has not run yet
+    still gets deterministic dimensions rather than none.
+    """
+    if jd_structured:
+        try:
+            payload = json.loads(jd_structured) if isinstance(jd_structured, str) else jd_structured
+            if isinstance(payload, dict):
+                must = [str(x) for x in (payload.get("requirements") or []) if str(x).strip()]
+                nice = [str(x) for x in (payload.get("advantages") or []) if str(x).strip()]
+                if must or nice:
+                    return must, nice
+        except (json.JSONDecodeError, TypeError):
+            logger.debug("[match-dimensions] jd_structured unparseable — using heuristic split")
+
+    try:
+        from backend.services.ats_match_engine import heuristic_structured_jd
+        h = heuristic_structured_jd(jd_text)
+        return list(h.requirements), list(h.advantages)
+    except Exception:
+        logger.debug("[match-dimensions] heuristic JD split failed", exc_info=True)
+        return [], []
+
+
+def _skill_depth_map(user_id: str) -> dict[str, dict]:
+    """
+    {normalized skill name: {"years": float|None, "last_used_year": int|None}}
+    from profile_entities — the depth half of the depth-vs-breadth dimension.
+
+    Only 'skill' entities, and only ones not still awaiting verification as an
+    inference: an LLM's guess that the candidate probably has four years of
+    Kubernetes must not become four years of scored depth. Same rule the
+    tailored CV applies, for the same reason.
+
+    Returns {} on any failure — depth then falls back to the neutral
+    unknown-duration path in score_depth_breadth, which does not penalise.
+    """
+    try:
+        from sqlalchemy import text as _sql
+
+        from backend.core.database import ENGINE
+        from backend.services.match_dimensions import _norm
+
+        if ENGINE.dialect.name != "postgresql":
+            return {}
+        with ENGINE.connect() as conn:
+            rows = conn.execute(_sql("""
+                SELECT name, years_of_experience, last_used_year
+                FROM public.profile_entities
+                WHERE user_id = CAST(:uid AS uuid)
+                  AND entity_type = 'skill'
+                  AND (origin <> 'inferred' OR verification_status = 'verified')
+            """), {"uid": user_id}).fetchall()
+        return {
+            _norm(r.name): {
+                "years": float(r.years_of_experience) if r.years_of_experience is not None else None,
+                "last_used_year": int(r.last_used_year) if r.last_used_year is not None else None,
+            }
+            for r in rows if _norm(r.name)
+        }
+    except Exception:
+        logger.debug("[match-dimensions] skill depth fetch failed — depth scored neutrally",
+                     exc_info=True)
+        return {}
+
+
+def _compute_structural(
+    cv_data: dict,
+    jd_text: str,
+    company_name: str,
+    user_id: str,
+    ats: "object | None",
+    jd_structured: Optional[str] = None,
+) -> "object | None":
+    """
+    Build and score the four structural dimensions. None on any failure, which
+    makes finalize_composite fall back to the ATS base score exactly as before
+    — a broken dimension pass must degrade the score's precision, never break
+    the feed.
+    """
+    try:
+        from backend.services.match_dimensions import build_equivalence_map, compute_dimensions
+
+        must_haves, nice_haves = _jd_requirements(jd_text, jd_structured)
+        profile_skills = _extract_cv_skills(cv_data)
+        domains = cv_data.get("domains") or []
+        if not isinstance(domains, list):
+            domains = []
+
+        m = _REQUIRED_YEARS_RE.search(jd_text)
+        required_years = float(m.group(1)) if m else None
+
+        # One equivalence map covering both sides, so a JD term and a profile
+        # term that share a canonical form resolve to each other.
+        equivalence = build_equivalence_map(
+            list({*must_haves, *nice_haves, *profile_skills}),
+        )
+
+        impact = 0.0
+        if ats is not None and getattr(ats, "impact", None) is not None:
+            impact = float(getattr(ats.impact, "score", 0.0) or 0.0)
+
+        return compute_dimensions(
+            must_haves      = must_haves,
+            nice_haves      = nice_haves,
+            profile_skills  = profile_skills,
+            skill_depth     = _skill_depth_map(user_id),
+            profile_domains = [str(d) for d in domains],
+            experience      = cv_data.get("experience") or [],
+            jd_text         = jd_text,
+            target_company  = company_name,
+            required_years  = required_years,
+            impact          = impact,
+            equivalence     = equivalence,
+        )
+    except Exception as exc:
+        logger.warning("[match-dimensions] structural pass failed (non-fatal): %s", exc)
+        return None
 
 
 def _run_ats_engine(
@@ -1789,6 +1958,7 @@ async def compute_match_score_async(
     user_id: str,
     entity_scores: "list | None" = None,
     job_id: Optional[str] = None,
+    jd_structured: Optional[str] = None,
 ) -> MatchScoreResult:
     """
     Async composite scorer — primary entry point for route handlers.
@@ -1843,6 +2013,12 @@ async def compute_match_score_async(
         match_trigger_service.schedule_match_trigger (JOB-43) — exactly once
         per (user, job), never blocking this scorer. None (default) disables
         trigger evaluation, e.g. for preview scoring of unsaved jobs.
+    jd_structured : str | None  (keyword-only, optional)
+        The job's persisted jd_structured JSON, when the caller already has it.
+        Gives the structural dimensions LLM-parsed requirements/advantages
+        instead of the regex heading-splitter fallback — better must-have
+        extraction, no extra LLM call. None is fine and simply takes the
+        heuristic path.
     """
     if not run_llm_validation:
         # Fast path — Phase 1 only
@@ -1941,14 +2117,28 @@ async def compute_match_score_async(
         await _compute_culture_fit(cv_data, jd_text, company_name, user_id)
     )
 
+    # Structural dimensions — the deterministic 40% term. Supersedes the raw
+    # ATS base score; falls back to it when the dimension pass can't run.
+    dims = _compute_structural(cv_data, jd_text, company_name, user_id, ats,
+                               jd_structured=jd_structured)
+
     llm_composite   = finalize_composite(local, semantic, management)
     knockout_failed = bool(ats and not ats.knockout.passed)
     composite       = finalize_composite(
         local, semantic, management,
         ats_base        = ats.base_score if ats else None,
+        structural      = dims.structural if dims else None,
         knockout_failed = knockout_failed,
         culture_delta   = culture_delta,
     )
+
+    if dims is not None:
+        logger.info(
+            "[match-dimensions] skills=%.1f depth=%.1f domain=%.1f impact=%.1f "
+            "→ structural=%.1f (legacy=%s) title='%s'",
+            dims.hard_skills, dims.depth_breadth, dims.domain_context,
+            dims.impact, dims.structural, dims.legacy_company, inferred_title,
+        )
 
     if culture_delta is not None:
         logger.info(
@@ -2004,6 +2194,14 @@ async def compute_match_score_async(
         culture_delta        = culture_delta,
         culture_category     = culture_category,
         culture_note         = culture_note,
+        structural_score     = dims.structural if dims else None,
+        hard_skills_score    = dims.hard_skills if dims else None,
+        depth_breadth_score  = dims.depth_breadth if dims else None,
+        domain_context_score = dims.domain_context if dims else None,
+        matched_must_haves   = list(dims.matched_must_haves) if dims else [],
+        missing_must_haves   = list(dims.missing_must_haves) if dims else [],
+        equivalent_matches   = list(dims.equivalent_matches) if dims else [],
+        legacy_company       = dims.legacy_company if dims else None,
         bullet_matches       = p1.bullet_matches,
     )
 

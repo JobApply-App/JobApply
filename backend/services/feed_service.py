@@ -535,6 +535,41 @@ async def refresh_user_scores(user_id: str) -> int:
                 logger.debug("[feed_service] s2: skipping job %s — no usable JD text", job.job_id)
                 return
 
+            # ── Pass B2: structure the JD if nobody has yet ───────────────────
+            # Until now the ONLY paths that populated jd_structured were
+            # discovery.py, POST /api/jobs/analyze, and the backfill script —
+            # so every job that reached the feed through the enrichment loop
+            # (and, since it was added, the all_jobs -> Matches bridge) was
+            # scored and rendered without structured requirements. That is what
+            # left jd_structured at 3-of-14 rows on Dev.
+            #
+            # Structuring here, right before scoring, means the structural
+            # dimensions get LLM-parsed must-haves instead of the regex
+            # heading-splitter, and JobCard's requirements panel has something
+            # to render. Guarded on emptiness so this is one extra LLM call per
+            # job for the lifetime of that job, not one per enrichment sweep.
+            if not (job.jd_structured or "").strip():
+                try:
+                    from backend.services.jd_structure_service import (
+                        extract_company_from_structured, structure_jd,
+                    )
+                    structured = await structure_jd(jd_text, user_id=user_id, job_id=job.job_id)
+                    if structured:
+                        job_store.update_jd_structured(job.job_id, structured)
+                        job.jd_structured = structured
+                        extracted_company = extract_company_from_structured(structured)
+                        if extracted_company:
+                            job_store.update_company(job.job_id, extracted_company)
+                            job.company = extracted_company
+                        logger.info("[feed_service] s2: JD structured — job_id=%s", job.job_id)
+                except Exception as exc:
+                    # Non-fatal by design: an unstructured JD still scores via
+                    # the heuristic split. Never let this block enrichment.
+                    logger.warning(
+                        "[feed_service] s2: JD structuring failed for job %s (non-fatal): %s",
+                        job.job_id, exc,
+                    )
+
             # ── Pass C: LLM scoring (gated by semaphore) ──────────────────────
             async with sem:
                 local_stored = job.match_score if job.match_score > 0.0 else None
@@ -549,6 +584,7 @@ async def refresh_user_scores(user_id: str) -> int:
                     company_name        = job.company or "",
                     entity_scores       = entity_scores,
                     job_id              = job.job_id,   # enables high-match trigger (JOB-43)
+                    jd_structured       = job.jd_structured,
                 )
 
                 # Re-use the s1 local proxy score when available to avoid

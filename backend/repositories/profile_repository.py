@@ -116,18 +116,48 @@ def _read_cv(session: Session, user_id: str) -> dict:
     # back from cv_claims — the other ~80 scored entities (inferred, derived,
     # conversation-sourced) are Confidence Matrix state, not CV content, and
     # must not leak into the profile document.
+    #
+    # The origin gate is a second, explicit lock on the same door. An
+    # LLM-inferred capability ("you mentioned leading a migration, so you
+    # probably know Terraform") is a hypothesis, and a hypothesis must never
+    # be printed onto a CV the user sends to an employer — that is a
+    # fabrication risk, not a ranking nicety. source_document_id alone
+    # *happens* to exclude inferred rows today only because nothing currently
+    # stamps a document id onto one; if some future ingest path ever did,
+    # this filter is what stops it reaching the CV. An inferred capability
+    # earns its way onto the CV exactly one way: evidence upgrades it to
+    # verification_status='verified'.
     skills = session.execute(
         text("""
             SELECT name FROM public.profile_entities
             WHERE user_id = CAST(:uid AS uuid)
               AND entity_type = 'skill'
               AND source_document_id = :doc
+              AND (origin <> 'inferred' OR verification_status = 'verified')
             ORDER BY created_at
         """),
         {"uid": user_id, "doc": doc.id},
     ).fetchall()
     result["skills"] = [r[0] for r in skills]
     return result
+
+
+def _read_communication_style(session: Session, user_id: str) -> dict:
+    """
+    Ariel's turn-taking preference, from the typed user_preferences column.
+
+    save() also mirrors this key into profile_answers (it falls out of the
+    generic catch-all write), so both stores hold it — the typed column is
+    the authority and is overlaid last in _read_full_dict. Not the persona
+    blob's same-named string: see migration a7c91e40b3f2's docstring.
+    """
+    row = session.execute(
+        text("SELECT communication_style FROM public.user_preferences WHERE user_id = CAST(:uid AS uuid)"),
+        {"uid": user_id},
+    ).fetchone()
+    if row is None or not isinstance(row[0], dict):
+        return {}
+    return dict(row[0])
 
 
 def _read_generic(session: Session, user_id: str) -> dict:
@@ -143,6 +173,11 @@ def _read_full_dict(session: Session, user_id: str) -> dict:
     cv = _read_cv(session, user_id)
     non_empty_cv = {k: v for k, v in cv.items() if v}
     result.update(non_empty_cv)
+    # Typed column wins over whatever the generic profile_answers mirror holds,
+    # so a direct UPDATE on user_preferences is immediately authoritative.
+    style = _read_communication_style(session, user_id)
+    if style:
+        result["communication_style"] = style
     return result
 
 
@@ -444,17 +479,25 @@ def save(session: Session, handle: ProfileHandle) -> None:
     preferred_locations = career_goals.get("preferred_locations") or role_prefs.get("preferred_locations") or []
     work_type = career_goals.get("work_environment") or role_prefs.get("work_type") or "any"
     salary_min_usd = role_prefs.get("salary_min_usd")
+    # Ariel turn-taking preference. Read from the document's own top-level key
+    # (where _read_generic will have put it on the way back out) so a save()
+    # round-trip preserves it, exactly like every other preference here.
+    communication_style = mp.get("communication_style")
+    if not isinstance(communication_style, dict):
+        communication_style = {}
 
     session.execute(
         text("""
             INSERT INTO public.user_preferences
-                (user_id, target_titles, preferred_locations, work_type, salary_min_usd, updated_at)
+                (user_id, target_titles, preferred_locations, work_type, salary_min_usd,
+                 communication_style, updated_at)
             VALUES
                 (CAST(:uid AS uuid), CAST(:target_titles AS jsonb), CAST(:preferred_locations AS jsonb),
-                 :work_type, :salary_min_usd, now())
+                 :work_type, :salary_min_usd, CAST(:communication_style AS jsonb), now())
             ON CONFLICT (user_id) DO UPDATE SET
                 target_titles = EXCLUDED.target_titles, preferred_locations = EXCLUDED.preferred_locations,
-                work_type = EXCLUDED.work_type, salary_min_usd = EXCLUDED.salary_min_usd, updated_at = now()
+                work_type = EXCLUDED.work_type, salary_min_usd = EXCLUDED.salary_min_usd,
+                communication_style = EXCLUDED.communication_style, updated_at = now()
         """),
         {
             "uid": user_id,
@@ -462,6 +505,7 @@ def save(session: Session, handle: ProfileHandle) -> None:
             "preferred_locations": json.dumps(preferred_locations),
             "work_type": work_type,
             "salary_min_usd": salary_min_usd,
+            "communication_style": json.dumps(communication_style),
         },
     )
 
