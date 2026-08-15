@@ -10,6 +10,11 @@ sqlalchemy==2.0.36
 alembic==1.14.0
 asyncpg==0.30.0
 psycopg2-binary==2.9.10
+# RFC 6902 JSON Patch — backend/services/cv_patch_service.py applies Ariel's
+# targeted CV edits. Present transitively today (via langchain), which is not
+# something the copilot should depend on: a future dependency bump could drop
+# it and break CV editing with no signal here.
+jsonpatch==1.33
 redis==5.2.1
 celery==5.4.0
 python-dotenv==1.0.1

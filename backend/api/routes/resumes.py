@@ -8,7 +8,7 @@ import time
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from backend.repositories import job_repository as job_store
@@ -17,6 +17,7 @@ from backend.agents.tailor import TailorAgent, _inject_static_sections
 from backend.agents.gatekeeper import RevisionGatekeeper
 from backend.agents.copilot import CopilotAgent
 from backend.services.pdf_builder import build_pdf, PdfEngineUnavailable, TEMPLATE_REGISTRY
+from backend.models.cv import normalize_cv
 from backend.services.supplemental_store import save as save_supplemental
 from backend.services.user_profile import get_profile, save_personal_field
 from backend.services.match_score_service import (
@@ -541,7 +542,8 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
             logger.info(
                 "[resumes/tailor] Cache hit for job %s — returning persisted CV", req.job_id
             )
-            cached_cv_data = cached["cv_data"]
+            # Stored CVs may predate the schema unification.
+            cached_cv_data = normalize_cv(cached["cv_data"], context="resumes/tailor:cache")
             try:
                 cached_pdf = await build_pdf(cached_cv_data, template_id="t2_modern", user_id=user.user_id)
             except Exception as exc:
@@ -645,7 +647,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
             )
 
     # ── CV ready: build PDF ───────────────────────────────────────────────────
-    cv_data = result["cv_data"]
+    cv_data = normalize_cv(result["cv_data"], context="resumes")
 
     # Persist all JD answers (user-supplied + auto-filled) to the master profile
     # so subsequent generations for any job can benefit from the cache.
@@ -793,7 +795,7 @@ async def get_cached_resume(job_id: str, user: CurrentUser = Depends(get_current
     if not cached or not cached.get("cv_data"):
         return _FastAPIResponse(status_code=204)
 
-    cv_data = cached["cv_data"]
+    cv_data = normalize_cv(cached["cv_data"], context="resumes/cached")
     try:
         pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
         pdf_b64   = base64.b64encode(pdf_bytes).decode()
@@ -826,6 +828,12 @@ class CopilotResponse(BaseModel):
     cv_data:         Optional[dict] = None
     pdf_b64:         Optional[str]  = None
     match_score:     Optional[dict] = None
+    # RFC 6902 operations describing this edit. The server has ALREADY applied
+    # them — cv_data above is authoritative — but the client gets the ops too so
+    # the Live Editor can update the touched fields in place instead of
+    # re-rendering the document. Empty when nothing changed or the edit was
+    # refused. See backend/services/cv_patch_service.py.
+    patch:           list[dict]     = []
 
 
 @router.post("/copilot", response_model=CopilotResponse, dependencies=[Depends(llm_rate_limit)])
@@ -855,6 +863,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
             user_prompt    = req.user_prompt,
             master_profile = get_profile(user.user_id),
             chat_history   = req.chat_history,
+            user_id        = user.user_id,
         )
     except Exception as exc:
         logger.exception("[resumes/copilot] CopilotAgent failed for job %s", req.job_id)
@@ -873,7 +882,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
         )
 
     # ── success: rebuild PDF, recompute score, save to cache ─────────────────
-    cv_data = result["cv_data"]
+    cv_data = normalize_cv(result["cv_data"], context="resumes")
 
     # Re-inject canonical static sections (education, military, skills) from
     # THIS USER's profile after every Copilot edit.  This guarantees these
@@ -1054,12 +1063,23 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
     # explicitly-persisted state (from /tailor or a prior /save-cv), not this
     # edit — this is what makes Copilot edits temporary/undoable across
     # sessions instead of silently permanent.
+    # Recompute the patch here rather than forwarding the agent's ops. Between
+    # the agent returning and this point the route re-injects canonical static
+    # sections, clamps limits and may run a refine() pass — so the agent's ops
+    # describe an intermediate document, not the one being returned. Diffing the
+    # request's cv_data against the final cv_data is the only version the client
+    # can apply optimistically and still land exactly where the server did.
+    from backend.services.cv_patch_service import diff_cv
+    final_patch = diff_cv(req.cv_data, cv_data)
+    logger.info("[resumes/copilot] job=%s returning %d patch op(s)", req.job_id, len(final_patch))
+
     return CopilotResponse(
         status          = "success",
         changes_summary = result.get("changes_summary"),
         cv_data         = cv_data,
         pdf_b64         = base64.b64encode(pdf_bytes).decode(),
         match_score     = match_score_dict,
+        patch           = final_patch,
     )
 
 
@@ -1177,6 +1197,68 @@ async def render_pdf(req: RenderPdfRequest, user: CurrentUser = Depends(get_curr
         raise _pdf_http_error(exc, context=f"resumes/render-pdf template={req.template_id}") from exc
 
     return {"pdf_b64": base64.b64encode(pdf_bytes).decode()}
+
+
+def _cv_filename(user_id: str) -> tuple[str, str]:
+    """
+    Build the download filename, returning (ascii_fallback, utf8_original).
+
+    Content-Disposition is a latin-1 header. An Israeli candidate whose profile
+    name is in Hebrew would make a naive f-string raise UnicodeEncodeError at
+    response time — the download fails for exactly the users this product is
+    built for. RFC 6266/5987 solves it: a plain ASCII `filename=` that every
+    client understands, plus a `filename*=UTF-8''…` that modern browsers prefer
+    and which preserves the real name.
+    """
+    from urllib.parse import quote
+
+    try:
+        personal = get_profile(user_id).get("personal", {}) or {}
+        name = str(personal.get("name") or "").strip()
+    except Exception:
+        name = ""
+
+    safe = re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_")
+    ascii_name = f"{safe}_CV.pdf" if safe else "CV.pdf"
+
+    utf8_source = f"{name} CV.pdf" if name else "CV.pdf"
+    return ascii_name, quote(utf8_source, safe="")
+
+
+@router.post("/export-pdf")
+async def export_pdf(req: RenderPdfRequest, user: CurrentUser = Depends(get_current_user)):
+    """
+    Stream the CV as a raw PDF binary for a one-click browser download.
+
+    Distinct from /render-pdf, which returns base64 and exists because the
+    preview embeds the document as a data: URI. Base64 is the wrong transport
+    for a download — it inflates the payload ~33%, forces the whole file
+    through a JSON string, and leaves the client to reconstruct bytes it never
+    needed to decode. This returns the bytes.
+
+    Content-Disposition: attachment is what makes it a download rather than a
+    navigation, so no print dialog or viewer tab is involved at any point.
+    """
+    try:
+        pdf_bytes = await build_pdf(req.cv_data, template_id=req.template_id, user_id=user.user_id)
+    except Exception as exc:
+        raise _pdf_http_error(exc, context=f"resumes/export-pdf template={req.template_id}") from exc
+
+    ascii_name, utf8_name = _cv_filename(user.user_id)
+    logger.info("[resumes/export-pdf] streaming %d bytes as %r (template=%s)",
+                len(pdf_bytes), ascii_name, req.template_id)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{utf8_name}",
+            "Content-Length": str(len(pdf_bytes)),
+            # The document is per-user and regenerated on every edit; a cached
+            # copy would hand someone last week's CV after they changed it.
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 # ── Match Score ───────────────────────────────────────────────────────────────

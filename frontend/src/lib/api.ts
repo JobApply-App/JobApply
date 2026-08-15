@@ -275,6 +275,76 @@ export async function renderPdf(cvData: Record<string, unknown>, templateId: str
   return data.pdf_b64
 }
 
+/**
+ * Download the CV as a real file, in one click.
+ *
+ * Fetches the raw binary from /export-pdf rather than reusing renderPdf's
+ * base64: base64 inflates the payload ~33% and would only be decoded back to
+ * the bytes the server already had. The server sets Content-Disposition:
+ * attachment, and we drive an <a download> from the blob, so no print dialog,
+ * viewer tab or manual "save as" is involved.
+ *
+ * The filename comes from the response's Content-Disposition when present —
+ * the server derives it from the verified profile name and RFC 5987-encodes it,
+ * which matters for Hebrew names that cannot travel in a latin-1 header.
+ */
+export async function downloadCvPdf(
+  cvData: Record<string, unknown>,
+  templateId: string,
+): Promise<void> {
+  await _ensureFreshToken()
+
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/api/resumes/export-pdf`, {
+      method:  'POST',
+      cache:   'no-store',
+      headers: { 'Content-Type': 'application/json', ..._authHeaders() },
+      body:    JSON.stringify({ cv_data: cvData, template_id: templateId }),
+    })
+  } catch (err) {
+    throw _networkErrorOr(err)
+  }
+
+  if (!res.ok) {
+    // The error body is JSON even though the success body is binary — surface
+    // the server's own message (e.g. the 503 explaining PDF export is
+    // unavailable in this deployment) instead of a generic failure.
+    let detail = `PDF export failed (${res.status})`
+    try {
+      const body = await res.json()
+      if (body?.detail) detail = String(body.detail)
+    } catch { /* non-JSON error body — keep the status-based message */ }
+    throw new Error(detail)
+  }
+
+  const blob = await res.blob()
+
+  let filename = 'CV.pdf'
+  const disposition = res.headers.get('Content-Disposition')
+  if (disposition) {
+    // Prefer filename*= (RFC 5987, UTF-8) over the ASCII fallback.
+    const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition)
+    const plain = /filename="([^"]+)"/i.exec(disposition)
+    if (utf8?.[1])       filename = decodeURIComponent(utf8[1])
+    else if (plain?.[1]) filename = plain[1]
+  }
+
+  const url = URL.createObjectURL(blob)
+  try {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  } finally {
+    // Revoking synchronously can cancel the download in some browsers; give
+    // the click a tick to be picked up first.
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+}
+
 export interface TailorOkResponse {
   status:             string
   cv_data:            Record<string, unknown>

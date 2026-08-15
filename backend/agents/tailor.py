@@ -35,6 +35,8 @@ from dotenv import load_dotenv
 from backend.services.llm_client import call_llm
 from backend.services.user_profile import build_full_text, resolve_profile
 from backend.schemas.job import JobMatch
+from backend.models.cv import CVDataSchema, normalize_cv
+from backend.utilities.json_repair import parse_json_robust
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
@@ -624,15 +626,72 @@ Only after BOTH audits pass: output the final JSON.
 The keyword table, tally, and audit transcript are NEVER included in the
 output. Output ONLY the JSON object — no prose, no markdown fences.
 
+═══════════════════════════════════════════════════════════════
+MILITARY SERVICE — TRANSLATE THE FUNCTION, NOT THE RANK
+═══════════════════════════════════════════════════════════════
+Israeli candidates served, and for many the service is where they first led
+people, owned a system, or carried real budget responsibility. On an Israeli CV
+it is substantive early-career experience, not a footnote.
+
+The failure to avoid is literal translation. A real example from this system's
+own output: "Clerk to Lieutenant Colonel". To a non-Israeli reader that says
+"administrative assistant"; to an Israeli reader it says the writer did not
+know how to present themselves. Both readings undersell the candidate.
+
+Translate WHAT THE ROLE DID in the vocabulary the target JD uses:
+
+  Literal (wrong)              Functional (right)
+  ---------------------------  ------------------------------------------
+  Clerk to Lieutenant Colonel  Staff operations for a battalion commander
+  Mashakit Tash                Personnel welfare coordinator, 150+ soldiers
+  Rasar / Samal Rishon         Operations NCO — logistics and readiness
+  Officer in the Signal Corps  Communications systems lead
+  Combat medic                 Emergency response under operational pressure
+  Intelligence analyst         Intelligence analysis and reporting
+
+RULES:
+  • role_title states the FUNCTION in business language. Never a transliterated
+    Hebrew rank, never a bare rank on its own.
+  • unit_type may keep the real unit name — it is a factual identifier, and
+    Israeli recruiters read it. Do not invent a "translation" of a unit.
+  • key_responsibilities: only when the service is genuinely load-bearing —
+    a recent graduate, a career-changer, or a JD asking for operational
+    leadership. A candidate with ten years of civilian experience does not
+    need them, and the page budget is better spent on recent work.
+  • Scale is the most transferable signal there is: headcount supervised,
+    systems owned, budget held. Use the number from the profile. NEVER invent
+    one — an invented headcount is a lie on a CV, and the reader may well ask
+    about it in the interview.
+  • Never militarise the language ("commanded", "deployed", "executed
+    missions"). Write it the way a civilian hiring manager reads.
+
 ══════════════════════════════
 OUTPUT FORMAT — JSON ONLY
 ══════════════════════════════
 No markdown fences. No prose. Only the JSON object.
 
+STRUCTURAL CONTRACT (authoritative — generated from backend/models/cv.py):
+Your output is validated against this JSON Schema. A response that violates it
+is rejected outright, so treat field names, types and maxLength as hard
+constraints rather than suggestions. The annotated template below restates the
+same structure with the editorial rules that the schema alone cannot express;
+where the two ever appear to disagree, the schema wins on STRUCTURE and the
+template wins on WRITING QUALITY.
+
+Note there is no contact/header block to fill in: name, email, phone, location
+and LinkedIn are injected from the candidate's verified profile after you
+finish. Never emit them, and never invent them.
+
+{schema}
+
 {{
   "type": "cv",
   "cv_data": {{
-    "title": "<role-specific positioning, <=58 chars. What the candidate IS, not what they are applying for.>",
+    "header": {{
+      "target_title": "<role-specific positioning, <=58 chars. What the candidate IS, not what \
+they are applying for. This is the ONLY header field you may write — name, email, phone, \
+location and LinkedIn are injected from the verified profile and must be omitted.>"
+    }},
 
     "summary": "<<=360 chars. 2-3 sentences. MUST contain at least one concrete \
 number sourced from the metrics table (Step 4). Opens with the candidate's clearest quantified \
@@ -672,10 +731,11 @@ credential was earned, such as 'while working full-time', or \
       }}
     ],
 
-    "military": {{
-      "role":  "<string <=45 chars; omit entire object if not including>",
-      "unit":  "<string <=40 chars>",
-      "dates": "<copied exactly from profile, <=20 chars>"
+    "military_service": {{
+      "role_title":           "<string <=45 chars; use null for the whole object if not including>",
+      "unit_type":            "<string <=60 chars>",
+      "dates":                "<copied exactly from profile, <=20 chars>",
+      "key_responsibilities": ["<optional XYZ-style scope line, same discipline as experience bullets>"]
     }},
 
     "skills": {{
@@ -867,8 +927,30 @@ def _normalize_language_level(raw: str) -> str:
     return (raw or "").strip()
 
 
+def validate_cv_schema(data: dict, *, context: str = "tailor") -> dict:
+    """
+    Normalise a CV payload to the canonical CVDataSchema shape.
+
+    Every CV entering the pipeline passes through here, so everything
+    downstream — _enforce_limits, _inject_static_sections, pdf_builder,
+    copilot, the frontend — reads `header.target_title` and `military_service`
+    only, and never has to know the legacy `title`/`military` shape existed.
+    Documents already stored in that older shape are converted on read rather
+    than migrated (see backend/models/cv.py).
+
+    Non-fatal by design: a payload that cannot be validated is passed through
+    untouched rather than discarded. A schema violation means the CV is unusual,
+    not that the user should lose a generation they waited 30 seconds for, and
+    the renderer already degrades field-by-field on missing keys.
+    """
+    return normalize_cv(data, context=context)
+
+
 def _enforce_limits(data: dict) -> dict:
-    data["title"]        = _clip_word(data.get("title"),        _LIM["title"])
+    header = data.get("header")
+    header = dict(header) if isinstance(header, dict) else {}
+    header["target_title"] = _clip_word(header.get("target_title"), _LIM["title"])
+    data["header"]         = header
     data["summary"]      = _clip_sentence(data.get("summary"),  _LIM["summary"])
     data["volunteering"] = _clip_sentence(data.get("volunteering"), _LIM["volunteering"])
 
@@ -906,15 +988,23 @@ def _enforce_limits(data: dict) -> dict:
         })
     data["education"] = clamped_edu
 
-    mil = data.get("military") or {}
-    if mil.get("role"):
-        data["military"] = {
-            "role":  _clip_word(mil.get("role"),  _LIM["mil_role"]),
-            "unit":  _clip_word(mil.get("unit"),  _LIM["mil_unit"]),
-            "dates": _clip(mil.get("dates"),      _LIM["mil_dates"]),
+    mil = data.get("military_service") or {}
+    if mil.get("role_title"):
+        data["military_service"] = {
+            "role_title": _clip_word(mil.get("role_title"), _LIM["mil_role"]),
+            "unit_type":  _clip_word(mil.get("unit_type"),  _LIM["mil_unit"]),
+            "dates":      _clip(mil.get("dates"),           _LIM["mil_dates"]),
+            # Not clipped as a block: each line is an independent scope
+            # statement, and truncating the list mid-way is better than
+            # truncating one line mid-sentence.
+            "key_responsibilities": [
+                str(r or "") for r in (mil.get("key_responsibilities") or [])[:3]
+            ],
         }
     else:
-        data["military"] = {}
+        # None, not {} — an empty object validates into a present-but-blank
+        # section and renders a bare "Military Service" heading.
+        data["military_service"] = None
 
     skills       = data.get("skills") or {}
     clamped_cats = []
@@ -1156,17 +1246,18 @@ def _inject_static_sections(
     # Military entries in the legacy singleton's experience[] have a "unit" key
     # but no "company" key — that's the reliable discriminator. The DB profile
     # never produces such entries, so this is a no-op for real users.
-    if not _explicitly_deleted("military"):
+    if not _explicitly_deleted("military_service"):
         for exp in profile.get("experience", []):
             if exp.get("unit") and not exp.get("company"):
-                data["military"] = {
-                    "role":  exp.get("role", ""),
-                    "unit":  exp.get("unit", ""),
-                    "dates": exp.get("period") or exp.get("dates", ""),
+                data["military_service"] = {
+                    "role_title": exp.get("role", ""),
+                    "unit_type":  exp.get("unit", ""),
+                    "dates":      exp.get("period") or exp.get("dates", ""),
+                    "key_responsibilities": [],
                 }
                 break  # only one military entry expected
     else:
-        data["military"] = None
+        data["military_service"] = None
 
     # ── Skills ────────────────────────────────────────────────────────────────
     if not _explicitly_deleted("skills"):
@@ -1476,7 +1567,10 @@ class TailorAgent:
             return {"type": "missing_data", "requests": core_gaps}
 
         profile_text = build_full_text(self.user_id)
-        system       = _SYSTEM_PROMPT.format(profile=profile_text)
+        system       = _SYSTEM_PROMPT.format(
+            profile=profile_text,
+            schema=CVDataSchema.llm_schema_hint(),
+        )
 
         rationale_block = ""
         if job.scoring_rationale:
@@ -1607,14 +1701,19 @@ class TailorAgent:
         if start != -1 and end != -1:
             raw = raw[start : end + 1]
 
-        try:
-            result = json.loads(raw)
-        except json.JSONDecodeError as exc:
+        # Progressive repair rather than a bare json.loads(). A real JD
+        # reproducibly drove the model to malformed JSON twice at different
+        # offsets, and the bare parse turned that into a hard ValueError —
+        # the user lost a 30-second generation with nothing to show. The
+        # repair strategies were already in match_score_service; this path
+        # never had them.
+        result = parse_json_robust(raw, context="tailor")
+        if result is None:
             logger.error(
-                "TailorAgent JSON parse error: %s\n--- raw (first 400 chars) ---\n%s\n---",
-                exc, raw[:400],
+                "TailorAgent JSON unrecoverable\n--- raw (first 400 chars) ---\n%s\n---",
+                raw[:400],
             )
-            raise ValueError(f"TailorAgent returned invalid JSON: {exc}") from exc
+            raise ValueError("TailorAgent returned invalid JSON that could not be repaired")
 
         response_type = result.get("type", "cv")
 
@@ -1630,13 +1729,34 @@ class TailorAgent:
 
         # ── CV: enforce limits, inject static sections, sanitise AI tells ──────
         cv_data = result.get("cv_data", result)  # tolerate missing wrapper
+        cv_data = validate_cv_schema(cv_data, context="tailor")
         cv_data = _enforce_limits(cv_data)
         cv_data = _inject_static_sections(cv_data, user_id=self.user_id, jd_text=job.jd_text or "")
         cv_data = _sanitize_ai_tells(cv_data)
 
+        # Zero-hallucination telemetry (LOG-ONLY — enforce=False).
+        # Records which generated literals cannot be traced to the candidate's
+        # own profile without touching the output. Measured at a 10%
+        # flag rate on real bullets, where the surviving flags looked like
+        # genuine fabrications rather than noise; enforcement stays off until a
+        # wider sample justifies removing content from a user's CV.
+        try:
+            from backend.services.cv_grounding import GroundingGate
+            _, _grounding = GroundingGate.for_user(
+                self.user_id, enforce=False, context="tailor",
+            ).filter_cv(cv_data)
+            if _grounding.flagged_count:
+                logger.warning(
+                    "[grounding:tailor] %d/%d bullets unverified for user=%s: %s",
+                    _grounding.flagged_count, _grounding.checked, self.user_id,
+                    [f.unverified for f in _grounding.flagged][:5],
+                )
+        except Exception as exc:
+            logger.debug("[grounding:tailor] telemetry skipped: %s", exc)
+
         logger.info(
             "TailorAgent OK  title='%s'  exps=%d  edu=%d  cats=%d",
-            cv_data.get("title", ""),
+            (cv_data.get("header") or {}).get("target_title", ""),
             len(cv_data.get("experience", [])),
             len(cv_data.get("education",  [])),
             len((cv_data.get("skills") or {}).get("categories", [])),
@@ -1736,6 +1856,7 @@ class TailorAgent:
             raise ValueError(f"Refinement returned invalid JSON: {exc}") from exc
 
         refined = result.get("cv_data", result)
+        refined = validate_cv_schema(refined, context="tailor.refine")
         refined = _enforce_limits(refined)
         refined = _inject_static_sections(refined, user_id=self.user_id, jd_text=jd_context or "")
         refined = _sanitize_ai_tells(refined)

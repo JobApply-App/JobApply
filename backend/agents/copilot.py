@@ -58,8 +58,43 @@ outside it:
   "status":          "success" | "warning" | "rejected",
   "message":         "<string or null>",
   "changes_summary": "<bullet-point summary of exactly what was changed, or null>",
-  "cv_data":         { <the cv_data object> }
+  "patch":           [ <RFC 6902 JSON Patch operations> ]
 }
+
+══════════════════════════════════════════
+PATCH FORMAT — RFC 6902, MINIMAL
+══════════════════════════════════════════
+
+Return a PATCH describing only what changes. Do NOT return the whole cv_data
+object. The server applies your patch to the stored document, so any location
+you do not name is guaranteed untouched — that guarantee is the entire point,
+and returning a full document throws it away.
+
+Each operation is {"op", "path", ...}:
+  {"op": "replace", "path": "/experience/0/bullets/1", "value": "New text."}
+  {"op": "add",     "path": "/experience/0/bullets/-", "value": "Appended bullet."}
+  {"op": "remove",  "path": "/education/2"}
+  {"op": "replace", "path": "/summary", "value": "New summary."}
+  {"op": "replace", "path": "/header/target_title", "value": "Senior PM"}
+
+Paths are JSON Pointers into cv_data. Array indices are 0-based; "-" appends.
+Count carefully against the CURRENT CV JSON below — an index that does not
+exist causes the whole edit to be rejected and the user has to ask again.
+
+RULES:
+  • Smallest patch that satisfies the instruction. One bullet edit = one op.
+  • Never emit an op whose value equals the current value.
+  • Maximum 25 operations. Needing more means you are rewriting rather than
+    editing; do the smaller edit the user actually asked for.
+  • You may ONLY write /header/target_title inside header. Name, email, phone,
+    location and LinkedIn come from the candidate's verified profile — you
+    cannot see or change them, and must never attempt to.
+  • Deleting a whole optional section: {"op": "replace", "path":
+    "/military_service", "value": null} for objects, or "value": [] for arrays.
+  • Optional: assert before you overwrite with
+    {"op": "test", "path": "<path>", "value": "<text you expect there>"}.
+    If the document changed underneath you the edit fails cleanly instead of
+    silently overwriting someone else's work.
 
 ══════════════════════════════════════════
 CHANGES_SUMMARY — MANDATORY FOR SUCCESS
@@ -88,10 +123,11 @@ When status is "warning" or "rejected", set "changes_summary" to null.
 STATUS DECISION RULES
 ══════════════════════════════════════════
 
-"success" — Normal targeted edit. Apply it. Set cv_data to the mutated JSON.
+"success" — Normal targeted edit. Emit the patch that performs it.
   message can be null.
-  MINIMUM MUTATION: change only the field(s) the instruction targets.
-  Every other field stays byte-for-byte identical to the input.
+  MINIMUM MUTATION: emit operations only for the field(s) the instruction
+  targets. Everything you do not name stays untouched automatically — you do
+  not need to restate it, and restating it is an error.
 
   RESTORE / ADD FROM MASTER PROFILE:
   If the user asks to restore, add back, or include an experience, skill,
@@ -102,11 +138,11 @@ STATUS DECISION RULES
       with 3–5 bullets of 60–240 chars each derived from the profile "details".
     • Education / certification: add to the "education" array.
     • Skill: add the item to the appropriate skill category.
-    • Military service: ALWAYS placed in the TOP-LEVEL "military" key — NOT in
+    • Military service: ALWAYS placed in the TOP-LEVEL "military_service" key — NOT in
       the experience array. Format exactly as:
-        "military": {"role": "<role ≤45 chars>", "unit": "<unit ≤40 chars>", "dates": "<dates ≤20 chars>"}
+        "military_service": {"role_title": "<≤45 chars>", "unit_type": "<≤60 chars>", "dates": "<≤20 chars>", "key_responsibilities": []}
       Look for the military entry in the MASTER PROFILE under the dedicated
-      MILITARY SERVICE section. Copy role, unit, and dates verbatim from there.
+      MILITARY SERVICE section. Copy the role, unit and dates verbatim from there.
       If the field already exists in cv_data, overwrite it with the canonical
       profile values — never leave military in the experience array.
   This is strictly permitted and is NOT hallucination — the data comes from
@@ -180,13 +216,13 @@ leave it empty, do NOT summarize it, do NOT shorten it instead.
 
   • For array members such as an experience entry: remove the element from
     the array entirely.
-  • For the top-level static sections "military", "education", and "skills"
+  • For the top-level static sections "military_service", "education", and "skills"
     (the ones canonically sourced from the Master Profile): DO NOT simply
     omit the key from your JSON output. Omitting a key is indistinguishable
     from you forgetting to include it, and the backend will silently restore
     it from the Master Profile, undoing the deletion. Instead you MUST
     include the exact key in cv_data and set its value explicitly to `null`
-    (object-type sections, e.g. "military") or an empty array `[]` /
+    (object-type sections, e.g. "military_service") or an empty array `[]` /
     `{"categories": []}` (list/object-type sections, e.g. "education",
     "skills"). An explicit null/[] is the only signal the backend treats as
     an intentional deletion — anything else is treated as an accidental
@@ -230,7 +266,7 @@ def _serialize_master_profile(master_profile: dict) -> str:
     skills so the model can locate any restorable content by name.
 
     Military service is serialised as a DEDICATED section separate from
-    experience so the model knows to place it in the top-level "military" key
+    experience so the model knows to place it in the top-level "military_service" key
     of cv_data — never in the experience array.
     """
     parts: list[str] = []
@@ -268,14 +304,14 @@ def _serialize_master_profile(master_profile: dict) -> str:
 
     if military_entries:
         parts.append(
-            '\nMILITARY SERVICE — inject into cv_data["military"] key (NOT experience):'
+            '\nMILITARY SERVICE — inject into cv_data["military_service"] key (NOT experience):'
         )
         for mil in military_entries:
             role   = mil.get("role", "")
             unit   = mil.get("unit", "")
             period = mil.get("period", "")
             parts.append(
-                f'  cv_data["military"] = {{"role": "{role}", "unit": "{unit}", "dates": "{period}"}}'
+                f'  cv_data["military_service"] = {{"role_title": "{role}", "unit_type": "{unit}", "dates": "{period}", "key_responsibilities": []}}'
             )
             if mil.get("details"):
                 parts.append(f"    (Context: {mil['details'][:200]})")
@@ -343,6 +379,7 @@ class CopilotAgent:
         user_prompt: str,
         master_profile: Optional[dict] = None,
         chat_history: Optional[list[dict]] = None,
+        user_id: str = "",
     ) -> dict:
         """
         Apply (or decline) the user's editing instruction.
@@ -458,19 +495,83 @@ class CopilotAgent:
                 "cv_data":         cv_data,
             }
 
-        # ── Success: extract, validate, and sanitise the mutated cv_data ─────
-        inner = wrapper.get("cv_data")
-        if not isinstance(inner, dict):
-            logger.warning("[CopilotAgent] success status but cv_data missing or invalid")
-            return {
-                "status":          "rejected",
-                "message":         "The edit could not be applied. Please rephrase your instruction.",
-                "changes_summary": None,
-                "cv_data":         cv_data,
-            }
+        # ── Success: apply the patch, or fall back to a full document ────────
+        # Patch is the contract; cv_data is tolerated because a model that
+        # ignores the format instruction should still produce a usable edit
+        # rather than an error the user cannot act on. The fallback diffs the
+        # returned document so the client receives a patch either way and has
+        # exactly one code path.
+        from backend.services.cv_patch_service import apply_cv_patch, diff_cv
+
+        raw_patch = wrapper.get("patch")
+        inner: Optional[dict] = None
+        applied_ops: list[dict] = []
+
+        if raw_patch is not None:
+            result = apply_cv_patch(cv_data, raw_patch, context="CopilotAgent")
+            if not result.ok:
+                # The document is untouched. Say what went wrong rather than
+                # reporting a generic failure — "bullet 7 doesn't exist" is
+                # something the user can immediately act on.
+                logger.warning("[CopilotAgent] patch rejected (%s): %s",
+                               result.error_kind, result.error)
+                return {
+                    "status":          "rejected",
+                    "message":         (
+                        "I couldn't apply that edit safely, so nothing was changed. "
+                        "Try naming the section and bullet more specifically."
+                    ),
+                    "changes_summary": None,
+                    "cv_data":         cv_data,
+                    "patch":           [],
+                    "patch_error":     result.error,
+                }
+            inner = result.cv_data
+            applied_ops = result.applied_ops
+        else:
+            legacy = wrapper.get("cv_data")
+            if not isinstance(legacy, dict):
+                logger.warning("[CopilotAgent] response carried neither 'patch' nor 'cv_data'")
+                return {
+                    "status":          "rejected",
+                    "message":         "The edit could not be applied. Please rephrase your instruction.",
+                    "changes_summary": None,
+                    "cv_data":         cv_data,
+                    "patch":           [],
+                }
+            logger.info("[CopilotAgent] model returned a full document instead of a patch "
+                        "— diffing to recover the ops")
+            inner = legacy
+            applied_ops = diff_cv(cv_data, legacy)
 
         inner = _enforce_limits(inner)
         inner = _sanitize_ai_tells(inner)
+
+        # Post-processing (limit clamping, AI-tell scrubbing) can alter values
+        # the patch set, so the ops handed to the client are re-derived from
+        # the final document. Returning the model's raw ops would let the
+        # client's optimistic state drift from what the server actually stored.
+        applied_ops = diff_cv(cv_data, inner)
+
+        # Zero-hallucination telemetry (LOG-ONLY — enforce=False).
+        # The edit path matters more than generation here: an edit is where a
+        # user says "add that I grew revenue" and the model has to decide
+        # whether it has evidence for a number. Nothing is removed yet.
+        try:
+            from backend.services.cv_grounding import GroundingGate
+            _uid = user_id
+            if _uid:
+                _, _g = GroundingGate.for_user(
+                    _uid, enforce=False, context="copilot",
+                ).filter_cv(inner)
+                if _g.flagged_count:
+                    logger.warning(
+                        "[grounding:copilot] %d/%d bullets unverified after edit %r: %s",
+                        _g.flagged_count, _g.checked, user_prompt[:60],
+                        [f.unverified for f in _g.flagged][:5],
+                    )
+        except Exception as exc:
+            logger.debug("[grounding:copilot] telemetry skipped: %s", exc)
 
         # Warn in logs if the model returned success but no changes_summary —
         # this means the prompt's transparency requirement wasn't followed.
@@ -490,4 +591,9 @@ class CopilotAgent:
             "message":         message,
             "changes_summary": changes_summary,
             "cv_data":         inner,
+            # Returned alongside the applied document so the client can update
+            # optimistically without re-rendering from scratch. Server-applied
+            # state stays authoritative; this is the same change expressed as
+            # ops the editor can replay locally.
+            "patch":           applied_ops,
         }

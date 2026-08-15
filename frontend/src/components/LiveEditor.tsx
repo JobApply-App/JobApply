@@ -14,7 +14,17 @@ import { updateFieldById, updateSkillItemsById } from '@/lib/cvParser'
 // around raw CV JSON with.
 
 export interface CvData {
-  title:        string
+  /** Mirrors backend/models/cv.py CVHeader exactly. Contact fields are
+   *  populated server-side from the verified profile — the client never sends
+   *  them and the LLM never authors them. */
+  header:       {
+    full_name?:    string
+    target_title:  string
+    email?:        string
+    phone?:        string
+    location?:     string
+    linkedin?:     string
+  }
   summary:      string
   experience:   Array<{
     role:     string
@@ -29,7 +39,12 @@ export interface CvData {
     honors:      string
     coursework:  string
   }>
-  military?:    { role: string; unit: string; dates: string }
+  military_service?: {
+    role_title:            string
+    unit_type:             string
+    dates:                 string
+    key_responsibilities?: string[]
+  } | null
   skills:       { categories: Array<{ label: string; items: string[] }> }
   languages:    Array<{ language: string; level: string }>
   volunteering: string
@@ -359,7 +374,7 @@ export function LiveEditor({
       </Section>
 
       {/* ── Military Service (read-only — always injected from verified profile) ── */}
-      {cv.military?.role && (
+      {cv.militaryService?.roleTitle && (
         <Section title="Military Service">
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
@@ -370,17 +385,17 @@ export function LiveEditor({
           }}>
             <div>
               <span style={{ fontSize: 11.5, fontWeight: 700, color: TOKENS.color.ink }}>
-                {cv.military.role}
+                {cv.militaryService.roleTitle}
               </span>
               <span style={{
                 fontSize: 11, color: TOKENS.color.muted,
                 fontStyle: 'italic', marginLeft: 6,
               }}>
-                {cv.military.unit}
+                {cv.militaryService.unitType}
               </span>
             </div>
             <span style={{ fontSize: 10.5, color: TOKENS.color.muted }}>
-              {cv.military.dates}
+              {cv.militaryService.dates}
             </span>
           </div>
           <p style={{

@@ -95,10 +95,14 @@ export type ParsedEducation = z.infer<typeof ParsedEducationSchema>
 //    mirrors the "Auto-injected from your verified profile" note already in
 //    LiveEditor.tsx) ────────────────────────────────────────────────────────
 export const ParsedMilitarySchema = z.object({
-  id:    z.string().min(1),
-  role:  z.string(),
-  unit:  z.string(),
-  dates: z.string(),
+  id:                   z.string().min(1),
+  roleTitle:            z.string(),
+  unitType:             z.string(),
+  dates:                z.string(),
+  /** Optional scope lines. Earns page space only when service IS the
+   *  leadership evidence (e.g. a recent graduate) — see
+   *  backend/models/cv.py MilitaryService. */
+  keyResponsibilities:  z.array(z.string()),
 })
 export type ParsedMilitary = z.infer<typeof ParsedMilitarySchema>
 
@@ -135,11 +139,14 @@ export const ParsedCVSchema = z.object({
   /** Stable per-document id — a content hash of the source, so re-parsing
    *  unchanged input yields the same id (Core Requirement 1: deterministic). */
   id:           z.string().min(1),
-  title:        generatedFieldSchema(z.string()),
+  /** header.target_title on the wire — the positioning line, the one header
+   *  field the LLM authors. Contact details are injected server-side from the
+   *  verified profile and deliberately never travel in cv_data. */
+  targetTitle:  generatedFieldSchema(z.string()),
   summary:      generatedFieldSchema(z.string()),
   experience:   z.array(ParsedExperienceSchema),
   education:    z.array(ParsedEducationSchema),
-  military:     ParsedMilitarySchema.optional(),
+  militaryService: ParsedMilitarySchema.optional(),
   skills:       z.array(ParsedSkillCategorySchema),
   languages:    z.array(ParsedLanguageSchema),
   volunteering: generatedFieldSchema(z.string()),
@@ -154,7 +161,19 @@ export type ParsedCV = z.infer<typeof ParsedCVSchema>
 // cvParser.ts gets a chance to flag it as a partial result with clear errors
 // (Core Requirement 3), rather than failing validation outright.
 export const RawCvInputSchema = z.object({
-  title:        z.string().optional().default(''),
+  /** Mirrors backend/models/cv.py CVHeader. Only target_title is model-authored;
+   *  the contact fields are filled server-side at render time. */
+  header:       z.object({
+    full_name:    z.string().optional().default(''),
+    target_title: z.string().optional().default(''),
+    email:        z.string().optional().default(''),
+    phone:        z.string().optional().default(''),
+    location:     z.string().optional().default(''),
+    linkedin:     z.string().optional().default(''),
+  // Optional with no default: Zod would require the default to already satisfy
+  // every inner field's resolved type, and both readers use optional chaining
+  // (`raw.header?.target_title ?? ''`) anyway.
+  }).optional(),
   summary:      z.string().optional().default(''),
   experience:   z.array(z.object({
     role:    z.string().optional().default(''),
@@ -169,9 +188,12 @@ export const RawCvInputSchema = z.object({
     honors:      z.string().optional().default(''),
     coursework:  z.string().optional().default(''),
   })).optional().default([]),
-  military:     z.object({
-    role: z.string(), unit: z.string(), dates: z.string(),
-  }).optional(),
+  military_service: z.object({
+    role_title:           z.string().optional().default(''),
+    unit_type:            z.string().optional().default(''),
+    dates:                z.string().optional().default(''),
+    key_responsibilities: z.array(z.string()).optional().default([]),
+  }).nullable().optional(),
   skills:       z.object({
     categories: z.array(z.object({
       label: z.string(),

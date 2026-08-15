@@ -50,6 +50,7 @@ secondary index into the same fact, not a competing source of truth.
 from __future__ import annotations
 
 import logging
+import re
 import uuid as _uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -588,3 +589,170 @@ def batch_size_for(user_id: str, engine=None) -> int:
     they'd rather get it over with should be taken at their word.
     """
     return 4 if get_communication_style(user_id, engine)["mode"] == "batch" else 1
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 4. Under-fill intake — turning a short page into a specific question
+# ═════════════════════════════════════════════════════════════════════════════
+#
+# The page budgeter (backend/services/page_budget_service.py) reports
+# "not enough material to fill the page" when it hits the bullet ceiling with
+# room to spare. Measured on real CVs, that fires on most of them: a typical
+# document fills ~70% of an A4 page, and the budgeter is deliberately forbidden
+# from padding it, because inventing content to fill space is the exact failure
+# the grounding gate exists to prevent.
+#
+# So a short page is not a layout problem to solve — it is a signal that the
+# profile is thin, and the only honest fix is asking the candidate for material
+# that does not exist yet. This turns that signal into a question worth
+# answering.
+
+# Below this fill fraction the page reads as a thin candidate and is worth
+# raising with the user. Mirrors page_budget_service.TARGET_MIN.
+UNDERFILL_THRESHOLD = 0.88
+
+# Roles carrying fewer than this have obvious room and are the best targets.
+_THIN_ROLE_BULLETS = 3
+
+
+@dataclass
+class IntakePrompt:
+    """One targeted question, bound to the exact place its answer would go."""
+    topic: str                       # stable key, doubles as the deferral topic
+    question: str
+    role: str = ""
+    company: str = ""
+    experience_index: Optional[int] = None
+    rationale: str = ""              # why we're asking — shown to the user
+
+    def as_dict(self) -> dict:
+        return {
+            "topic": self.topic, "question": self.question,
+            "role": self.role, "company": self.company,
+            "experience_index": self.experience_index, "rationale": self.rationale,
+        }
+
+
+def build_underfill_prompts(
+    cv_data: dict,
+    budget_report,
+    *,
+    max_prompts: int = 3,
+) -> list[IntakePrompt]:
+    """
+    Turn an under-filled page into role-specific questions.
+
+    Deliberately NOT "your CV looks short, add more detail" — that is a
+    restatement of the problem, and the user already knows their CV is thin.
+    Each prompt names the employer and asks for the one thing that would
+    actually earn the space: a measurable outcome. Naming the role is what
+    makes it answerable; a generic request gets a generic answer, which is how
+    CVs end up full of unquantified filler.
+
+    Returns [] when the page is adequately filled — no reason to interrupt
+    someone whose CV is already working.
+    """
+    prompts: list[IntakePrompt] = []
+
+    fill = getattr(budget_report, "final_fill", 0.0) or 0.0
+    if fill >= UNDERFILL_THRESHOLD:
+        return prompts
+
+    experience = cv_data.get("experience") or []
+    if not experience:
+        return [IntakePrompt(
+            topic="experience.missing",
+            question="What roles should this CV cover? Even one is enough to start.",
+            rationale="There is no work experience on the CV yet, so there is nothing to tailor.",
+        )]
+
+    # Thinnest roles first — most room, biggest gain per answer.
+    ranked = sorted(
+        enumerate(experience),
+        key=lambda pair: len(pair[1].get("bullets") or []),
+    )
+
+    for idx, exp in ranked:
+        if len(prompts) >= max_prompts:
+            break
+        bullets = exp.get("bullets") or []
+        if len(bullets) >= _THIN_ROLE_BULLETS and idx != 0:
+            continue
+
+        role = str(exp.get("role") or "").strip()
+        company = str(exp.get("company") or "").strip()
+        where = f"{role} at {company}".strip(" at ") or "this role"
+
+        # Ask about what the existing bullets conspicuously lack: a number.
+        has_metric = any(re.search(r"\d", b or "") for b in bullets)
+        if has_metric:
+            question = (
+                f"Your {where} entry has {len(bullets)} bullet"
+                f"{'s' if len(bullets) != 1 else ''} and room for more. "
+                f"What else did you own there that had a measurable result — "
+                f"a number, a scale, or a before/after?"
+            )
+            rationale = "There is space on the page for another concrete achievement."
+        else:
+            question = (
+                f"Your {where} entry has no numbers in it. What was the scale — "
+                f"headcount, accounts, revenue, volume — or the measurable outcome?"
+            )
+            rationale = "Unquantified bullets read as weaker than they are."
+
+        prompts.append(IntakePrompt(
+            topic=f"experience.{idx}.metrics",
+            question=question,
+            role=role,
+            company=company,
+            experience_index=idx,
+            rationale=rationale,
+        ))
+
+    logger.info(
+        "[ariel-steering] under-fill at %.0f%% — generated %d targeted intake prompt(s)",
+        fill * 100, len(prompts),
+    )
+    return prompts
+
+
+def underfill_intake_message(prompts: list[IntakePrompt], *, fill: float) -> str:
+    """
+    Compose what Ariel says. Leads with the reason, then asks ONE thing.
+
+    One question at a time regardless of how many were generated, unless the
+    user has explicitly asked for batch mode — a list of five questions reads
+    as a form, and forms get abandoned. The rest stay queued as deferrals.
+    """
+    if not prompts:
+        return ""
+    lead = (
+        f"Your CV currently fills about {fill * 100:.0f}% of the page, so there's "
+        f"room for another achievement or two. Rather than padding it, let's add "
+        f"something real:"
+    )
+    return f"{lead}\n\n{prompts[0].question}"
+
+
+def register_underfill_deferrals(
+    user_id: str,
+    prompts: list[IntakePrompt],
+    *,
+    engine=None,
+) -> list[Deferral]:
+    """
+    Queue every generated prompt so nothing is asked once and forgotten.
+
+    Reuses the deferral ledger so under-fill questions get the same re-pivot
+    and MAX_REPIVOTS treatment as any other outstanding question — including
+    being dropped once the user has clearly declined to answer.
+    """
+    out: list[Deferral] = []
+    for p in prompts:
+        try:
+            out.append(record_deferral(
+                user_id, topic=p.topic, question=p.question, engine=engine,
+            ))
+        except Exception as exc:
+            logger.warning("[ariel-steering] could not queue intake prompt %s: %s", p.topic, exc)
+    return out
