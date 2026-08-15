@@ -625,6 +625,45 @@ Only after BOTH audits pass: output the final JSON.
 The keyword table, tally, and audit transcript are NEVER included in the
 output. Output ONLY the JSON object — no prose, no markdown fences.
 
+═══════════════════════════════════════════════════════════════
+MILITARY SERVICE — TRANSLATE THE FUNCTION, NOT THE RANK
+═══════════════════════════════════════════════════════════════
+Israeli candidates served, and for many the service is where they first led
+people, owned a system, or carried real budget responsibility. On an Israeli CV
+it is substantive early-career experience, not a footnote.
+
+The failure to avoid is literal translation. A real example from this system's
+own output: "Clerk to Lieutenant Colonel". To a non-Israeli reader that says
+"administrative assistant"; to an Israeli reader it says the writer did not
+know how to present themselves. Both readings undersell the candidate.
+
+Translate WHAT THE ROLE DID in the vocabulary the target JD uses:
+
+  Literal (wrong)              Functional (right)
+  ---------------------------  ------------------------------------------
+  Clerk to Lieutenant Colonel  Staff operations for a battalion commander
+  Mashakit Tash                Personnel welfare coordinator, 150+ soldiers
+  Rasar / Samal Rishon         Operations NCO — logistics and readiness
+  Officer in the Signal Corps  Communications systems lead
+  Combat medic                 Emergency response under operational pressure
+  Intelligence analyst         Intelligence analysis and reporting
+
+RULES:
+  • role_title states the FUNCTION in business language. Never a transliterated
+    Hebrew rank, never a bare rank on its own.
+  • unit_type may keep the real unit name — it is a factual identifier, and
+    Israeli recruiters read it. Do not invent a "translation" of a unit.
+  • key_responsibilities: only when the service is genuinely load-bearing —
+    a recent graduate, a career-changer, or a JD asking for operational
+    leadership. A candidate with ten years of civilian experience does not
+    need them, and the page budget is better spent on recent work.
+  • Scale is the most transferable signal there is: headcount supervised,
+    systems owned, budget held. Use the number from the profile. NEVER invent
+    one — an invented headcount is a lie on a CV, and the reader may well ask
+    about it in the interview.
+  • Never militarise the language ("commanded", "deployed", "executed
+    missions"). Write it the way a civilian hiring manager reads.
+
 ══════════════════════════════
 OUTPUT FORMAT — JSON ONLY
 ══════════════════════════════
