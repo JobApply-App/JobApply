@@ -828,6 +828,12 @@ class CopilotResponse(BaseModel):
     cv_data:         Optional[dict] = None
     pdf_b64:         Optional[str]  = None
     match_score:     Optional[dict] = None
+    # RFC 6902 operations describing this edit. The server has ALREADY applied
+    # them — cv_data above is authoritative — but the client gets the ops too so
+    # the Live Editor can update the touched fields in place instead of
+    # re-rendering the document. Empty when nothing changed or the edit was
+    # refused. See backend/services/cv_patch_service.py.
+    patch:           list[dict]     = []
 
 
 @router.post("/copilot", response_model=CopilotResponse, dependencies=[Depends(llm_rate_limit)])
@@ -1056,12 +1062,23 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
     # explicitly-persisted state (from /tailor or a prior /save-cv), not this
     # edit — this is what makes Copilot edits temporary/undoable across
     # sessions instead of silently permanent.
+    # Recompute the patch here rather than forwarding the agent's ops. Between
+    # the agent returning and this point the route re-injects canonical static
+    # sections, clamps limits and may run a refine() pass — so the agent's ops
+    # describe an intermediate document, not the one being returned. Diffing the
+    # request's cv_data against the final cv_data is the only version the client
+    # can apply optimistically and still land exactly where the server did.
+    from backend.services.cv_patch_service import diff_cv
+    final_patch = diff_cv(req.cv_data, cv_data)
+    logger.info("[resumes/copilot] job=%s returning %d patch op(s)", req.job_id, len(final_patch))
+
     return CopilotResponse(
         status          = "success",
         changes_summary = result.get("changes_summary"),
         cv_data         = cv_data,
         pdf_b64         = base64.b64encode(pdf_bytes).decode(),
         match_score     = match_score_dict,
+        patch           = final_patch,
     )
 
 

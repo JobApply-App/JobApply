@@ -58,8 +58,43 @@ outside it:
   "status":          "success" | "warning" | "rejected",
   "message":         "<string or null>",
   "changes_summary": "<bullet-point summary of exactly what was changed, or null>",
-  "cv_data":         { <the cv_data object> }
+  "patch":           [ <RFC 6902 JSON Patch operations> ]
 }
+
+══════════════════════════════════════════
+PATCH FORMAT — RFC 6902, MINIMAL
+══════════════════════════════════════════
+
+Return a PATCH describing only what changes. Do NOT return the whole cv_data
+object. The server applies your patch to the stored document, so any location
+you do not name is guaranteed untouched — that guarantee is the entire point,
+and returning a full document throws it away.
+
+Each operation is {"op", "path", ...}:
+  {"op": "replace", "path": "/experience/0/bullets/1", "value": "New text."}
+  {"op": "add",     "path": "/experience/0/bullets/-", "value": "Appended bullet."}
+  {"op": "remove",  "path": "/education/2"}
+  {"op": "replace", "path": "/summary", "value": "New summary."}
+  {"op": "replace", "path": "/header/target_title", "value": "Senior PM"}
+
+Paths are JSON Pointers into cv_data. Array indices are 0-based; "-" appends.
+Count carefully against the CURRENT CV JSON below — an index that does not
+exist causes the whole edit to be rejected and the user has to ask again.
+
+RULES:
+  • Smallest patch that satisfies the instruction. One bullet edit = one op.
+  • Never emit an op whose value equals the current value.
+  • Maximum 25 operations. Needing more means you are rewriting rather than
+    editing; do the smaller edit the user actually asked for.
+  • You may ONLY write /header/target_title inside header. Name, email, phone,
+    location and LinkedIn come from the candidate's verified profile — you
+    cannot see or change them, and must never attempt to.
+  • Deleting a whole optional section: {"op": "replace", "path":
+    "/military_service", "value": null} for objects, or "value": [] for arrays.
+  • Optional: assert before you overwrite with
+    {"op": "test", "path": "<path>", "value": "<text you expect there>"}.
+    If the document changed underneath you the edit fails cleanly instead of
+    silently overwriting someone else's work.
 
 ══════════════════════════════════════════
 CHANGES_SUMMARY — MANDATORY FOR SUCCESS
@@ -88,10 +123,11 @@ When status is "warning" or "rejected", set "changes_summary" to null.
 STATUS DECISION RULES
 ══════════════════════════════════════════
 
-"success" — Normal targeted edit. Apply it. Set cv_data to the mutated JSON.
+"success" — Normal targeted edit. Emit the patch that performs it.
   message can be null.
-  MINIMUM MUTATION: change only the field(s) the instruction targets.
-  Every other field stays byte-for-byte identical to the input.
+  MINIMUM MUTATION: emit operations only for the field(s) the instruction
+  targets. Everything you do not name stays untouched automatically — you do
+  not need to restate it, and restating it is an error.
 
   RESTORE / ADD FROM MASTER PROFILE:
   If the user asks to restore, add back, or include an experience, skill,
@@ -458,19 +494,63 @@ class CopilotAgent:
                 "cv_data":         cv_data,
             }
 
-        # ── Success: extract, validate, and sanitise the mutated cv_data ─────
-        inner = wrapper.get("cv_data")
-        if not isinstance(inner, dict):
-            logger.warning("[CopilotAgent] success status but cv_data missing or invalid")
-            return {
-                "status":          "rejected",
-                "message":         "The edit could not be applied. Please rephrase your instruction.",
-                "changes_summary": None,
-                "cv_data":         cv_data,
-            }
+        # ── Success: apply the patch, or fall back to a full document ────────
+        # Patch is the contract; cv_data is tolerated because a model that
+        # ignores the format instruction should still produce a usable edit
+        # rather than an error the user cannot act on. The fallback diffs the
+        # returned document so the client receives a patch either way and has
+        # exactly one code path.
+        from backend.services.cv_patch_service import apply_cv_patch, diff_cv
+
+        raw_patch = wrapper.get("patch")
+        inner: Optional[dict] = None
+        applied_ops: list[dict] = []
+
+        if raw_patch is not None:
+            result = apply_cv_patch(cv_data, raw_patch, context="CopilotAgent")
+            if not result.ok:
+                # The document is untouched. Say what went wrong rather than
+                # reporting a generic failure — "bullet 7 doesn't exist" is
+                # something the user can immediately act on.
+                logger.warning("[CopilotAgent] patch rejected (%s): %s",
+                               result.error_kind, result.error)
+                return {
+                    "status":          "rejected",
+                    "message":         (
+                        "I couldn't apply that edit safely, so nothing was changed. "
+                        "Try naming the section and bullet more specifically."
+                    ),
+                    "changes_summary": None,
+                    "cv_data":         cv_data,
+                    "patch":           [],
+                    "patch_error":     result.error,
+                }
+            inner = result.cv_data
+            applied_ops = result.applied_ops
+        else:
+            legacy = wrapper.get("cv_data")
+            if not isinstance(legacy, dict):
+                logger.warning("[CopilotAgent] response carried neither 'patch' nor 'cv_data'")
+                return {
+                    "status":          "rejected",
+                    "message":         "The edit could not be applied. Please rephrase your instruction.",
+                    "changes_summary": None,
+                    "cv_data":         cv_data,
+                    "patch":           [],
+                }
+            logger.info("[CopilotAgent] model returned a full document instead of a patch "
+                        "— diffing to recover the ops")
+            inner = legacy
+            applied_ops = diff_cv(cv_data, legacy)
 
         inner = _enforce_limits(inner)
         inner = _sanitize_ai_tells(inner)
+
+        # Post-processing (limit clamping, AI-tell scrubbing) can alter values
+        # the patch set, so the ops handed to the client are re-derived from
+        # the final document. Returning the model's raw ops would let the
+        # client's optimistic state drift from what the server actually stored.
+        applied_ops = diff_cv(cv_data, inner)
 
         # Warn in logs if the model returned success but no changes_summary —
         # this means the prompt's transparency requirement wasn't followed.
@@ -490,4 +570,9 @@ class CopilotAgent:
             "message":         message,
             "changes_summary": changes_summary,
             "cv_data":         inner,
+            # Returned alongside the applied document so the client can update
+            # optimistically without re-rendering from scratch. Server-applied
+            # state stays authoritative; this is the same change expressed as
+            # ops the editor can replay locally.
+            "patch":           applied_ops,
         }
