@@ -325,6 +325,18 @@ function EmptyPreview() {
 
 // ── ApplierPreview ────────────────────────────────────────────────────────────
 
+// Progressive loading status messages. Module scope, not component scope: as a
+// component-local literal this array was a fresh reference every render, so the
+// rotation effect below could not list it as a dependency without restarting
+// its interval on each render. Hoisting makes it a stable constant, which is
+// what it always was semantically.
+const LOADING_STATUSES = [
+  'Analyzing job requirements...',
+  'Aligning past experience...',
+  'Optimizing ATS keywords...',
+  'Formatting document...',
+]
+
 export interface ApplierPreviewProps {
   job:        Job
   /** Full API object — used for the readiness guard before calling the tailor endpoint. */
@@ -373,13 +385,6 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
   const isLoading = phase === 'generating' || phase === 'revising' || phase === 'applying'
 
-  // ── Progressive loading status messages ───────────────────────────────────
-  const LOADING_STATUSES = [
-    'Analyzing job requirements...',
-    'Aligning past experience...',
-    'Optimizing ATS keywords...',
-    'Formatting document...',
-  ]
   const [loadingStatusIdx, setLoadingStatusIdx] = useState(0)
   useEffect(() => {
     if (!isLoading) { setLoadingStatusIdx(0); return }
@@ -709,7 +714,15 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     } finally {
       setIsCopilotBusy(false)
     }
-  }, [cvState, isCopilotBusy, job.id, chatHistory])
+    // `matchScore` is a real dependency, not lint appeasement. It is captured
+    // above into editHistory as the PRE-edit score, which is what Undo must
+    // restore alongside the pre-edit CV. Without it here the callback was only
+    // rebuilt when cvState/chatHistory changed — both of which update
+    // synchronously with the edit, while setMatchScore lands later from the
+    // async fetchMatchScore below. So the closure kept the score from one edit
+    // earlier: edit twice and Undo restored the right CV with the previous
+    // edit's score.
+  }, [cvState, isCopilotBusy, job.id, chatHistory, matchScore])
 
   const handleUndo = useCallback(() => {
     setEditHistory(prev => {

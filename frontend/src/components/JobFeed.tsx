@@ -395,7 +395,6 @@ export function JobFeed({
   // (if it's still in flight — e.g. a direct deep-link straight to
   // ?tab=feed on first load — fall back to the normal independent fetch
   // rather than seeding from not-yet-available data).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const canSeedFromParent =
       !preferences?.minScore && !initialFeedJobsLoading && initialFeedJobs !== undefined
@@ -406,6 +405,13 @@ export function JobFeed({
     } else {
       loadJobs()
     }
+  // Mount-only, deliberately — see the note above. The suppression has to sit
+  // here rather than above `useEffect`, where it used to: exhaustive-deps
+  // reports on the dependency array, so a disable-next-line eleven lines up
+  // silently applied to nothing and the warning was never actually suppressed.
+  // Listing the real deps is NOT the fix — loadJobs and initialFeedJobs change
+  // identity on load, which would turn a one-shot seed into a refetch loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Reset page when any filter changes
