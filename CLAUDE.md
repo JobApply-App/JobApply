@@ -65,6 +65,40 @@ See `DESIGN_SYSTEM.md` ("Editorial Intercom" system) for full detail. Key rules:
 - Custom multi-layer micro-shadows — never flat `shadow-md`/`shadow-lg`.
 - AI chat (Ariel) is on-demand/overlay, never a persistent split-screen panel.
 
+## Empty results are not evidence
+
+An empty or zero result means one of two things — "the thing genuinely isn't
+there" or "the check never actually ran" — and they look identical. Confirm
+which before drawing a conclusion. This has produced wrong conclusions in this
+repo repeatedly:
+
+- A `grep` scoped to `web_dashboard/`, a directory that does not exist, returned
+  empty and read as "this symbol is unused". Cost a full-stack rename being
+  scoped as backend-only (see the frontend section above).
+- `frontend/src/lib/cvParser.ts` contained a raw NUL byte, so `git` and
+  `file(1)` classified it as binary and `grep` silently reported zero matches
+  for symbols that were plainly in the file.
+- A PDF's section headings are letter-spaced (`M I L I T A R Y  S E R V I C E`),
+  so `grep -i military` on extracted text found nothing while the section was
+  present.
+- `build_full_text()` takes a `user_id`; passing it a profile dict made it
+  resolve nothing, a broad `except` turned that into a warning, and the
+  resulting corpus came back *smaller* than the one it was meant to widen. The
+  "measurement" looked like a modest improvement rather than a check that had
+  never run.
+
+Practical habits that catch these:
+
+- Before concluding "no matches", verify the search space is real —
+  `git ls-files <path>`, or grep for a token you know is present.
+- Treat a bare `except` around a measurement as suspect. If a step can fail
+  silently and still return a plausible-looking value, log the failure loudly
+  or let it raise.
+- When a number moves the wrong way (a corpus shrinks, a count drops), assume a
+  broken check before assuming a real finding.
+- For a test suite, confirm the tests you care about actually ran rather than
+  skipped — a green run with everything skipped is also green.
+
 ## Global rules (`.ai_rules`)
 
 - All scores must use 1 decimal precision.
