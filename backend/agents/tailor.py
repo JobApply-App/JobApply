@@ -36,6 +36,7 @@ from backend.services.llm_client import call_llm
 from backend.services.user_profile import build_full_text, resolve_profile
 from backend.schemas.job import JobMatch
 from backend.models.cv import CVDataSchema, normalize_cv
+from backend.utilities.json_repair import parse_json_robust
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
@@ -1700,14 +1701,19 @@ class TailorAgent:
         if start != -1 and end != -1:
             raw = raw[start : end + 1]
 
-        try:
-            result = json.loads(raw)
-        except json.JSONDecodeError as exc:
+        # Progressive repair rather than a bare json.loads(). A real JD
+        # reproducibly drove the model to malformed JSON twice at different
+        # offsets, and the bare parse turned that into a hard ValueError —
+        # the user lost a 30-second generation with nothing to show. The
+        # repair strategies were already in match_score_service; this path
+        # never had them.
+        result = parse_json_robust(raw, context="tailor")
+        if result is None:
             logger.error(
-                "TailorAgent JSON parse error: %s\n--- raw (first 400 chars) ---\n%s\n---",
-                exc, raw[:400],
+                "TailorAgent JSON unrecoverable\n--- raw (first 400 chars) ---\n%s\n---",
+                raw[:400],
             )
-            raise ValueError(f"TailorAgent returned invalid JSON: {exc}") from exc
+            raise ValueError("TailorAgent returned invalid JSON that could not be repaired")
 
         response_type = result.get("type", "cv")
 
