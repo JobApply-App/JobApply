@@ -62,14 +62,17 @@ jobs:
 
       - name: Lint
         # `next lint` against frontend/.eslintrc.json (next/core-web-vitals).
-        # Errors fail the job; warnings do NOT. That asymmetry is deliberate:
-        # 10 pre-existing warnings remain (7 react-hooks/exhaustive-deps, 3
-        # no-img-element), each a judgment call rather than a defect, and
-        # gating on them today would mean either a red main or a rushed
-        # blanket-disable. Errors are already at zero, so this step holds that
-        # line while the warning backlog is worked down deliberately.
-        # To tighten later, add `-- --max-warnings 0` once the count is 0.
-        run: npm run lint
+        # `--max-warnings 0` makes warnings fail the job too. The backlog that
+        # made this untenable before is gone: the 10 warnings were worked down
+        # to 0 across #27 and this change, each either fixed properly or
+        # suppressed inline with a written reason at the exact site.
+        #
+        # The point of the zero here is that it is now cheap to hold. A new
+        # warning is a decision someone has to make and record on the spot,
+        # rather than a line item that quietly joins a list nobody re-reads.
+        # Suppressing one still requires a comment explaining why, so the
+        # escape hatch stays visible in review.
+        run: npm run lint -- --max-warnings 0
 
       - name: Typecheck
         run: npx tsc --noEmit

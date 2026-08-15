@@ -12,8 +12,16 @@ export function useAllJobsFilterOptions(): AllJobsFilterOptions | null {
   const { session, loading: authLoading } = useAuth()
   const [options, setOptions] = useState<AllJobsFilterOptions | null>(null)
 
+  // Keyed on the user id, not the `session` object. Supabase hands back a new
+  // session object on every silent token refresh, so depending on `session`
+  // would refire this fetch on a timer for no reason — the option lists only
+  // change when new jobs are scraped in. Guarding on `userId` rather than
+  // `session` makes the narrower dependency exhaustive instead of suppressed;
+  // a session with no user is not a usable authenticated state either way.
+  const userId = session?.user?.id
+
   useEffect(() => {
-    if (authLoading || !session) return
+    if (authLoading || !userId) return
     const controller = new AbortController()
     fetchAllJobsFilterOptions(controller.signal)
       .then(setOptions)
@@ -23,7 +31,7 @@ export function useAllJobsFilterOptions(): AllJobsFilterOptions | null {
         // for a progressive-enhancement feature over the base job list.
       })
     return () => controller.abort()
-  }, [authLoading, session?.user?.id])
+  }, [authLoading, userId])
 
   return options
 }
