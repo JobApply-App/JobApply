@@ -1728,6 +1728,26 @@ class TailorAgent:
         cv_data = _inject_static_sections(cv_data, user_id=self.user_id, jd_text=job.jd_text or "")
         cv_data = _sanitize_ai_tells(cv_data)
 
+        # Zero-hallucination telemetry (LOG-ONLY — enforce=False).
+        # Records which generated literals cannot be traced to the candidate's
+        # own profile without touching the output. Measured at a 10%
+        # flag rate on real bullets, where the surviving flags looked like
+        # genuine fabrications rather than noise; enforcement stays off until a
+        # wider sample justifies removing content from a user's CV.
+        try:
+            from backend.services.cv_grounding import GroundingGate
+            _, _grounding = GroundingGate.for_user(
+                self.user_id, enforce=False, context="tailor",
+            ).filter_cv(cv_data)
+            if _grounding.flagged_count:
+                logger.warning(
+                    "[grounding:tailor] %d/%d bullets unverified for user=%s: %s",
+                    _grounding.flagged_count, _grounding.checked, self.user_id,
+                    [f.unverified for f in _grounding.flagged][:5],
+                )
+        except Exception as exc:
+            logger.debug("[grounding:tailor] telemetry skipped: %s", exc)
+
         logger.info(
             "TailorAgent OK  title='%s'  exps=%d  edu=%d  cats=%d",
             (cv_data.get("header") or {}).get("target_title", ""),

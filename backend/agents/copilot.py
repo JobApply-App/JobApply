@@ -379,6 +379,7 @@ class CopilotAgent:
         user_prompt: str,
         master_profile: Optional[dict] = None,
         chat_history: Optional[list[dict]] = None,
+        user_id: str = "",
     ) -> dict:
         """
         Apply (or decline) the user's editing instruction.
@@ -551,6 +552,26 @@ class CopilotAgent:
         # the final document. Returning the model's raw ops would let the
         # client's optimistic state drift from what the server actually stored.
         applied_ops = diff_cv(cv_data, inner)
+
+        # Zero-hallucination telemetry (LOG-ONLY — enforce=False).
+        # The edit path matters more than generation here: an edit is where a
+        # user says "add that I grew revenue" and the model has to decide
+        # whether it has evidence for a number. Nothing is removed yet.
+        try:
+            from backend.services.cv_grounding import GroundingGate
+            _uid = user_id
+            if _uid:
+                _, _g = GroundingGate.for_user(
+                    _uid, enforce=False, context="copilot",
+                ).filter_cv(inner)
+                if _g.flagged_count:
+                    logger.warning(
+                        "[grounding:copilot] %d/%d bullets unverified after edit %r: %s",
+                        _g.flagged_count, _g.checked, user_prompt[:60],
+                        [f.unverified for f in _g.flagged][:5],
+                    )
+        except Exception as exc:
+            logger.debug("[grounding:copilot] telemetry skipped: %s", exc)
 
         # Warn in logs if the model returned success but no changes_summary —
         # this means the prompt's transparency requirement wasn't followed.

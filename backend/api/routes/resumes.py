@@ -863,6 +863,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
             user_prompt    = req.user_prompt,
             master_profile = get_profile(user.user_id),
             chat_history   = req.chat_history,
+            user_id        = user.user_id,
         )
     except Exception as exc:
         logger.exception("[resumes/copilot] CopilotAgent failed for job %s", req.job_id)
