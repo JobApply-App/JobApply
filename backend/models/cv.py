@@ -356,3 +356,70 @@ class CVDataSchema(_Base):
         """Compact JSON-Schema string for embedding in a system prompt."""
         import json
         return json.dumps(cls.llm_json_schema(), ensure_ascii=False, indent=2)
+
+
+def _structural_remap(data: dict) -> dict:
+    """
+    Legacy -> canonical key mapping with NO validation.
+
+    The strict model rejects over-length fields, but length is not this
+    function's concern — clamping belongs to tailor._enforce_limits, which runs
+    after normalization and expects canonical keys. Without this fallback a
+    single over-length title made normalization fail, the document passed
+    through still shaped `military`, and _enforce_limits then looked for
+    `military_service`, found nothing, and silently dropped the user's entire
+    military section. Renaming keys must never depend on the content being
+    within limits.
+    """
+    out = dict(data)
+
+    title = out.pop("title", None)
+    if title:
+        header = dict(out.get("header") or {})
+        header.setdefault("target_title", title)
+        out["header"] = header
+
+    mil = out.pop("military", out.get("military_service"))
+    if isinstance(mil, dict):
+        role = mil.get("role_title") or mil.get("role") or ""
+        out["military_service"] = {
+            "role_title": role,
+            "unit_type":  mil.get("unit_type") or mil.get("unit") or "",
+            "dates":      mil.get("dates", ""),
+            "key_responsibilities": list(mil.get("key_responsibilities") or []),
+        } if role else None
+    elif mil is None:
+        out["military_service"] = None
+
+    return out
+
+
+def normalize_cv(data: Any, *, context: str = "cv") -> dict:
+    """
+    Convert any CV payload — legacy or canonical — into the canonical shape.
+
+    This is the choke point that makes the rename safe. Every boundary where a
+    CV enters the system (LLM output, a stored tailored_cv row, a request body
+    from the editor) runs through here, so nothing downstream has to know that
+    two shapes ever existed: consumers read `header.target_title` and
+    `military_service` only.
+
+    Strict validation first, because it also applies defaults and drops junk.
+    When that fails — almost always an over-length field, which the downstream
+    clamp exists to fix — fall back to the structural remap so the KEYS are
+    still canonical. Losing a section to a length quibble would be a far worse
+    failure than a slightly long string that _enforce_limits is about to trim.
+    """
+    import logging
+
+    if not isinstance(data, dict):
+        return {}
+    try:
+        return CVDataSchema.model_validate(data).to_render_dict()
+    except Exception as exc:
+        logging.getLogger(__name__).info(
+            "[%s] strict CV validation failed (%s) — applying structural remap; "
+            "downstream limit enforcement will clamp the offending field.",
+            context, str(exc).replace("\n", " ")[:160],
+        )
+        return _structural_remap(data)

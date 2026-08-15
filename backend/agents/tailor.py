@@ -35,7 +35,7 @@ from dotenv import load_dotenv
 from backend.services.llm_client import call_llm
 from backend.services.user_profile import build_full_text, resolve_profile
 from backend.schemas.job import JobMatch
-from backend.models.cv import CVDataSchema
+from backend.models.cv import CVDataSchema, normalize_cv
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
@@ -647,7 +647,11 @@ finish. Never emit them, and never invent them.
 {{
   "type": "cv",
   "cv_data": {{
-    "title": "<role-specific positioning, <=58 chars. What the candidate IS, not what they are applying for.>",
+    "header": {{
+      "target_title": "<role-specific positioning, <=58 chars. What the candidate IS, not what \
+they are applying for. This is the ONLY header field you may write — name, email, phone, \
+location and LinkedIn are injected from the verified profile and must be omitted.>"
+    }},
 
     "summary": "<<=360 chars. 2-3 sentences. MUST contain at least one concrete \
 number sourced from the metrics table (Step 4). Opens with the candidate's clearest quantified \
@@ -687,10 +691,11 @@ credential was earned, such as 'while working full-time', or \
       }}
     ],
 
-    "military": {{
-      "role":  "<string <=45 chars; omit entire object if not including>",
-      "unit":  "<string <=40 chars>",
-      "dates": "<copied exactly from profile, <=20 chars>"
+    "military_service": {{
+      "role_title":           "<string <=45 chars; use null for the whole object if not including>",
+      "unit_type":            "<string <=60 chars>",
+      "dates":                "<copied exactly from profile, <=20 chars>",
+      "key_responsibilities": ["<optional XYZ-style scope line, same discipline as experience bullets>"]
     }},
 
     "skills": {{
@@ -884,34 +889,28 @@ def _normalize_language_level(raw: str) -> str:
 
 def validate_cv_schema(data: dict, *, context: str = "tailor") -> dict:
     """
-    Validate LLM output against CVDataSchema and return it unchanged on success.
+    Normalise a CV payload to the canonical CVDataSchema shape.
 
-    Deliberately returns the ORIGINAL dict rather than the model's canonical
-    serialisation. The canonical names (header.target_title, military_service)
-    differ from the keys pdf_builder._flatten, copilot.py and the frontend all
-    still read (title, military), so emitting canonical output here would break
-    rendering the moment it shipped. That rename has to land as one coordinated
-    change across renderer + frontend + copilot; until it does, this function is
-    the enforcement half of the unification — the shape is checked against a
-    single authority even though the wire keys have not moved yet.
+    Every CV entering the pipeline passes through here, so everything
+    downstream — _enforce_limits, _inject_static_sections, pdf_builder,
+    copilot, the frontend — reads `header.target_title` and `military_service`
+    only, and never has to know the legacy `title`/`military` shape existed.
+    Documents already stored in that older shape are converted on read rather
+    than migrated (see backend/models/cv.py).
 
-    Non-fatal by design. A schema violation means the CV is unusual (a 300-char
-    company name, a missing section), not that the user should lose a generation
-    they waited 30 seconds for. It logs loudly enough to be found and lets the
-    downstream clamps in _enforce_limits do their job.
+    Non-fatal by design: a payload that cannot be validated is passed through
+    untouched rather than discarded. A schema violation means the CV is unusual,
+    not that the user should lose a generation they waited 30 seconds for, and
+    the renderer already degrades field-by-field on missing keys.
     """
-    try:
-        CVDataSchema.model_validate(data)
-    except Exception as exc:
-        logger.warning(
-            "[%s] cv_data failed CVDataSchema validation (non-fatal, continuing): %s",
-            context, str(exc).replace("\n", " ")[:300],
-        )
-    return data
+    return normalize_cv(data, context=context)
 
 
 def _enforce_limits(data: dict) -> dict:
-    data["title"]        = _clip_word(data.get("title"),        _LIM["title"])
+    header = data.get("header")
+    header = dict(header) if isinstance(header, dict) else {}
+    header["target_title"] = _clip_word(header.get("target_title"), _LIM["title"])
+    data["header"]         = header
     data["summary"]      = _clip_sentence(data.get("summary"),  _LIM["summary"])
     data["volunteering"] = _clip_sentence(data.get("volunteering"), _LIM["volunteering"])
 
@@ -949,15 +948,23 @@ def _enforce_limits(data: dict) -> dict:
         })
     data["education"] = clamped_edu
 
-    mil = data.get("military") or {}
-    if mil.get("role"):
-        data["military"] = {
-            "role":  _clip_word(mil.get("role"),  _LIM["mil_role"]),
-            "unit":  _clip_word(mil.get("unit"),  _LIM["mil_unit"]),
-            "dates": _clip(mil.get("dates"),      _LIM["mil_dates"]),
+    mil = data.get("military_service") or {}
+    if mil.get("role_title"):
+        data["military_service"] = {
+            "role_title": _clip_word(mil.get("role_title"), _LIM["mil_role"]),
+            "unit_type":  _clip_word(mil.get("unit_type"),  _LIM["mil_unit"]),
+            "dates":      _clip(mil.get("dates"),           _LIM["mil_dates"]),
+            # Not clipped as a block: each line is an independent scope
+            # statement, and truncating the list mid-way is better than
+            # truncating one line mid-sentence.
+            "key_responsibilities": [
+                str(r or "") for r in (mil.get("key_responsibilities") or [])[:3]
+            ],
         }
     else:
-        data["military"] = {}
+        # None, not {} — an empty object validates into a present-but-blank
+        # section and renders a bare "Military Service" heading.
+        data["military_service"] = None
 
     skills       = data.get("skills") or {}
     clamped_cats = []
@@ -1199,17 +1206,18 @@ def _inject_static_sections(
     # Military entries in the legacy singleton's experience[] have a "unit" key
     # but no "company" key — that's the reliable discriminator. The DB profile
     # never produces such entries, so this is a no-op for real users.
-    if not _explicitly_deleted("military"):
+    if not _explicitly_deleted("military_service"):
         for exp in profile.get("experience", []):
             if exp.get("unit") and not exp.get("company"):
-                data["military"] = {
-                    "role":  exp.get("role", ""),
-                    "unit":  exp.get("unit", ""),
-                    "dates": exp.get("period") or exp.get("dates", ""),
+                data["military_service"] = {
+                    "role_title": exp.get("role", ""),
+                    "unit_type":  exp.get("unit", ""),
+                    "dates":      exp.get("period") or exp.get("dates", ""),
+                    "key_responsibilities": [],
                 }
                 break  # only one military entry expected
     else:
-        data["military"] = None
+        data["military_service"] = None
 
     # ── Skills ────────────────────────────────────────────────────────────────
     if not _explicitly_deleted("skills"):
@@ -1683,7 +1691,7 @@ class TailorAgent:
 
         logger.info(
             "TailorAgent OK  title='%s'  exps=%d  edu=%d  cats=%d",
-            cv_data.get("title", ""),
+            (cv_data.get("header") or {}).get("target_title", ""),
             len(cv_data.get("experience", [])),
             len(cv_data.get("education",  [])),
             len((cv_data.get("skills") or {}).get("categories", [])),
@@ -1783,6 +1791,7 @@ class TailorAgent:
             raise ValueError(f"Refinement returned invalid JSON: {exc}") from exc
 
         refined = result.get("cv_data", result)
+        refined = validate_cv_schema(refined, context="tailor.refine")
         refined = _enforce_limits(refined)
         refined = _inject_static_sections(refined, user_id=self.user_id, jd_text=jd_context or "")
         refined = _sanitize_ai_tells(refined)

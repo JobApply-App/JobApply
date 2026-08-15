@@ -102,11 +102,11 @@ STATUS DECISION RULES
       with 3–5 bullets of 60–240 chars each derived from the profile "details".
     • Education / certification: add to the "education" array.
     • Skill: add the item to the appropriate skill category.
-    • Military service: ALWAYS placed in the TOP-LEVEL "military" key — NOT in
+    • Military service: ALWAYS placed in the TOP-LEVEL "military_service" key — NOT in
       the experience array. Format exactly as:
-        "military": {"role": "<role ≤45 chars>", "unit": "<unit ≤40 chars>", "dates": "<dates ≤20 chars>"}
+        "military_service": {"role_title": "<≤45 chars>", "unit_type": "<≤60 chars>", "dates": "<≤20 chars>", "key_responsibilities": []}
       Look for the military entry in the MASTER PROFILE under the dedicated
-      MILITARY SERVICE section. Copy role, unit, and dates verbatim from there.
+      MILITARY SERVICE section. Copy the role, unit and dates verbatim from there.
       If the field already exists in cv_data, overwrite it with the canonical
       profile values — never leave military in the experience array.
   This is strictly permitted and is NOT hallucination — the data comes from
@@ -180,13 +180,13 @@ leave it empty, do NOT summarize it, do NOT shorten it instead.
 
   • For array members such as an experience entry: remove the element from
     the array entirely.
-  • For the top-level static sections "military", "education", and "skills"
+  • For the top-level static sections "military_service", "education", and "skills"
     (the ones canonically sourced from the Master Profile): DO NOT simply
     omit the key from your JSON output. Omitting a key is indistinguishable
     from you forgetting to include it, and the backend will silently restore
     it from the Master Profile, undoing the deletion. Instead you MUST
     include the exact key in cv_data and set its value explicitly to `null`
-    (object-type sections, e.g. "military") or an empty array `[]` /
+    (object-type sections, e.g. "military_service") or an empty array `[]` /
     `{"categories": []}` (list/object-type sections, e.g. "education",
     "skills"). An explicit null/[] is the only signal the backend treats as
     an intentional deletion — anything else is treated as an accidental
@@ -230,7 +230,7 @@ def _serialize_master_profile(master_profile: dict) -> str:
     skills so the model can locate any restorable content by name.
 
     Military service is serialised as a DEDICATED section separate from
-    experience so the model knows to place it in the top-level "military" key
+    experience so the model knows to place it in the top-level "military_service" key
     of cv_data — never in the experience array.
     """
     parts: list[str] = []
@@ -268,14 +268,14 @@ def _serialize_master_profile(master_profile: dict) -> str:
 
     if military_entries:
         parts.append(
-            '\nMILITARY SERVICE — inject into cv_data["military"] key (NOT experience):'
+            '\nMILITARY SERVICE — inject into cv_data["military_service"] key (NOT experience):'
         )
         for mil in military_entries:
             role   = mil.get("role", "")
             unit   = mil.get("unit", "")
             period = mil.get("period", "")
             parts.append(
-                f'  cv_data["military"] = {{"role": "{role}", "unit": "{unit}", "dates": "{period}"}}'
+                f'  cv_data["military_service"] = {{"role_title": "{role}", "unit_type": "{unit}", "dates": "{period}", "key_responsibilities": []}}'
             )
             if mil.get("details"):
                 parts.append(f"    (Context: {mil['details'][:200]})")

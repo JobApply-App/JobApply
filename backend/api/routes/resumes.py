@@ -17,6 +17,7 @@ from backend.agents.tailor import TailorAgent, _inject_static_sections
 from backend.agents.gatekeeper import RevisionGatekeeper
 from backend.agents.copilot import CopilotAgent
 from backend.services.pdf_builder import build_pdf, PdfEngineUnavailable, TEMPLATE_REGISTRY
+from backend.models.cv import normalize_cv
 from backend.services.supplemental_store import save as save_supplemental
 from backend.services.user_profile import get_profile, save_personal_field
 from backend.services.match_score_service import (
@@ -541,7 +542,8 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
             logger.info(
                 "[resumes/tailor] Cache hit for job %s — returning persisted CV", req.job_id
             )
-            cached_cv_data = cached["cv_data"]
+            # Stored CVs may predate the schema unification.
+            cached_cv_data = normalize_cv(cached["cv_data"], context="resumes/tailor:cache")
             try:
                 cached_pdf = await build_pdf(cached_cv_data, template_id="t2_modern", user_id=user.user_id)
             except Exception as exc:
@@ -645,7 +647,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
             )
 
     # ── CV ready: build PDF ───────────────────────────────────────────────────
-    cv_data = result["cv_data"]
+    cv_data = normalize_cv(result["cv_data"], context="resumes")
 
     # Persist all JD answers (user-supplied + auto-filled) to the master profile
     # so subsequent generations for any job can benefit from the cache.
@@ -793,7 +795,7 @@ async def get_cached_resume(job_id: str, user: CurrentUser = Depends(get_current
     if not cached or not cached.get("cv_data"):
         return _FastAPIResponse(status_code=204)
 
-    cv_data = cached["cv_data"]
+    cv_data = normalize_cv(cached["cv_data"], context="resumes/cached")
     try:
         pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
         pdf_b64   = base64.b64encode(pdf_bytes).decode()
@@ -873,7 +875,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
         )
 
     # ── success: rebuild PDF, recompute score, save to cache ─────────────────
-    cv_data = result["cv_data"]
+    cv_data = normalize_cv(result["cv_data"], context="resumes")
 
     # Re-inject canonical static sections (education, military, skills) from
     # THIS USER's profile after every Copilot edit.  This guarantees these

@@ -173,17 +173,77 @@ def test_unknown_keys_are_tolerated_not_fatal():
 
 # ── Validation gate in tailor.py ─────────────────────────────────────────────
 
-def test_validation_gate_is_non_fatal_and_shape_preserving():
+def test_validation_gate_is_non_fatal_and_normalizes():
     """
-    A schema violation must not cost the user a generation they waited for,
-    and must not silently rewrite the payload downstream code still reads.
+    The gate must never raise — a schema violation should not cost the user a
+    generation they waited 30 seconds for — but it MUST still hand downstream
+    code canonical keys, since _enforce_limits and pdf_builder now read those
+    exclusively.
     """
     from backend.agents.tailor import validate_cv_schema
     bad = {"title": "x" * 500, "experience": [{"role": "PM"}]}
     out = validate_cv_schema(bad, context="test")
-    assert out is bad
+    assert "title" not in out
+    assert out["header"]["target_title"]
+    assert out["experience"][0]["role"] == "PM"
 
 
 def test_military_is_present_requires_a_role():
     assert not MilitaryService(unit_type="IDF").is_present()
     assert MilitaryService(role_title="Ops NCO").is_present()
+
+
+# ── Normalization choke point ────────────────────────────────────────────────
+
+def test_normalize_maps_legacy_keys_to_canonical():
+    from backend.models.cv import normalize_cv
+    out = normalize_cv({"title": "PM", "military": {"role": "X", "unit": "Y"}})
+    assert "title" not in out and "military" not in out
+    assert out["header"]["target_title"] == "PM"
+    assert out["military_service"]["role_title"] == "X"
+    assert out["military_service"]["unit_type"] == "Y"
+
+
+def test_over_length_field_does_not_drop_other_sections():
+    """
+    Regression. Normalization runs BEFORE tailor._enforce_limits clamps
+    lengths, so a document whose title exceeds the limit fails strict
+    validation. When that made normalization pass the payload through
+    unchanged, it stayed shaped `military`, _enforce_limits looked for
+    `military_service`, found nothing, and silently deleted the candidate's
+    entire military section — data loss caused purely by a long title.
+    """
+    from backend.models.cv import normalize_cv
+    out = normalize_cv({"title": "z" * 300, "military": {"role": "Staff Officer", "unit": "IDF"}})
+    assert "military" not in out
+    assert out["military_service"]["role_title"] == "Staff Officer"
+    assert out["header"]["target_title"]  # preserved for the clamp to trim
+
+
+def test_enforce_limits_reads_canonical_keys_and_preserves_military():
+    from backend.agents.tailor import _enforce_limits
+    from backend.models.cv import normalize_cv
+    out = _enforce_limits(normalize_cv(
+        {"title": "x" * 80, "military": {"role": "Staff Officer", "unit": "IDF"}}
+    ))
+    assert out["military_service"]["role_title"] == "Staff Officer"
+    assert len(out["header"]["target_title"]) <= LIMITS["target_title"]
+
+
+def test_absent_military_normalizes_to_none_not_empty_dict():
+    """An empty object would render a bare 'Military Service' heading."""
+    from backend.models.cv import normalize_cv
+    assert normalize_cv({"title": "PM", "military": {}})["military_service"] is None
+    assert normalize_cv({"title": "PM"})["military_service"] is None
+
+
+def test_normalize_is_idempotent():
+    from backend.models.cv import normalize_cv
+    once = normalize_cv({"title": "PM", "military": {"role": "X", "unit": "Y"}})
+    assert normalize_cv(once) == once
+
+
+def test_normalize_tolerates_non_dict_input():
+    from backend.models.cv import normalize_cv
+    assert normalize_cv(None) == {}
+    assert normalize_cv("not a cv") == {}

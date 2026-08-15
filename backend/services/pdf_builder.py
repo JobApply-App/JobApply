@@ -15,11 +15,11 @@ string — it is never guessed, fabricated, or passed to the model.
 
 cv_data shape (produced by TailorAgent — contact fields are absent by design):
 {
-  "title":      str,
+  "header":     {"target_title", ...},  # contact fields injected here, never from the LLM
   "summary":    str,
   "experience": [{"role", "company", "dates", "bullets": [str]}],
   "education":  [{"degree", "institution", "dates", "honors", "coursework"}],
-  "military":   {"role", "unit", "dates"},          # optional
+  "military_service": {"role_title", "unit_type", "dates", "key_responsibilities"},  # optional, may be None
   "skills":     {"categories": [{"label", "items": [str]}]},
   "languages":  [{"language", "level"}],
   "volunteering": str,
@@ -292,14 +292,34 @@ def _build_languages(languages: list[dict]) -> str:
 
 
 def _build_military(mil: dict | None) -> str:
-    if not mil or not mil.get("role"):
+    """
+    Render the military-service block, or nothing at all.
+
+    Reads the canonical CVDataSchema names (role_title/unit_type). A missing or
+    None section produces an empty string rather than a bare heading — absent
+    must mean absent, since a "Military Service" title with nothing under it is
+    worse than omitting the section for a candidate who did not serve.
+
+    key_responsibilities is optional and usually empty: it earns page space only
+    for candidates whose service IS the leadership evidence (a recent graduate),
+    which is why the <ul> is omitted entirely when the list is empty rather than
+    rendered as an empty container that still costs vertical rhythm.
+    """
+    if not mil or not mil.get("role_title"):
         return ""
-    role  = _t(mil.get("role",  ""), 45)
-    unit  = _t(mil.get("unit",  ""), 60)   # raised from 40 — canonical unit string is 41 chars
+    role  = _t(mil.get("role_title", ""), 45)
+    unit  = _t(mil.get("unit_type",  ""), 60)   # canonical unit strings run to ~41 chars
     dates = _t(_format_year_range(mil.get("dates", "")), 20)
     # unit is optional — omit the span entirely so ::before separators (used by
     # some templates) don't leave a dangling "—" when there's no unit text.
     unit_html = f'<span class="mil-unit">{unit}</span>' if unit else ""
+
+    responsibilities = [str(r).strip() for r in (mil.get("key_responsibilities") or []) if str(r).strip()]
+    resp_html = (
+        f'<ul class="bullets">{"".join(f"<li>{_e(r)}</li>" for r in responsibilities[:3])}</ul>'
+        if responsibilities else ""
+    )
+
     return (
         f'<div class="side-sec">'
         f'  <span class="sec-title">Military Service</span>'
@@ -310,6 +330,7 @@ def _build_military(mil: dict | None) -> str:
         f'    </div>'
         f'    <span class="entry-dates">{dates}</span>'
         f'  </div>'
+        f'  {resp_html}'
         f'</div>'
     )
 
@@ -334,6 +355,15 @@ def _flatten(cv_data: dict, user_id: str) -> dict:
     (user_id)).  Any contact-like keys in cv_data are silently dropped here so
     the LLM can never override them.
     """
+    # Normalise first: a CV can reach the renderer straight from storage
+    # (GET /cached/{job_id}, a re-render of an old tailored_cv) without having
+    # passed through the tailor pipeline, and those documents may still carry
+    # the pre-unification `title`/`military` keys. Converting here means the
+    # builders below read canonical names only, and an old CV keeps rendering
+    # exactly as it did instead of silently losing its title and service block.
+    from backend.models.cv import normalize_cv
+    cv_data = normalize_cv(cv_data, context="pdf_builder")
+
     # Strip any contact fields the LLM may have accidentally included
     clean = {k: v for k, v in cv_data.items() if k not in _CONTACT_KEYS}
 
@@ -352,14 +382,14 @@ def _flatten(cv_data: dict, user_id: str) -> dict:
     flat["location_line"] = _contact_line(contact.get("location", ""))
 
     # ── LLM-generated content ─────────────────────────────────────────────────
-    flat["title"]   = _t(clean.get("title",   ""), 58)
+    flat["title"]   = _t((clean.get("header") or {}).get("target_title", ""), 58)
     flat["summary"] = _t(clean.get("summary", ""), 400)
 
     flat["experience_blocks"]    = _build_experience(clean.get("experience", []))
     flat["education_blocks"]     = _build_education(clean.get("education",  []))
     flat["skills_section"]       = _build_skills(clean.get("skills", {}))
     flat["languages_section"]    = _build_languages(clean.get("languages", []))
-    flat["military_section"]     = _build_military(clean.get("military"))
+    flat["military_section"]     = _build_military(clean.get("military_service"))
     flat["volunteering_section"] = _build_volunteering(clean.get("volunteering", ""))
 
     return flat
