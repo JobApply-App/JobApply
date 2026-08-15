@@ -125,7 +125,10 @@ function MigrationGate({ children }: { children: React.ReactNode }) {
         localStorage.setItem(storageKey, '1')
         setPhase('done')
       })
-  }, [user, session])
+    // `updateUserMeta` is safe to depend on: AuthContext defines it as
+    // useCallback(..., []), so its identity is fixed for the provider's
+    // lifetime and listing it cannot make this effect run any more often.
+  }, [user, session, updateUserMeta])
 
   // ── Blocking screen (idle / in_flight) ────────────────────────────────────
   if (phase !== 'done') {

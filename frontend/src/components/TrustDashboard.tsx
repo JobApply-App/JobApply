@@ -1321,6 +1321,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                   style={{ background: TOKENS.color.primarySoft, border: `1px solid oklch(0.85 0.07 170)` }}
                 >
                   {attachment.dataUrl.startsWith('data:image') ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- a data: URI (see the guard above), which next/image cannot optimise: it would need `unoptimized`, adding the component's overhead for none of its benefit.
                     <img src={attachment.dataUrl} alt="" className="w-7 h-7 rounded-lg object-cover border border-white/60 shrink-0" />
                   ) : (
                     <span
@@ -2293,6 +2294,7 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
                 {attachment && (
                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
                     {attachment.dataUrl.startsWith('data:image') && (
+                      // eslint-disable-next-line @next/next/no-img-element -- a data: URI (see the guard above), which next/image cannot optimise: it would need `unoptimized`, adding the component's overhead for none of its benefit.
                       <img
                         src={attachment.dataUrl}
                         alt="attachment preview"

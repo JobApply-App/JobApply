@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { TOKENS } from '@/lib/tokens'
 import type { InterviewSession, ConfidenceClaim } from '@/lib/apiTypes'
 import {
@@ -423,13 +423,18 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
   )
   const _isRealName = Boolean(_resolvedName) && !_resolvedName.includes('@')
 
-  const userContext: StartInterviewContext = {
+  // Memoised so handleStart can depend on it without being rebuilt every
+  // render. As a bare object literal this was a new reference each time, which
+  // is why handleStart carried `[]` deps and captured the FIRST render's
+  // context — at which point useAuth() is often still loading and `user` is
+  // null, so `user_name` was silently omitted from the greeting.
+  const userContext: StartInterviewContext = useMemo(() => ({
     // Send the resolved full name so the backend can extract the exact first
     // name (e.g. "Jamie Smith" → "Jamie") without relying on email parsing.
     ...((_isRealName) ? { user_name: _resolvedName } : {}),
     // Forward the intent to the backend so it can tailor the opening prompt.
     ...(intent ? { intent } : {}),
-  }
+  }), [_isRealName, _resolvedName, intent])
 
   const [session,      setSession]      = useState<InterviewSession | null>(null)
   const [input,        setInput]        = useState('')
@@ -488,7 +493,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
     } finally {
       setStarting(false)
     }
-  }, [])
+  }, [userContext])
 
   const handleReset = useCallback(() => {
     localStorage.removeItem(SESSION_STORAGE_KEY)

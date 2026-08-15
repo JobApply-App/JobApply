@@ -217,10 +217,18 @@ interface ReportDrawerProps {
 export function ReportDrawer({ job, onClose }: ReportDrawerProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Reset scroll position when a different job is opened
+  // Reset scroll position when a different job is opened.
+  //
+  // Keyed on the id, not the `job` object: the drawer must reset only when a
+  // DIFFERENT job is opened, and a parent re-render that hands back a new
+  // object for the same job would otherwise yank the user's scroll position
+  // back to the top mid-read. Reading `jobId` rather than `job` inside the
+  // effect makes that narrower dependency exhaustive rather than suppressed —
+  // `Job.id` is a required string, so `jobId` is truthy exactly when `job` is.
+  const jobId = job?.id
   useEffect(() => {
-    if (job && scrollRef.current) scrollRef.current.scrollTop = 0
-  }, [job?.id])
+    if (jobId && scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [jobId])
 
   // Close on Escape
   useEffect(() => {
