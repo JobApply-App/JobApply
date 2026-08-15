@@ -35,6 +35,7 @@ from dotenv import load_dotenv
 from backend.services.llm_client import call_llm
 from backend.services.user_profile import build_full_text, resolve_profile
 from backend.schemas.job import JobMatch
+from backend.models.cv import CVDataSchema
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 
@@ -629,6 +630,20 @@ OUTPUT FORMAT — JSON ONLY
 ══════════════════════════════
 No markdown fences. No prose. Only the JSON object.
 
+STRUCTURAL CONTRACT (authoritative — generated from backend/models/cv.py):
+Your output is validated against this JSON Schema. A response that violates it
+is rejected outright, so treat field names, types and maxLength as hard
+constraints rather than suggestions. The annotated template below restates the
+same structure with the editorial rules that the schema alone cannot express;
+where the two ever appear to disagree, the schema wins on STRUCTURE and the
+template wins on WRITING QUALITY.
+
+Note there is no contact/header block to fill in: name, email, phone, location
+and LinkedIn are injected from the candidate's verified profile after you
+finish. Never emit them, and never invent them.
+
+{schema}
+
 {{
   "type": "cv",
   "cv_data": {{
@@ -865,6 +880,34 @@ def _normalize_language_level(raw: str) -> str:
         if keyword in text:
             return canonical
     return (raw or "").strip()
+
+
+def validate_cv_schema(data: dict, *, context: str = "tailor") -> dict:
+    """
+    Validate LLM output against CVDataSchema and return it unchanged on success.
+
+    Deliberately returns the ORIGINAL dict rather than the model's canonical
+    serialisation. The canonical names (header.target_title, military_service)
+    differ from the keys pdf_builder._flatten, copilot.py and the frontend all
+    still read (title, military), so emitting canonical output here would break
+    rendering the moment it shipped. That rename has to land as one coordinated
+    change across renderer + frontend + copilot; until it does, this function is
+    the enforcement half of the unification — the shape is checked against a
+    single authority even though the wire keys have not moved yet.
+
+    Non-fatal by design. A schema violation means the CV is unusual (a 300-char
+    company name, a missing section), not that the user should lose a generation
+    they waited 30 seconds for. It logs loudly enough to be found and lets the
+    downstream clamps in _enforce_limits do their job.
+    """
+    try:
+        CVDataSchema.model_validate(data)
+    except Exception as exc:
+        logger.warning(
+            "[%s] cv_data failed CVDataSchema validation (non-fatal, continuing): %s",
+            context, str(exc).replace("\n", " ")[:300],
+        )
+    return data
 
 
 def _enforce_limits(data: dict) -> dict:
@@ -1476,7 +1519,10 @@ class TailorAgent:
             return {"type": "missing_data", "requests": core_gaps}
 
         profile_text = build_full_text(self.user_id)
-        system       = _SYSTEM_PROMPT.format(profile=profile_text)
+        system       = _SYSTEM_PROMPT.format(
+            profile=profile_text,
+            schema=CVDataSchema.llm_schema_hint(),
+        )
 
         rationale_block = ""
         if job.scoring_rationale:
@@ -1630,6 +1676,7 @@ class TailorAgent:
 
         # ── CV: enforce limits, inject static sections, sanitise AI tells ──────
         cv_data = result.get("cv_data", result)  # tolerate missing wrapper
+        cv_data = validate_cv_schema(cv_data, context="tailor")
         cv_data = _enforce_limits(cv_data)
         cv_data = _inject_static_sections(cv_data, user_id=self.user_id, jd_text=job.jd_text or "")
         cv_data = _sanitize_ai_tells(cv_data)
