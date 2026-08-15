@@ -255,6 +255,50 @@ export interface TailorEditResponse {
   reply:    string
 }
 
+// ── CV Copilot — targeted edit (POST /api/resumes/copilot) ──────────────────
+
+/**
+ * One RFC 6902 JSON Patch operation, as emitted by
+ * backend/services/cv_patch_service.py's `diff_cv()`.
+ *
+ * `value` is present on add/replace/test; `from` on move/copy. The op set is
+ * deliberately the full RFC 6902 six rather than the three the Copilot agent
+ * authors by hand: the route recomputes the wire patch with
+ * `jsonpatch.JsonPatch.from_diff()`, whose optimizer collapses a
+ * remove-then-add pair into a single `move` — verified against jsonpatch 1.33,
+ * the version pinned in backend/requirements.txt.
+ */
+export interface RFC6902PatchOp {
+  op:     'add' | 'remove' | 'replace' | 'move' | 'copy' | 'test'
+  path:   string
+  value?: unknown
+  from?:  string
+}
+
+/**
+ * Response from POST /api/resumes/copilot — mirrors resumes.py CopilotResponse.
+ *
+ * On 'warning' | 'rejected' only `status`/`message` carry meaning; the route
+ * returns before rebuilding anything, so cv_data/pdf_b64 are absent.
+ */
+export interface CopilotResponse {
+  status:           'success' | 'warning' | 'rejected'
+  message?:         string | null
+  changes_summary?: string | null
+  cv_data?:         Record<string, unknown> | null
+  pdf_b64?:         string | null
+  match_score?:     MatchScoreResult | null
+  /**
+   * The ops that take the `cv_data` sent in the request to the `cv_data`
+   * returned above. The server has ALREADY applied them — `cv_data` is
+   * authoritative — but the client gets them so the Live Editor can update
+   * the touched paths in place instead of re-deriving the whole document.
+   * Empty when nothing changed. Optional because the field postdates the
+   * responses cached by earlier builds. See lib/cvPatch.ts.
+   */
+  patch?:           RFC6902PatchOp[]
+}
+
 // ── Truth-check verification (multi-turn chat) ───────────────────────────────
 
 export interface VerifyChatEntry {

@@ -4,9 +4,10 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
 import type { Job } from '@/lib/data'
-import type { ApiFeedJob, MatchScoreResult, TemplateInfo } from '@/lib/apiTypes'
+import type { ApiFeedJob, CopilotResponse, MatchScoreResult, TemplateInfo } from '@/lib/apiTypes'
 import type { ParsedCV } from '@/lib/cv'
 import { parseCv, toLiveEditorCvData, resetToOriginal } from '@/lib/cvParser'
+import { applyCvPatch, jsonEqual } from '@/lib/cvPatch'
 import { fetchTemplates, renderPdf, downloadCvPdf, fetchMatchScore, fetchCachedCV, markJobApplied, ensureFreshToken, getAuthHeaders, saveCv } from '@/lib/api'
 import { MatchScorePanel } from './MatchScorePanel'
 import { TemplateSelectorBar } from './TemplateSelectorBar'
@@ -628,7 +629,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
         const err = await res.json().catch(() => ({ detail: 'Unknown error' }))
         throw new Error(err.detail ?? `HTTP ${res.status}`)
       }
-      const data = await res.json()
+      const data: CopilotResponse = await res.json()
 
       // warning / rejected — surface the agent's message as a chat bubble
       if (data.status === 'warning' || data.status === 'rejected') {
@@ -652,9 +653,42 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
         { role: 'assistant', content: data.message ?? 'Edit applied.' },
       ])
 
-      // update CV state and clear everything
-      setCvState({ cvData: data.cv_data, pdfB64: data.pdf_b64 })
-      setParsedCv(parseCv(data.cv_data).data)
+      const serverCvData = (data.cv_data ?? {}) as Record<string, unknown>
+
+      // ── Optimistic pass ────────────────────────────────────────────────
+      // data.patch is the RFC 6902 diff from the cv_data we SENT to the
+      // cv_data the server returned (resumes.py recomputes it at the route
+      // boundary, after static-section re-injection and any refine pass, so
+      // it describes the final document). Applying it to the document we sent
+      // touches only the paths that actually moved, instead of re-deriving the
+      // whole CV from scratch.
+      const optimistic = applyCvPatch(cvState.cvData, data.patch)
+      if (optimistic.ok && optimistic.opsApplied > 0) {
+        setCvState(prev => (prev ? { ...prev, cvData: optimistic.doc } : prev))
+        setParsedCv(parseCv(optimistic.doc).data)
+      }
+
+      // ── Reconcile — the server is authoritative, unconditionally ────────
+      // The optimistic document is kept ONLY when it is structurally identical
+      // to the server's; otherwise the server's replaces it outright. This is
+      // also the check that keeps an empty `patch` honest: `diff_cv()` returns
+      // [] both when nothing changed and when the diff threw, and those look
+      // the same on the wire. Comparing the result against cv_data is what
+      // tells them apart — a no-op patch alongside a changed cv_data lands
+      // here and reconciles, rather than being trusted as "no change".
+      const converged = optimistic.ok && jsonEqual(optimistic.doc, serverCvData)
+      if (converged) {
+        setCvState({ cvData: optimistic.doc, pdfB64: data.pdf_b64 ?? '' })
+      } else {
+        if (!optimistic.ok) {
+          console.warn('[copilot] patch did not apply locally — falling back to cv_data:', optimistic.error)
+        } else if (optimistic.opsApplied > 0) {
+          console.warn('[copilot] patch result diverged from cv_data — server wins')
+        }
+        setCvState({ cvData: serverCvData, pdfB64: data.pdf_b64 ?? '' })
+        setParsedCv(parseCv(serverCvData).data)
+      }
+
       setIsDirty(false)
       setHasUnsavedDraft(true)   // Copilot edits are draft-only — backend no longer auto-persists them
       copilotPromptRef.current = ''
@@ -666,7 +700,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       // field — if backend score computation failed silently (exception caught),
       // match_score is null and the old score would persist in the UI.
       setIsScoreLoading(true)
-      fetchMatchScore(job.id, data.cv_data as Record<string, unknown>, false)
+      fetchMatchScore(job.id, serverCvData, false)
         .then(score => setMatchScore(score))
         .catch(() => { if (data.match_score) setMatchScore(data.match_score) })
         .finally(() => setIsScoreLoading(false))
@@ -975,9 +1009,16 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
           {(phase === 'preview' || phase === 'revising') && (
             <div className="space-y-2.5">
               {/* Edit / Preview toggle */}
+              {/* Also disabled while Copilot is in flight. The Copilot panel
+                  only renders in PDF view, so the user can never be *inside*
+                  the editor when a request starts — but nothing stopped them
+                  from entering it while one was pending, typing into a bullet,
+                  and having the reconcile above replace parsedCv wholesale a
+                  second later. Closing the door is the fix; there is no merge
+                  that could recover the keystrokes after the fact. */}
               <button
                 onClick={() => setIsEditMode(m => !m)}
-                disabled={isLoading}
+                disabled={isLoading || isCopilotBusy}
                 className="w-full h-9 rounded-full text-[12.5px] font-medium flex items-center justify-center gap-1.5 border transition disabled:opacity-50"
                 style={{
                   color:      isEditMode ? TOKENS.color.primary : TOKENS.color.ink2,
@@ -994,7 +1035,9 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                 <CheckIcon s={15} /> Approve &amp; Apply
               </button>
 
-              <button onClick={handleRegenerate} disabled={isLoading}
+              {/* Same reason: regenerating clears cvState, which the pending
+                  Copilot response would then write straight back over. */}
+              <button onClick={handleRegenerate} disabled={isLoading || isCopilotBusy}
                 className="w-full flex items-center justify-center gap-1 text-[11.5px] text-slate-400 hover:text-slate-600 transition disabled:opacity-40">
                 <RefreshIcon s={12} /> Regenerate from scratch
               </button>
