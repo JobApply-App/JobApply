@@ -5,6 +5,17 @@ const nextConfig = {
   httpAgentOptions: {
     keepAlive: true,
   },
+  eslint: {
+    // `next build` runs ESLint itself. Since .eslintrc.json landed, that meant
+    // every CI run linted twice and printed the same 10 warnings twice — the
+    // dedicated Lint step in .github/workflows/ci.yml already gates on this
+    // and fails the job on any error.
+    //
+    // The trade this makes: a local `npm run build` no longer surfaces lint
+    // errors, so run `npm run lint` directly when that's what you want to
+    // check. CI is unaffected — its Lint step runs before Build regardless.
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     // Increase the proxy response timeout to 120s (default is ~30s in some
     // Next.js versions). Covers TailorAgent + PDF build time with headroom.
