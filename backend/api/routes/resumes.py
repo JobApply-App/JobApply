@@ -8,7 +8,7 @@ import time
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from backend.repositories import job_repository as job_store
@@ -1196,6 +1196,68 @@ async def render_pdf(req: RenderPdfRequest, user: CurrentUser = Depends(get_curr
         raise _pdf_http_error(exc, context=f"resumes/render-pdf template={req.template_id}") from exc
 
     return {"pdf_b64": base64.b64encode(pdf_bytes).decode()}
+
+
+def _cv_filename(user_id: str) -> tuple[str, str]:
+    """
+    Build the download filename, returning (ascii_fallback, utf8_original).
+
+    Content-Disposition is a latin-1 header. An Israeli candidate whose profile
+    name is in Hebrew would make a naive f-string raise UnicodeEncodeError at
+    response time — the download fails for exactly the users this product is
+    built for. RFC 6266/5987 solves it: a plain ASCII `filename=` that every
+    client understands, plus a `filename*=UTF-8''…` that modern browsers prefer
+    and which preserves the real name.
+    """
+    from urllib.parse import quote
+
+    try:
+        personal = get_profile(user_id).get("personal", {}) or {}
+        name = str(personal.get("name") or "").strip()
+    except Exception:
+        name = ""
+
+    safe = re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_")
+    ascii_name = f"{safe}_CV.pdf" if safe else "CV.pdf"
+
+    utf8_source = f"{name} CV.pdf" if name else "CV.pdf"
+    return ascii_name, quote(utf8_source, safe="")
+
+
+@router.post("/export-pdf")
+async def export_pdf(req: RenderPdfRequest, user: CurrentUser = Depends(get_current_user)):
+    """
+    Stream the CV as a raw PDF binary for a one-click browser download.
+
+    Distinct from /render-pdf, which returns base64 and exists because the
+    preview embeds the document as a data: URI. Base64 is the wrong transport
+    for a download — it inflates the payload ~33%, forces the whole file
+    through a JSON string, and leaves the client to reconstruct bytes it never
+    needed to decode. This returns the bytes.
+
+    Content-Disposition: attachment is what makes it a download rather than a
+    navigation, so no print dialog or viewer tab is involved at any point.
+    """
+    try:
+        pdf_bytes = await build_pdf(req.cv_data, template_id=req.template_id, user_id=user.user_id)
+    except Exception as exc:
+        raise _pdf_http_error(exc, context=f"resumes/export-pdf template={req.template_id}") from exc
+
+    ascii_name, utf8_name = _cv_filename(user.user_id)
+    logger.info("[resumes/export-pdf] streaming %d bytes as %r (template=%s)",
+                len(pdf_bytes), ascii_name, req.template_id)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{utf8_name}",
+            "Content-Length": str(len(pdf_bytes)),
+            # The document is per-user and regenerated on every edit; a cached
+            # copy would hand someone last week's CV after they changed it.
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 # ── Match Score ───────────────────────────────────────────────────────────────

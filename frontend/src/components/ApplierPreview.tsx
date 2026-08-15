@@ -7,7 +7,7 @@ import type { Job } from '@/lib/data'
 import type { ApiFeedJob, MatchScoreResult, TemplateInfo } from '@/lib/apiTypes'
 import type { ParsedCV } from '@/lib/cv'
 import { parseCv, toLiveEditorCvData, resetToOriginal } from '@/lib/cvParser'
-import { fetchTemplates, renderPdf, fetchMatchScore, fetchCachedCV, markJobApplied, ensureFreshToken, getAuthHeaders, saveCv } from '@/lib/api'
+import { fetchTemplates, renderPdf, downloadCvPdf, fetchMatchScore, fetchCachedCV, markJobApplied, ensureFreshToken, getAuthHeaders, saveCv } from '@/lib/api'
 import { MatchScorePanel } from './MatchScorePanel'
 import { TemplateSelectorBar } from './TemplateSelectorBar'
 import { LiveEditor } from './LiveEditor'
@@ -573,6 +573,27 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     }
   }, [cvState, isSavingDraft, job.id, matchScore])
 
+  // ── PDF download ─────────────────────────────────────────────────────────
+  // Streams the binary from the server and saves it directly. The embedded
+  // preview deliberately hides the browser's own PDF toolbar (see pdfDataUrl),
+  // which also hides its download button — so without this control there is no
+  // way for a user to actually get their CV out of the app.
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!cvState) return
+    setIsDownloading(true)
+    setDownloadError(null)
+    try {
+      await downloadCvPdf(cvState.cvData, selectedTemplate)
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : 'Download failed.')
+    } finally {
+      setIsDownloading(false)
+    }
+  }, [cvState, selectedTemplate])
+
   const handleSelectTemplate = useCallback(async (templateId: string) => {
     setSelectedTemplate(templateId)
     const data = parsedCv ? toLiveEditorCvData(parsedCv) : (cvState?.cvData as CvData | undefined)
@@ -1016,6 +1037,29 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                 Answer the {missingReqs.length === 1 ? 'question' : 'questions'} on the left.
                 Your answers are saved so you&apos;ll never be asked again.
               </p>
+            </div>
+          )}
+
+          {cvState && !isEditMode && (
+            <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
+              <button
+                onClick={handleDownloadPdf}
+                disabled={isDownloading}
+                title="Download your CV as a PDF"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold
+                           bg-white/95 backdrop-blur border border-slate-200 text-slate-700
+                           hover:bg-white hover:border-teal-300 hover:text-teal-700
+                           disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                style={{ boxShadow: '0 1px 2px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.06)' }}
+              >
+                {isDownloading ? 'Preparing…' : 'Download PDF'}
+              </button>
+              {downloadError && (
+                <span className="max-w-[240px] text-right text-[11.5px] leading-snug text-rose-600
+                                 bg-white/95 backdrop-blur px-2 py-1 rounded-md border border-rose-200">
+                  {downloadError}
+                </span>
+              )}
             </div>
           )}
 
