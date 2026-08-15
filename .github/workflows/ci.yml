@@ -60,8 +60,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        # `next lint` against frontend/.eslintrc.json (next/core-web-vitals).
+        # Errors fail the job; warnings do NOT. That asymmetry is deliberate:
+        # 10 pre-existing warnings remain (7 react-hooks/exhaustive-deps, 3
+        # no-img-element), each a judgment call rather than a defect, and
+        # gating on them today would mean either a red main or a rushed
+        # blanket-disable. Errors are already at zero, so this step holds that
+        # line while the warning backlog is worked down deliberately.
+        # To tighten later, add `-- --max-warnings 0` once the count is 0.
+        run: npm run lint
+
       - name: Typecheck
         run: npx tsc --noEmit
+
+      - name: Unit tests
+        # vitest (frontend/src/**/*.test.ts). CI ran typecheck and build but
+        # never the test suite, so the assertions in it could rot without
+        # anything going red.
+        run: npm test
 
       - name: Build
         run: npm run build

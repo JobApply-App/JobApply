@@ -219,7 +219,7 @@ export function OutreachModal({ job, onClose }: Props) {
         <div className="p-6 flex flex-col gap-5">
           {/* Strategy explanation */}
           <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-[12.5px] text-slate-600 leading-relaxed">
-            <span className="font-semibold text-slate-800">The "Foot in the Door" strategy:</span>{' '}
+            <span className="font-semibold text-slate-800">The &quot;Foot in the Door&quot; strategy:</span>{' '}
             Message the Hiring Manager directly (Director, VP, C-level) — not HR.
             Use <strong>Step 1</strong> to start a human conversation, then escalate with <strong>Step 2</strong> after a positive reply.
             Use <strong>Agency / Headhunter</strong> for direct recruiter outreach at placement firms.

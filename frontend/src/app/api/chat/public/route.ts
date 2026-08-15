@@ -18,7 +18,6 @@
  */
 
 import { NextRequest } from 'next/server'
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const BACKEND = process.env.BACKEND_URL ?? 'http://127.0.0.1:8000'
@@ -50,7 +49,6 @@ interface RequestBody {
 
 // ── Supabase helpers ──────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = SupabaseClient<any, any, any, any, any>
 
 function getSupabaseServer(): AnyClient | null {
@@ -68,7 +66,6 @@ function logMessage(
 ): void {
   if (!supabase) return
   // Fire-and-forget — never await in the hot path after streaming starts
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(supabase as any)
     .from('public_chat_logs')
     .insert([{ session_id, role, message_text }])
@@ -129,7 +126,6 @@ export async function POST(request: NextRequest): Promise<Response> {
   const supabase = getSupabaseServer()
   await new Promise<void>(resolve => {
     if (!supabase) { resolve(); return }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(supabase as any)
       .from('public_chat_logs')
       .insert([{ session_id, role: 'user', message_text: userText }])

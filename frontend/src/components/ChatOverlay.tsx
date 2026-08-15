@@ -754,7 +754,12 @@ const _DEFAULT_SIZE = { width: 380, height: 520 }
 const _MIN_WIDTH  = 320
 const _MIN_HEIGHT = 360
 
-function _useIsDesktop(): boolean {
+// NOT `_useIsDesktop`, despite the `_`-prefixed module-private convention used
+// by the constants above. The leading underscore hid this from
+// react-hooks/rules-of-hooks entirely — React's linter only recognises a
+// function as a hook when its name starts with "use", so neither its own body
+// nor its call sites were ever checked for hook-order violations.
+function useIsDesktop(): boolean {
   const [isDesktop, setIsDesktop] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 640px)')
@@ -881,7 +886,7 @@ function OverlayShell({
   handleVariant?:  'onLight' | 'onDark'
   children:        React.ReactNode
 }) {
-  const isDesktop  = _useIsDesktop()
+  const isDesktop  = useIsDesktop()
   const [size, setSize] = useState(_DEFAULT_SIZE)
   // Desktop starts at a viewport-relative `sm:h-[85vh]` (Tailwind class,
   // below) rather than a hardcoded pixel default — `userResized` tracks

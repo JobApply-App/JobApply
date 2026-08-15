@@ -2263,7 +2263,7 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
                 style={{ background: 'oklch(0.97 0.01 250)', border: '1px solid oklch(0.88 0.04 250)' }}
               >
                 <p className="text-[10px] font-bold tracking-widest uppercase mb-2" style={{ color: 'oklch(0.58 0.12 250)' }}>
-                  Ariel's question
+                  Ariel&apos;s question
                 </p>
                 <p className="text-[13.5px] text-slate-800 leading-relaxed font-medium">
                   {session.first_prompt}

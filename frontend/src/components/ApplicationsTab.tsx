@@ -135,7 +135,7 @@ function ApplicationListView({ items, loading, error, onDelete, deletingId }: {
         </svg>
         <p className="text-[13px] font-medium text-slate-500">No applications yet</p>
         <p className="text-[12px] text-slate-400 mt-1">
-          Tailor a CV and click "Mark as Applied" to track it here
+          Tailor a CV and click &quot;Mark as Applied&quot; to track it here
         </p>
       </div>
     )

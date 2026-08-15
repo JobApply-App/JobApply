@@ -214,7 +214,7 @@ function VerificationCodePanel({ code }: { code: string | null }) {
         Waiting for Gmail verification email…
       </p>
       <p className="text-[11px] text-slate-400 text-center leading-snug max-w-[280px]">
-        Click <strong className="text-slate-600">"Send verification"</strong> in Gmail — the
+        Click <strong className="text-slate-600">&quot;Send verification&quot;</strong> in Gmail — the
         9-digit code will appear here automatically within seconds.
       </p>
       <style>{`
@@ -448,7 +448,7 @@ export function EmailSetupModal({ open, onClose }: EmailSetupModalProps) {
             <div className="space-y-3">
               <p className="text-[12px] text-slate-500">
                 In Gmail Settings → Forwarding and POP/IMAP, click{' '}
-                <strong className="text-slate-700">"Add a forwarding address"</strong> and
+                <strong className="text-slate-700">&quot;Add a forwarding address&quot;</strong> and
                 paste the address above. When Gmail sends the verification email, the
                 confirmation code will appear below automatically.
               </p>
@@ -536,7 +536,7 @@ export function EmailSetupModal({ open, onClose }: EmailSetupModalProps) {
                   </code>{' '}
                   field and enter{' '}
                   <code className="bg-amber-100 px-1 py-0.5 rounded text-[10.5px] font-mono">
-                    interview OR screening OR "job offer" OR position
+                    interview OR screening OR &quot;job offer&quot; OR position
                   </code>{' '}
                   to catch the most common recruiter subjects.
                 </p>
