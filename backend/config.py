@@ -337,6 +337,22 @@ TARGET_SEARCH_QUERIES: list[str] = [
     "מנהלת הצלחת לקוחות",
     "מנהל תיקי לקוחות",
     "מנהלת תיקי לקוחות",
+    # ── Customer Experience / Client Success (2026-08-16) ─────────────────────
+    # "Client Success" was a plain synonym gap: the gate matched
+    # "Customer Success" but not "Client Success", so titles like
+    # "Junior Client Success Manager" were dropped silently.
+    "Client Success",
+    "Customer Experience",
+    "Chief Customer Officer",
+    "חווית לקוח",
+    # ── Operations / managerial track (2026-08-16) ───────────────────────────
+    # Senior-anchored on purpose. A bare "Operations Manager" was measured and
+    # rejected: as a substring it also admits Aircraft/Security/Engineering
+    # Operations Manager, which are a different profession sharing a word.
+    "Business Operations",
+    "Revenue Operations",
+    "Sales Operations",
+    "Chief Operating Officer",
 ]
 
 # ── Per-run discovery cap ─────────────────────────────────────────────────────
