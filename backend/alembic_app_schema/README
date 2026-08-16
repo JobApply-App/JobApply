@@ -35,15 +35,24 @@ Same as backend/alembic_linkedin — `alembic_app_schema.ini`'s
 `sqlalchemy.url` placeholder is always overwritten at runtime
 (backend/alembic_app_schema/env.py) with `backend.config.DATABASE_URL`:
 
-  1. `DATABASE_URL`               — explicit override, always wins
-  2. `DATABASE_URL_DEV`/`_PROD`   — picked by `APP_ENV`
+  1. `DATABASE_URL`               — always wins; this repo uses this one
+  2. `DATABASE_URL_DEV`/`_PROD`   — picked by `APP_ENV` (only if the bare
+                                    key is unset; a genuine two-project split)
   3. `DB_HOST_DEV`/`_PROD` + friends — built from discrete parts
 
 `env.py` prints `[alembic_app_schema] APP_ENV=... — migrating <host>`
-before every run.
+before every run. Read the **host**, not the APP_ENV: with the bare
+`DATABASE_URL` set (form 1, what this repo uses) the target is fixed and
+`APP_ENV` changes nothing, so the two can disagree.
 
-Running migrations against Dev
----------------------------------
+Running migrations (single project — what this repo uses)
+-----------------------------------------------------------
+    alembic -c alembic_app_schema.ini upgrade head
+
+Running migrations against a separate Dev project, if one exists
+------------------------------------------------------------------
+Requires the bare `DATABASE_URL` to be unset and `DATABASE_URL_DEV` set:
+
     APP_ENV=development alembic -c alembic_app_schema.ini upgrade head
 
 Running migrations against Prod

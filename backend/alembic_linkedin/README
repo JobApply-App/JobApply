@@ -16,25 +16,36 @@ overwritten at runtime (backend/alembic_linkedin/env.py) with
 `backend.config.DATABASE_URL`, the same environment-aware value the app
 itself uses:
 
-  1. `DATABASE_URL`               — explicit override, always wins
-  2. `DATABASE_URL_DEV`/`_PROD`   — picked by `APP_ENV`
+  1. `DATABASE_URL`               — always wins; this repo uses this one
+  2. `DATABASE_URL_DEV`/`_PROD`   — picked by `APP_ENV` (only if the bare
+                                    key is unset; a genuine two-project split)
   3. `DB_HOST_DEV`/`_PROD` + friends — built from discrete parts
 
-So which database a migration runs against is controlled entirely by
-`APP_ENV` (or `PYTHON_ENV`) plus whatever's in `backend/.env` — no
-`alembic_linkedin.ini` edits needed, ever. `env.py` prints
-`[alembic_linkedin] APP_ENV=... — migrating <host>` before every run so
-it's always visible which project you're about to touch.
+Which database a migration runs against comes from `backend/.env` — no
+`alembic_linkedin.ini` edits needed, ever. Note that `APP_ENV` only decides
+anything under form (2): with the bare `DATABASE_URL` set, as it is here,
+the target is fixed and `APP_ENV=production` changes nothing. `env.py`
+prints `[alembic_linkedin] APP_ENV=... — migrating <host>` before every run;
+read the **host**, not the APP_ENV, to know which project you are touching.
 
-Running migrations against Dev
---------------------------------
-With `DATABASE_URL_DEV` set in `backend/.env` (Supabase Dev project):
+Running migrations (single-project setup — what this repo uses)
+----------------------------------------------------------------
+There is ONE Supabase project, set as the bare `DATABASE_URL` in
+`backend/.env`. Because form (1) above always wins, `APP_ENV` does not
+change the target and every run migrates that one database:
 
-    APP_ENV=development alembic -c alembic_linkedin.ini upgrade head
+    alembic -c alembic_linkedin.ini upgrade head
 
-Running migrations against Prod
----------------------------------
-With `DATABASE_URL_PROD` set in `backend/.env` (Supabase Prod project).
+Treat every run as a production deploy step, because it is one — review the
+SQL first with `--sql` for an offline/dry-run print instead of executing.
+
+Running migrations with a two-project split (only if one is provisioned)
+--------------------------------------------------------------------------
+With `DATABASE_URL_DEV`/`_PROD` set INSTEAD of the bare key (the bare key
+must be unset or it wins and the suffixes are ignored), `APP_ENV` selects
+the target — `APP_ENV=development` for `_DEV`, `APP_ENV=production` for
+`_PROD`. Read the `[alembic_linkedin] APP_ENV=... — migrating <host>` line
+it prints and confirm the host is the project you meant before proceeding.
 Treat this exactly like any other production deploy step — review the
 generated SQL first (`alembic -c alembic_linkedin.ini upgrade head --sql`
 for a dry-run/offline print instead of executing), and only run it for

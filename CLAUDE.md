@@ -37,7 +37,15 @@ No test framework is configured for the frontend.
 - `logic/` — legacy modules (`outreach_engine.py`, `verifier.py`) used only by the root Streamlit app, not the FastAPI app.
 - `templates/` — resume HTML templates (`cv_template.html`, `cv/`).
 
-**Database**: SQLite is the actual, active primary datastore — `backend/services/db.py` connects to `sqlite:///backend/jobs.db` (has live `-shm`/`-wal` files). `DATABASE_URL`/Postgres in `.env.example` is not wired into `backend/config.py` — treat as aspirational/unused. Supabase is used only for auth (JWT) and a chat-logs table (`supabase/migrations/`), not as the main app DB. Root-level `jobs.db` is a stray 0-byte artifact, unrelated to `backend/jobs.db`.
+**Database** (corrected 2026-08-16 — the previous description of this section was wrong in every particular, see below): Postgres on Supabase is the active primary datastore. `backend/core/database.py` builds `ENGINE` from `backend.config.DATABASE_URL` and only falls back to `sqlite:///backend/jobs.db` when that variable is unset. `backend/core/postgres.py` builds a second engine (`PG_ENGINE`) from the same URL for the `all_jobs`/LinkedIn tables. `backend/services/db.py` does not exist.
+
+There is exactly **one** Supabase project (`ynirccgaxwcwmbhkfxnh`), reached via the bare `DATABASE_URL`, serving both local development and the deployed Render service (`render.yaml` declares the bare key too). `config.py`'s `_select_env_var()` still supports `DATABASE_URL_DEV`/`_PROD` for a future genuine two-project split, but they are unset — the bare key wins over both regardless of `APP_ENV`.
+
+Two traps this section previously hid, both of which reached production:
+- **An empty database is indistinguishable from a healthy one.** `core/migrations.py` runs `Base.metadata.create_all()` at startup, so pointing at a fresh/wrong project creates the schema on arrival and every query returns `200` with zero rows. No error anywhere. This is what a `_PROD` variable aimed at an unpopulated project looks like.
+- **`/health` proves nothing about the database.** It returns `{"status": "ok"}` unconditionally and touches neither Postgres nor Chromium.
+
+The stale text claimed SQLite was primary, `DATABASE_URL` was "aspirational/unused", and `backend/services/db.py` existed. Anyone trusting it would conclude the database configuration could not be the cause of a data problem — which is exactly the wrong place to stop looking. Root-level `jobs.db` remains a stray 0-byte artifact.
 
 ### Legacy standalone Streamlit app (not part of the FastAPI product)
 Root `app.py` is a separate Streamlit dashboard that imports `orchestrator.py` and `backend/logic/*`. `orchestrator.py` defines `analyze_fit()` and a hardcoded `_TARGET_JOB`. Do not confuse this with the FastAPI backend — it's a parallel/older UI kept for reference. See `docs/architecture-boundaries.md` for the full dependency-direction audit and multi-tenant preparation notes.
