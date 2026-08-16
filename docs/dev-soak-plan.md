@@ -94,5 +94,10 @@ find out why before Production is anywhere in the conversation.
 
 - Actually deploying to Production — this doc only covers what has to be true
   on Dev *before* that conversation starts.
-- Provisioning `DATABASE_URL_PROD` / a Production Supabase project — separate
-  decision, not a technical step.
+- Provisioning a second Supabase project — separate decision, not a technical
+  step. As of 2026-08-16 there is exactly one project
+  (`ynirccgaxwcwmbhkfxnh`), reached via the bare `DATABASE_URL`, and it
+  serves both local development and the deployed Render service. The former
+  `DATABASE_URL_DEV`/`_PROD` pair is gone: `_PROD` pointed at an empty second
+  project, which is how production ended up authenticating against one
+  database and reading from another.

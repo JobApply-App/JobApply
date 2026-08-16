@@ -151,9 +151,19 @@ SUPABASE_SECRET_KEY: Optional[str] = _select_env_var("SUPABASE_SECRET_KEY")
 # data-access path) and is not part of this dev/prod config layer.
 #
 # Resolution order (see _select_env_var/_database_url_from_parts above):
-#   1. DATABASE_URL                    — explicit override, always wins
+#   1. DATABASE_URL                    — always wins
 #   2. DATABASE_URL_DEV / _PROD        — picked by APP_ENV
 #   3. DB_HOST_DEV/_PROD + friends     — built from discrete parts
+#
+# This project uses (1). There is ONE Supabase project, and render.yaml
+# declares the bare DATABASE_URL, so local and the deployed service resolve
+# the same target with no APP_ENV indirection. (2) is retained for a future
+# genuine two-project split, but note the failure mode it carries: an
+# APP_ENV-selected variable pointing at an empty project does not error.
+# core/migrations.py runs create_all() at startup, so the schema is created
+# on arrival and every query returns 200 with zero rows — a healthy-looking
+# service serving an empty app. Reached production once, via a _PROD entry
+# aimed at an unpopulated project while auth ran against the populated one.
 # An async-only `postgresql+asyncpg://` scheme is normalized to plain
 # `postgresql://` (psycopg2) by backend/core/postgres.py's _to_sync_dsn() —
 # every other DB access in this codebase is sync, so this avoids introducing
