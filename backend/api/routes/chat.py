@@ -68,12 +68,15 @@ def _check_anthropic_key() -> None:
     """
     Raise HTTPException 503 only when NEITHER provider is configured.
 
-    backend/services/llm_client.py's call_llm()/stream_llm() fall back to
-    Gemini when Anthropic fails (see that module's docstring for exactly
-    which calls are eligible) — so a missing/invalid ANTHROPIC_API_KEY alone
-    no longer means every chat request is doomed; it just means requests
-    that qualify for the fallback go through Gemini instead. Only block the
-    request outright when there's no working path at all.
+    backend/services/llm_client.py's call_llm()/stream_llm() try Gemini
+    before Anthropic when GEMINI_API_KEY is configured (see that module's
+    docstring for exactly which calls are eligible and for the current,
+    authoritative primary/fallback description — don't trust a paraphrase
+    here to stay in sync with it). Either way, this function's own job is
+    unaffected by which provider goes first: it only needs to know whether
+    at least one usable path exists, so a missing/invalid ANTHROPIC_API_KEY
+    alone doesn't mean every chat request is doomed as long as
+    GEMINI_API_KEY is set. Only block the request outright when neither is.
 
     The setup-instructions detail (env var name, file path) is for whoever's
     running this locally/in CI to see in the server log — never in the

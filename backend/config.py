@@ -108,13 +108,30 @@ def _database_url_from_parts() -> Optional[str]:
 #                                      verification; webhook still works
 #                                      unauthenticated (with a loud warning)
 #                                      when unset
-#   GEMINI_API_KEY                  — enables llm_client.py's automatic Gemini
-#                                      fallback for plain text/tool-free calls
-#                                      when every Anthropic attempt fails
-#                                      (missing/invalid key, outage, etc).
-#                                      Without it: those calls just fail with
-#                                      the same LLMCallError as before this
-#                                      fallback existed — nothing regresses.
+#   GEMINI_API_KEY                  — makes Gemini the PRIMARY provider in
+#                                      llm_client.py for eligible calls (plain
+#                                      text/tool-free); Anthropic is the
+#                                      fallback when Gemini is ineligible or
+#                                      the attempt fails. This is the reverse
+#                                      of an earlier version of this module —
+#                                      see llm_client.py's module docstring
+#                                      for the current, authoritative
+#                                      description; don't trust a comment here
+#                                      to stay in sync with it.
+#                                      Without it: _gemini_client is None,
+#                                      _gemini_eligible() returns False before
+#                                      any network call, and every request
+#                                      goes straight to Anthropic — no
+#                                      attempt, no latency cost, no error.
+#                                      Deliberately unset as of 2026-08-16:
+#                                      the Gemini subscription behind the
+#                                      previous key lapsed, which surfaced as
+#                                      consistent 503/429s and ~7-11 LLM calls
+#                                      per enrichment job instead of ~4-5
+#                                      (every failed Gemini attempt still
+#                                      costs a call before the fallback
+#                                      fires). Anthropic-only until a live key
+#                                      is restored.
 #
 # NOTE: All live LLM call sites now go through backend/services/llm_client.py
 # (call_llm() / stream_llm()), which builds its own client from this value.
