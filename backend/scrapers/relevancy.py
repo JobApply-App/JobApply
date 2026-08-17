@@ -68,6 +68,18 @@ _PHRASE_ALIASES: list[str] = [
     "enterprise account",
     "מנהל לקוחות",          # Hebrew: "Account Manager" / "Client Manager"
     "מנהלת לקוחות",
+    # ── Added 2026-08-16 ──────────────────────────────────────────────────
+    # These live here rather than in TARGET_SEARCH_QUERIES deliberately: they
+    # are sentence fragments ("head of customer") or slash-forms that no job
+    # board tokenises usefully, so as search terms they would spend a request
+    # per scraper per cycle to return noise. As title matchers they are exact.
+    "head of customer",       # "Head of Customer Experience/Operations/…"
+    "מנהל/ת הצלחת לקוחות",     # gender-neutral slash form of the two in config
+    # Operations, senior-anchored — see the config.py note on why a bare
+    # "operations manager" was measured and rejected.
+    "head of operations",
+    "director of operations",
+    "operations lead",
 ]
 
 # ── Module-level cached pattern ───────────────────────────────────────────────

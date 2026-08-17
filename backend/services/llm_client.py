@@ -1,5 +1,6 @@
 """
-Centralized LLM client wrapper — Gemini primary, Anthropic fallback.
+Centralized LLM client wrapper — Gemini primary when configured, Anthropic
+fallback (and sole provider when it isn't).
 
 This module is the single place a call site should get an LLM call from. It
 does not change any prompt or business logic — it only owns: client
@@ -12,7 +13,18 @@ round-trip via `.model_dump()`) — that hasn't changed. What changed is which
 provider actually answers first:
 
 Primary provider — both call_llm() and stream_llm():
-  Every call attempts Gemini (`_GEMINI_MODEL`, via GEMINI_API_KEY) first,
+  GEMINI_API_KEY is currently unset (2026-08-16 — the subscription behind
+  the previous key lapsed). `_gemini_client` is therefore None,
+  `_gemini_eligible()` returns False before any network call, and every
+  request goes straight to Anthropic: no wasted attempt, no 503/429 retry
+  latency. See backend/config.py's GEMINI_API_KEY comment. The Gemini path
+  below is intentionally left in place, not deleted, so restoring a live key
+  re-enables it with no code change — re-verify it's still cost/latency
+  favorable over Anthropic-only before doing so; it wasn't in the state that
+  led to this note.
+
+  When a key IS configured: every call attempts Gemini (`_GEMINI_MODEL`, via
+  GEMINI_API_KEY) first,
   translating the Anthropic-shaped `messages`/`tools` into Gemini's shape
   and translating the response back into Anthropic-shaped objects, so
   callers never need to know which provider actually ran. This only happens
