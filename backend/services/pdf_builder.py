@@ -64,7 +64,7 @@ _TEMPLATE_MAP: dict[str, Path] = {
 
 TEMPLATE_REGISTRY: list[dict] = [
     {"id": "t1_classic",    "name": "Classic",             "description": "Traditional serif, black & white"},
-    {"id": "t2_modern",     "name": "Modern",               "description": "Clean sans-serif, blue accent"},
+    {"id": "t2_modern",     "name": "Modern",               "description": "Serif name, clean sans body, teal accent"},
     {"id": "t3_executive",  "name": "Executive",            "description": "Bold headers, Georgia serif, charcoal"},
     {"id": "t4_minimalist", "name": "Executive Minimalist", "description": "Ultra-clean single column, no color blocks"},
     {"id": "t5_techmodern", "name": "Modern Tech",           "description": "Two-column layout, dark sidebar, teal accent"},
