@@ -252,7 +252,7 @@ def _build_skills(skills_data: dict) -> str:
         return ""
     return (
         f'<div class="side-sec">'
-        f'  <span class="sec-title">Skills</span>'
+        f'  <h2 class="sec-title">Skills</h2>'
         + "".join(cats_html) +
         f'</div>'
     )
@@ -285,7 +285,7 @@ def _build_languages(languages: list[dict]) -> str:
         return ""
     return (
         f'<div class="side-sec">'
-        f'  <span class="sec-title">Languages</span>'
+        f'  <h2 class="sec-title">Languages</h2>'
         f'  {"".join(rows)}'
         f'</div>'
     )
@@ -322,7 +322,7 @@ def _build_military(mil: dict | None) -> str:
 
     return (
         f'<div class="side-sec">'
-        f'  <span class="sec-title">Military Service</span>'
+        f'  <h2 class="sec-title">Military Service</h2>'
         f'  <div class="entry-hdr">'
         f'    <div class="entry-meta">'
         f'      <span class="mil-role">{role}</span>'
@@ -340,7 +340,7 @@ def _build_volunteering(text: str) -> str:
         return ""
     return (
         f'<div class="side-sec">'
-        f'  <span class="sec-title">Volunteering</span>'
+        f'  <h2 class="sec-title">Volunteering</h2>'
         f'  <div class="vol-text">{_t(text, 120)}</div>'
         f'</div>'
     )
@@ -441,6 +441,16 @@ async def build_pdf(cv_data: dict, output_path: str | Path | None = None,
             format="A4",
             print_background=True,
             prefer_css_page_size=True,
+            # tagged=True writes real PDF structure tags (headings, lists,
+            # reading order) derived from the HTML's own semantic markup —
+            # required for SI 5568 Part 2 (accessible digital documents) and
+            # for any screen reader to make sense of the exported CV at all.
+            # outline=True builds the PDF's bookmark tree from the same <h1>-
+            # <h6> hierarchy. Both need Playwright >= 1.42 (pinned: 1.49.1)
+            # and both depend on the templates using real heading tags rather
+            # than styled <div>/<span> — see templates/cv/*.html.
+            tagged=True,
+            outline=True,
         )
         await browser.close()
 

@@ -1734,25 +1734,29 @@ class TailorAgent:
         cv_data = _inject_static_sections(cv_data, user_id=self.user_id, jd_text=job.jd_text or "")
         cv_data = _sanitize_ai_tells(cv_data)
 
-        # Zero-hallucination telemetry (LOG-ONLY — enforce=False).
-        # Records which generated literals cannot be traced to the candidate's
-        # own profile without touching the output. Measured at a 10%
-        # flag rate on real bullets, where the surviving flags looked like
-        # genuine fabrications rather than noise; enforcement stays off until a
-        # wider sample justifies removing content from a user's CV.
+        # Zero-hallucination gate — active, not log-only (2026-08-21).
+        # Every bullet with a number/entity the profile can't support is
+        # rewritten using ONLY verified profile text (never silently dropped,
+        # never silently kept). A rewrite that still fails re-verification is
+        # removed as the last resort. Measured at a 10% flag rate on real
+        # bullets, where the surviving flags looked like genuine fabrications
+        # rather than noise.
         try:
             from backend.services.cv_grounding import GroundingGate
-            _, _grounding = GroundingGate.for_user(
-                self.user_id, enforce=False, context="tailor",
-            ).filter_cv(cv_data)
+            cv_data, _grounding = await GroundingGate.for_user(
+                self.user_id, context="tailor",
+            ).reground_and_filter(cv_data, user_id=self.user_id, model=_MODEL)
             if _grounding.flagged_count:
                 logger.warning(
-                    "[grounding:tailor] %d/%d bullets unverified for user=%s: %s",
+                    "[grounding:tailor] %d/%d bullets unverified for user=%s "
+                    "(%d rewritten, %d removed): %s",
                     _grounding.flagged_count, _grounding.checked, self.user_id,
+                    _grounding.rewritten, _grounding.removed,
                     [f.unverified for f in _grounding.flagged][:5],
                 )
         except Exception as exc:
-            logger.debug("[grounding:tailor] telemetry skipped: %s", exc)
+            logger.error("[grounding:tailor] gate failed for user=%s, CV left unchecked: %s",
+                          self.user_id, exc)
 
         logger.info(
             "TailorAgent OK  title='%s'  exps=%d  edu=%d  cats=%d",
