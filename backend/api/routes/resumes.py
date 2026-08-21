@@ -25,7 +25,7 @@ from backend.services.match_score_service import (
     _cv_experience_text,
     _is_experience_backed,
 )
-from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit, standard_rate_limit
+from backend.api.deps import CurrentUser, daily_generation_limit, get_current_user, llm_rate_limit, standard_rate_limit
 from backend.services.master_profile_service import get_cached_answer, merge_answers
 from backend.repositories.job_repository import clear_tailored_cv, get_tailored_cv, save_tailored_cv
 
@@ -497,7 +497,10 @@ def _build_match_proxy(job) -> str:
     return proxy
 
 
-@router.post("/tailor", response_model=TailorResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post(
+    "/tailor", response_model=TailorResponse,
+    dependencies=[Depends(llm_rate_limit), Depends(daily_generation_limit)],
+)
 async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_current_user)):
     """
     Run TailorAgent for a job.
@@ -770,6 +773,18 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
             "fallbacks/retries.",
             _elapsed, req.job_id,
         )
+
+    # Counts against the daily cap (backend/api/deps.py's
+    # daily_generation_limit) ONLY here — this is the one path in this route
+    # that actually ran the agent. The cache-hit return above and the
+    # missing_data return earlier never reach this line, so neither burns a
+    # generation the user didn't get. Best-effort: a logging failure here
+    # must not turn a successful generation into a 500 for the user.
+    try:
+        from backend.repositories import cv_generation_repository
+        cv_generation_repository.record(user.user_id, req.job_id)
+    except Exception as exc:
+        logger.warning("[resumes/tailor] Failed to log generation for daily cap: %s", exc)
 
     return TailorResponse(
         status             = "ok",

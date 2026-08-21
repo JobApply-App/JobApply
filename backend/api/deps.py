@@ -265,3 +265,47 @@ class RateLimiter:
 llm_rate_limit      = RateLimiter(max_requests=10, window_seconds=60, scope="llm")
 standard_rate_limit = RateLimiter(max_requests=60, window_seconds=60, scope="std")
 webhook_rate_limit  = RateLimiter(max_requests=30, window_seconds=60, scope="webhook")
+
+
+# ── Daily CV-generation cap ──────────────────────────────────────────────────
+# Deliberately NOT a RateLimiter instance: that class is an in-memory sliding
+# window keyed by (possibly-unverified) caller identity, sized in seconds —
+# right for burst protection, wrong for a DAILY cap. It would reset for free
+# every process restart (Render free-tier sleep/wake happens through the
+# day — see config.py's DISCOVERY_INTERVAL_SECONDS comment), and daily spend
+# control is exactly the case where that matters. This checks a DB table
+# instead (backend/models/cv_generation.py), which survives restarts.
+#
+# 2026-08-21: 4/day — an explicit starting cap while a real usage/cost
+# baseline is established, easy to raise once real numbers exist. Runs
+# AFTER get_current_user (declared above in this file) so it always has a
+# real, verified user_id to query by — not the unverified-JWT-sub keying
+# RateLimiter uses for anonymous/pre-auth throttling, which this endpoint
+# doesn't need since every /tailor caller is already authenticated.
+DAILY_CV_GENERATION_CAP = 4
+
+
+async def daily_generation_limit(user: CurrentUser = Depends(get_current_user)) -> None:
+    """
+    FastAPI dependency: reject with 429 once the caller has generated
+    DAILY_CV_GENERATION_CAP CVs today (UTC). Attach alongside
+    get_current_user on POST /tailor — see resumes.py.
+
+    Only counts successful generations: cv_generation_repository.record()
+    is called by the route AFTER a CV is actually built, so a failed
+    generation (missing_data, an agent error) never burns the user's quota
+    for something that produced nothing.
+    """
+    from backend.repositories import cv_generation_repository
+
+    used = cv_generation_repository.count_today(user.user_id)
+    if used >= DAILY_CV_GENERATION_CAP:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"You've reached today's limit of {DAILY_CV_GENERATION_CAP} CV "
+                "generations. This resets at midnight UTC — try again then, or "
+                "use the Live Editor to refine your current CV instead of "
+                "generating a new one."
+            ),
+        )
