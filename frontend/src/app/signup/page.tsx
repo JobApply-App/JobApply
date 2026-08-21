@@ -285,7 +285,7 @@ export default function SignupPage() {
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
             <Link href="/login"
-              className="text-sm font-semibold text-teal-600 hover:text-teal-800 transition-colors">
+              className="text-sm font-semibold text-teal-700 hover:text-teal-800 transition-colors">
               Log in
             </Link>
           </div>
@@ -367,7 +367,7 @@ export default function SignupPage() {
                   disabled={disableAll}
                 />
                 {careerStage !== '' && (
-                  <p className="mt-1.5 text-[11px] text-teal-600 flex items-center gap-1">
+                  <p className="mt-1.5 text-[11px] text-teal-700 flex items-center gap-1">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                       strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <polyline points="20 6 9 17 4 12" />
@@ -388,6 +388,8 @@ export default function SignupPage() {
                     disabled={disableAll}
                     placeholder="you@example.com"
                     value={email}
+                    aria-invalid={emailExists && !emailChecking}
+                    aria-describedby={emailExists && !emailChecking ? 'email-error' : undefined}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => {
                       setSubmitError(null)
                       setEmailExists(false)
@@ -402,7 +404,7 @@ export default function SignupPage() {
                   )}
                 </div>
                 {emailExists && !emailChecking && (
-                  <p className="mt-1.5 text-xs text-rose-600" role="alert">
+                  <p id="email-error" className="mt-1.5 text-xs text-rose-600" role="alert">
                     Account already exists.{' '}
                     <Link href="/login"
                       className="font-semibold underline hover:text-rose-800 transition-colors">
@@ -470,7 +472,7 @@ export default function SignupPage() {
 
             <p className="text-center text-xs text-slate-500">
               Already have an account?{' '}
-              <Link href="/login" className="font-semibold text-teal-600 hover:text-teal-800 transition-colors">
+              <Link href="/login" className="font-semibold text-teal-700 hover:text-teal-800 transition-colors">
                 Sign in
               </Link>
             </p>
@@ -479,10 +481,10 @@ export default function SignupPage() {
           <p className="mt-6 text-center text-[11px] text-slate-400 leading-relaxed max-w-md mx-auto">
             By creating an account you agree to our{' '}
             <Link href="/terms" target="_blank" rel="noopener noreferrer"
-              className="text-teal-600 hover:underline">Terms of Service</Link>
+              className="text-teal-700 hover:underline">Terms of Service</Link>
             {' '}and{' '}
             <Link href="/privacy" target="_blank" rel="noopener noreferrer"
-              className="text-teal-600 hover:underline">Privacy Policy</Link>.
+              className="text-teal-700 hover:underline">Privacy Policy</Link>.
           </p>
         </div>
       </div>

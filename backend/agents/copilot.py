@@ -547,31 +547,39 @@ class CopilotAgent:
         inner = _enforce_limits(inner)
         inner = _sanitize_ai_tells(inner)
 
-        # Post-processing (limit clamping, AI-tell scrubbing) can alter values
-        # the patch set, so the ops handed to the client are re-derived from
-        # the final document. Returning the model's raw ops would let the
-        # client's optimistic state drift from what the server actually stored.
-        applied_ops = diff_cv(cv_data, inner)
-
-        # Zero-hallucination telemetry (LOG-ONLY — enforce=False).
+        # Zero-hallucination gate — active, not log-only (2026-08-21).
         # The edit path matters more than generation here: an edit is where a
         # user says "add that I grew revenue" and the model has to decide
-        # whether it has evidence for a number. Nothing is removed yet.
-        try:
-            from backend.services.cv_grounding import GroundingGate
-            _uid = user_id
-            if _uid:
-                _, _g = GroundingGate.for_user(
-                    _uid, enforce=False, context="copilot",
-                ).filter_cv(inner)
+        # whether it has evidence for a number. A flagged bullet is rewritten
+        # from verified profile text, never silently kept, never silently
+        # dropped as the first move — only as the last resort if the rewrite
+        # itself can't be verified. Runs BEFORE the final diff below so the
+        # ops handed to the client reflect the grounded document, not the
+        # model's raw (possibly unverified) one.
+        if user_id:
+            try:
+                from backend.services.cv_grounding import GroundingGate
+                inner, _g = await GroundingGate.for_user(
+                    user_id, context="copilot",
+                ).reground_and_filter(inner, user_id=user_id, model=_MODEL)
                 if _g.flagged_count:
                     logger.warning(
-                        "[grounding:copilot] %d/%d bullets unverified after edit %r: %s",
+                        "[grounding:copilot] %d/%d bullets unverified after edit %r "
+                        "(%d rewritten, %d removed): %s",
                         _g.flagged_count, _g.checked, user_prompt[:60],
+                        _g.rewritten, _g.removed,
                         [f.unverified for f in _g.flagged][:5],
                     )
-        except Exception as exc:
-            logger.debug("[grounding:copilot] telemetry skipped: %s", exc)
+            except Exception as exc:
+                logger.error("[grounding:copilot] gate failed for user=%s, edit left unchecked: %s",
+                             user_id, exc)
+
+        # Post-processing (limit clamping, AI-tell scrubbing, grounding repair)
+        # can alter values in the patch set, so the ops handed to the client
+        # are re-derived from the final document. Returning the model's raw
+        # ops would let the client's optimistic state drift from what the
+        # server actually stored.
+        applied_ops = diff_cv(cv_data, inner)
 
         # Warn in logs if the model returned success but no changes_summary —
         # this means the prompt's transparency requirement wasn't followed.

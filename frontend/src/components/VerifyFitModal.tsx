@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import type { VerifyChatEntry, VerifyChatStatus } from '@/lib/apiTypes'
 import { sendVerifyChat } from '@/lib/api'
 import { TOKENS } from '@/lib/tokens'
+import { useEscapeToClose } from '@/hooks/useEscapeToClose'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -214,6 +215,9 @@ export function VerifyFitModal({
   const bottomRef   = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const startedRef  = useRef(false)
+  const panelRef    = useRef<HTMLDivElement>(null)
+
+  useEscapeToClose(onClose, panelRef)
 
   // Auto-scroll to bottom whenever log or thinking state changes
   useEffect(() => {
@@ -334,7 +338,12 @@ export function VerifyFitModal({
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="relative w-full max-w-xl flex flex-col rounded-2xl bg-white shadow-floating animate-modal-in"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="verify-fit-modal-title"
+        tabIndex={-1}
+        className="relative w-full max-w-xl flex flex-col rounded-2xl bg-white shadow-floating animate-modal-in outline-none"
         style={{ height: 'min(92vh, 680px)', boxShadow: '0 24px 80px rgba(15,23,42,0.20)' }}
       >
         {/* ── Header ── */}
@@ -354,7 +363,7 @@ export function VerifyFitModal({
                 </span>
               )}
             </div>
-            <p className="text-[14.5px] font-semibold text-slate-900 leading-tight">{jobTitle}</p>
+            <p id="verify-fit-modal-title" className="text-[14.5px] font-semibold text-slate-900 leading-tight">{jobTitle}</p>
             <p className="text-[12px] text-slate-500">{company}</p>
           </div>
           <button

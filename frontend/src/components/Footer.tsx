@@ -42,6 +42,7 @@ export function Footer() {
             <a href="#" onClick={showComingSoon} className="hover:text-slate-700">Help</a>
             <a href="#" onClick={showComingSoon} className="hover:text-slate-700">Privacy</a>
             <a href="#" onClick={showComingSoon} className="hover:text-slate-700">Contact</a>
+            <a href="/accessibility" className="hover:text-slate-700">Accessibility</a>
           </div>
         </div>
       </footer>

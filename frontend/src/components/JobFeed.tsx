@@ -855,7 +855,7 @@ export function JobFeed({
             {(search || topFitsOnly) && (
               <div className="mt-2 flex items-center gap-3">
                 {search && (
-                  <button onClick={() => setSearch('')} className="text-[12.5px] font-medium text-teal-600 hover:underline">
+                  <button onClick={() => setSearch('')} className="text-[12.5px] font-medium text-teal-700 hover:underline">
                     Clear search
                   </button>
                 )}

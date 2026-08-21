@@ -94,6 +94,9 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
       {/* Panel */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="direct-pitch-modal-title"
           className="w-full max-w-lg rounded-2xl bg-white shadow-floating pointer-events-auto flex flex-col animate-modal-in"
           onClick={e => e.stopPropagation()}
         >
@@ -103,7 +106,7 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
                 Direct Pitch
               </p>
-              <h3 className="text-[15px] font-bold text-slate-900 leading-snug truncate">
+              <h3 id="direct-pitch-modal-title" className="text-[15px] font-bold text-slate-900 leading-snug truncate">
                 {job.title}
               </h3>
               <p className="text-[12px] text-slate-400 mt-0.5 truncate">{job.company}</p>
@@ -130,7 +133,7 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
               <div className="rounded-lg px-4 py-4 space-y-2.5 bg-slate-50 border border-slate-200" aria-busy="true">
                 <div className="flex items-center gap-2 mb-1">
                   <SpinnerIcon s={14} />
-                  <span className="text-[12px] font-medium text-ja-primary">Writing your pitch…</span>
+                  <span className="text-[12px] font-medium text-teal-700">Writing your pitch…</span>
                 </div>
                 {[95, 100, 80, 60].map((w, i) => (
                   <div key={i} className="h-2.5 rounded-full animate-pulse bg-slate-200" style={{ width: `${w}%`, animationDelay: `${i * 100}ms` }} />

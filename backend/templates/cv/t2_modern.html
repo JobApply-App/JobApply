@@ -3,30 +3,33 @@
 <head>
 <meta charset="UTF-8"/>
 <title>{{name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 @page { size: 210mm 297mm; margin: 0; }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --accent:  #1D4ED8;
-  --ink:     #0F172A;
-  --ink-2:   #1E293B;
-  --muted:   #475569;
-  --faint:   #94A3B8;
-  --line:    #E2E8F0;
-  --tag-bg:  #EFF6FF;
-  --tag-bd:  #BFDBFE;
+  --accent:      #0D9488;   /* teal-600 — same brand accent as the product itself */
+  --accent-dark: #0F766E;   /* teal-700 — used as small TEXT, not just a background */
+  --accent-lt:   #5EEAD4;   /* teal-300 — on the dark header only */
+  --ink:         #0F172A;
+  --ink-2:       #1E293B;
+  --muted:       #475569;
+  --faint:       #94A3B8;
+  --line:        #E2E8F0;
 }
 
 html, body {
   width: 210mm; max-width: 210mm;
   height: 297mm; max-height: 297mm;
   overflow: hidden;
-  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-  font-size: 8.5pt;
+  font-family: "Inter", Arial, "Helvetica Neue", Helvetica, sans-serif;
+  font-size: 9.5pt;
   color: var(--ink);
   background: #fff;
-  line-height: 1.38;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -38,163 +41,176 @@ html, body {
   flex-direction: column;
 }
 
-/* ── Header ── */
+/* ── Header — dark ink, not corporate blue: matches the product's own
+   teal identity instead of a generic navy template block. Name set in a
+   serif for a touch of the same editorial character the rest of the
+   product uses, everything else stays in Inter for a clean, cohesive
+   read. ── */
 .header {
-  background: #1E3A5F;
-  padding: 16px 22px 14px;
+  background: var(--ink);
+  padding: 22px 26px 18px;
   flex-shrink: 0;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: flex-end;
+  gap: 18px;
 }
 
 .hdr-left { min-width: 0; }
 
 .hdr-name {
-  font-size: 19pt;
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-size: 25pt;
   font-weight: 700;
   color: #fff;
-  letter-spacing: -0.3px;
-  line-height: 1.08;
+  letter-spacing: -0.2px;
+  line-height: 1.1;
 }
 
 .hdr-title {
-  font-size: 7pt;
-  font-weight: 500;
-  color: rgba(255,255,255,0.76);
-  margin-top: 5px;
-  letter-spacing: 1.3px;
+  font-size: 8pt;
+  font-weight: 600;
+  color: var(--accent-lt);
+  margin-top: 6px;
+  letter-spacing: 1.1px;
   text-transform: uppercase;
 }
 
-.hdr-right { text-align: right; flex-shrink: 0; padding-top: 3px; }
+.hdr-right { text-align: right; flex-shrink: 0; }
 
 .contact-line {
-  font-size: 7.5pt;
-  color: rgba(255,255,255,0.65);
+  font-size: 8pt;
+  color: rgba(255,255,255,0.72);
   display: block;
-  line-height: 1.75;
+  line-height: 1.7;
 }
 
 /* ── Body (single column with padding) ── */
 .body {
   flex: 1;
   overflow: hidden;
-  padding: 12px 22px 8px;
+  padding: 16px 26px 12px;
   display: flex;
   flex-direction: column;
 }
 
-/* ── Section title ── */
+/* ── Section title — a short accent rule instead of a full-width hairline,
+   more like a deliberate editorial mark than a generic template divider. ── */
 .sec-title {
   display: block;
-  font-size: 6pt;
+  font-size: 7.5pt;
   font-weight: 700;
-  letter-spacing: 1.8px;
+  letter-spacing: 1.6px;
   text-transform: uppercase;
-  color: var(--accent);
-  padding-bottom: 3px;
-  border-bottom: 0.75px solid var(--line);
-  margin-bottom: 7px;
-  margin-top: 10px;
+  color: var(--accent-dark);
+  padding-bottom: 5px;
+  border-bottom: 2px solid var(--accent);
+  margin-bottom: 8px;
+  margin-top: 13px;
+  width: fit-content;
+  min-width: 90px;
 }
 
 .main-sec { flex-shrink: 0; margin-bottom: 2px; }
+.main-sec:first-of-type .sec-title { margin-top: 0; }
 
 /* ── Summary ── */
 .summary-text {
-  font-size: 8pt;
+  font-size: 9.5pt;
   color: var(--ink-2);
-  line-height: 1.52;
+  line-height: 1.5;
 }
 
 /* ── Experience ── */
-.exp-entry { margin-bottom: 8px; }
+.exp-entry { margin-bottom: 10px; }
 
 .entry-hdr {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
 }
 
 .entry-meta { flex: 1; min-width: 0; }
 
 .entry-role {
   display: block;
-  font-size: 9pt;
-  font-weight: 600;
+  font-size: 10.5pt;
+  font-weight: 700;
   color: var(--ink);
 }
 
 .entry-company {
   display: block;
-  font-size: 7.5pt;
-  color: var(--muted);
-  font-style: italic;
-  margin-top: 0.5px;
+  font-size: 8.5pt;
+  color: var(--accent-dark);
+  font-weight: 600;
+  margin-top: 1px;
 }
 
 .entry-dates {
-  font-size: 7pt;
+  font-size: 8pt;
   color: var(--faint);
   text-align: right;
   white-space: nowrap;
   flex-shrink: 0;
+  font-weight: 500;
 }
 
-.bullets { margin-top: 3px; padding-left: 10px; }
+.bullets { margin-top: 4px; padding-left: 13px; }
 
 .bullets li {
-  font-size: 7.5pt;
+  font-size: 9pt;
   color: var(--ink-2);
-  line-height: 1.44;
-  margin-bottom: 1.5px;
+  line-height: 1.48;
+  margin-bottom: 2px;
   list-style: disc;
 }
 
+.bullets li::marker { color: var(--accent); }
+
 /* ── Education ── */
-.edu-entry { margin-bottom: 7px; }
+.edu-entry { margin-bottom: 8px; }
 
 .edu-degree {
   display: block;
-  font-size: 9pt;
-  font-weight: 600;
+  font-size: 10pt;
+  font-weight: 700;
   color: var(--ink);
 }
 
 .edu-institution {
   display: block;
-  font-size: 7.5pt;
-  color: var(--muted);
-  font-style: italic;
-  margin-top: 0.5px;
+  font-size: 8.5pt;
+  color: var(--accent-dark);
+  font-weight: 600;
+  margin-top: 1px;
 }
 
 .edu-honors {
   display: block;
-  font-size: 7pt;
+  font-size: 8pt;
   font-weight: 500;
-  color: var(--accent);
+  color: var(--ink-2);
   margin-top: 2px;
+  font-style: italic;
 }
 
 .edu-coursework {
   display: block;
-  font-size: 7pt;
+  font-size: 8pt;
   color: var(--faint);
   margin-top: 1px;
 }
 
 /* ── Side sections in single-column mode ── */
-.side-sec { flex-shrink: 0; margin-bottom: 8px; }
+.side-sec { flex-shrink: 0; margin-bottom: 9px; }
 
 /* ── Skills ── */
 .skill-cat { margin-bottom: 5px; }
 
 .skill-cat-label {
-  font-size: 6.5pt;
+  font-size: 7pt;
   font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
@@ -205,7 +221,7 @@ html, body {
 
 /* Plain inline text — no badge styling; delimiters written by Python */
 .skill-items {
-  font-size: 7.5pt;
+  font-size: 8.5pt;
   color: var(--ink-2);
   display: block;
   line-height: 1.5;
@@ -220,15 +236,15 @@ html, body {
   margin-bottom: 3px;
 }
 
-.lang-name { font-size: 7.5pt; font-weight: 600; color: var(--ink-2); }
-.lang-level { font-size: 7pt; color: var(--faint); }
+.lang-name { font-size: 8.5pt; font-weight: 600; color: var(--ink-2); }
+.lang-level { font-size: 8pt; color: var(--faint); }
 
 /* ── Military ── */
-.mil-role { display: block; font-size: 8pt; font-weight: 600; color: var(--ink); }
-.mil-unit { display: block; font-size: 7.5pt; font-style: italic; color: var(--muted); margin-top: 0.5px; }
+.mil-role { display: block; font-size: 9pt; font-weight: 700; color: var(--ink); }
+.mil-unit { display: block; font-size: 8.5pt; color: var(--accent-dark); font-weight: 600; margin-top: 1px; }
 
 /* ── Volunteering ── */
-.vol-text { font-size: 7.5pt; color: var(--ink-2); line-height: 1.48; }
+.vol-text { font-size: 8.5pt; color: var(--ink-2); line-height: 1.48; }
 </style>
 </head>
 <body>
@@ -236,7 +252,7 @@ html, body {
 
   <header class="header">
     <div class="hdr-left">
-      <div class="hdr-name">{{name}}</div>
+      <h1 class="hdr-name">{{name}}</h1>
       <div class="hdr-title">{{title}}</div>
     </div>
     <div class="hdr-right">
@@ -249,17 +265,17 @@ html, body {
 
   <div class="body">
     <div class="main-sec">
-      <span class="sec-title">Professional Summary</span>
+      <h2 class="sec-title">Professional Summary</h2>
       <div class="summary-text">{{summary}}</div>
     </div>
 
     <div class="main-sec">
-      <span class="sec-title">Experience</span>
+      <h2 class="sec-title">Experience</h2>
       {{experience_blocks}}
     </div>
 
     <div class="main-sec">
-      <span class="sec-title">Education</span>
+      <h2 class="sec-title">Education</h2>
       {{education_blocks}}
     </div>
 
@@ -282,9 +298,14 @@ html, body {
    `.body`'s own clientHeight already equals the space the flex layout
    assigned it (page height minus the fixed header) — no manual page/header
    math needed. scrollHeight is unaffected by overflow: hidden, so it still
-   reports the true, un-clipped content height. */
+   reports the true, un-clipped content height.
+   MIN_SCALE raised from 0.72 to 0.88: at this template's 9-10pt baseline,
+   0.72 would bottom out around 6.5pt — well past the "never below 10pt"
+   readability floor real resume guidance sets. 0.88 keeps the worst case
+   at ~8pt, and content volume upstream (_enforce_limits in pdf_builder.py)
+   is what actually keeps this from triggering often in practice. */
 (function () {
-  var MIN_SCALE = 0.72;
+  var MIN_SCALE = 0.88;
   var body = document.querySelector('.body');
   if (!body) return;
   var available = body.clientHeight;

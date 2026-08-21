@@ -327,6 +327,12 @@ function HomePageContent() {
       <Header tab={tab} setTab={setTab} onOpenControls={() => setControlsOpen(true)} jobs={jobs} />
 
       <main className="flex-grow max-w-content mx-auto w-full px-6 py-8">
+        {/* Overview/JobFeed render their own visible <h1> internally; ApplicationsTab
+            and AllJobsTab don't, so this covers those two tabs without duplicating
+            a heading on the tabs that already have one. */}
+        {tab === 'apps' && <h1 className="sr-only">Applications</h1>}
+        {tab === 'all-jobs' && <h1 className="sr-only">All Jobs</h1>}
+
         {tab === 'overview' && (
           <div className="space-y-10">
             <Overview
@@ -601,7 +607,7 @@ function BeforeAfterMockup() {
         >
           {/* Company initial avatar */}
           <div
-            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[13px] font-bold bg-ja-primarySubtle text-ja-primary"
+            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[13px] font-bold bg-ja-primarySubtle text-teal-700"
           >
             W
           </div>
@@ -615,7 +621,7 @@ function BeforeAfterMockup() {
               Tel Aviv
             </p>
             <span
-              className="inline-block mt-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-ja-primarySubtle text-ja-primary"
+              className="inline-block mt-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-ja-primarySubtle text-teal-700"
             >
               88% match
             </span>
@@ -647,7 +653,7 @@ function BeforeAfterMockup() {
             padding: '9px 10px 10px',
           }}
         >
-          <p className="text-ja-primary" style={{ fontSize: 10, fontWeight: 700, marginBottom: 5, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+          <p className="text-teal-700" style={{ fontSize: 10, fontWeight: 700, marginBottom: 5, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
             {t.mockup.cv_copilot}
           </p>
           <div
@@ -773,7 +779,7 @@ function LandingPage() {
       <ul className="mt-6 space-y-3">
         {bullets.map(item => (
           <li key={item} className="flex items-center gap-2.5 text-[13px] text-slate-700">
-            <span className="w-4 h-4 rounded-full bg-ja-primarySubtle text-ja-primary flex items-center justify-center flex-shrink-0">
+            <span className="w-4 h-4 rounded-full bg-ja-primarySubtle text-teal-700 flex items-center justify-center flex-shrink-0">
               <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
@@ -856,7 +862,7 @@ function LandingPage() {
         </span>
         <h1 className="text-4xl sm:text-[52px] font-bold text-slate-900 tracking-tight leading-tight mb-6 max-w-3xl mx-auto">
           {l.hero.h1_line1}<br />
-          <span className="text-ja-primary">{l.hero.h1_line2}</span>
+          <span className="text-teal-700">{l.hero.h1_line2}</span>
         </h1>
         <p className="text-lg text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed">
           {l.hero.sub}
@@ -915,7 +921,7 @@ function LandingPage() {
             <div className="ja-animate-section grid grid-cols-1 md:grid-cols-2 gap-16 items-center" data-delay="0ms">
               {/* Text */}
               <div>
-                <span className="text-[10.5px] font-bold tracking-widest uppercase text-teal-600">{l.section_a.step}</span>
+                <span className="text-[10.5px] font-bold tracking-widest uppercase text-teal-700">{l.section_a.step}</span>
                 <h2 className="mt-3 text-3xl font-bold text-slate-900 tracking-tight leading-snug">
                   {l.section_a.h2_l1}<br />{l.section_a.h2_l2}
                 </h2>
@@ -942,7 +948,7 @@ function LandingPage() {
               </div>
               {/* Text */}
               <div>
-                <span className="text-[10.5px] font-bold tracking-widest uppercase text-teal-600">{l.section_b.step}</span>
+                <span className="text-[10.5px] font-bold tracking-widest uppercase text-teal-700">{l.section_b.step}</span>
                 <h2 className="mt-3 text-3xl font-bold text-slate-900 tracking-tight leading-snug">
                   {l.section_b.h2_l1}<br />{l.section_b.h2_l2}
                 </h2>
@@ -961,7 +967,7 @@ function LandingPage() {
             <div className="ja-animate-section grid grid-cols-1 md:grid-cols-2 gap-16 items-center" data-delay="60ms">
               {/* Text */}
               <div>
-                <span className="text-[10.5px] font-bold tracking-widest uppercase text-teal-600">{l.section_c.step}</span>
+                <span className="text-[10.5px] font-bold tracking-widest uppercase text-teal-700">{l.section_c.step}</span>
                 <h2 className="mt-3 text-3xl font-bold text-slate-900 tracking-tight leading-snug">
                   {l.section_c.h2_l1}<br />{l.section_c.h2_l2}
                 </h2>
@@ -995,7 +1001,7 @@ function LandingPage() {
                 className="bg-white rounded-2xl border border-slate-100 p-6"
                 style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.02), 0 20px 40px rgba(0,0,0,0.03)' }}
               >
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-4 bg-ja-primarySubtle text-ja-primary">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-4 bg-ja-primarySubtle text-teal-700">
                   {bentoIcons[i]}
                 </div>
                 <h3 className="text-[15px] font-bold text-slate-900 tracking-tight mb-2">{card.title}</h3>

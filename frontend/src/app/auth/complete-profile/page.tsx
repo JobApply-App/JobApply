@@ -112,7 +112,7 @@ function CompleteProfileContent() {
         <div className="flex flex-col items-center gap-3 mb-8 text-center">
           {picture ? (
             // eslint-disable-next-line @next/next/no-img-element -- an OAuth provider avatar (user_metadata.picture): the host varies per provider, so next/image would mean enumerating every provider CDN in images.remotePatterns and a 404 for any we miss. It is a 64px decorative image on a one-time onboarding screen, so the optimiser round-trip (billable on Vercel) buys nothing.
-            <img src={picture} alt={fullName} className="w-16 h-16 rounded-full border-2 border-white shadow-md" />
+            <img src={picture} alt={fullName} className="w-16 h-16 rounded-full border-2 border-white shadow-elevation-1" />
           ) : (
             <div className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold"
               style={{ background: TOKENS.color.primary }}>
@@ -158,7 +158,7 @@ function CompleteProfileContent() {
                 disabled={busy}
               />
               {careerStage !== '' && (
-                <p className="mt-1.5 text-[11px] text-teal-600 flex items-center gap-1">
+                <p className="mt-1.5 text-[11px] text-teal-700 flex items-center gap-1">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                     strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12" />

@@ -37,22 +37,23 @@ html, body {
   max-height: 297mm;
   overflow: hidden;
   display: flex;
-}
-
-/* ── Sidebar ── */
-.sidebar {
-  width: 72mm;
-  flex-shrink: 0;
-  background: var(--side-bg);
-  color: var(--side-ink);
-  padding: 24px 18px;
-  overflow: hidden;
-  display: flex;
   flex-direction: column;
 }
 
+/* ── Top bar — name and contact live here, in linear document order ahead
+   of everything else. A parser that reads DOM/text order rather than
+   spatial position (most ATS text extraction does) sees name and contact
+   first, exactly like a single-column resume, even though it's visually
+   full-width above the two columns below. ── */
+.top-bar {
+  flex-shrink: 0;
+  background: var(--side-bg);
+  color: var(--side-ink);
+  padding: 20px 24px;
+}
+
 .hdr-name {
-  font-size: 16pt;
+  font-size: 17pt;
   font-weight: 700;
   color: #fff;
   line-height: 1.15;
@@ -63,23 +64,47 @@ html, body {
   font-size: 7.5pt;
   font-weight: 600;
   color: var(--accent-lt);
-  margin-top: 5px;
+  margin-top: 4px;
   letter-spacing: 0.8px;
   text-transform: uppercase;
 }
 
 .hdr-contact {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(226,232,240,0.18);
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 14px;
 }
 
 .contact-line {
   font-size: 7pt;
   color: var(--side-muted);
-  display: block;
-  line-height: 1.85;
+  line-height: 1.6;
   word-break: break-word;
+}
+
+/* ── Columns row — sidebar is second in DOM order (skills/languages/
+   military/volunteering are lower-stakes if a parser ever mis-reads a
+   column boundary) but order:-1 keeps it visually on the left, unchanged
+   from before. ── */
+.columns {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  order: -1;
+  width: 72mm;
+  flex-shrink: 0;
+  background: var(--side-bg);
+  color: var(--side-ink);
+  padding: 18px 18px 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Sidebar section title ── */
@@ -93,7 +118,8 @@ html, body {
   margin-bottom: 6px;
 }
 
-.side-sec { flex-shrink: 0; margin-top: 16px; }
+.side-sec { flex-shrink: 0; }
+.side-sec + .side-sec { margin-top: 16px; }
 
 /* ── Skills (sidebar) ── */
 .skill-cat { margin-bottom: 7px; }
@@ -127,7 +153,7 @@ html, body {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  padding: 24px 24px 18px;
+  padding: 20px 24px 18px;
   display: flex;
   flex-direction: column;
 }
@@ -207,8 +233,8 @@ html, body {
 <body>
 <div class="page">
 
-  <aside class="sidebar">
-    <div class="hdr-name">{{name}}</div>
+  <header class="top-bar">
+    <h1 class="hdr-name">{{name}}</h1>
     <div class="hdr-title">{{title}}</div>
     <div class="hdr-contact">
       <span class="contact-line">{{email}}</span>
@@ -216,28 +242,34 @@ html, body {
       <span class="contact-line">{{linkedin}}</span>
       {{location_line}}
     </div>
+  </header>
 
-    {{skills_section}}
-    {{languages_section}}
-    {{military_section}}
-    {{volunteering_section}}
-  </aside>
+  <div class="columns">
 
-  <div class="main-col">
-    <div class="main-sec">
-      <span class="sec-title">Summary</span>
-      <div class="summary-text">{{summary}}</div>
+    <div class="main-col">
+      <div class="main-sec">
+        <h2 class="sec-title">Summary</h2>
+        <div class="summary-text">{{summary}}</div>
+      </div>
+
+      <div class="main-sec">
+        <h2 class="sec-title">Experience</h2>
+        {{experience_blocks}}
+      </div>
+
+      <div class="main-sec">
+        <h2 class="sec-title">Education</h2>
+        {{education_blocks}}
+      </div>
     </div>
 
-    <div class="main-sec">
-      <span class="sec-title">Experience</span>
-      {{experience_blocks}}
-    </div>
+    <aside class="sidebar">
+      {{skills_section}}
+      {{languages_section}}
+      {{military_section}}
+      {{volunteering_section}}
+    </aside>
 
-    <div class="main-sec">
-      <span class="sec-title">Education</span>
-      {{education_blocks}}
-    </div>
   </div>
 
 </div>

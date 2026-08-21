@@ -160,6 +160,7 @@ function RolePicker({ selected, setSelected }: {
       {/* Combobox input */}
       <div className="relative">
         <input
+          id="target-roles-combobox"
           ref={inputRef}
           value={query}
           role="combobox"
@@ -189,7 +190,7 @@ function RolePicker({ selected, setSelected }: {
           <ul
             id="role-suggestions"
             role="listbox"
-            className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 rounded-xl bg-white border border-slate-100 shadow-lg overflow-hidden max-h-64 overflow-y-auto"
+            className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 rounded-xl bg-white border border-slate-100 shadow-elevation-2 overflow-hidden max-h-64 overflow-y-auto"
           >
             {suggestions.map((s, i) => (
               <li key={s} role="option" aria-selected={i === highlight}>
@@ -359,7 +360,7 @@ function OnboardingContent() {
                 onClick={() => setActive(idx)}
                 className={`relative text-left rounded-2xl border p-6 transition-all duration-200 cursor-pointer ${
                   isActive
-                    ? 'border-teal-300 bg-white shadow-lg scale-[1.02]'
+                    ? 'border-teal-300 bg-white shadow-elevation-2 scale-[1.02]'
                     : 'border-slate-200 bg-white/70 hover:bg-white hover:border-slate-300'
                 }`}
               >
@@ -374,7 +375,7 @@ function OnboardingContent() {
                 <p className="text-[13px] text-slate-500 leading-relaxed">{step.body}</p>
 
                 {isActive && (
-                  <div className="mt-3 flex items-center gap-1.5 text-[12px] font-semibold text-teal-600">
+                  <div className="mt-3 flex items-center gap-1.5 text-[12px] font-semibold text-teal-700">
                     <CheckIcon /> Selected
                   </div>
                 )}
@@ -386,7 +387,7 @@ function OnboardingContent() {
         <div className="flex flex-col items-center">
           <button
             onClick={() => setPhase('preferences')}
-            className="h-12 px-8 rounded-2xl text-[15px] font-semibold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+            className="h-12 px-8 rounded-2xl text-[15px] font-semibold text-white shadow-elevation-2 hover:shadow-floating hover:-translate-y-0.5 transition-all"
             style={{ background: `linear-gradient(135deg, ${TOKENS.color.primary}, ${TOKENS.color.primaryHover})` }}
           >
             Get Started →
@@ -402,13 +403,13 @@ function OnboardingContent() {
     return (
       <OnboardingShell onBack={() => setPhase('showcase')}>
         <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-          <h2 className="text-[20px] font-bold text-slate-900 mb-1">What are you looking for?</h2>
+          <h1 className="text-[20px] font-bold text-slate-900 mb-1">What are you looking for?</h1>
           <p className="text-[13.5px] text-slate-500 mb-7 leading-relaxed">
             Whatever your field — engineering, sales, design, marketing, operations, or anything
             else — add the roles you&apos;re targeting and your experience level in each.
           </p>
 
-          <label className="block text-[12px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+          <label htmlFor="target-roles-combobox" className="block text-[12px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
             Target roles &amp; experience
           </label>
           <RolePicker selected={selected} setSelected={setSelected} />
@@ -443,7 +444,7 @@ function OnboardingContent() {
   return (
     <OnboardingShell onBack={() => setPhase('preferences')}>
       <div className="max-w-md mx-auto bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-        <h2 className="text-[20px] font-bold text-slate-900 mb-1">Import your existing profile</h2>
+        <h1 className="text-[20px] font-bold text-slate-900 mb-1">Import your existing profile</h1>
         <p className="text-[13.5px] text-slate-500 mb-7 leading-relaxed">
           Skip the blank slate — upload your current CV and we&apos;ll build your
           Master Profile in seconds.

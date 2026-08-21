@@ -249,9 +249,9 @@ function GetStartedOverlay({ onGoToMatches }: { onGoToMatches?: () => void }) {
       </div>
 
       <div>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: TOKENS.color.ink, margin: 0 }}>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: TOKENS.color.ink, margin: 0 }}>
           Your analytics will appear here
-        </h2>
+        </h1>
         <p style={{
           fontSize: 13.5, color: TOKENS.color.muted, marginTop: 8, lineHeight: 1.6, maxWidth: 360,
         }}>

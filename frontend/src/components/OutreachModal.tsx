@@ -1,6 +1,7 @@
 'use client'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { TOKENS } from '@/lib/tokens'
+import { useEscapeToClose } from '@/hooks/useEscapeToClose'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import type { OutreachMessageType } from '@/lib/apiTypes'
 import {
@@ -98,6 +99,9 @@ interface Props {
 }
 
 export function OutreachModal({ job, onClose }: Props) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  useEscapeToClose(onClose, panelRef)
+
   const [activeTab,     setActiveTab]     = useState<TabId>('hiring_manager')
   const [targetName,    setTargetName]    = useState('')
   const [targetTitle,   setTargetTitle]   = useState('')
@@ -194,7 +198,12 @@ export function OutreachModal({ job, onClose }: Props) {
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-floating flex flex-col animate-modal-in"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="outreach-modal-title"
+        tabIndex={-1}
+        className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-floating flex flex-col animate-modal-in outline-none"
         style={{ border: '1px solid rgba(0,0,0,0.08)' }}
       >
         {/* Header */}
@@ -203,13 +212,14 @@ export function OutreachModal({ job, onClose }: Props) {
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">
               Outreach Generator
             </div>
-            <h2 className="text-[15px] font-semibold text-slate-900 leading-tight">
+            <h2 id="outreach-modal-title" className="text-[15px] font-semibold text-slate-900 leading-tight">
               {job.title}
               <span className="text-slate-400 font-normal"> · {job.company}</span>
             </h2>
           </div>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
           >
             ✕

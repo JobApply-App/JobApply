@@ -316,7 +316,7 @@ export default function LoginPage() {
           </button>
           <button type="button" disabled={busy}
             onClick={() => { setError(null); void handleSendOtp({ preventDefault: () => {} } as FormEvent) }}
-            className="text-teal-600 hover:text-teal-800 font-medium transition-colors disabled:opacity-50">
+            className="text-teal-700 hover:text-teal-800 font-medium transition-colors disabled:opacity-50">
             Resend code
           </button>
         </div>
@@ -453,7 +453,7 @@ export default function LoginPage() {
                       </label>
                       <button type="button"
                         onClick={() => { setFpEmail(email); setPhase('forgot-email'); setError(null) }}
-                        className="text-xs text-teal-600 hover:text-teal-800 font-medium transition-colors">
+                        className="text-xs text-teal-700 hover:text-teal-800 font-medium transition-colors">
                         Forgot password?
                       </button>
                     </div>
@@ -485,7 +485,7 @@ export default function LoginPage() {
                 <p className="text-center text-xs text-slate-500">
                   Don&apos;t have an account?{' '}
                   <Link href="/signup"
-                    className="font-semibold text-teal-600 hover:text-teal-800 transition-colors">
+                    className="font-semibold text-teal-700 hover:text-teal-800 transition-colors">
                     Get Started
                   </Link>
                 </p>

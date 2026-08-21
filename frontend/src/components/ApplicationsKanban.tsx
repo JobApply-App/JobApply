@@ -76,6 +76,9 @@ function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
 
+  const panelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { panelRef.current?.focus() }, [])
+
   const s = stageStyle(currentStage)
 
   return (
@@ -89,7 +92,12 @@ function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete
       {/* Panel */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="w-full max-w-md rounded-2xl bg-white shadow-floating pointer-events-auto flex flex-col animate-modal-in"
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="card-detail-title"
+          tabIndex={-1}
+          className="w-full max-w-md rounded-2xl bg-white shadow-floating pointer-events-auto flex flex-col animate-modal-in outline-none"
           style={{ boxShadow: '0 24px 64px rgba(15,23,42,0.22)' }}
           onClick={e => e.stopPropagation()}
         >
@@ -99,7 +107,7 @@ function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
                 {card.company}
               </p>
-              <h3 className="text-[15px] font-bold text-slate-900 leading-snug">
+              <h3 id="card-detail-title" className="text-[15px] font-bold text-slate-900 leading-snug">
                 {card.title}
               </h3>
               <div className="flex items-center gap-2 mt-2">
@@ -124,6 +132,7 @@ function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete
             </div>
             <button
               onClick={onClose}
+              aria-label="Close"
               className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
             >
               <svg width={14} height={14} viewBox="0 0 24 24" fill="none"

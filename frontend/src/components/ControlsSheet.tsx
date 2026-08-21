@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { TOKENS } from '@/lib/tokens'
+import { useEscapeToClose } from '@/hooks/useEscapeToClose'
 import {
   DEFAULT_SETTINGS,
   type AutomationSettings,
@@ -243,6 +244,9 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
   // Local draft — only committed on Save
   const [draft, setDraft] = useState<AutomationSettings>(settings)
   const [saved, setSaved] = useState(false)
+  const panelRef = useRef<HTMLElement>(null)
+
+  useEscapeToClose(onClose, panelRef, open)
 
   // Sync draft when sheet opens
   useEffect(() => {
@@ -278,13 +282,18 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
       <div className="absolute inset-0 bg-slate-900/55 backdrop-blur-[4px]" />
 
       <aside
+        ref={panelRef as React.RefObject<HTMLElement>}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="controls-sheet-title"
+        tabIndex={-1}
         onClick={e => e.stopPropagation()}
-        className="absolute right-0 top-0 bottom-0 w-full max-w-[440px] bg-white border-l border-slate-200 shadow-floating flex flex-col"
+        className="absolute right-0 top-0 bottom-0 w-full max-w-[440px] bg-white border-l border-slate-200 shadow-floating flex flex-col outline-none"
       >
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-6 h-14 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-2.5">
-            <span className="text-[15px] font-semibold text-slate-900">Match &amp; Notification Preferences</span>
+            <h2 id="controls-sheet-title" className="text-[15px] font-semibold text-slate-900">Match &amp; Notification Preferences</h2>
             {activeCount > 0 && (
               <span
                 className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white"
@@ -294,7 +303,7 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
               </span>
             )}
           </div>
-          <IconBtn onClick={onClose} title="Close"><XIcon s={14} /></IconBtn>
+          <IconBtn onClick={onClose} title="Close" aria-label="Close"><XIcon s={14} /></IconBtn>
         </div>
 
         {/* ── Scrollable body ── */}

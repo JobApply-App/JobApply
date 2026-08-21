@@ -36,6 +36,7 @@ from backend.services.llm_client import call_llm
 from backend.services.user_profile import build_full_text, resolve_profile
 from backend.schemas.job import JobMatch
 from backend.models.cv import CVDataSchema, normalize_cv
+from backend.utilities.ai_scrubber import clean_ai_text as _sanitize_str
 from backend.utilities.json_repair import parse_json_robust
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
@@ -1391,47 +1392,11 @@ def _enforce_all_employers(cv_data: dict, user_id: str) -> dict:
 
 # ── AI-Tells sanitiser (deterministic post-hoc safety net) ───────────────────
 # The prompt rules cover the vast majority of cases. This layer catches anything
-# that slips through regardless of prompt compliance.
-
-_EM_DASHES_RE = re.compile(r'[—–]')   # U+2014 em-dash, U+2013 en-dash
-
-# (pattern, lowercase_replacement) — case of the match's first char is preserved
-_AI_TELL_SUBS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r'\bspearheaded\b',    re.IGNORECASE), 'led'),
-    (re.compile(r'\bspearhead\b',      re.IGNORECASE), 'lead'),
-    (re.compile(r'\borchestrated\b',   re.IGNORECASE), 'managed'),
-    (re.compile(r'\borchestrate[sd]?\b', re.IGNORECASE), 'manage'),
-    (re.compile(r'\bnavigated\b',      re.IGNORECASE), 'managed'),
-    (re.compile(r'\bnavigate[sd]?\b',  re.IGNORECASE), 'manage'),
-    (re.compile(r'\bharnessed\b',      re.IGNORECASE), 'used'),
-    (re.compile(r'\bharness\b',        re.IGNORECASE), 'use'),
-    (re.compile(r'\bfostered\b',       re.IGNORECASE), 'built'),
-    (re.compile(r'\bfoster\b',         re.IGNORECASE), 'build'),
-    (re.compile(r'\bcatalyzed\b',      re.IGNORECASE), 'drove'),
-    (re.compile(r'\bsynergized\b',     re.IGNORECASE), 'aligned'),
-    (re.compile(r'\bdelved?\b',        re.IGNORECASE), 'reviewed'),
-    (re.compile(r'\bembarked?\b',      re.IGNORECASE), 'started'),
-    (re.compile(r'\bunderscored?\b',   re.IGNORECASE), 'highlighted'),
-    (re.compile(r'\bparamount\b',      re.IGNORECASE), 'critical'),
-    (re.compile(r'\bmeticulously\b',   re.IGNORECASE), 'carefully'),
-    (re.compile(r'\bmeticulous\b',     re.IGNORECASE), 'thorough'),
-    (re.compile(r'\btransformative\b', re.IGNORECASE), 'significant'),
-    (re.compile(r'\btestament\b',      re.IGNORECASE), 'proof'),
-    (re.compile(r'\bpivotal\b',        re.IGNORECASE), 'key'),
-    (re.compile(r'\bcommendable\b',    re.IGNORECASE), 'strong'),
-    (re.compile(r'\bintricate\b',      re.IGNORECASE), 'complex'),
-    (re.compile(r'\bnuanced\b',        re.IGNORECASE), 'detailed'),
-]
-
-
-def _sanitize_str(s: str) -> str:
-    s = _EM_DASHES_RE.sub('-', s)
-    for pattern, replacement in _AI_TELL_SUBS:
-        def _rep(m: re.Match, r: str = replacement) -> str:
-            orig = m.group(0)
-            return (r[0].upper() + r[1:]) if orig[0].isupper() else r
-        s = pattern.sub(_rep, s)
-    return s
+# that slips through regardless of prompt compliance. Word list and em-dash
+# handling live in ai_scrubber.py (imported above as _sanitize_str):
+# outreach_service.py's clean_ai_text() needs the exact same rules, and having
+# two copies is how the dash regex drifted out of sync there (it used to turn
+# "--" INTO an em-dash instead of removing it).
 
 
 def _sanitize_ai_tells(data: object) -> object:
@@ -1734,25 +1699,29 @@ class TailorAgent:
         cv_data = _inject_static_sections(cv_data, user_id=self.user_id, jd_text=job.jd_text or "")
         cv_data = _sanitize_ai_tells(cv_data)
 
-        # Zero-hallucination telemetry (LOG-ONLY — enforce=False).
-        # Records which generated literals cannot be traced to the candidate's
-        # own profile without touching the output. Measured at a 10%
-        # flag rate on real bullets, where the surviving flags looked like
-        # genuine fabrications rather than noise; enforcement stays off until a
-        # wider sample justifies removing content from a user's CV.
+        # Zero-hallucination gate — active, not log-only (2026-08-21).
+        # Every bullet with a number/entity the profile can't support is
+        # rewritten using ONLY verified profile text (never silently dropped,
+        # never silently kept). A rewrite that still fails re-verification is
+        # removed as the last resort. Measured at a 10% flag rate on real
+        # bullets, where the surviving flags looked like genuine fabrications
+        # rather than noise.
         try:
             from backend.services.cv_grounding import GroundingGate
-            _, _grounding = GroundingGate.for_user(
-                self.user_id, enforce=False, context="tailor",
-            ).filter_cv(cv_data)
+            cv_data, _grounding = await GroundingGate.for_user(
+                self.user_id, context="tailor",
+            ).reground_and_filter(cv_data, user_id=self.user_id, model=_MODEL)
             if _grounding.flagged_count:
                 logger.warning(
-                    "[grounding:tailor] %d/%d bullets unverified for user=%s: %s",
+                    "[grounding:tailor] %d/%d bullets unverified for user=%s "
+                    "(%d rewritten, %d removed): %s",
                     _grounding.flagged_count, _grounding.checked, self.user_id,
+                    _grounding.rewritten, _grounding.removed,
                     [f.unverified for f in _grounding.flagged][:5],
                 )
         except Exception as exc:
-            logger.debug("[grounding:tailor] telemetry skipped: %s", exc)
+            logger.error("[grounding:tailor] gate failed for user=%s, CV left unchecked: %s",
+                          self.user_id, exc)
 
         logger.info(
             "TailorAgent OK  title='%s'  exps=%d  edu=%d  cats=%d",

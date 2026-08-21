@@ -135,6 +135,9 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
       {/* Panel */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="interview-sim-modal-title"
           className="w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-floating pointer-events-auto flex flex-col animate-modal-in"
           onClick={e => e.stopPropagation()}
         >
@@ -152,7 +155,7 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
                   </span>
                 )}
               </div>
-              <h3 className="text-[15px] font-bold text-slate-900 leading-snug truncate">
+              <h3 id="interview-sim-modal-title" className="text-[15px] font-bold text-slate-900 leading-snug truncate">
                 {job.title}
               </h3>
               <p className="text-[12px] text-slate-400 mt-0.5 truncate">{job.company}</p>

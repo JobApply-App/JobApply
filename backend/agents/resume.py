@@ -23,6 +23,7 @@ import anthropic
 from backend.services.llm_client import call_llm
 from backend.services.user_profile import get_profile
 from backend.schemas.job import JobMatch
+from backend.utilities.ai_scrubber import clean_ai_text
 
 logger = logging.getLogger(__name__)
 
@@ -920,5 +921,14 @@ OUTPUT: The complete HTML document only. No markdown. No explanation. No code fe
             html = html.split("\n", 1)[1] if "\n" in html else html[3:]
         if html.endswith("```"):
             html = html.rsplit("```", 1)[0].rstrip()
+
+        # This HTML reads as the candidate's own resume — same AI-tell
+        # scrubbing tailor.py and outreach_service.py apply to their
+        # candidate-facing text. Safe to run on the whole document: the
+        # word list only matches whole words via \b, and the dash collapse
+        # only changes non-ASCII dashes or hyphen runs of 2+, so ordinary
+        # single-hyphen CSS class names (e.g. "section-title") pass through
+        # unchanged.
+        html = clean_ai_text(html)
 
         return html

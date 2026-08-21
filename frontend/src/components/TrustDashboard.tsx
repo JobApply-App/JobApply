@@ -940,7 +940,7 @@ function ManualReviewModal({ entity, onClose, onDone }: ManualReviewModalProps) 
             </div>
 
             {uploadDone ? (
-              <div className="flex items-center gap-1.5 text-[12px] font-semibold text-teal-600">
+              <div className="flex items-center gap-1.5 text-[12px] font-semibold text-teal-700">
                 <CheckCircle s={13} />Uploaded — refreshing dashboard…
               </div>
             ) : (
@@ -1674,7 +1674,7 @@ function UploadZone({ userId, onUploaded }: UploadZoneProps) {
             {stats.entities_ingested} entities extracted · overall score {stats.overall_trust_score.toFixed(1)}
           </p>
         </div>
-        <div className="flex items-center gap-2 text-[12px] text-teal-600 animate-pulse">
+        <div className="flex items-center gap-2 text-[12px] text-teal-700 animate-pulse">
           <SpinnerIcon s={13} />
           Loading your matrix…
         </div>
@@ -2913,7 +2913,7 @@ export function TrustDashboard({
           </div>
           <button
             onClick={fetchData}
-            className="shrink-0 text-[11.5px] font-medium text-teal-600 hover:text-teal-800 transition"
+            className="shrink-0 text-[11.5px] font-medium text-teal-700 hover:text-teal-800 transition"
           >
             Retry
           </button>
