@@ -322,7 +322,7 @@ function MultiSelectDropdown({
         {buttonLabel}
       </button>
       {open && (
-        <div className="absolute z-10 mt-1 max-h-56 w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg py-1">
+        <div className="absolute z-10 mt-1 max-h-56 w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-elevation-2 py-1">
           {options.length === 0 && (
             <p className="px-3 py-1.5 text-[12px] text-slate-400">No options</p>
           )}

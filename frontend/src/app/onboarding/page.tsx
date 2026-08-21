@@ -190,7 +190,7 @@ function RolePicker({ selected, setSelected }: {
           <ul
             id="role-suggestions"
             role="listbox"
-            className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 rounded-xl bg-white border border-slate-100 shadow-lg overflow-hidden max-h-64 overflow-y-auto"
+            className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 rounded-xl bg-white border border-slate-100 shadow-elevation-2 overflow-hidden max-h-64 overflow-y-auto"
           >
             {suggestions.map((s, i) => (
               <li key={s} role="option" aria-selected={i === highlight}>
@@ -360,7 +360,7 @@ function OnboardingContent() {
                 onClick={() => setActive(idx)}
                 className={`relative text-left rounded-2xl border p-6 transition-all duration-200 cursor-pointer ${
                   isActive
-                    ? 'border-teal-300 bg-white shadow-lg scale-[1.02]'
+                    ? 'border-teal-300 bg-white shadow-elevation-2 scale-[1.02]'
                     : 'border-slate-200 bg-white/70 hover:bg-white hover:border-slate-300'
                 }`}
               >
@@ -387,7 +387,7 @@ function OnboardingContent() {
         <div className="flex flex-col items-center">
           <button
             onClick={() => setPhase('preferences')}
-            className="h-12 px-8 rounded-2xl text-[15px] font-semibold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+            className="h-12 px-8 rounded-2xl text-[15px] font-semibold text-white shadow-elevation-2 hover:shadow-floating hover:-translate-y-0.5 transition-all"
             style={{ background: `linear-gradient(135deg, ${TOKENS.color.primary}, ${TOKENS.color.primaryHover})` }}
           >
             Get Started →
