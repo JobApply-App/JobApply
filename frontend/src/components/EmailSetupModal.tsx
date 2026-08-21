@@ -1,5 +1,20 @@
 'use client'
 
+// Unmounted from the UI 2026-08-21, ahead of public launch — Header.tsx no
+// longer imports this component or renders a trigger for it. Not deleted:
+// the modal itself is fine, but the feature behind it isn't real yet. The
+// UI's own copy claims "This is your unique forwarding address" (see
+// INBOUND_EMAIL below) while every user is actually shown the identical
+// hardcoded ngrok dev-tunnel string, and the backend's
+// InboundEmailPayload carries no field that could tell two users' forwarded
+// mail apart even if the address were real per-user (see the 2026-08-20
+// "Per-user scoping" note in backend/api/routes/webhooks.py). Shipping the
+// real version needs: a unique alias per user, and a real inbound-mail
+// provider (SendGrid/Postmark/Mailgun/CloudMailin or similar) configured to
+// pass that alias through to the webhook — a feature build, not a config
+// flip. Re-mount via Header.tsx once that exists, and update INBOUND_EMAIL
+// to come from the backend instead of being a constant.
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { TOKENS } from '@/lib/tokens'
 import { fetchGmailVerificationCode, GmailCodeForbiddenError } from '@/lib/api'

@@ -5,8 +5,7 @@ import Link from 'next/link'
 import { TOKENS } from '@/lib/tokens'
 import { Logo } from './ui/Logo'
 import { StatusDot } from './ui/StatusDot'
-import { BellIcon, SlidersIcon, ChevIcon, MailIcon, MenuIcon, XIcon } from './icons'
-import { EmailSetupModal } from './EmailSetupModal'
+import { BellIcon, SlidersIcon, ChevIcon, MenuIcon, XIcon } from './icons'
 import { useAuth } from '@/contexts/AuthContext'
 import { useChat } from '@/contexts/ChatContext'
 import { resolveDisplayName, getInitials } from '@/lib/nameUtils'
@@ -42,7 +41,6 @@ interface HeaderProps {
 export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) {
   const [menuOpen,       setMenuOpen]       = useState(false)
   const [bellOpen,       setBellOpen]       = useState(false)
-  const [emailModal,     setEmailModal]     = useState(false)
   const [mobileNavOpen,  setMobileNavOpen]  = useState(false)
   const router    = useRouter()
   const pathname  = usePathname()
@@ -121,8 +119,6 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
 
   return (
     <>
-    <EmailSetupModal open={emailModal} onClose={() => setEmailModal(false)} />
-
     <header className="w-full bg-white border-b border-slate-100 sticky top-0 z-40">
       <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12 h-14 md:h-[60px] grid grid-cols-[auto_1fr_auto] items-center gap-3 md:gap-8">
 
@@ -214,15 +210,6 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
           }`}
         >
           <HelpIcon s={16} />
-        </button>
-
-        <button
-          onClick={() => setEmailModal(true)}
-          className="inline-flex items-center justify-center w-11 h-11 sm:w-8 sm:h-8 rounded-md text-slate-400 active:bg-slate-100 sm:hover:text-slate-700 sm:hover:bg-slate-50 transition-colors"
-          title="Connect Email Automation"
-          aria-label="Connect Email Automation"
-        >
-          <MailIcon s={15} />
         </button>
 
         {/* Bell */}

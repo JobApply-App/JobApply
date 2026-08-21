@@ -1,16 +1,23 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, HttpUrl
 from typing import Optional
 from datetime import datetime, timezone
 import httpx
 import logging
 
+from backend.api.deps import CurrentUser, get_current_user, standard_rate_limit
 from backend.scrapers.base_scraper import BaseScraper
 from backend.schemas.job import RawJobPosting
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# Requires auth + a standard rate limit — this makes the server fetch a
+# caller-supplied URL server-side (SSRF surface: internal network probing,
+# cloud metadata endpoints) with no allowlist. It was reachable by anyone,
+# unauthenticated and unthrottled. It's a debugging tool for scraper
+# extraction quality (frontend/src/app/ats-preview), not a public feature,
+# so requiring a real account is the right bar — not opening it further.
+router = APIRouter(dependencies=[Depends(standard_rate_limit)])
 
 class PreviewRequest(BaseModel):
     url: HttpUrl
@@ -63,7 +70,7 @@ class PreviewScraper(BaseScraper):
             raise HTTPException(status_code=500, detail=f"Failed to parse HTML: {str(e)}")
 
 @router.post("/preview", response_model=RawJobPosting)
-async def preview_scraper(payload: PreviewRequest):
+async def preview_scraper(payload: PreviewRequest, user: CurrentUser = Depends(get_current_user)):
     """
     Exposes the core scraping architecture for frontend preview.
     Fetches the URL using the proxy manager (unless raw HTML is provided),

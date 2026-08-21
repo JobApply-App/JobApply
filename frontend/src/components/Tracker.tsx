@@ -1,3 +1,15 @@
+// Not imported anywhere in the app as of 2026-08-20 (verified: no other file
+// imports `Tracker` from here). Its STAGE_META map had silently drifted out
+// of sync with Application['stage'] (data.ts) — missing "phone screen" and
+// "technical", which would have thrown at STAGE_META[app.stage] the moment
+// this component was ever mounted with real API data. TypeScript's
+// Record<Stage, ...> exhaustiveness check exists specifically to catch that,
+// but only for code the compiler actually walks — dead code doesn't get
+// checked just by existing. Fixed the map to stay consistent with the
+// backend enum fix in the same change, but this component still needs
+// either a real mount point or removal; unreachable code silently rotting
+// out of sync with the types it claims to implement is how this happened.
+
 import type { Application } from '@/lib/data'
 import { StatusDot } from './ui/StatusDot'
 import type { Tone } from '@/lib/tokens'
@@ -5,12 +17,14 @@ import type { Tone } from '@/lib/tokens'
 type Stage = Application['stage']
 
 const STAGE_META: Record<Stage, { label: string; tone: Tone }> = {
-  submitted: { label: 'Submitted', tone: 'muted'   },
-  viewed:    { label: 'Viewed',    tone: 'primary'  },
-  screening: { label: 'Screening', tone: 'primary'  },
-  interview: { label: 'Interview', tone: 'success'  },
-  offer:     { label: 'Offer',     tone: 'success'  },
-  rejected:  { label: 'Rejected',  tone: 'muted'    },
+  submitted:      { label: 'Submitted',    tone: 'muted'   },
+  viewed:         { label: 'Viewed',       tone: 'primary' },
+  screening:      { label: 'Screening',    tone: 'primary' },
+  'phone screen': { label: 'Phone Screen', tone: 'primary' },
+  technical:      { label: 'Technical',    tone: 'primary' },
+  interview:      { label: 'Interview',    tone: 'success' },
+  offer:          { label: 'Offer',        tone: 'success' },
+  rejected:       { label: 'Rejected',     tone: 'muted'   },
 }
 
 function TrackerRow({ app }: { app: Application }) {

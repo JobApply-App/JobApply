@@ -394,19 +394,26 @@ AUTO_DISCOVERY: bool = True
 # Full JD content is only retrieved when the user explicitly clicks
 # "Fetch Missing Details" or opens a card that triggers an inline fetch.
 #
-# TODO: RE-ENABLE HIGH-FREQUENCY POLLING BEFORE LAUNCH.
-#       Set CREDIT_CONSERVATION_MODE = False and review DISCOVERY_INTERVAL_SECONDS.
+# STILL True as of 2026-08-21's launch-readiness pass — deliberately left
+# alone. Only DISCOVERY_INTERVAL_SECONDS below was approved to change; this
+# flag is a separate, larger cost lever (full JD-text fetch on every
+# discovered listing, not just poll frequency) and needs its own explicit
+# go-ahead before flipping.
 CREDIT_CONSERVATION_MODE: bool = True
 
 # ── Discovery loop interval ───────────────────────────────────────────────────
 # How often (in seconds) the background discovery loop runs.
 #
-# Pre-launch value  : 300   (5 minutes)  — uncomment after credit budget is set
-# Conservation value: 86400 (24 hours)   — active while CREDIT_CONSERVATION_MODE=True
-#
-# TODO: RE-ENABLE HIGH-FREQUENCY POLLING BEFORE LAUNCH.
-#       Switch back to DISCOVERY_INTERVAL_SECONDS = 300.
-DISCOVERY_INTERVAL_SECONDS: int = 86400  # 24 hours — credit-conservation mode
+# Set to the pre-launch value (300s / 5 min) 2026-08-21, per explicit
+# approval — was 86400 (24h, credit-conservation mode). Real-world effect is
+# smaller than "every 5 minutes" implies while render.yaml stays on the free
+# plan: the instance sleeps after ~15 min idle, and a sleeping instance runs
+# no loops at all regardless of this value. In practice this fires promptly
+# whenever there's live traffic keeping the instance awake (i.e. exactly
+# when a new user is actually onboarding) and simply doesn't fire while
+# nothing is happening — which is the situation this value is meant to help
+# anyway. Revisit if/when the Render plan changes.
+DISCOVERY_INTERVAL_SECONDS: int = 300  # 5 minutes — pre-launch value
 
 # ── All-jobs matching loop interval ───────────────────────────────────────────
 # How often (in seconds) the background loop that bridges public.all_jobs
