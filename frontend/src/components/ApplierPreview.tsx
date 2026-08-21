@@ -847,8 +847,11 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                   display: 'flex', flexDirection: 'column', gap: 6,
                   marginTop: 4, marginBottom: 12,
                   padding: '8px 12px', borderRadius: 10,
-                  border: `1px solid ${saveDraftError ? TOKENS.color.danger : TOKENS.color.line}`,
-                  background: saveDraftError ? '#FEF2F2' : TOKENS.color.primarySoft,
+                  // oklch(...) pair matches ErrorBanner above and the copilot
+                  // rejection banner below — this file's one soft-danger
+                  // convention, not a one-off color.
+                  border: saveDraftError ? '1px solid oklch(0.91 0.04 25)' : `1px solid ${TOKENS.color.line}`,
+                  background: saveDraftError ? 'oklch(0.97 0.02 25)' : TOKENS.color.primarySoft,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                     <span style={{ fontSize: 11.5, color: TOKENS.color.ink2 }}>

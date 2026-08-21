@@ -44,9 +44,9 @@ export default function PrivacyPage() {
       <h2>AI processing</h2>
       <p>
         Generating a tailored CV, a match score, or a chat reply means sending relevant parts of
-        your profile to an AI provider (Anthropic, and optionally Google Gemini) for that specific
-        request. We don&apos;t currently offer a way to use JobApply&apos;s core features without
-        this.
+        your profile to an AI provider — currently Anthropic, and Google where that provider is
+        enabled — for that specific request. We don&apos;t currently offer a way to use
+        JobApply&apos;s core features without this.
       </p>
 
       <h2>Your choices</h2>
