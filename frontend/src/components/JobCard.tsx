@@ -466,7 +466,7 @@ function JdPanel({ text, expanded, onToggleExpand, isHebrewLocale = false }: JdP
       {isLong && (
         <button
           onClick={onToggleExpand}
-          className="mt-1.5 inline-flex items-center gap-1 text-[11.5px] font-medium text-teal-600 hover:text-teal-800 transition"
+          className="mt-1.5 inline-flex items-center gap-1 text-[11.5px] font-medium text-teal-700 hover:text-teal-800 transition"
         >
           <ChevronDown s={11} flipped={expanded} />
           {expanded ? 'Collapse' : 'See more'}
@@ -495,7 +495,7 @@ function AnalysisSkeleton() {
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-50 bg-ja-primary" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-ja-primary" />
         </span>
-        <span className="text-[12px] font-medium text-ja-primary">
+        <span className="text-[12px] font-medium text-teal-700">
           Generating deep insights…
         </span>
       </div>
@@ -600,7 +600,7 @@ function AnalyzeJobButton({ jobId }: { jobId: string }) {
 
   if (state === 'done') {
     return (
-      <span className="text-[11px] font-medium text-teal-600 shrink-0">
+      <span className="text-[11px] font-medium text-teal-700 shrink-0">
         ✓ Queued
       </span>
     )
@@ -610,7 +610,7 @@ function AnalyzeJobButton({ jobId }: { jobId: string }) {
     <button
       onClick={handleClick}
       disabled={state === 'loading'}
-      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11.5px] font-semibold shrink-0 bg-ja-primarySubtle text-ja-primary border border-teal-200 hover:bg-teal-100 transition active:scale-[0.97] disabled:opacity-50"
+      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11.5px] font-semibold shrink-0 bg-ja-primarySubtle text-teal-700 border border-teal-200 hover:bg-teal-100 transition active:scale-[0.97] disabled:opacity-50"
     >
       {state === 'loading' ? (
         <><SpinnerTiny s={11} /> Analyzing…</>
@@ -700,7 +700,7 @@ function ArielInsightButton({
         <button
           onClick={handleClick}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-[11.5px] font-semibold bg-ja-primarySubtle text-ja-primary border border-teal-200 hover:bg-teal-100 transition active:scale-[0.97] disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-[11.5px] font-semibold bg-ja-primarySubtle text-teal-700 border border-teal-200 hover:bg-teal-100 transition active:scale-[0.97] disabled:opacity-50"
           title={`Strengthen your "${skillName}" evidence with Ariel`}
         >
           {loading ? <SpinnerTiny s={11} /> : <span aria-hidden="true">⚡</span>}
@@ -1143,7 +1143,7 @@ export const JobCard = memo(function JobCard({
                       No description available.
                       {job.apply_url && (
                         <> <a href={job.apply_url} target="_blank" rel="noopener noreferrer"
-                          className="underline text-teal-600 hover:text-teal-800">View original posting.</a></>
+                          className="underline text-teal-700 hover:text-teal-800">View original posting.</a></>
                       )}
                     </p>
                   )}

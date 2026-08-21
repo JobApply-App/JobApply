@@ -158,7 +158,7 @@ function CompleteProfileContent() {
                 disabled={busy}
               />
               {careerStage !== '' && (
-                <p className="mt-1.5 text-[11px] text-teal-600 flex items-center gap-1">
+                <p className="mt-1.5 text-[11px] text-teal-700 flex items-center gap-1">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                     strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12" />

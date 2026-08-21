@@ -446,6 +446,9 @@ export function TailoredCvModal({ job, onClose, onGeneratePdf }: TailoredCvModal
 
       {/* Panel — slides in from the right */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tailored-cv-modal-title"
         className="fixed inset-y-0 right-0 z-50 flex flex-col bg-slate-50 shadow-floating"
         style={{ width: 'min(600px, 100vw)' }}
       >
@@ -466,7 +469,7 @@ export function TailoredCvModal({ job, onClose, onGeneratePdf }: TailoredCvModal
                 <span className="text-[10.5px] text-slate-400 font-medium">· cached</span>
               )}
             </div>
-            <h2 className="text-[15px] font-bold text-slate-900 mt-1 leading-tight truncate">
+            <h2 id="tailored-cv-modal-title" className="text-[15px] font-bold text-slate-900 mt-1 leading-tight truncate">
               {job.title}
             </h2>
             <p className="text-[12.5px] text-slate-500 mt-0.5 truncate">

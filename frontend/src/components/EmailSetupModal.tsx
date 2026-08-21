@@ -370,6 +370,9 @@ export function EmailSetupModal({ open, onClose }: EmailSetupModalProps) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="email-setup-modal-title"
         className="relative w-full max-w-[520px] max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-floating border border-slate-200 animate-modal-in"
         style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}
       >
@@ -383,7 +386,7 @@ export function EmailSetupModal({ open, onClose }: EmailSetupModalProps) {
               <MailIcon s={18} />
             </div>
             <div>
-              <h2 className="text-[15px] font-bold text-slate-900 leading-tight">
+              <h2 id="email-setup-modal-title" className="text-[15px] font-bold text-slate-900 leading-tight">
                 Connect Email Automation
               </h2>
               <p className="text-[12px] text-slate-500 mt-0.5">

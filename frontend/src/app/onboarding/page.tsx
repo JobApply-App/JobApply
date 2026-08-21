@@ -160,6 +160,7 @@ function RolePicker({ selected, setSelected }: {
       {/* Combobox input */}
       <div className="relative">
         <input
+          id="target-roles-combobox"
           ref={inputRef}
           value={query}
           role="combobox"
@@ -374,7 +375,7 @@ function OnboardingContent() {
                 <p className="text-[13px] text-slate-500 leading-relaxed">{step.body}</p>
 
                 {isActive && (
-                  <div className="mt-3 flex items-center gap-1.5 text-[12px] font-semibold text-teal-600">
+                  <div className="mt-3 flex items-center gap-1.5 text-[12px] font-semibold text-teal-700">
                     <CheckIcon /> Selected
                   </div>
                 )}
@@ -402,13 +403,13 @@ function OnboardingContent() {
     return (
       <OnboardingShell onBack={() => setPhase('showcase')}>
         <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-          <h2 className="text-[20px] font-bold text-slate-900 mb-1">What are you looking for?</h2>
+          <h1 className="text-[20px] font-bold text-slate-900 mb-1">What are you looking for?</h1>
           <p className="text-[13.5px] text-slate-500 mb-7 leading-relaxed">
             Whatever your field — engineering, sales, design, marketing, operations, or anything
             else — add the roles you&apos;re targeting and your experience level in each.
           </p>
 
-          <label className="block text-[12px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+          <label htmlFor="target-roles-combobox" className="block text-[12px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
             Target roles &amp; experience
           </label>
           <RolePicker selected={selected} setSelected={setSelected} />
@@ -443,7 +444,7 @@ function OnboardingContent() {
   return (
     <OnboardingShell onBack={() => setPhase('preferences')}>
       <div className="max-w-md mx-auto bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-        <h2 className="text-[20px] font-bold text-slate-900 mb-1">Import your existing profile</h2>
+        <h1 className="text-[20px] font-bold text-slate-900 mb-1">Import your existing profile</h1>
         <p className="text-[13.5px] text-slate-500 mb-7 leading-relaxed">
           Skip the blank slate — upload your current CV and we&apos;ll build your
           Master Profile in seconds.

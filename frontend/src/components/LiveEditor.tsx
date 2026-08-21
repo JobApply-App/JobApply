@@ -100,12 +100,13 @@ const EDITED_BG         = 'oklch(0.98 0.02 80)'
 // one place, keyed by the field's own stable id rather than its position.
 
 function EditableField({
-  field, onChange, rows = 2, mono = false,
+  field, onChange, rows = 2, mono = false, ariaLabel,
 }: {
-  field:    GeneratedField<string>
-  onChange: (id: string, value: string) => void
-  rows?:    number
-  mono?:    boolean
+  field:      GeneratedField<string>
+  onChange:   (id: string, value: string) => void
+  rows?:      number
+  mono?:      boolean
+  ariaLabel?: string
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
 
@@ -127,6 +128,7 @@ function EditableField({
       value={field.value}
       rows={rows}
       dir="auto"
+      aria-label={ariaLabel}
       onChange={e => onChange(field.id, e.target.value)}
       style={{
         width: '100%',
@@ -167,14 +169,14 @@ function EditableField({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <p style={{
+      <h2 style={{
         fontSize: 9.5, fontWeight: 700, letterSpacing: '1.4px',
         textTransform: 'uppercase', color: TOKENS.color.primary,
         paddingBottom: 4, borderBottom: `0.75px solid ${TOKENS.color.line}`,
         marginBottom: 10,
       }}>
         {title}
-      </p>
+      </h2>
       {children}
     </div>
   )
@@ -200,10 +202,10 @@ function SkillCategoryEditor({
 
   return (
     <div style={{ marginBottom: 10 }}>
-      <p style={{ fontSize: 10, fontWeight: 600, color: TOKENS.color.muted,
+      <h3 style={{ fontSize: 10, fontWeight: 600, color: TOKENS.color.muted,
         textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
         {category.label}
-      </p>
+      </h3>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 5px', marginBottom: 6 }}>
         {category.items.map((item, i) => (
           <span key={item} style={{
@@ -215,7 +217,7 @@ function SkillCategoryEditor({
             border: `0.75px solid oklch(0.85 0.06 255)`,
           }}>
             {item}
-            <button onClick={() => remove(i)} style={{
+            <button onClick={() => remove(i)} aria-label={`Remove ${item}`} style={{
               background: 'none', border: 'none', cursor: 'pointer',
               padding: 0, lineHeight: 1, color: TOKENS.color.primary, opacity: 0.6,
               fontSize: 12, marginTop: -1,
@@ -340,7 +342,7 @@ export function LiveEditor({
 
       {/* ── Summary ── */}
       <Section title="Professional Summary">
-        <EditableField field={cv.summary} onChange={setFieldValue} rows={4} />
+        <EditableField field={cv.summary} onChange={setFieldValue} rows={4} ariaLabel="Professional summary" />
       </Section>
 
       {/* ── Experience bullets ── */}
@@ -358,14 +360,19 @@ export function LiveEditor({
                 {exp.company.value} · {exp.dates.value}
               </p>
             </div>
-            {exp.bullets.map(bullet => (
+            {exp.bullets.map((bullet, bulletIdx) => (
               <div key={bullet.id} style={{ display: 'flex', gap: 6, marginBottom: 5, alignItems: 'flex-start' }}>
                 <span style={{
                   marginTop: 7, flexShrink: 0, width: 5, height: 5, borderRadius: '50%',
                   background: TOKENS.color.subtle,
                 }} />
                 <div style={{ flex: 1 }}>
-                  <EditableField field={bullet.text} onChange={setFieldValue} rows={2} />
+                  <EditableField
+                    field={bullet.text}
+                    onChange={setFieldValue}
+                    rows={2}
+                    ariaLabel={`Bullet ${bulletIdx + 1} for ${exp.role.value || 'this role'} at ${exp.company.value || 'this company'}`}
+                  />
                 </div>
               </div>
             ))}
@@ -410,7 +417,7 @@ export function LiveEditor({
       {/* ── Volunteering — hidden entirely when absent or empty ── */}
       {cv.volunteering.value && cv.volunteering.value.trim().length > 0 && (
         <Section title="Volunteering">
-          <EditableField field={cv.volunteering} onChange={setFieldValue} rows={2} />
+          <EditableField field={cv.volunteering} onChange={setFieldValue} rows={2} ariaLabel="Volunteering" />
         </Section>
       )}
 

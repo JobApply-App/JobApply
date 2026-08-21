@@ -78,7 +78,7 @@ function MatchScoreTeaser() {
   // Inviting placeholder — replaces the old "Match score pending" +
   // "Complete your profile to unlock" pair that read like an error state.
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ja-primary bg-ja-primarySubtle rounded-full px-2.5 py-1">
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-teal-700 bg-ja-primarySubtle rounded-full px-2.5 py-1">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -96,9 +96,9 @@ function JobCard({ job }: { job: typeof TRENDING_JOBS[0] }) {
       <div className="flex items-start gap-3">
         <CompanyAvatar name={job.company} />
         <div className="flex-1 min-w-0">
-          <h3 className="text-[14px] font-semibold text-slate-900 leading-tight truncate">
+          <h2 className="text-[14px] font-semibold text-slate-900 leading-tight truncate">
             {job.title}
-          </h3>
+          </h2>
           <p className="text-[12px] text-slate-500 mt-0.5">
             {job.company} &middot; {job.location}
           </p>
@@ -110,7 +110,7 @@ function JobCard({ job }: { job: typeof TRENDING_JOBS[0] }) {
         {job.tags.map(tag => (
           <span
             key={tag}
-            className="text-[11px] px-2 py-0.5 rounded-md font-medium bg-ja-primarySubtle text-ja-primary"
+            className="text-[11px] px-2 py-0.5 rounded-md font-medium bg-ja-primarySubtle text-teal-700"
           >
             {tag}
           </span>
@@ -165,7 +165,7 @@ function DiscoverContent() {
             <p className="text-sm text-slate-500 mt-0.5">Updated daily based on market demand</p>
           </div>
           <span
-            className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-ja-primarySubtle text-ja-primary"
+            className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-ja-primarySubtle text-teal-700"
           >
             {TRENDING_JOBS.length} roles
           </span>

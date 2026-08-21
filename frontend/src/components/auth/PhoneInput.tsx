@@ -263,13 +263,13 @@ export function PhoneInput({
                   >
                     <span className="text-base leading-none w-5 flex-shrink-0">{c.flag}</span>
                     <span className="flex-1 truncate font-medium">{c.name}</span>
-                    <span className={`text-[12px] flex-shrink-0 tabular-nums ${c.code === country.code ? 'text-teal-500' : 'text-slate-400'}`}>
+                    <span className={`text-[12px] flex-shrink-0 tabular-nums ${c.code === country.code ? 'text-teal-700' : 'text-slate-400'}`}>
                       {c.dial}
                     </span>
                     {c.code === country.code && (
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" strokeWidth="3" strokeLinecap="round"
-                        className="text-teal-500 flex-shrink-0">
+                        className="text-teal-700 flex-shrink-0">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     )}

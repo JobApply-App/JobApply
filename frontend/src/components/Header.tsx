@@ -220,6 +220,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
           onClick={() => setEmailModal(true)}
           className="inline-flex items-center justify-center w-11 h-11 sm:w-8 sm:h-8 rounded-md text-slate-400 active:bg-slate-100 sm:hover:text-slate-700 sm:hover:bg-slate-50 transition-colors"
           title="Connect Email Automation"
+          aria-label="Connect Email Automation"
         >
           <MailIcon s={15} />
         </button>
@@ -229,6 +230,9 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
           <button
             onClick={() => { setMenuOpen(false); setBellOpen(v => !v) }}
             title="Notifications"
+            aria-label="Notifications"
+            aria-haspopup="true"
+            aria-expanded={bellOpen}
             className="inline-flex items-center justify-center w-11 h-11 sm:w-8 sm:h-8 rounded-md text-slate-400 active:bg-slate-100 sm:hover:text-slate-700 sm:hover:bg-slate-50 transition-colors"
           >
             <BellIcon s={16} />
