@@ -5,9 +5,10 @@ import { useI18n } from '@/contexts/I18nContext'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { TOKENS } from '@/lib/tokens'
 
-// ── Content — bilingual, self-contained (not part of the shared Dict type:
-// this is one standalone legal/informational page, not app chrome that needs
-// the compile-time en/he parity check the Dict type enforces elsewhere). ──
+// Content: bilingual, self-contained. Not part of the shared Dict type,
+// since this is one standalone legal/informational page, not app chrome
+// that needs the compile-time en/he parity check the Dict type enforces
+// elsewhere.
 
 const STATEMENT_DATE = 'August 21, 2026'
 const STATEMENT_DATE_HE = '21 באוגוסט 2026'
@@ -18,89 +19,88 @@ const content = {
     eyebrow: 'Accessibility',
     title: 'Accessibility Statement',
     intro:
-      'JobApply is committed to making its website usable by everyone, including people who ' +
-      'use screen readers, keyboard-only navigation, or other assistive technology. This page ' +
-      'describes what we’ve done, what we know still needs work, and how to reach us.',
-    standardHeading: 'Standard we follow',
+      'We want this site to work for everyone. That includes people using a screen reader, ' +
+      'people who navigate by keyboard only, and people using other assistive technology. ' +
+      'Here is what we have done, what is still not right, and how to tell us about a problem.',
+    standardHeading: 'The standard we follow',
     standardBody:
-      'We work toward WCAG 2.1 Level AA, which is also the technical basis of Israeli Standard ' +
-      '(ת"י) 5568 — the standard referenced by the Equal Rights for Persons with Disabilities ' +
+      'We aim for WCAG 2.1 Level AA. That is also the technical basis of Israeli Standard ' +
+      '(ת"י) 5568, the standard named in the Equal Rights for Persons with Disabilities ' +
       'Regulations (Service Accessibility Adjustments), 5773-2013.',
-    doneHeading: 'What we’ve done',
+    doneHeading: 'What we have done',
     done: [
-      'Every screen has a real, programmatic heading structure (not just styled text) so screen-reader users can navigate by heading.',
-      'Every icon-only button — close, notifications, email setup, remove-item — has a text label a screen reader can announce, not just a visual icon.',
-      'Every pop-up dialog (job outreach, interview practice, CV brief, application detail, preferences panel, and more) is marked as a real dialog, closes on Escape, and moves keyboard focus into it when it opens.',
-      'Text color combinations across the app meet the 4.5:1 contrast minimum for normal-size text.',
-      'Form fields are programmatically linked to their labels and, where a field shows an inline error, to that error text.',
-      'Every meaningful image has real alternative text; purely decorative images are hidden from screen readers on purpose.',
-      'Downloaded CV/resume PDFs are exported as tagged, structured documents (not flat images of text), so a screen reader or other assistive tool can read them the same way it reads the on-screen version.',
+      'Every screen has real heading tags, not styled text that only looks like a heading. Screen readers can navigate by heading.',
+      'Buttons that show only an icon (close, notifications, email setup, remove item) now carry a text label a screen reader can read.',
+      'Pop-up windows like the outreach generator, the interview simulator, and the application detail panel are marked as real dialogs. Pressing Escape closes them, and opening one moves keyboard focus inside.',
+      'Text colors meet the 4.5:1 contrast minimum required for normal-size text.',
+      'Form fields are linked to their labels in code. Where a field shows an error message, the field is linked to that message too.',
+      'Every image that carries information has real alt text. Purely decorative images are hidden from screen readers on purpose.',
+      'The CV PDF you download is a tagged, structured document, not a flat picture of text. A screen reader can read it the way it reads the page.',
     ],
-    limitationsHeading: 'What we know still needs work',
+    limitationsHeading: 'What is still not right',
     limitations: [
-      'On first load, a Hebrew-language visit briefly renders in English/left-to-right before switching — the correct language loads a moment later, but that first flash isn’t ideal for screen-reader users.',
-      'Keyboard focus does not yet fully cycle within an open dialog (Tab can reach elements behind it), and closing a dialog doesn’t yet reliably return focus to the button that opened it.',
-      'Every page currently shares one generic browser-tab title rather than a page-specific one.',
-      'Most of the authenticated product (the dashboard, job feed, CV editor) is presented in English regardless of your selected language — full Hebrew coverage of that part of the product is still in progress.',
+      'On the first load of a page, a Hebrew visit briefly shows in English and left-to-right before switching to Hebrew. This flash is not good for screen reader users, and we have not fixed it yet.',
+      'Keyboard focus does not fully stay inside an open dialog. Tab can still reach something behind it. Closing a dialog does not reliably send focus back to the button that opened it.',
+      'Every page currently shares one browser tab title instead of its own.',
+      'Most of the signed-in product (the dashboard, the job feed, the CV editor) is in English no matter which language you picked. Hebrew coverage there is not finished.',
     ],
-    testingHeading: 'How this was checked',
+    testingHeading: 'How we checked this',
     testingBody:
-      `Checked by direct code review against WCAG 2.1 AA success criteria, dated ${STATEMENT_DATE}. ` +
-      'This was a manual audit of the application’s source code, not an automated scan and not yet a ' +
-      'test with actual assistive-technology users — we treat this as a floor, not a finished result.',
+      `We checked this by reading the application's own source code against WCAG 2.1 AA, on ${STATEMENT_DATE}. ` +
+      'This was a manual review of the code. It was not an automated scan, and no one using assistive ' +
+      'technology has tested the site yet. We think of this as a starting point, not a finished job.',
     contactHeading: 'Tell us about a problem',
     contactBody:
-      'If you hit a barrier anywhere on the site, or something above doesn’t match what you’re seeing, ' +
-      'please write to us — we read every message and it goes directly to the team building the product.',
+      'If something on the site gets in your way, or if anything above does not match what you see, ' +
+      'write to us. A person on the team reads every message.',
     contactCta: 'Email us',
     sizeNote:
-      'JobApply is an early-stage product from a small team. Israeli regulations don’t yet require us ' +
-      'to appoint a formal accessibility coordinator at our current size — but the contact above reaches ' +
-      'a real person regardless.',
+      'JobApply is a small, early-stage team. Israeli law does not yet require us to name a formal ' +
+      'accessibility coordinator at our size. The email above still reaches a real person.',
     backHome: '← Back to JobApply',
   },
   he: {
     eyebrow: 'נגישות',
     title: 'הצהרת נגישות',
     intro:
-      'ב-JobApply אנחנו מחויבים לכך שהאתר שלנו יהיה שמיש לכולם, כולל ' +
-      'משתמשים בקורא מסך, ניווט במקלדת בלבד וטכנולוגיות מסייעת אחרות. דף ' +
-      'זה מתאר מה עשינו, מה ידוע לנו שעדיין דורש עבודה, ואיך ליצור איתנו קשר.',
-    standardHeading: 'התקן שלפיו אנו פועלים',
+      'אנחנו רוצים שהאתר הזה יעבוד לכולם. זה כולל מי שמשתמש בקורא מסך, ' +
+      'מי שמנווט רק במקלדת, ומי שמשתמש בטכנולוגיה מסייעת אחרת. ' +
+      'הנה מה שעשינו, מה עדיין לא תקין, ואיך לספר לנו על בעיה.',
+    standardHeading: 'התקן שאנחנו הולכים לפיו',
     standardBody:
-      'אנחנו שואפים לעמוד ב-WCAG 2.1 ברמה AA, שהיא גם הבסיס הטכני של תקן ' +
-      'ישראלי (ת"י) 5568 — התקן שאליו מפנות תקנות שוויון זכויות לאנשים עם מוגבלות ' +
+      'אנחנו שואפים לעמוד ב-WCAG 2.1 ברמה AA. זה גם הבסיס הטכני של תקן ' +
+      'ישראלי (ת"י) 5568, התקן שמוזכר בתקנות שוויון זכויות לאנשים עם מוגבלות ' +
       '(התאמות נגישות לשירות), תשע"ג-2013.',
-    doneHeading: 'מה עשינו עד כה',
+    doneHeading: 'מה עשינו',
     done: [
-      'לכל מסך יש מבנה כותרות מתכנתת אמיתי (לא רק טקסט מעוצב) כדי שמשתמשי קורא מסך יוכלו לנווט לפי כותרות.',
-      'לכל כפתור עם איקונה בלבד — סגירה, התראות, חיבור מייל, הסרת פריט — יש תווית טקסט שקורא מסך יכול להכריז, ולא רק איקון ויזואלי.',
-      'כל חלון קופץ (שיווק למעסיק, תרגול ראיון, תקציר קורות חיים, פרטי מועמדות ועוד) מסומן כחלון אמיתי, נסגר במקש Escape, ומעביר אליו פוקוס מקלדת עם הפתיחה.',
-      'צירופי צבע באפליקציה עומדים ביחס אי ניגודיות מינימלי של 4.5:1 עבור טקסט בגודל רגיל.',
-      'שדות טופס מקושרים אוטומטית לתוויות השלהם, וכאשר יש שגיאת שגיאה מובנית — גם לטקסט השגיאה עצמו.',
-      'לכל תמונה משמעותית יש טקסט חלופי אמיתי; תמונות עיצוביות בלבד מוסתרות בכוונה מקוראי מסך.',
-      'קובצי PDF של קורות חיים מיוצאים כמסמך מתוייג ומורכב (לא תמונה שטוחה של טקסט), כך שקורא מסך או כלי עזר אחר יכולים לקרוא אותם כמו את הגרסה שעל המסך.',
+      'לכל מסך יש תגי כותרת אמיתיים, לא טקסט מעוצב שרק נראה כמו כותרת. אפשר לנווט בין המסכים לפי כותרות עם קורא מסך.',
+      'כפתורים שמציגים רק איקון (סגירה, התראות, חיבור מייל, הסרת פריט) קיבלו תווית טקסט שקורא מסך יכול לקרוא.',
+      'חלונות קופצים כמו יצירת פנייה למעסיק, סימולטור הראיון, ופרטי המועמדות מסומנים כחלונות אמיתיים. לחיצה על Escape סוגרת אותם, ופתיחה מעבירה את הפוקוס במקלדת פנימה.',
+      'צבעי הטקסט עומדים ביחס הניגודיות המינימלי של 4.5:1 שנדרש לטקסט בגודל רגיל.',
+      'שדות טופס מקושרים בקוד לתווית שלהם. כשיש שדה עם הודעת שגיאה, השדה מקושר גם להודעה הזו.',
+      'לכל תמונה שנושאת מידע יש טקסט חלופי אמיתי. תמונות עיצוביות בלבד מוסתרות מקוראי מסך בכוונה.',
+      'קובץ ה-PDF של קורות החיים שאתם מורידים הוא מסמך מתוייג ומובנה, לא תמונה שטוחה של טקסט. קורא מסך יכול לקרוא אותו כמו שהוא קורא את העמוד.',
     ],
-    limitationsHeading: 'מה אנחנו יודעים שעדיין דורש עבודה',
+    limitationsHeading: 'מה עדיין לא תקין',
     limitations: [
-      'בטעינה ראשונה, כניסה בעברית מציירת לרגע קצר באנגלית/משמאל לשמאל לפני המעבר לשפה הנכונה — לא אידיאלי למשתמשי קורא מסך.',
-      'פוקוס מקלדת עדיין לא מסתובב במלואו בתוך דיאלוג פתוח (Tab יכול להגיע לאלמנטים מאחוריו), וסגירה של דיאלוג עדיין אינה מחזירה באופן אמין את הפוקוס לכפתור שפתח אותו.',
-      'כרגע, לכל העמודים יש כותרת טאב דפדפן אחת וגנרית במקום כותרת ספציפית לעמוד.',
-      'רוב המוצר המאומת (לוח הבקרה, פיד המשרות, עורך קורות החיים) מוצג באנגלית בלבד, ללא תלות בשפה שבחרת — כיסוי עברית מלא לחלק זה עדיין בעבודה.',
+      'בטעינה ראשונה של עמוד, כניסה בעברית מראה לרגע קצר אנגלית ומשמאל לימין לפני המעבר לעברית. ההבזק הזה לא טוב למשתמשי קורא מסך, ועדיין לא תיקנו אותו.',
+      'פוקוס מקלדת לא נשאר לגמרי בתוך חלון פתוח. Tab עדיין יכול להגיע למשהו מאחוריו. סגירת חלון לא תמיד מחזירה את הפוקוס לכפתור שפתח אותו.',
+      'כרגע לכל עמוד יש אותה כותרת טאב דפדפן, במקום כותרת משלו.',
+      'רוב המוצר המאומת (לוח הבקרה, פיד המשרות, עורך קורות החיים) מוצג באנגלית בלי קשר לשפה שבחרתם. הכיסוי בעברית שם עוד לא גמור.',
     ],
     testingHeading: 'איך בדקנו את זה',
     testingBody:
-      `נבדק בבדיקת קוד ישירה מול מדדי WCAG 2.1 AA, נכון ${STATEMENT_DATE_HE}. ` +
-      'זו בדיקה ידנית של קוד המקור של האפליקציה, לא סריקה אוטומטית ועדיין לא ' +
-      'בדיקה עם משתמשים אמיתיים של טכנולוגיה מסייעת — אנחנו מתייחסים לזה כרצפה, לא כתוצאה סופית.',
+      `בדקנו את זה בקריאה ישירה של קוד המקור של האפליקציה מול WCAG 2.1 AA, בתאריך ${STATEMENT_DATE_HE}. ` +
+      'זו הייתה בדיקה ידנית של הקוד. זו לא הייתה סריקה אוטומטית, ואף אחד שמשתמש בטכנולוגיה מסייעת ' +
+      'עוד לא בדק את האתר בפועל. אנחנו מתייחסים לזה כנקודת התחלה, לא כעבודה גמורה.',
     contactHeading: 'ספרו לנו על בעיה',
     contactBody:
-      'אם נתקלתם במכשול כלשהו באתר, או שמשהו מהעל לא תואם למה שאתם רואים, ' +
-      'אנא כתבו לנו — אנחנו קוראים כל הודעה והיא מגיעה ישירות לצוות שבונה את המוצר.',
+      'אם משהו באתר מפריע לכם, או שמשהו למעלה לא תואם למה שאתם רואים, ' +
+      'כתבו לנו. בן אדם מהצוות קורא כל הודעה.',
     contactCta: 'שלחו לנו מייל',
     sizeNote:
-      'JobApply הוא מוצר בשלב מוקדם של צוות קטנה. התקנות בישראל עדיין אינן מחייבות אותנו ' +
-      'במינוי רכז נגישות פורמלי בגודל הנוכחי שלנו כרגע — אבל הפנייה למעלה מגיעה לאדם אמיתי בכל מקרה.',
+      'JobApply הוא צוות קטן בשלב מוקדם. החוק בישראל עדיין לא מחייב אותנו למנות רכז נגישות ' +
+      'פורמלי בגודל הנוכחי שלנו. המייל למעלה עדיין מגיע לבן אדם אמיתי.',
     backHome: '→ חזרה ל-JobApply',
   },
 } as const
@@ -199,7 +199,7 @@ export default function AccessibilityPage() {
               onMouseEnter={e => { e.currentTarget.style.background = TOKENS.color.primaryHover }}
               onMouseLeave={e => { e.currentTarget.style.background = TOKENS.color.primary }}
             >
-              {c.contactCta} — {CONTACT_EMAIL}
+              {c.contactCta}: {CONTACT_EMAIL}
             </a>
             <p className="text-[12px] text-slate-400 leading-relaxed mt-5 max-w-[62ch]">
               {c.sizeNote}

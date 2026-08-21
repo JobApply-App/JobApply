@@ -20,8 +20,16 @@ def test_clean_ai_text_words():
     assert clean_ai_text(text2) == "Explore Use STRONG COLLECTION Proof"
     
 def test_clean_ai_text_em_dashes():
+    # Runs of hyphens collapse to a single plain hyphen — never an em-dash.
     text = "This is a test --- and it works -- perfectly."
-    assert clean_ai_text(text) == "This is a test — and it works — perfectly."
+    assert clean_ai_text(text) == "This is a test - and it works - perfectly."
+
+def test_clean_ai_text_real_em_dash_character():
+    # The far more common real-world case: the LLM emits an actual em-dash
+    # character directly, not "--". A single "—" used to pass through
+    # untouched (the old regex required a run of 2+).
+    text = "Built a strong system—used by thousands of engineers."
+    assert clean_ai_text(text) == "Built a strong system-used by thousands of engineers."
 
 def test_clean_ai_text_resume_safety():
     # Real resume text shouldn't be overly damaged. Words like "robust" are replaced but the sentence stands.
