@@ -181,11 +181,12 @@ def upsert_submitted(
 
 def find_updatable_by_company(
     session: Session,
+    user_id: str,
     company_name: str,
     updatable_statuses: frozenset[str],
 ) -> Optional[ApplicationRow]:
     """
-    Return the most-recently-submitted application whose company name
+    Return user_id's most-recently-submitted application whose company name
     fuzzy-matches company_name AND whose status is in updatable_statuses.
 
     Matching strategy (both directions of substring, case-insensitive):
@@ -194,13 +195,23 @@ def find_updatable_by_company(
     This covers the most common formatting mismatches without a full
     fuzzy-similarity library.
 
+    user_id is mandatory and always filtered on — this used to search
+    every user's applications with no tenant scope at all, so any inbound
+    email whose company name substring-matched someone else's most recent
+    application would silently mutate their row instead of the sender's.
+    Scoping by user_id first, THEN fuzzy-matching company name within just
+    that user's rows, is what makes the fuzzy match safe to keep loose.
+
     Takes an already-open Session so the caller (e.g. the inbound-email
     webhook) can mutate the returned row and commit it in the same
     transaction as the read, atomically.
     """
     candidates: list[ApplicationRow] = (
         session.query(ApplicationRow)
-        .filter(ApplicationRow.status.in_(updatable_statuses))
+        .filter(
+            ApplicationRow.user_id == user_id,
+            ApplicationRow.status.in_(updatable_statuses),
+        )
         .order_by(ApplicationRow.submitted_at.desc())
         .all()
     )

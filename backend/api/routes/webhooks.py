@@ -28,11 +28,32 @@ Flow
 1. Validate the payload.
 2. Call email_parser.parse_recruiter_email() to extract company + status.
 3. If mapped_status == "Unknown", return early (no DB mutation).
-4. Search ApplicationRow for a matching company that is still in a
-   non-terminal stage.  Match is case-insensitive and substring-based
-   so "Wix Engineering" matches a stored company of "Wix".
+4. Search THAT USER's ApplicationRows for a matching company that is
+   still in a non-terminal stage. Match is case-insensitive and
+   substring-based so "Wix Engineering" matches a stored company of "Wix".
 5. If a match is found, update its status and last_update timestamp.
 6. Return a structured response describing what happened.
+
+Per-user scoping (2026-08-20)
+------------------------------
+Step 4 requires payload.user_id and always scopes the search to that one
+user — find_updatable_by_company() takes user_id as a required parameter
+and filters on it. Before this, the search ran across EVERY user's
+applications with no tenant filter at all: any inbound email whose company
+name substring-matched ANY user's most-recently-submitted application
+would silently mutate that unrelated user's row.
+
+This payload has no real per-user routing today. INBOUND_EMAIL in
+frontend/src/components/EmailSetupModal.tsx is a single hardcoded ngrok
+dev-tunnel address shown identically to every user ("This is your unique
+forwarding address" is not true yet), and InboundEmailPayload carries no
+recipient/alias field an inbound-mail provider could use to identify whose
+mailbox a message arrived at. So when user_id is absent — which is every
+request today, since nothing upstream can supply one yet — this handler
+now returns action="no_user_context" and never touches the DB, rather than
+guessing. Shipping a real per-user forwarding address (and an inbound-mail
+provider that passes it through as the recipient) is a separate feature
+build, tracked outside this fix.
 """
 from __future__ import annotations
 
@@ -162,6 +183,13 @@ class InboundEmailPayload(BaseModel):
     # from exhausting memory or the LLM context window.
     sender:    str = Field(..., max_length=320)
     subject:   str = Field(..., max_length=1_000)
+    # Which user this email belongs to. No real inbound-mail provider is
+    # wired up to supply this yet (see the module docstring's "Per-user
+    # scoping" note) — it exists so the handler has somewhere to receive one
+    # once real per-user forwarding addresses exist, and so its absence is
+    # an explicit, typed condition rather than an assumption. Absent ==
+    # every request today == the DB-mutation step is skipped entirely.
+    user_id:   Optional[str] = Field(default=None, max_length=64)
     body_text: str = Field(..., max_length=20_000)
 
 
@@ -290,9 +318,28 @@ async def inbound_email_webhook(
         )
 
     # ── Step 3: Find matching application and update ─────────────────────────
+    # No caller supplies user_id yet (see module docstring) — refuse to guess
+    # across tenants rather than matching whichever user's application the
+    # company name happens to hit. See "Per-user scoping" above.
+    if not payload.user_id:
+        logger.info(
+            "[email-webhook] no user_id in payload — skipping DB match for "
+            "company=%r (no per-user routing wired up yet)", company_name,
+        )
+        return EmailWebhookResponse(
+            received       = True,
+            company_name   = company_name,
+            mapped_status  = mapped_status,
+            db_status      = db_status,
+            match_found    = False,
+            application_id = None,
+            previous_status= None,
+            action         = "no_user_context",
+        )
+
     with Session(ENGINE) as session:
         row = application_repository.find_updatable_by_company(
-            session, company_name, _UPDATABLE_STATUSES,
+            session, payload.user_id, company_name, _UPDATABLE_STATUSES,
         )
 
         if row is None:

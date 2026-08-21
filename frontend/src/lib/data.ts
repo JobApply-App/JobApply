@@ -24,7 +24,12 @@ export interface Application {
   id: string
   title: string
   company: string
-  stage: 'submitted' | 'viewed' | 'screening' | 'interview' | 'offer' | 'rejected'
+  // Mirrors backend/schemas/application.py's ApplicationStatus. Keep in sync —
+  // a value missing here that the backend accepts is exactly the class of bug
+  // fixed in backend/schemas/application.py on 2026-08-20 (CRM board wrote
+  // "phone screen"/"technical", the backend enum didn't have them, every
+  // GET /api/applications 500'd for that user).
+  stage: 'submitted' | 'viewed' | 'screening' | 'phone screen' | 'technical' | 'interview' | 'offer' | 'rejected'
   when: string
 }
 
