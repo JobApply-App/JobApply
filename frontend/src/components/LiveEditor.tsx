@@ -58,6 +58,11 @@ export interface LiveEditorProps {
   isDirty:          boolean
   isSaving:         boolean
   onSave:           () => void
+  /** Set by the parent when the last onSave() attempt failed — including a
+   *  failure from the 30s autosave below, not just a manual click. Shown
+   *  next to Save so a failed save is never visually identical to a
+   *  successful one. */
+  saveError?:       string | null
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -253,7 +258,7 @@ function SkillCategoryEditor({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function LiveEditor({
-  cv, onChange, onReset, isDirty, isSaving, onSave,
+  cv, onChange, onReset, isDirty, isSaving, onSave, saveError,
 }: LiveEditorProps) {
 
   // ── ID-based update handlers ──────────────────────────────────────────────
@@ -292,50 +297,54 @@ export function LiveEditor({
     }}>
 
       {/* ── Toolbar ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: 16, flexShrink: 0,
-      }}>
-        <p style={{ fontSize: 12.5, fontWeight: 600, color: TOKENS.color.ink }}>
-          Live Editor
-          {isDirty && (
-            <span style={{ fontSize: 10.5, fontWeight: 400, color: TOKENS.color.muted, marginLeft: 6 }}>
-              · unsaved changes
-            </span>
-          )}
-        </p>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            onClick={onReset}
-            title="Reset to original generated CV"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '4px 10px', borderRadius: 20,
-              fontSize: 11.5, fontWeight: 500,
-              color: TOKENS.color.muted,
-              background: 'white',
-              border: `1.5px solid ${TOKENS.color.line}`,
-              cursor: 'pointer',
-            }}
-          >
-            <UndoIcon /> Reset
-          </button>
-          <button
-            onClick={onSave}
-            disabled={!isDirty || isSaving}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '4px 12px', borderRadius: 20,
-              fontSize: 11.5, fontWeight: 600,
-              color: 'white',
-              background: isDirty && !isSaving ? TOKENS.color.primary : TOKENS.color.subtle,
-              border: 'none', cursor: isDirty && !isSaving ? 'pointer' : 'default',
-              transition: 'background 0.15s',
-            }}
-          >
-            <SaveIcon /> {isSaving ? 'Saving…' : 'Save'}
-          </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 16, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <p style={{ fontSize: 12.5, fontWeight: 600, color: TOKENS.color.ink }}>
+            Live Editor
+            {isDirty && (
+              <span style={{ fontSize: 10.5, fontWeight: 400, color: TOKENS.color.muted, marginLeft: 6 }}>
+                · unsaved changes
+              </span>
+            )}
+          </p>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={onReset}
+              title="Reset to original generated CV"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '4px 10px', borderRadius: 20,
+                fontSize: 11.5, fontWeight: 500,
+                color: TOKENS.color.muted,
+                background: 'white',
+                border: `1.5px solid ${TOKENS.color.line}`,
+                cursor: 'pointer',
+              }}
+            >
+              <UndoIcon /> Reset
+            </button>
+            <button
+              onClick={onSave}
+              disabled={!isDirty || isSaving}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '4px 12px', borderRadius: 20,
+                fontSize: 11.5, fontWeight: 600,
+                color: 'white',
+                background: isDirty && !isSaving ? TOKENS.color.primary : TOKENS.color.subtle,
+                border: 'none', cursor: isDirty && !isSaving ? 'pointer' : 'default',
+                transition: 'background 0.15s',
+              }}
+            >
+              <SaveIcon /> {isSaving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
         </div>
+        {saveError && (
+          <p style={{ fontSize: 11, color: TOKENS.color.danger, textAlign: 'end', margin: 0 }}>
+            ✕ {saveError}
+          </p>
+        )}
       </div>
 
       {/* ── Summary ── */}

@@ -35,6 +35,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from backend.api.routes import agents, all_jobs, analytics, applications, ariel, auth, chat, crm, dashboard, history, jobs, linkedin_jobs, outreach, profile, resumes, scraper, settings, webhooks
 from backend.config import (
     ALL_JOBS_MATCHING_INTERVAL_SECONDS,
+    APP_ENV,
     AUTO_DISCOVERY,
     CORS_ORIGINS,
     CREDIT_CONSERVATION_MODE,
@@ -407,7 +408,19 @@ async def lifespan(app: FastAPI):
         logger.info("[startup] Background tasks stopped.")
 
 
-app = FastAPI(title="Job Apply API", version="0.1.0", lifespan=lifespan)
+# /docs, /redoc and /openapi.json are FastAPI defaults — reachable by anyone
+# unless explicitly disabled. In production that hands out the full route
+# map, parameter names and schemas to an unauthenticated caller for free;
+# there is no legitimate public consumer of this API's interactive docs.
+_DOCS_ENABLED = APP_ENV != "production"
+app = FastAPI(
+    title="Job Apply API",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url=    "/docs"        if _DOCS_ENABLED else None,
+    redoc_url=   "/redoc"       if _DOCS_ENABLED else None,
+    openapi_url= "/openapi.json" if _DOCS_ENABLED else None,
+)
 
 
 # ── Global exception safety net ───────────────────────────────────────────────

@@ -365,12 +365,19 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   const [parsedCv,         setParsedCv]         = useState<ParsedCV | null>(null)
   const [isDirty,          setIsDirty]          = useState(false)
   const [isSaving,         setIsSaving]         = useState(false)
+  // Both catch-blocks below used to fail completely silently — spinner
+  // stops, nothing tells the user their edit wasn't persisted, and
+  // handleEditorSave's failure is reachable from LiveEditor's own 30s
+  // autosave timer, not just a manual click. These surface it the same way
+  // downloadError already does for PDF download, just above.
+  const [saveError,        setSaveError]        = useState<string | null>(null)
   const [isScoreLoading,   setIsScoreLoading]   = useState(false)
   // Draft mode — Copilot/LiveEditor edits only ever touch local state above.
   // hasUnsavedDraft tracks whether that local state has diverged from what's
   // actually persisted server-side; only handleSaveDraft() closes the gap.
   const [hasUnsavedDraft,  setHasUnsavedDraft]  = useState(false)
   const [isSavingDraft,    setIsSavingDraft]    = useState(false)
+  const [saveDraftError,   setSaveDraftError]   = useState<string | null>(null)
   // Copilot state
   const [copilotPrompt,    setCopilotPrompt]    = useState('')
   // Ref mirrors copilotPrompt so handleCopilotSubmit always reads the latest
@@ -548,6 +555,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     if (!parsedCv || isSaving) return
     setIsSaving(true)
     setIsScoreLoading(true)
+    setSaveError(null)
     try {
       const editedCvData = toLiveEditorCvData(parsedCv)
       const [score, pdfB64] = await Promise.all([
@@ -562,7 +570,13 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       setIsDirty(false)
       setHasUnsavedDraft(true)   // local-only edit — not persisted until handleSaveDraft
       setIsEditMode(false)   // return to PDF view so updated score is front-and-center
-    } catch { /* keep dirty state — user can retry */ } finally {
+    } catch (e: unknown) {
+      // Stay in edit mode with isDirty still true — the edit itself is safe
+      // (parsedCv is untouched), only the save attempt failed. Reachable
+      // from LiveEditor's own 30s autosave timer, not just a manual click,
+      // so this can appear without the user having just pressed anything.
+      setSaveError(e instanceof Error ? e.message : 'Save failed. Your edits are safe — try again.')
+    } finally {
       setIsSaving(false)
       setIsScoreLoading(false)
     }
@@ -571,10 +585,15 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   const handleSaveDraft = useCallback(async () => {
     if (!cvState || isSavingDraft) return
     setIsSavingDraft(true)
+    setSaveDraftError(null)
     try {
       await saveCv(job.id, cvState.cvData, matchScore as unknown as Record<string, unknown> | null)
       setHasUnsavedDraft(false)
-    } catch { /* keep hasUnsavedDraft — user can retry */ } finally {
+    } catch (e: unknown) {
+      // hasUnsavedDraft stays true — the banner (and this message) remain
+      // visible until a retry succeeds, instead of silently disappearing.
+      setSaveDraftError(e instanceof Error ? e.message : 'Save failed. Try again.')
+    } finally {
       setIsSavingDraft(false)
     }
   }, [cvState, isSavingDraft, job.id, matchScore])
@@ -825,30 +844,37 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
               {hasUnsavedDraft && (
                 <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  gap: 10, marginTop: 4, marginBottom: 12,
+                  display: 'flex', flexDirection: 'column', gap: 6,
+                  marginTop: 4, marginBottom: 12,
                   padding: '8px 12px', borderRadius: 10,
-                  border: `1px solid ${TOKENS.color.line}`,
-                  background: TOKENS.color.primarySoft,
+                  border: `1px solid ${saveDraftError ? TOKENS.color.danger : TOKENS.color.line}`,
+                  background: saveDraftError ? '#FEF2F2' : TOKENS.color.primarySoft,
                 }}>
-                  <span style={{ fontSize: 11.5, color: TOKENS.color.ink2 }}>
-                    Unsaved draft changes — closing without saving reverts to your base profile CV.
-                  </span>
-                  <button
-                    onClick={handleSaveDraft}
-                    disabled={isSavingDraft}
-                    style={{
-                      flexShrink: 0,
-                      fontSize: 11.5, fontWeight: 700,
-                      color: '#fff', background: TOKENS.color.primary,
-                      border: 'none', borderRadius: 8,
-                      padding: '6px 12px',
-                      cursor: isSavingDraft ? 'default' : 'pointer',
-                      opacity: isSavingDraft ? 0.6 : 1,
-                    }}
-                  >
-                    {isSavingDraft ? 'Saving…' : 'Save Changes to Base Profile'}
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                    <span style={{ fontSize: 11.5, color: TOKENS.color.ink2 }}>
+                      Unsaved draft changes — closing without saving reverts to your base profile CV.
+                    </span>
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={isSavingDraft}
+                      style={{
+                        flexShrink: 0,
+                        fontSize: 11.5, fontWeight: 700,
+                        color: '#fff', background: TOKENS.color.primary,
+                        border: 'none', borderRadius: 8,
+                        padding: '6px 12px',
+                        cursor: isSavingDraft ? 'default' : 'pointer',
+                        opacity: isSavingDraft ? 0.6 : 1,
+                      }}
+                    >
+                      {isSavingDraft ? 'Saving…' : 'Save Changes to Base Profile'}
+                    </button>
+                  </div>
+                  {saveDraftError && (
+                    <span style={{ fontSize: 11, color: TOKENS.color.danger }}>
+                      ✕ {saveDraftError}
+                    </span>
+                  )}
                 </div>
               )}
             </>
@@ -1127,6 +1153,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
               isDirty={isDirty}
               isSaving={isSaving}
               onSave={handleEditorSave}
+              saveError={saveError}
             />
           ) : cvState ? (
             <iframe
