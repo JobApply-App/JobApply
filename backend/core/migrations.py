@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Importing the model modules registers every ORM class on Base.metadata so
 # that Base.metadata.create_all() below creates all tables, not just the ones
 # some other import happened to touch first.
-from backend.models import application, ariel, kv, matching, profile  # noqa: F401
+from backend.models import application, ariel, cv_generation, kv, matching, profile  # noqa: F401
 
 
 def _migrate() -> None:
