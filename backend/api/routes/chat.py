@@ -37,7 +37,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit, standard_rate_limit
+from backend.api.deps import CurrentUser, daily_chat_limit, get_current_user, llm_rate_limit, standard_rate_limit
 from backend.core.database import ENGINE
 from backend.agents.ariel_tools import ARIEL_TOOLS, execute_tool
 from backend.services.user_profile import get_profile, format_profile_compact
@@ -316,7 +316,7 @@ async def _stream_response(
 
 # ── Route ──────────────────────────────────────────────────────────────────────
 
-@router.post("/stream")
+@router.post("/stream", dependencies=[Depends(daily_chat_limit)])
 async def chat_stream(
     body: ChatStreamRequest,
     user: CurrentUser = Depends(get_current_user),
@@ -335,6 +335,12 @@ async def chat_stream(
 
     system = _build_system_prompt(body.job_context, user.user_id)
     _check_anthropic_key()
+
+    try:
+        from backend.repositories import chat_message_log_repository
+        chat_message_log_repository.record(user.user_id, "stream")
+    except Exception as exc:
+        logger.warning("[chat/stream] Failed to log message for daily cap: %s", exc)
 
     return StreamingResponse(
         _stream_response(body.messages, system, user.user_id),
@@ -1120,7 +1126,7 @@ def _ingest_cv_from_chat(user_id: str, item: AttachmentItem) -> None:
 
 # ── Route ─────────────────────────────────────────────────────────────────────
 
-@router.post("/ariel/private")
+@router.post("/ariel/private", dependencies=[Depends(daily_chat_limit)])
 async def ariel_private(
     body:       ArielPrivateRequest,
     background: BackgroundTasks,
@@ -1203,6 +1209,12 @@ async def ariel_private(
     ]
 
     _check_anthropic_key()
+
+    try:
+        from backend.repositories import chat_message_log_repository
+        chat_message_log_repository.record(user.user_id, "ariel_private")
+    except Exception as exc:
+        logger.warning("[chat/ariel/private] Failed to log message for daily cap: %s", exc)
 
     return StreamingResponse(
         _ariel_tool_loop_then_stream(messages, system, user.user_id, db_session),

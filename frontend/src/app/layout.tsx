@@ -12,7 +12,10 @@ import { ChatLauncher }        from '@/components/ChatLauncher'
 const inter = Inter({ subsets: ['latin', 'latin-ext'] })
 
 export const metadata: Metadata = {
-  title: 'Job Apply',
+  title: {
+    template: '%s | JobApply',
+    default: 'JobApply',
+  },
   description: 'AI-powered job search automation',
 }
 

@@ -1,6 +1,6 @@
 import { LegalPage } from '@/components/legal/LegalPage'
 
-export const metadata = { title: 'Privacy Policy — JobApply' }
+export const metadata = { title: 'Privacy Policy' }
 
 export default function PrivacyPage() {
   return (

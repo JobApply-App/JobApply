@@ -309,3 +309,33 @@ async def daily_generation_limit(user: CurrentUser = Depends(get_current_user)) 
                 "generating a new one."
             ),
         )
+
+
+DAILY_CHAT_MESSAGE_CAP = 40
+
+
+async def daily_chat_limit(user: CurrentUser = Depends(get_current_user)) -> None:
+    """
+    FastAPI dependency: reject with 429 once the caller has sent
+    DAILY_CHAT_MESSAGE_CAP Ariel messages today (UTC), across both chat
+    surfaces (POST /chat/stream and POST /chat/ariel/private).
+
+    40/day covers roughly 5-8 real conversations for someone using Ariel as
+    a career assistant, while stopping the case that actually drives cost: a
+    single very long, continuous session. Each request resends the full
+    system prompt plus the growing history, so cost per turn rises through a
+    session, not just message count — a firm daily ceiling is what actually
+    bounds worst-case spend per account, since a per-minute burst limit
+    (llm_rate_limit, already applied) does not.
+    """
+    from backend.repositories import chat_message_log_repository
+
+    used = chat_message_log_repository.count_today(user.user_id)
+    if used >= DAILY_CHAT_MESSAGE_CAP:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"You've reached today's limit of {DAILY_CHAT_MESSAGE_CAP} messages "
+                "with Ariel. This resets at midnight UTC."
+            ),
+        )
