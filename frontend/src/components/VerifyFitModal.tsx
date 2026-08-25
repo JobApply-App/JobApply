@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import type { VerifyChatEntry, VerifyChatStatus } from '@/lib/apiTypes'
 import { sendVerifyChat } from '@/lib/api'
 import { TOKENS } from '@/lib/tokens'
-import { useEscapeToClose } from '@/hooks/useEscapeToClose'
+import { useDialogA11y } from '@/hooks/useDialogA11y'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -217,7 +217,7 @@ export function VerifyFitModal({
   const startedRef  = useRef(false)
   const panelRef    = useRef<HTMLDivElement>(null)
 
-  useEscapeToClose(onClose, panelRef)
+  useDialogA11y(onClose, panelRef)
 
   // Auto-scroll to bottom whenever log or thinking state changes
   useEffect(() => {

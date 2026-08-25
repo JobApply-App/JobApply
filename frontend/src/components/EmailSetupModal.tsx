@@ -18,6 +18,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { TOKENS } from '@/lib/tokens'
 import { fetchGmailVerificationCode, GmailCodeForbiddenError } from '@/lib/api'
+import { useDialogA11y } from '@/hooks/useDialogA11y'
 import {
   MailIcon,
   CopyIcon,
@@ -313,13 +314,8 @@ export function EmailSetupModal({ open, onClose }: EmailSetupModalProps) {
     }
   }, [open])
 
-  // Escape to close
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [open, onClose])
+  const panelRef = useRef<HTMLDivElement>(null)
+  useDialogA11y(onClose, panelRef, open)
 
   // Lock body scroll
   useEffect(() => {
@@ -385,10 +381,12 @@ export function EmailSetupModal({ open, onClose }: EmailSetupModalProps) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="email-setup-modal-title"
-        className="relative w-full max-w-[520px] max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-floating border border-slate-200 animate-modal-in"
+        tabIndex={-1}
+        className="relative w-full max-w-[520px] max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-floating border border-slate-200 animate-modal-in outline-none"
         style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}
       >
         {/* ── Header ── */}
