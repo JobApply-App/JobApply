@@ -199,6 +199,20 @@ export interface Dict {
     no_description:    string
     skills_gap:        string
   }
+  discover: {
+    banner_title:    string
+    banner_body:     string
+    complete_cta:    string
+    heading:         string
+    subheading:      string
+    roles_count:     string   // takes {n}
+    teaser:          string
+    unknown_company: string
+    empty_title:     string
+    empty_body:      string
+    error_title:     string
+    error_body:      string
+  }
   job_feed: {
     heading:        string
     subheading:     string

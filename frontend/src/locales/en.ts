@@ -221,6 +221,21 @@ export const en = {
     skills_gap:        'Skills Gap Analysis',
   },
 
+  discover: {
+    banner_title:    'Your match scores are waiting',
+    banner_body:     'Complete your profile to unlock personalised match scores for every job below.',
+    complete_cta:    'Complete profile',
+    heading:         'Fresh roles on the board',
+    subheading:      'A cross-section of what we are tracking right now — complete your profile to see how you match.',
+    roles_count:     '{n} roles',
+    teaser:          'Complete your profile to see your match score',
+    unknown_company: 'Unknown company',
+    empty_title:     'No jobs discovered yet',
+    empty_body:      'Our agents are warming up. Roles will appear here once the first scraping cycle completes.',
+    error_title:     'Could not load jobs',
+    error_body:      'Something went wrong fetching the latest roles. Refresh the page to try again.',
+  },
+
   job_feed: {
     heading:            'Top Matches for You',
     subheading:         'Jobs scored against your profile and sorted by ATS match.',
