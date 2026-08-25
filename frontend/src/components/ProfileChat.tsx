@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import type { InterviewSession, ConfidenceClaim } from '@/lib/apiTypes'
 import {
@@ -112,14 +113,15 @@ interface DraftPanelProps {
 }
 
 function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
+  const C = useI18n().t.profile_chat
   const { draft_profile, confidence_map } = session
   if (!draft_profile) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-3">
         <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-2xl">📋</div>
-        <p className="text-[13px] font-semibold text-slate-700">Profile Being Built</p>
+        <p className="text-[13px] font-semibold text-slate-700">{C.empty_title}</p>
         <p className="text-[12px] text-slate-400 leading-relaxed">
-          As you chat, your profile will appear here with confidence scores for each claim.
+          {C.empty_body}
         </p>
       </div>
     )
@@ -135,16 +137,16 @@ function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
 
   return (
     <div className="p-4 space-y-5 overflow-y-auto h-full">
-      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Profile Draft</p>
+      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{C.draft_heading}</p>
 
       {/* Education */}
       {edu.length > 0 && (
         <section>
-          <p className="text-[11.5px] font-semibold text-slate-600 mb-2">Education</p>
+          <p className="text-[11.5px] font-semibold text-slate-600 mb-2">{C.education}</p>
           <div className="space-y-2">
             {edu.map((e: any, idx: number) => {
               const claim = claimFor(`education.${idx}`)
-              const label = e.degree || e.certification || 'Degree'
+              const label = e.degree || e.certification || C.degree_fallback
               const inst  = e.institution || '?'
               const dates = [e.start_year, e.end_year].filter(Boolean).join('–') || '?'
               const needsDoc = claim && claim.score < 60 && (label || inst)
@@ -171,7 +173,7 @@ function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
                       )}
                       className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-violet-700 hover:text-violet-900"
                     >
-                      <UploadIcon s={11} /> Upload transcript to verify
+                      <UploadIcon s={11} /> {C.upload_transcript}
                     </button>
                   )}
                 </div>
@@ -184,7 +186,7 @@ function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
       {/* Experience */}
       {exp.length > 0 && (
         <section>
-          <p className="text-[11.5px] font-semibold text-slate-600 mb-2">Experience</p>
+          <p className="text-[11.5px] font-semibold text-slate-600 mb-2">{C.experience}</p>
           <div className="space-y-2">
             {exp.map((e: any, idx: number) => {
               const claim  = claimFor(`experience.${idx}`)
@@ -218,7 +220,7 @@ function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
                       )}
                       className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-violet-700 hover:text-violet-900"
                     >
-                      <UploadIcon s={11} /> Upload employment letter to verify
+                      <UploadIcon s={11} /> {C.upload_letter}
                     </button>
                   )}
                 </div>
@@ -231,7 +233,7 @@ function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
       {/* Military */}
       {mil && mil.role && (
         <section>
-          <p className="text-[11.5px] font-semibold text-slate-600 mb-2">Military Service</p>
+          <p className="text-[11.5px] font-semibold text-slate-600 mb-2">{C.military}</p>
           <div className="rounded-lg border border-slate-100 bg-white px-3 py-2.5">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -252,7 +254,7 @@ function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
                 onClick={() => onUploadRequest(`${mil.role} at ${mil.unit}`, 'military_record')}
                 className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-violet-700 hover:text-violet-900"
               >
-                <UploadIcon s={11} /> Upload discharge record to verify
+                <UploadIcon s={11} /> {C.upload_discharge}
               </button>
             )}
           </div>
@@ -262,7 +264,7 @@ function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
       {/* Skills */}
       {skills.length > 0 && (
         <section>
-          <p className="text-[11.5px] font-semibold text-slate-600 mb-2">Skills Mentioned</p>
+          <p className="text-[11.5px] font-semibold text-slate-600 mb-2">{C.skills_mentioned}</p>
           <div className="flex flex-wrap gap-1.5">
             {skills.map((sk: string) => (
               <span key={sk} className="h-6 px-2.5 rounded-full bg-slate-100 text-slate-700 text-[11.5px] font-medium border border-slate-200">
@@ -276,8 +278,9 @@ function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
       {/* Overall completion */}
       <section className="pt-2 border-t border-slate-100">
         <p className="text-[11px] text-slate-400 text-center">
-          {Object.keys(confidence_map).length} claim(s) extracted ·{' '}
-          {Object.values(confidence_map).filter(c => c.score >= 100).length} verified
+          {C.claims_summary
+            .replace('{claims}',   String(Object.keys(confidence_map).length))
+            .replace('{verified}', String(Object.values(confidence_map).filter(c => c.score >= 100).length))}
         </p>
       </section>
     </div>
@@ -295,6 +298,7 @@ interface UploadZoneProps {
 }
 
 function UploadZone({ sessionId, claim, docType, onVerified, onClose }: UploadZoneProps) {
+  const U = useI18n().t.profile_chat.upload_modal
   const [uploading, setUploading] = useState(false)
   const [result,    setResult]    = useState<null | { status: string; match_notes: string }>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -306,11 +310,11 @@ function UploadZone({ sessionId, claim, docType, onVerified, onClose }: UploadZo
       setResult(res.verification)
       onVerified(res as any)
     } catch {
-      setResult({ status: 'unreadable', match_notes: 'Upload failed. Please try again.' })
+      setResult({ status: 'unreadable', match_notes: U.upload_failed })
     } finally {
       setUploading(false)
     }
-  }, [sessionId, claim, docType, onVerified])
+  }, [sessionId, claim, docType, onVerified, U.upload_failed])
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -327,8 +331,8 @@ function UploadZone({ sessionId, claim, docType, onVerified, onClose }: UploadZo
       <div className="w-full max-w-md rounded-2xl bg-white shadow-floating p-6 flex flex-col gap-4 animate-modal-in">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[14px] font-semibold text-slate-900">Upload Verification Document</p>
-            <p className="text-[12px] text-slate-500 mt-0.5">Claim: <em>{claim}</em></p>
+            <p className="text-[14px] font-semibold text-slate-900">{U.title}</p>
+            <p className="text-[12px] text-slate-500 mt-0.5">{U.claim_label} <em>{claim}</em></p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-lg leading-none">✕</button>
         </div>
@@ -341,12 +345,12 @@ function UploadZone({ sessionId, claim, docType, onVerified, onClose }: UploadZo
             className="border-2 border-dashed border-slate-200 rounded-xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:border-violet-300 hover:bg-violet-50 transition"
           >
             {uploading ? (
-              <><SpinnerIcon s={24} /><p className="text-[13px] text-slate-500">Analysing document…</p></>
+              <><SpinnerIcon s={24} /><p className="text-[13px] text-slate-500">{U.analysing}</p></>
             ) : (
               <>
                 <UploadIcon s={28} />
-                <p className="text-[13px] font-medium text-slate-700">Drop PDF or image here</p>
-                <p className="text-[11.5px] text-slate-400">PDF · PNG · JPG · WEBP — max 10 MB</p>
+                <p className="text-[13px] font-medium text-slate-700">{U.drop_prompt}</p>
+                <p className="text-[11.5px] text-slate-400">{U.formats_hint}</p>
               </>
             )}
             <input
@@ -365,17 +369,17 @@ function UploadZone({ sessionId, claim, docType, onVerified, onClose }: UploadZo
                                              'border-slate-200 bg-slate-50'
           }`}>
             <p className="text-[13px] font-semibold text-slate-800 mb-1">
-              {result.status === 'verified'   ? '✓ Verified!' :
-               result.status === 'partial'    ? '~ Partially verified' :
-               result.status === 'failed'     ? '✗ Not verified' :
-                                                '⚠ Could not read document'}
+              {result.status === 'verified'   ? U.verified :
+               result.status === 'partial'    ? U.partial :
+               result.status === 'failed'     ? U.failed :
+                                                U.unreadable}
             </p>
             <p className="text-[12.5px] text-slate-600">{result.match_notes}</p>
           </div>
         )}
 
         <button onClick={onClose} className="text-[12px] text-slate-400 hover:text-slate-600 text-center">
-          {result ? 'Close' : 'Cancel'}
+          {result ? U.close : U.cancel}
         </button>
       </div>
     </div>
@@ -385,6 +389,7 @@ function UploadZone({ sessionId, claim, docType, onVerified, onClose }: UploadZo
 // ── Optimization mode badge ───────────────────────────────────────────────────
 
 function OptimizeBadge() {
+  const C = useI18n().t.profile_chat
   return (
     <span
       className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11px] font-semibold border"
@@ -397,16 +402,15 @@ function OptimizeBadge() {
       <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
         <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
       </svg>
-      Profile Optimization Mode
+      {C.optimize.badge}
     </span>
   )
 }
 
 // ── Main ProfileChat component ────────────────────────────────────────────────
 
-const DISCLAIMER = 'The AI gathers this information to accurately reflect your true professional capabilities. Providing honest, precise, and complete answers is essential to achieve a genuine match with roles that truly suit you.'
-
 export function ProfileChat({ intent, forceIntro = false }: { intent?: string; forceIntro?: boolean }) {
+  const C = useI18n().t.profile_chat
   const isOptimizeMode = intent === 'optimize_gaps'
 
   // Build the interview context from the authenticated user when available.
@@ -523,7 +527,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
         ...prev,
         messages: [...prev.messages, {
           role: 'assistant',
-          content: 'Sorry, something went wrong. Please try again.',
+          content: C.composer.send_failed,
           ts: new Date().toISOString(),
         }],
       } : prev)
@@ -531,7 +535,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
       setSending(false)
       textRef.current?.focus()
     }
-  }, [session, input, sending])
+  }, [session, input, sending, C.composer.send_failed])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -628,7 +632,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <SpinnerIcon s={28} />
-        <p className="text-[13.5px] text-slate-500">Restoring your session…</p>
+        <p className="text-[13.5px] text-slate-500">{C.restoring}</p>
       </div>
     )
   }
@@ -643,29 +647,23 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
             <div className="flex justify-center mb-3">
               <OptimizeBadge />
             </div>
-            <h2 className="text-[18px] font-bold text-slate-900 mb-2">Profile Strength Review</h2>
+            <h2 className="text-[18px] font-bold text-slate-900 mb-2">{C.optimize.title}</h2>
             <p className="text-[13.5px] text-slate-500 leading-relaxed">
-              The AI will scan your existing profile, identify the traits or skills with the
-              lowest confidence scores, acknowledge what it already knows about you, and then
-              ask you to elaborate deeply — so those gaps get fully filled in.
+              {C.optimize.body}
             </p>
             <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-              {[
-                { icon: '✦', label: 'Knows your profile', sub: 'Reads your captured data first' },
-                { icon: '📉', label: 'Finds weak spots',   sub: 'Targets low-confidence claims' },
-                { icon: '📈', label: 'Lifts your score',   sub: 'Deep answers raise confidence' },
-              ].map(f => (
-                <div key={f.label} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
-                  <div className="text-xl mb-1">{f.icon}</div>
-                  <p className="text-[11.5px] font-semibold text-slate-700">{f.label}</p>
-                  <p className="text-[10.5px] text-slate-400 mt-0.5">{f.sub}</p>
+              {['✦', '📉', '📈'].map((icon, i) => (
+                <div key={icon} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                  <div className="text-xl mb-1">{icon}</div>
+                  <p className="text-[11.5px] font-semibold text-slate-700">{C.optimize.features[i].label}</p>
+                  <p className="text-[10.5px] text-slate-400 mt-0.5">{C.optimize.features[i].sub}</p>
                 </div>
               ))}
             </div>
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left">
               <p className="text-[11.5px] text-amber-800 leading-relaxed">
-                <span className="font-semibold">ℹ️ Why accuracy matters: </span>
-                {DISCLAIMER}
+                <span className="font-semibold">ℹ️ {C.accuracy_label} </span>
+                {C.disclaimer}
               </p>
             </div>
           </div>
@@ -675,7 +673,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
             className="h-11 px-6 rounded-xl text-[14px] font-semibold text-white flex items-center gap-2 disabled:opacity-60"
             style={{ background: 'oklch(0.52 0.18 290)' }}
           >
-            {starting ? <><SpinnerIcon s={16} /> Analysing…</> : '✦ Review My Profile Strengths'}
+            {starting ? <><SpinnerIcon s={16} /> {C.optimize.analysing}</> : `✦ ${C.optimize.cta}`}
           </button>
         </div>
       )
@@ -685,28 +683,23 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
       <div className="flex flex-col items-center justify-center h-full gap-6 px-6">
         <div className="text-center max-w-md">
           <div className="text-4xl mb-4">🎙️</div>
-          <h2 className="text-[18px] font-bold text-slate-900 mb-2">Profile Builder</h2>
+          <h2 className="text-[18px] font-bold text-slate-900 mb-2">{C.intro.title}</h2>
           <p className="text-[13.5px] text-slate-500 leading-relaxed">
-            Build a verified, evidence-backed professional profile through conversation.
-            Every claim is scored for confidence — and you can upload documents to verify them.
+            {C.intro.body}
           </p>
           <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-            {[
-              { icon: '💬', label: 'Conversational', sub: 'Talk freely, we extract the data' },
-              { icon: '🎯', label: 'Evidence-first', sub: 'Every claim has a confidence score' },
-              { icon: '📄', label: 'Document verified', sub: 'Upload proof to reach 100%' },
-            ].map(f => (
-              <div key={f.label} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
-                <div className="text-xl mb-1">{f.icon}</div>
-                <p className="text-[11.5px] font-semibold text-slate-700">{f.label}</p>
-                <p className="text-[10.5px] text-slate-400 mt-0.5">{f.sub}</p>
+            {['💬', '🎯', '📄'].map((icon, i) => (
+              <div key={icon} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                <div className="text-xl mb-1">{icon}</div>
+                <p className="text-[11.5px] font-semibold text-slate-700">{C.intro.features[i].label}</p>
+                <p className="text-[10.5px] text-slate-400 mt-0.5">{C.intro.features[i].sub}</p>
               </div>
             ))}
           </div>
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left">
             <p className="text-[11.5px] text-amber-800 leading-relaxed">
-              <span className="font-semibold">ℹ️ Why accuracy matters: </span>
-              {DISCLAIMER}
+              <span className="font-semibold">ℹ️ {C.accuracy_label} </span>
+              {C.disclaimer}
             </p>
           </div>
         </div>
@@ -716,7 +709,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
           className="h-11 px-6 rounded-xl text-[14px] font-semibold text-white flex items-center gap-2 disabled:opacity-60"
           style={{ background: TOKENS.color.primary }}
         >
-          {starting ? <><SpinnerIcon s={16} /> Starting…</> : '✦ Start Profile Interview'}
+          {starting ? <><SpinnerIcon s={16} /> {C.intro.starting}</> : `✦ ${C.intro.cta}`}
         </button>
       </div>
     )
@@ -743,7 +736,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
           </div>
           <button
             onClick={handleReset}
-            title="Clear this session and start a new interview"
+            title={C.composer.new_session}
             className="h-7 px-3 rounded-full text-[11.5px] text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition shrink-0"
           >
             ↺ Reset Interview
@@ -784,7 +777,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
                 <div
                   className="w-7 h-7 rounded-full text-white text-[11px] font-bold flex items-center justify-center mr-2 mt-0.5 flex-shrink-0"
                   style={{ background: TOKENS.color.primary }}
-                  title="Adam — Profile Specialist"
+                  title={C.composer.specialist}
                 >
                   A
                 </div>
@@ -809,7 +802,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
               <div
                 className="w-7 h-7 rounded-full text-white text-[11px] font-bold flex items-center justify-center mr-2 mt-0.5 flex-shrink-0"
                 style={{ background: TOKENS.color.primary }}
-                title="Adam — Profile Specialist"
+                title={C.composer.specialist}
               >
                 A
               </div>
@@ -834,7 +827,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            title="Attach document"
+            title={C.composer.attach}
             className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition flex-shrink-0 disabled:opacity-40"
           >
             <PaperclipIcon s={16} />
@@ -852,7 +845,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type your answer… (Shift+Enter for new line)"
+            placeholder={C.composer.placeholder}
             rows={2}
             className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 bg-white"
           />

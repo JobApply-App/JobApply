@@ -144,6 +144,91 @@ export interface Dict {
       update_password_failed: string
     }
   }
+  profile_chat: {
+    empty_title:      string
+    empty_body:       string
+    draft_heading:    string
+    education:        string
+    experience:       string
+    military:         string
+    skills_mentioned: string
+    degree_fallback:  string
+    missing_prefix:   string   // "Missing: " + comma-joined details
+    upload_transcript: string
+    upload_letter:    string
+    upload_discharge: string
+    claims_summary:   string   // takes {claims} and {verified}
+    restoring:        string
+    optimize: {
+      badge:     string
+      title:     string
+      body:      string
+      features:  ReadonlyArray<{ label: string; sub: string }>
+      analysing: string
+      cta:       string
+    }
+    intro: {
+      title:    string
+      body:     string
+      features: ReadonlyArray<{ label: string; sub: string }>
+      starting: string
+      cta:      string
+    }
+    accuracy_label: string
+    disclaimer:     string
+    upload_modal: {
+      title:          string
+      claim_label:    string
+      analysing:      string
+      drop_prompt:    string
+      formats_hint:   string
+      verified:       string
+      partial:        string
+      failed:         string
+      unreadable:     string
+      upload_failed:  string
+      close:          string
+      cancel:         string
+    }
+    composer: {
+      placeholder:  string
+      attach:       string
+      new_session:  string
+      specialist:   string
+      send_failed:  string
+    }
+  }
+  complete_profile: {
+    welcome:        string   // takes {name}
+    welcome_there:  string   // fallback name when none is known
+    subtitle:       string
+    setting_up:     string
+    submit:         string
+    generic_error:  string
+  }
+  profile_builder: {
+    back:            string
+    title:           string
+    intro:           string
+    upload_prompt:   string
+    drop_prompt:     string
+    upload_hint:     string
+    uploading:       string
+    analyzing:       string
+    done_title:      string
+    // Counts are interpolated as {roles} / {skills}; the singular and
+    // plural variants are separate strings because the two languages
+    // inflect differently.
+    done_roles_one:   string
+    done_roles_many:  string
+    done_skills_one:  string
+    done_skills_many: string
+    done_summary:     string   // takes {roles} and {skills} phrases
+    upload_failed:   string
+    error_prefix:    string
+    try_again:       string
+    skip:            string
+  }
   onboarding: {
     showcase: {
       title:    string
