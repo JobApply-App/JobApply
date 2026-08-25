@@ -12,7 +12,7 @@ import { TOKENS } from '@/lib/tokens'
 
 const STATEMENT_DATE = 'August 25, 2026'
 const STATEMENT_DATE_HE = '25 באוגוסט 2026'
-const CONTACT_EMAIL = 'accessibility@jobapply.ai'
+const CONTACT_EMAIL = 'ronmorim98@gmail.com'
 
 const content = {
   en: {
