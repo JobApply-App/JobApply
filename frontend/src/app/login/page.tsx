@@ -4,6 +4,7 @@ import { useState, useRef, type FormEvent } from 'react'
 import { useRouter }           from 'next/navigation'
 import Link                    from 'next/link'
 import { useAuth }             from '@/contexts/AuthContext'
+import { useI18n }             from '@/contexts/I18nContext'
 import { LanguageSwitcher }    from '@/components/LanguageSwitcher'
 import { AuthLayout }          from '@/components/auth/AuthLayout'
 import { PasswordMeter, evaluatePassword } from '@/components/auth/PasswordMeter'
@@ -90,11 +91,20 @@ function ErrorBanner({ msg }: { msg: string }) {
   )
 }
 
+// The "back" affordance points left in LTR and right in RTL — a hardcoded
+// "←" points forward, not back, for a Hebrew reader.
+function BackArrow() {
+  const { dir } = useI18n()
+  return <span aria-hidden="true">{dir === 'rtl' ? '\u2192' : '\u2190'}</span>
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
   const { signIn, signInWithGoogle, sendPasswordResetOtp, verifyPasswordResetOtp, updatePassword } = useAuth()
   const router = useRouter()
+  const { t } = useI18n()
+  const L = t.login
 
   // ── Login form state ───────────────────────────────────────────────────────
   const [email,         setEmail]         = useState('')
@@ -133,7 +143,7 @@ export default function LoginPage() {
       await signIn(email, password)
       router.replace('/')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Sign-in failed.')
+      setError(err instanceof Error ? err.message : L.errors.sign_in_failed)
     } finally {
       setBusy(false)
     }
@@ -145,7 +155,7 @@ export default function LoginPage() {
     try {
       await signInWithGoogle(`${window.location.origin}/auth/callback`)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Google sign-in failed.')
+      setError(err instanceof Error ? err.message : L.errors.google_failed)
       setGoogleBusy(false)
     }
   }
@@ -157,13 +167,13 @@ export default function LoginPage() {
     setBusy(true)
     try {
       await sendPasswordResetOtp(fpEmail.trim())
-      setSuccessMsg(`A 6-digit code was sent to ${fpEmail}`)
+      setSuccessMsg(L.reset.code_sent.replace('{email}', fpEmail))
       setPhase('forgot-otp')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to send code.'
+      const msg = err instanceof Error ? err.message : L.errors.send_code_failed
       // Supabase won't create a new user — surface a clear message
       if (msg.toLowerCase().includes('signups not allowed') || msg.toLowerCase().includes('not found')) {
-        setError('No account found with that email address.')
+        setError(L.errors.no_account)
       } else {
         setError(msg)
       }
@@ -175,7 +185,7 @@ export default function LoginPage() {
   async function handleVerifyOtp(e: FormEvent) {
     e.preventDefault()
     const code = otp.join('')
-    if (code.length < 6) { setError('Enter all 6 digits.'); return }
+    if (code.length < 6) { setError(L.errors.enter_all_digits); return }
     setError(null)
     setBusy(true)
     try {
@@ -183,7 +193,7 @@ export default function LoginPage() {
       setSuccessMsg(null)
       setPhase('forgot-new-pw')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Invalid code. Please try again.')
+      setError(err instanceof Error ? err.message : L.errors.invalid_code)
     } finally {
       setBusy(false)
     }
@@ -192,7 +202,7 @@ export default function LoginPage() {
   async function handleSetNewPassword(e: FormEvent) {
     e.preventDefault()
     if (newPwStrength.level === 'weak' || newPwStrength.level === 'empty') {
-      setError('Please choose a stronger password.')
+      setError(L.errors.stronger_password)
       return
     }
     setError(null)
@@ -201,7 +211,7 @@ export default function LoginPage() {
       await updatePassword(newPw)
       router.replace('/')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update password.')
+      setError(err instanceof Error ? err.message : L.errors.update_password_failed)
     } finally {
       setBusy(false)
     }
@@ -236,13 +246,13 @@ export default function LoginPage() {
     return (
       <form onSubmit={handleSendOtp} className="space-y-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Reset your password</h2>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">{L.reset.request_title}</h2>
           <p className="text-sm text-slate-500 mt-1">
-            Enter your account email — we&apos;ll send a 6-digit code.
+            {L.reset.request_sub}
           </p>
         </div>
         <div>
-          <label htmlFor="fpEmail" className="block text-xs font-medium text-slate-700 mb-1.5">Email</label>
+          <label htmlFor="fpEmail" className="block text-xs font-medium text-slate-700 mb-1.5">{L.card.email_label}</label>
           <input
             id="fpEmail"
             type="email"
@@ -260,11 +270,11 @@ export default function LoginPage() {
           className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
           style={{ background: TOKENS.color.primary }}>
           {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
-          {busy ? 'Sending…' : 'Send Code'}
+          {busy ? L.reset.sending : L.reset.send_code}
         </button>
         <button type="button" onClick={resetToLogin}
           className="w-full text-sm text-slate-400 hover:text-slate-700 transition-colors">
-          ← Back to sign in
+          <BackArrow /> {L.page.back_to_sign_in}
         </button>
       </form>
     )
@@ -274,7 +284,7 @@ export default function LoginPage() {
     return (
       <form onSubmit={handleVerifyOtp} className="space-y-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Enter the code</h2>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">{L.reset.otp_title}</h2>
           {successMsg && (
             <p className="text-sm text-teal-700 mt-1 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">
               {successMsg}
@@ -298,7 +308,7 @@ export default function LoginPage() {
               className="w-11 h-12 rounded-xl border border-slate-200 bg-slate-50 text-center text-xl font-bold text-slate-900
                 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 transition disabled:opacity-50"
               autoFocus={i === 0}
-              aria-label={`OTP digit ${i + 1}`}
+              aria-label={L.reset.otp_digit_label.replace('{n}', String(i + 1))}
             />
           ))}
         </div>
@@ -308,16 +318,16 @@ export default function LoginPage() {
           className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
           style={{ background: TOKENS.color.primary }}>
           {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
-          {busy ? 'Verifying…' : 'Verify Code'}
+          {busy ? L.reset.verifying : L.reset.verify_code}
         </button>
         <div className="flex items-center justify-between text-xs text-slate-400">
           <button type="button" onClick={resetToLogin} className="hover:text-slate-700 transition-colors">
-            ← Back
+            <BackArrow /> {L.page.back}
           </button>
           <button type="button" disabled={busy}
             onClick={() => { setError(null); void handleSendOtp({ preventDefault: () => {} } as FormEvent) }}
             className="text-teal-700 hover:text-teal-800 font-medium transition-colors disabled:opacity-50">
-            Resend code
+            {L.reset.resend_code}
           </button>
         </div>
       </form>
@@ -328,11 +338,11 @@ export default function LoginPage() {
     return (
       <form onSubmit={handleSetNewPassword} className="space-y-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Set new password</h2>
-          <p className="text-sm text-slate-500 mt-1">Choose a strong password for your account.</p>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">{L.reset.new_pw_title}</h2>
+          <p className="text-sm text-slate-500 mt-1">{L.reset.new_pw_sub}</p>
         </div>
         <div>
-          <label htmlFor="newPw" className="block text-xs font-medium text-slate-700 mb-1.5">New Password</label>
+          <label htmlFor="newPw" className="block text-xs font-medium text-slate-700 mb-1.5">{L.reset.new_pw_label}</label>
           <div className="relative">
             <input
               id="newPw"
@@ -343,13 +353,13 @@ export default function LoginPage() {
               autoFocus
               value={newPw}
               onChange={e => { setError(null); setNewPw(e.target.value) }}
-              placeholder="Min. 8 characters"
+              placeholder={L.reset.new_pw_placeholder}
               className={`${inputCls()} pr-10`}
             />
             <button type="button" tabIndex={-1}
               onClick={() => setShowNewPw(v => !v)}
               className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600 transition-colors"
-              aria-label={showNewPw ? 'Hide password' : 'Show password'}>
+              aria-label={showNewPw ? L.card.hide_password : L.card.show_password}>
               {showNewPw ? <EyeClosedIcon /> : <EyeOpenIcon />}
             </button>
           </div>
@@ -361,7 +371,7 @@ export default function LoginPage() {
           className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
           style={{ background: TOKENS.color.primary }}>
           {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
-          {busy ? 'Saving…' : 'Save Password & Sign In'}
+          {busy ? L.reset.saving : L.reset.save_and_sign_in}
         </button>
       </form>
     )
@@ -371,25 +381,25 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      leftHeadline="Welcome back."
-      leftEyebrow="Your career engine is ready"
-      leftSubline="Ariel has been tracking new opportunities for you. Sign in to review your matches and continue building your profile."
+      leftHeadline={L.page.hero_headline}
+      leftEyebrow={L.page.hero_eyebrow}
+      leftSubline={L.page.hero_subline}
     >
       {/* Header strip */}
       <header className="flex-shrink-0 w-full">
         <div className="h-16 flex items-center justify-between px-6 sm:px-10">
           <Link href="/"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
-            aria-label="Back to home">
+            aria-label={L.page.back_to_home}>
             <ArrowLeftIcon />
-            Back
+            {L.page.back}
           </Link>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
             <Link href="/signup"
               className="inline-flex items-center h-9 px-4 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
               style={{ background: TOKENS.color.primary }}>
-              Get Started
+              {L.page.get_started}
             </Link>
           </div>
         </div>
@@ -408,8 +418,8 @@ export default function LoginPage() {
           {phase === 'login' && (
             <>
               <div className="mb-7">
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Sign in</h1>
-                <p className="text-sm text-slate-500 mt-1">Access your account and job matches</p>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{L.page.sign_in_title}</h1>
+                <p className="text-sm text-slate-500 mt-1">{L.page.sign_in_sub}</p>
               </div>
 
               <div
@@ -423,7 +433,7 @@ export default function LoginPage() {
                   {googleBusy
                     ? <span className="w-[18px] h-[18px] rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin flex-shrink-0" />
                     : <GoogleLogo />}
-                  {googleBusy ? 'Redirecting…' : 'Continue with Google'}
+                  {googleBusy ? L.card.redirecting : L.card.continue_google}
                 </button>
 
                 {/* Divider */}
@@ -432,14 +442,14 @@ export default function LoginPage() {
                     <div className="w-full border-t border-slate-100" />
                   </div>
                   <div className="relative flex justify-center text-xs text-slate-400">
-                    <span className="bg-white px-3">or sign in with email</span>
+                    <span className="bg-white px-3">{L.page.or_sign_in_email}</span>
                   </div>
                 </div>
 
                 {/* Form */}
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div>
-                    <label htmlFor="email" className="block text-xs font-medium text-slate-700 mb-1.5">Email</label>
+                    <label htmlFor="email" className="block text-xs font-medium text-slate-700 mb-1.5">{L.card.email_label}</label>
                     <input id="email" type="email" autoComplete="username" required
                       disabled={busy} value={email}
                       onChange={e => { setError(null); setEmail(e.target.value) }}
@@ -449,12 +459,12 @@ export default function LoginPage() {
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label htmlFor="password" className="block text-xs font-medium text-slate-700">
-                        Password
+                        {L.card.password_label}
                       </label>
                       <button type="button"
                         onClick={() => { setFpEmail(email); setPhase('forgot-email'); setError(null) }}
                         className="text-xs text-teal-700 hover:text-teal-800 font-medium transition-colors">
-                        Forgot password?
+                        {L.page.forgot_password}
                       </button>
                     </div>
                     <div className="relative">
@@ -466,7 +476,7 @@ export default function LoginPage() {
                       <button type="button" tabIndex={-1}
                         onClick={() => setShowPassword(v => !v)}
                         className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600 transition-colors"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                        aria-label={showPassword ? L.card.hide_password : L.card.show_password}>
                         {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
                       </button>
                     </div>
@@ -478,15 +488,15 @@ export default function LoginPage() {
                     className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
                     style={{ background: TOKENS.color.primary }}>
                     {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
-                    {busy ? 'Signing in…' : 'Sign in'}
+                    {busy ? L.card.signing_in : L.card.sign_in_btn}
                   </button>
                 </form>
 
                 <p className="text-center text-xs text-slate-500">
-                  Don&apos;t have an account?{' '}
+                  {L.card.no_account}
                   <Link href="/signup"
                     className="font-semibold text-teal-700 hover:text-teal-800 transition-colors">
-                    Get Started
+                    {L.card.sign_up_link}
                   </Link>
                 </p>
               </div>

@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react'
 import { dictionaries, type Dict, type Locale } from '@/locales'
+import { fetchLocalePreferences, updateLocalePreferences } from '@/lib/api'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,13 @@ interface I18nContextValue {
   setLocale: (l: Locale) => void
   t:         Dict
   dir:       'ltr' | 'rtl'
+  // The language generated CVs are written in — independent of the interface
+  // language on purpose: reading the product in Hebrew while applying to
+  // English-speaking companies in English is a normal pattern, not an edge
+  // case. Null until the server preference has loaded (anonymous visitors
+  // never load one), so callers can tell "not known yet" from a real value.
+  cvLocale:    Locale | null
+  setCvLocale: (l: Locale) => void
 }
 
 // ── Context ────────────────────────────────────────────────────────────────────
@@ -77,10 +85,51 @@ export function I18nProvider({
     document.documentElement.lang = locale
   }, [locale, dir])
 
+  const [cvLocale, setCvLocaleState] = useState<Locale | null>(null)
+
+  // Pull the signed-in user's stored preferences once on mount and adopt
+  // them. The cookie/localStorage copy is only a per-browser cache; the
+  // server row is what makes a language choice follow someone to a new
+  // device or a fresh browser instead of silently resetting to English.
+  //
+  // A failure here is deliberately silent: an anonymous visitor has no
+  // preferences row to read, and 401 is the normal answer, not an error
+  // worth putting on screen. The cookie-derived locale already in state
+  // stays in effect.
+  useEffect(() => {
+    let cancelled = false
+    fetchLocalePreferences()
+      .then((prefs) => {
+        if (cancelled) return
+        setCvLocaleState(prefs.cv_locale)
+        if (prefs.ui_locale !== locale) {
+          setLocaleState(prefs.ui_locale)
+          try { localStorage.setItem(LS_KEY, prefs.ui_locale) } catch { /* storage quota */ }
+          try { writeLocaleCookie(prefs.ui_locale) } catch { /* cookies disabled */ }
+        }
+      })
+      .catch(() => { /* anonymous visitor or offline — keep the cookie value */ })
+    return () => { cancelled = true }
+    // Mount-only: this adopts the stored preference once. Re-running it on
+    // every locale change would race a user's in-session switch against a
+    // stale server read and flip the UI back under them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l)
     try { localStorage.setItem(LS_KEY, l) } catch { /* storage quota */ }
     try { writeLocaleCookie(l) } catch { /* cookies disabled */ }
+    // Local state is updated first and never rolled back on failure: the
+    // switch the user just made should take effect even when the write
+    // fails (offline, signed out). The cookie still carries it across
+    // reloads in that case.
+    updateLocalePreferences({ ui_locale: l }).catch(() => { /* see above */ })
+  }, [])
+
+  const setCvLocale = useCallback((l: Locale) => {
+    setCvLocaleState(l)
+    updateLocalePreferences({ cv_locale: l }).catch(() => { /* see setLocale */ })
   }, [])
 
   // This is the outermost provider in the app (wraps everything else) — an
@@ -91,7 +140,9 @@ export function I18nProvider({
     setLocale,
     t: dictionaries[locale],
     dir,
-  }), [locale, setLocale, dir])
+    cvLocale,
+    setCvLocale,
+  }), [locale, setLocale, dir, cvLocale, setCvLocale])
 
   return (
     <I18nContext.Provider value={value}>

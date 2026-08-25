@@ -1172,3 +1172,24 @@ export function normaliseJob(m: ApiJobMatch, rank: number): Job {
     fitBrief:     m.fit_brief,
   }
 }
+
+// ── Language preferences ─────────────────────────────────────────────────────
+//
+// ui_locale drives which dictionary the interface renders from; cv_locale is
+// the language generated CVs come out in. They move independently — see
+// backend migration c5a91b3e7d02.
+
+export interface LocalePreferences {
+  ui_locale: 'en' | 'he'
+  cv_locale: 'en' | 'he'
+}
+
+export async function fetchLocalePreferences(): Promise<LocalePreferences> {
+  return get<LocalePreferences>('/api/settings/locales')
+}
+
+export async function updateLocalePreferences(
+  patchBody: Partial<LocalePreferences>,
+): Promise<LocalePreferences> {
+  return patch<Partial<LocalePreferences>, LocalePreferences>('/api/settings/locales', patchBody)
+}

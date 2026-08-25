@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.api.deps import CurrentUser, get_current_user, require_admin
-from backend.repositories import kv_repository
+from backend.repositories import kv_repository, profile_repository
 
 router = APIRouter()
 
@@ -120,3 +120,51 @@ async def get_gmail_verification_code(user: CurrentUser = Depends(require_admin)
         return GmailVerificationCodeResponse(code=None, captured_at=None)
 
     return GmailVerificationCodeResponse(code=entry.value, captured_at=entry.updated_at)
+
+
+# ── Language preferences ─────────────────────────────────────────────────────
+#
+# ui_locale and cv_locale are independent on purpose: browsing the product in
+# Hebrew while generating an English CV is a normal Israeli job-search
+# pattern. See migration c5a91b3e7d02 for the full rationale, including why
+# neither setting changes the language the profile is stored in.
+
+
+class LocalePreferences(BaseModel):
+    ui_locale: str
+    cv_locale: str
+
+
+class LocalePreferencesUpdate(BaseModel):
+    # Both optional so a caller can change one without restating the other —
+    # switching CV language must never silently change interface language.
+    ui_locale: Optional[str] = None
+    cv_locale: Optional[str] = None
+
+
+@router.get("/locales", response_model=LocalePreferences)
+async def get_locale_preferences(user: CurrentUser = Depends(get_current_user)) -> LocalePreferences:
+    """The caller's own interface and CV languages, defaulted when unset."""
+    return LocalePreferences(**profile_repository.get_locales(user.user_id))
+
+
+@router.patch("/locales", response_model=LocalePreferences)
+async def update_locale_preferences(
+    payload: LocalePreferencesUpdate,
+    user: CurrentUser = Depends(get_current_user),
+) -> LocalePreferences:
+    """
+    Update the caller's own language preferences.
+
+    Scoped to user.user_id from the verified token — the body carries no
+    user id, so this cannot be pointed at another account.
+    """
+    try:
+        updated = profile_repository.set_locales(
+            user.user_id,
+            ui_locale=payload.ui_locale,
+            cv_locale=payload.cv_locale,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return LocalePreferences(**updated)

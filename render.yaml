@@ -41,6 +41,12 @@ services:
     # locally with a bind-mounted volume, wasteful/pointless on a static
     # deployed image) and binds to Render's own dynamic $PORT instead of
     # the hardcoded 8000 the local Dockerfile/docker-compose.yml use.
+    #
+    # This replaces CMD only — the Dockerfile's ENTRYPOINT
+    # (backend/scripts/docker-entrypoint.sh) still wraps it, so
+    # `alembic upgrade head` runs against DATABASE_URL before uvicorn
+    # starts. A failed migration exits non-zero and Render keeps the
+    # previous release serving instead of promoting this one.
     dockerCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: APP_ENV

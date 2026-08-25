@@ -1470,6 +1470,50 @@ _CORE_QUESTIONS = {
 }
 
 
+# Language names as the model should see them. Keyed by the same locale
+# codes user_preferences.cv_locale is constrained to (migration
+# c5a91b3e7d02) — adding a language means adding an entry here plus
+# widening that CHECK constraint.
+_CV_LANGUAGE_NAMES: dict[str, str] = {"en": "English", "he": "Hebrew"}
+
+
+def _output_language_directive(cv_locale: str) -> str:
+    """
+    Prompt block instructing the model which language to write the CV in.
+
+    Returns "" for English, which is the language the stored profile is
+    already in and the language every prompt example is written in — an
+    explicit "write in English" directive there would only add tokens.
+
+    For any other language the directive is deliberately specific about what
+    must NOT be translated. Proper nouns carry ATS-matching weight: an
+    employer, a product, or a certification name rewritten into Hebrew stops
+    matching the job description that named it in English, so a Hebrew CV
+    that translated them would score worse than the English one it came
+    from. Section headings and prose are the parts that should read natively.
+    """
+    language = _CV_LANGUAGE_NAMES.get(cv_locale)
+    if not language or cv_locale == "en":
+        return ""
+
+    return (
+        f"\nOUTPUT_LANGUAGE: {language}\n"
+        f"Write every piece of prose in this CV in {language} — the professional "
+        f"summary, all bullet points, section headings and role descriptions — in "
+        f"natural, professional {language} written for a native reader, never a "
+        f"literal word-for-word rendering of the English source.\n"
+        f"KEEP IN THEIR ORIGINAL FORM, untranslated and untransliterated: company "
+        f"and employer names, product and project names, job titles that are "
+        f"industry-standard in English, technology and tool names, certification "
+        f"names, university and degree names, and the contact block. These are "
+        f"matched literally against the job description by applicant tracking "
+        f"systems — translating them destroys that match and makes this CV score "
+        f"worse than the English one it was built from.\n"
+        f"Keep the JSON structure, all field names and all field-length limits "
+        f"exactly as specified — only the human-readable values change language.\n"
+    )
+
+
 def _core_profile_gaps(user_id: str) -> list[dict]:
     """
     Return missing_data requests for any essential personal fields that are
@@ -1506,6 +1550,7 @@ class TailorAgent:
         self,
         job: JobMatch,
         supplemental_answers: Optional[dict] = None,
+        cv_locale: str = "en",
     ) -> dict:
         """
         Produce a tailored CV or a missing-data request for the given JobMatch.
@@ -1517,6 +1562,12 @@ class TailorAgent:
         supplemental_answers: mapping of question-id -> user answer from a
           previous missing_data round.  Injected into the prompt so the model
           can proceed without re-asking answered questions.
+
+        cv_locale: the language to WRITE the finished CV in. The stored
+          profile this is built from is always English (see migration
+          c5a91b3e7d02) — translation happens here, at render time, and
+          never writes back. Defaults to 'en' so every existing caller
+          keeps its current behaviour.
         """
         # ── STEP 0: Core profile check (before touching the LLM) ────────────
         # If essential contact fields are empty we must collect them first.
@@ -1599,12 +1650,15 @@ class TailorAgent:
                 f"{job.jd_structured}\n"
             )
 
+        output_language_block = _output_language_directive(cv_locale)
+
         user_msg = (
             f"JOB_TITLE:  {job.title}\n"
             f"COMPANY:    {job.company}\n"
             f"LOCATION:   {job.location}\n"
             f"CATEGORY:   {job.category or 'N/A'}\n"
             f"SCORE:      {job.score:.1f}\n"
+            f"{output_language_block}"
             f"{jd_structured_block}"
             f"{rationale_block}"
             f"{gaps_block}"

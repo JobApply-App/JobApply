@@ -94,6 +94,80 @@ export interface Dict {
       strength_labels: readonly [string, string, string, string, string]
       strength_hint:   string
     }
+    // Copy the sign-in page actually renders. Kept separate from `card`
+    // above, which was written against an earlier design and no longer
+    // matches what is on screen.
+    page: {
+      hero_eyebrow:     string
+      hero_headline:    string
+      hero_subline:     string
+      back_to_home:     string
+      back:             string
+      back_to_sign_in:  string
+      get_started:      string
+      sign_in_title:    string
+      sign_in_sub:      string
+      forgot_password:  string
+      or_sign_in_email: string
+      email_placeholder:string
+    }
+    // Password-reset flow: request a code, enter it, choose a new password.
+    reset: {
+      request_title:    string
+      request_sub:      string
+      send_code:        string
+      sending:          string
+      otp_title:        string
+      otp_digit_label:  string   // takes the digit position, e.g. "ספרה {n}"
+      verify_code:      string
+      verifying:        string
+      resend_code:      string
+      code_sent:        string   // takes the email address, e.g. "נשלח קוד אל {email}"
+      new_pw_title:     string
+      new_pw_sub:       string
+      new_pw_label:     string
+      new_pw_placeholder: string
+      save_and_sign_in: string
+      saving:           string
+    }
+    // User-facing failure messages. In the dictionary rather than inline so
+    // a Hebrew user does not get an English error at the moment something
+    // has already gone wrong for them.
+    errors: {
+      sign_in_failed:      string
+      google_failed:       string
+      send_code_failed:    string
+      no_account:          string
+      enter_all_digits:    string
+      invalid_code:        string
+      stronger_password:   string
+      update_password_failed: string
+    }
+  }
+  auth_layout: {
+    // These three figures are unverified marketing claims, not measured
+    // results. Same for the testimonial below, which names a person and an
+    // employer. Both were carried over from design mockups — confirm they
+    // are substantiated (or replace them) before launch.
+    metrics: readonly [string, string, string]
+    default_eyebrow:     string
+    default_headline:    string
+    default_subline:     string
+    testimonial_quote:   string
+    testimonial_name:    string
+    testimonial_initials:string
+    testimonial_role:    string
+  }
+  settings: {
+    language: {
+      heading:         string
+      intro:           string
+      interface_label: string
+      interface_help:  string
+      cv_label:        string
+      cv_help:         string
+      loading:         string
+    }
   }
   // Static labels used inside the landing-page UI mockups
   mockup: {

@@ -604,3 +604,103 @@ def list_onboarding_complete_user_ids() -> list[str]:
     with ENGINE.connect() as conn:
         rows = conn.execute(text("SELECT id FROM public.profiles WHERE onboarding_status = 'complete'")).fetchall()
     return [str(r[0]) for r in rows]
+
+
+# ── Language preferences ───────────────────────────────────────────────────────
+#
+# Deliberately NOT routed through the master_profile document that save()
+# writes. That document is replaced wholesale on every save, so a locale
+# living inside it would be a second copy that any concurrent profile write
+# could silently revert. These read and write the typed user_preferences
+# columns directly, which makes them the single authority — the same
+# treatment communication_style already gets, and for the same reason.
+#
+# See migration c5a91b3e7d02 for why ui_locale and cv_locale are separate,
+# and for why neither changes the language the profile itself is stored in.
+
+SUPPORTED_LOCALES: tuple[str, ...] = ("en", "he")
+DEFAULT_LOCALE = "en"
+
+
+def _coerce_locale(value, fallback: str = DEFAULT_LOCALE) -> str:
+    return value if value in SUPPORTED_LOCALES else fallback
+
+
+def get_locales(user_id: str) -> dict:
+    """
+    {"ui_locale": ..., "cv_locale": ...} for user_id.
+
+    Falls back to the default locale for a missing row, an unreadable
+    database, or a value outside SUPPORTED_LOCALES — a user should always
+    get a usable interface, never an error page, because a preference row
+    has not been created yet.
+    """
+    if not _is_valid_uuid(user_id):
+        return {"ui_locale": DEFAULT_LOCALE, "cv_locale": DEFAULT_LOCALE}
+    try:
+        with ENGINE.connect() as conn:
+            row = conn.execute(
+                text(
+                    "SELECT ui_locale, cv_locale FROM public.user_preferences "
+                    "WHERE user_id = CAST(:uid AS uuid)"
+                ),
+                {"uid": user_id},
+            ).fetchone()
+    except Exception:
+        logger.exception("[locales] read failed for user_id=%s — serving defaults", user_id)
+        return {"ui_locale": DEFAULT_LOCALE, "cv_locale": DEFAULT_LOCALE}
+
+    if row is None:
+        return {"ui_locale": DEFAULT_LOCALE, "cv_locale": DEFAULT_LOCALE}
+    return {"ui_locale": _coerce_locale(row[0]), "cv_locale": _coerce_locale(row[1])}
+
+
+def set_locales(
+    user_id: str,
+    *,
+    ui_locale: Optional[str] = None,
+    cv_locale: Optional[str] = None,
+) -> dict:
+    """
+    Update either locale (or both) and return the resulting pair.
+
+    Passing None for one leaves it untouched, so changing CV language never
+    silently changes the interface language. Raises ValueError on an
+    unsupported locale rather than coercing — a bad value here comes from a
+    caller bug or a hand-made request, and quietly writing 'en' instead
+    would hide it.
+    """
+    for value in (ui_locale, cv_locale):
+        if value is not None and value not in SUPPORTED_LOCALES:
+            raise ValueError(
+                f"Unsupported locale {value!r} — supported: {', '.join(SUPPORTED_LOCALES)}"
+            )
+
+    if ui_locale is None and cv_locale is None:
+        return get_locales(user_id)
+
+    # The INSERT branch needs concrete values for both columns; whichever
+    # side the caller did not specify falls back to the default rather than
+    # to the existing value, because on this branch there is no existing
+    # row to read from.
+    with Session(ENGINE) as session:
+        session.execute(
+            text("""
+                INSERT INTO public.user_preferences (user_id, ui_locale, cv_locale, updated_at)
+                VALUES (CAST(:uid AS uuid), :ui_insert, :cv_insert, now())
+                ON CONFLICT (user_id) DO UPDATE SET
+                    ui_locale = COALESCE(:ui_update, public.user_preferences.ui_locale),
+                    cv_locale = COALESCE(:cv_update, public.user_preferences.cv_locale),
+                    updated_at = now()
+            """),
+            {
+                "uid": user_id,
+                "ui_insert": ui_locale or DEFAULT_LOCALE,
+                "cv_insert": cv_locale or DEFAULT_LOCALE,
+                "ui_update": ui_locale,
+                "cv_update": cv_locale,
+            },
+        )
+        session.commit()
+
+    return get_locales(user_id)
