@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useChat }   from '@/contexts/ChatContext'
 import type { ChatMessage } from '@/contexts/ChatContext'
 import { useAuth }   from '@/contexts/AuthContext'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS }    from '@/lib/tokens'
 import { ArielChat } from '@/components/ArielChat'
 import { consumeArielWelcome } from '@/lib/onboardingFlags'
@@ -156,9 +157,9 @@ function renderMarkdown(text: string): React.ReactNode {
 
 // ── Tool-call Action Card (authenticated mode only) ───────────────────────────
 
-const TOOL_LABELS: Record<string, string> = {
-  tailor_resume_for_job: 'Resume Tailoring Triggered',
-}
+// Keyed by the backend's tool name; the label comes from
+// support_chat.tool_labels so it can be translated.
+type ToolLabelKey = 'tailor_resume_for_job'
 
 interface ActionCardProps {
   toolName:  string
@@ -168,12 +169,13 @@ interface ActionCardProps {
 }
 
 function ActionCard({ toolName, toolArgs, onConfirm, onDismiss }: ActionCardProps) {
+  const S = useI18n().t.support_chat
   const [dismissed, setDismissed] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
 
   if (dismissed) return null
 
-  const heading  = TOOL_LABELS[toolName] ?? toolName
+  const heading  = S.tool_labels[toolName as ToolLabelKey] ?? toolName
   const jobTitle = typeof toolArgs.job_title === 'string' ? toolArgs.job_title : ''
   const company  = typeof toolArgs.company   === 'string' ? toolArgs.company   : ''
   const skills   = Array.isArray(toolArgs.focus_skills)
@@ -213,7 +215,7 @@ function ActionCard({ toolName, toolArgs, onConfirm, onDismiss }: ActionCardProp
         )}
         {confirmed ? (
           <p className="text-[11.5px] font-medium text-teal-700 flex items-center gap-1.5">
-            <CheckIcon /> Tailoring started - check the Matches feed.
+            <CheckIcon /> {S.tailoring_started}
           </p>
         ) : (
           <div className="flex items-center gap-2 pt-0.5">
@@ -222,13 +224,13 @@ function ActionCard({ toolName, toolArgs, onConfirm, onDismiss }: ActionCardProp
               className="flex-1 h-8 rounded-lg text-white text-[11.5px] font-semibold tracking-wide transition active:scale-[0.97]"
               style={{ background: TOKENS.color.primary }}
             >
-              Confirm &amp; Generate
+              {S.confirm_generate}
             </button>
             <button
               onClick={() => { setDismissed(true); onDismiss() }}
               className="h-8 px-3 rounded-lg text-[11.5px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition"
             >
-              Cancel
+              {S.cancel}
             </button>
           </div>
         )}
@@ -338,11 +340,10 @@ const ELIYA = {
   border:      '#C7D2FE',   // indigo-200
 }
 
-const WELCOME_SUGGESTIONS = [
-  { icon: '🚀', label: 'What does JobApply do?',    prompt: 'What does JobApply do and how do I get started?' },
-  { icon: '🔐', label: 'Help me sign up',            prompt: 'I want to create an account — walk me through signing up.' },
-  { icon: '📄', label: 'How does CV tailoring work?', prompt: 'How does the CV tailoring feature work?' },
-  { icon: '🐛', label: "Something's not working",    prompt: "Something on the site isn't working for me. Can you help?" },
+const WELCOME_SUGGESTION_ICONS = [
+  // Icons only — label and prompt come from support_chat.suggestions,
+  // indexed positionally against this list.
+  '🚀', '🔐', '📄', '🐛',
 ]
 
 // ── Public (Eliya) chat panel ─────────────────────────────────────────────────
@@ -351,6 +352,7 @@ const WELCOME_SUGGESTIONS = [
 // state, calls /api/chat/public, and tracks a persistent anonymous session_id.
 
 function PublicChatPanel({ onClose }: { onClose: () => void }) {
+  const S = useI18n().t.support_chat
   const [messages,    setMessages]    = useState<ChatMessage[]>([])
   const [draft,       setDraft]       = useState('')
   const [thinking,    setThinking]    = useState(false)
@@ -443,7 +445,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
     const text = (override ?? draft).trim()
     if ((!text && !attachments.length) || thinking || !sessionId) return
 
-    const userMsg: ChatMessage = { role: 'user', content: text || 'Please look at the attached files.', ts: Date.now() }
+    const userMsg: ChatMessage = { role: 'user', content: text || S.attached_files, ts: Date.now() }
     // Snapshot current messages for history before state update
     const historySnapshot = messages
       .filter(m => m.role === 'user' || m.role === 'assistant')
@@ -542,12 +544,12 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
 
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
-      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      const msg = err instanceof Error ? err.message : S.generic_error
       setMessages(prev => [...prev, { role: 'assistant', content: msg, ts: Date.now() }])
     } finally {
       setThinking(false)
     }
-  }, [draft, thinking, sessionId, messages, attachments])
+  }, [draft, thinking, sessionId, messages, attachments, S.attached_files, S.generic_error])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
@@ -574,15 +576,15 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
             E
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-white leading-tight">Eliya</p>
-            <p className="text-[10.5px] leading-tight" style={{ color: '#a5b4fc' }}>Support &amp; Onboarding</p>
+            <p className="text-[13px] font-semibold text-white leading-tight">{S.name}</p>
+            <p className="text-[10.5px] leading-tight" style={{ color: '#a5b4fc' }}>{S.role}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
           {messages.length > 0 && (
             <button
               onClick={() => setMessages([])}
-              title="Clear conversation"
+              title={S.clear}
               className="w-11 h-11 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg transition-colors active:bg-indigo-500/25 sm:hover:bg-indigo-500/15"
               style={{ color: '#6366f1' }}
             >
@@ -591,8 +593,8 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
           )}
           <button
             onClick={onClose}
-            title="Close"
-            aria-label="Close Eliya"
+            title={S.close}
+            aria-label={S.close_label}
             // Persistent bg-white/10 chip (not hover/active-only) so the
             // close control reads as a clear, tappable affordance on touch
             // devices, where :hover never fires and the icon alone was low-
@@ -614,21 +616,20 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
             >
               E
             </div>
-            <p dir="ltr" className="text-[13px] font-semibold text-slate-700">Hi, I&apos;m Eliya</p>
-            <p dir="ltr" className="text-[12px] text-slate-400 leading-relaxed max-w-[240px]">
-              Ask me anything about JobApply and I&apos;ll help you get started.
+            <p className="text-[13px] font-semibold text-slate-700">{S.greeting_title}</p>
+            <p className="text-[12px] text-slate-400 leading-relaxed max-w-[240px]">
+              {S.greeting_body}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-[280px] pt-1">
-              {WELCOME_SUGGESTIONS.map(s => (
+              {WELCOME_SUGGESTION_ICONS.map((icon, i) => (
                 <button
-                  key={s.label}
-                  dir="ltr"
-                  onClick={() => handleSend(s.prompt)}
-                  className="inline-flex items-center gap-1.5 pl-2 pr-2.5 min-h-[44px] sm:py-1.5 sm:min-h-0 rounded-full border text-[12px] font-medium transition-colors"
+                  key={icon}
+                  onClick={() => handleSend(S.suggestions[i].prompt)}
+                  className="inline-flex items-center gap-1.5 ps-2 pe-2.5 min-h-[44px] sm:py-1.5 sm:min-h-0 rounded-full border text-[12px] font-medium transition-colors"
                   style={{ borderColor: ELIYA.border, background: ELIYA.primarySoft, color: ELIYA.primaryHover }}
                 >
-                  <span aria-hidden="true">{s.icon}</span>
-                  {s.label}
+                  <span aria-hidden="true">{icon}</span>
+                  {S.suggestions[i].label}
                 </button>
               ))}
             </div>
@@ -684,7 +685,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
                     type="button"
                     onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
                     className="shrink-0 opacity-70 hover:opacity-100 focus-visible:opacity-100 transition leading-none ml-0.5"
-                    title="Remove"
+                    title={S.remove}
                     aria-label={`Remove ${a.name}`}
                   >✕</button>
                 </div>
@@ -705,7 +706,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={() => fileRef.current?.click()}
             title={`Attach images or PDFs (screenshots help!) — max ${MAX_ATTACHMENTS} files, up to ${MAX_FILE_SIZE_MB}MB each, ${MAX_TOTAL_SIZE_MB}MB total`}
-            aria-label="Attach files"
+            aria-label={S.attach}
             disabled={thinking || attachments.length >= MAX_ATTACHMENTS}
             className="shrink-0 w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 focus-visible:text-slate-700 focus-visible:bg-slate-100 transition disabled:opacity-40"
           >
@@ -717,7 +718,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
             value={draft}
             onChange={handleDraftChange}
             onKeyDown={handleKeyDown}
-            placeholder="Ask Eliya anything…"
+            placeholder={S.placeholder}
             dir="auto"
             rows={1}
             autoFocus
@@ -730,8 +731,8 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
           <button
             onClick={() => handleSend()}
             disabled={(!draft.trim() && !attachments.length) || thinking}
-            title="Send (Enter)"
-            aria-label="Send message"
+            title={S.send}
+            aria-label={S.send}
             className="shrink-0 w-11 h-11 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white transition active:scale-95 disabled:opacity-35 disabled:pointer-events-none"
             style={{ background: ELIYA.primary }}
           >
@@ -800,6 +801,7 @@ function TopLeftResizeHandle({
   variant?:      'onLight' | 'onDark'
   onResizeStart: () => void
 }) {
+  const S = useI18n().t.support_chat
   const [hover, setHover]     = useState(false)
   const [dragging, setDragging] = useState(false)
   const dragRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null)
@@ -852,8 +854,8 @@ function TopLeftResizeHandle({
       onPointerDown={onPointerDown}
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
-      title="Drag to resize"
-      aria-label="Resize chat window"
+      title={S.resize}
+      aria-label={S.resize_label}
       role="separator"
       className="absolute top-1.5 left-1.5 z-20 w-[18px] h-[18px] rounded-full flex items-center justify-center touch-none transition-colors duration-150"
       style={{ background: chipBg, cursor: 'nwse-resize' }}
@@ -971,6 +973,7 @@ function OverlayShell({
 // Opening one closes the other (enforced in ChatContext).
 
 export function ChatOverlay() {
+  const S = useI18n().t.support_chat
   const { isOpen, closeChat, isEliyaOpen, closeEliya, openChat } = useChat()
   const { user, loading } = useAuth()
   const pathname = usePathname()
@@ -1015,7 +1018,7 @@ export function ChatOverlay() {
         isOpen={isEliyaOpen}
         onBackdropClick={closeEliya}
         handleVariant="onDark"
-        ariaLabel="Ask Eliya — Support & Onboarding"
+        ariaLabel={S.launcher_label}
         shadowColor="rgba(79,70,229,0.18)"
       >
         <PublicChatPanel onClose={closeEliya} />

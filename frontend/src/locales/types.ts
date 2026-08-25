@@ -199,6 +199,62 @@ export interface Dict {
     no_description:    string
     skills_gap:        string
   }
+  ariel: {
+    name:            string
+    role:            string
+    launcher_title:  string
+    launcher_label:  string
+    job_context:     string
+    continue_recent: string
+    continue_hint:   string
+    start_new:       string
+    what_work_on:    string
+    input_start:     string
+    input_reply:     string
+    quick_actions: ReadonlyArray<{ label: string; prompt: string }>
+    msg: {
+      copy: string; copied: string; reply: string; translate: string
+      regenerate: string; pin: string; unpin: string; report: string; delete: string
+      show_original: string; show_translation: string
+    }
+    history_close_label: string
+    close:           string
+    minimize:        string
+    minimize_label:  string
+    close_label:     string
+    minimize_hint:   string
+    history_title:   string
+    new_conversation:string
+    remove:          string
+    attach:          string
+    stop:            string
+    send:            string
+    generic_error:   string
+    attached_files:  string
+  }
+  support_chat: {
+    name:            string
+    role:            string
+    greeting_title:  string
+    greeting_body:   string
+    placeholder:     string
+    clear:           string
+    close:           string
+    close_label:     string
+    attach:          string
+    send:            string
+    remove:          string
+    resize:          string
+    resize_label:    string
+    launcher_label:  string
+    generic_error:   string
+    attached_files:  string
+    suggestions: ReadonlyArray<{ label: string; prompt: string }>
+    tool_labels: { tailor_resume_for_job: string }
+    tailoring_started: string
+    confirm_generate:  string
+    cancel:            string
+  }
   discover: {
     banner_title:    string
     banner_body:     string
