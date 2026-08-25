@@ -1,5 +1,6 @@
 'use client'
 
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
 import type { MatchScoreResult } from '@/lib/apiTypes'
@@ -143,6 +144,8 @@ export interface MatchScorePanelProps {
 }
 
 export function MatchScorePanel({ score, isLoading, baselineScore }: MatchScorePanelProps) {
+  const { t } = useI18n()
+  const M = t.match_score
   // Floor the displayed total at the baseline: the tailored CV is always at
   // least as strong as the candidate's raw profile for this role.
   const displayTotal = Math.max(score.total, baselineScore ?? 0)
@@ -165,14 +168,14 @@ export function MatchScorePanel({ score, isLoading, baselineScore }: MatchScoreP
         <CircleGauge total={displayTotal} fg={fg} ring={ring} isLoading={isLoading} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: 13, fontWeight: 700, color: fg, lineHeight: 1.2 }}>
-            {band.label} match
+            {M.band_suffix.replace('{band}', t.score_bands[band.key])}
           </p>
           <p style={{ fontSize: 11, color: TOKENS.color.muted, marginTop: 2 }}>
-            Optimized ATS score
+            {M.optimized_ats}
           </p>
           {baselineScore != null && baselineScore > 0 && (
             <p style={{ fontSize: 10, color: TOKENS.color.muted, marginTop: 3, opacity: 0.8 }}>
-              Boosted from your <span style={{ fontVariantNumeric: 'tabular-nums' }}>{baselineScore.toFixed(1)}</span>% baseline fit
+              {M.boosted_from.replace('{score}', baselineScore.toFixed(1))}
             </p>
           )}
           {score.llm_validated && (
@@ -183,7 +186,7 @@ export function MatchScorePanel({ score, isLoading, baselineScore }: MatchScoreP
               background: TOKENS.color.primarySoft,
               color: TOKENS.color.primary,
             }}>
-              AI-validated
+              {M.ai_validated}
             </span>
           )}
         </div>
@@ -191,9 +194,9 @@ export function MatchScorePanel({ score, isLoading, baselineScore }: MatchScoreP
 
       {/* ── Sub-dimension bars ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-        <SubBar label="Keyword overlap"    value={score.keyword_overlap}     max={40} fg={ring} />
-        <SubBar label="Skills alignment"   value={score.skills_alignment}    max={35} fg={ring} />
-        <SubBar label="Seniority match"    value={score.seniority_alignment} max={25} fg={ring} />
+        <SubBar label={M.keyword_overlap}   value={score.keyword_overlap}     max={40} fg={ring} />
+        <SubBar label={M.skills_alignment}  value={score.skills_alignment}    max={35} fg={ring} />
+        <SubBar label={M.seniority_match}   value={score.seniority_alignment} max={25} fg={ring} />
       </div>
 
       {/* ── Keywords successfully injected ── */}
@@ -204,7 +207,7 @@ export function MatchScorePanel({ score, isLoading, baselineScore }: MatchScoreP
             color: 'oklch(0.34 0.11 155)',
             marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.6px',
           }}>
-            ✓ Keywords Injected
+            {M.keywords_injected}
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 4px' }}>
             {score.matched_keywords.slice(0, 10).map(kw => (
@@ -232,7 +235,7 @@ export function MatchScorePanel({ score, isLoading, baselineScore }: MatchScoreP
             color: TOKENS.color.muted,
             marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px',
           }}>
-            Skills Excluded (Requires Experience)
+            {M.skills_excluded}
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 3px' }}>
             {score.missing_keywords.slice(0, 8).map(kw => (

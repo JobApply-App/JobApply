@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect, useRef, memo } from 'react'
 import type { ApiFeedJob, JobSourceType, ReasonKind } from '@/lib/apiTypes'
 import { markJobApplied, refreshFeedScores, fetchJobJd, ensureFreshToken, getAuthHeaders } from '@/lib/api'
 import { getScoreBand as scoreBand } from '@/lib/scoreBand'
+import { useI18n } from '@/contexts/I18nContext'
 import { ProbeModal, type ProbeState } from './TrustDashboard'
 
 const IS_DEV = process.env.NODE_ENV === 'development'
@@ -266,11 +267,6 @@ function formatJdText(text: string): React.ReactNode {
 
 // ── Source badge ──────────────────────────────────────────────────────────────
 
-const SOURCE_LABELS: Record<JobSourceType, string> = {
-  linkedin:     'LinkedIn',
-  company_site: 'Company Site',
-  other:        'Other',
-}
 // Tone pairs use the Tailwind 50/700 scale — same recipe as the "Strong Match"
 // badge (teal-50/teal-700), so every badge shares one visual grammar and clears
 // WCAG AA contrast on its subtle background.
@@ -280,20 +276,22 @@ const SOURCE_STYLES: Record<JobSourceType, string> = {
   other:        'bg-slate-100 text-slate-600',
 }
 function SourceBadge({ type }: { type: JobSourceType }) {
+  const J = useI18n().t.job_card
   return (
     <span
       className={`inline-flex items-center h-[17px] px-1.5 rounded text-[10px] font-semibold tracking-wide ${SOURCE_STYLES[type]}`}
     >
-      {SOURCE_LABELS[type]}
+      {J.sources[type]}
     </span>
   )
 }
 
 function DirectApplyBadge() {
+  const J = useI18n().t.job_card
   return (
     <span
       className="inline-flex items-center gap-0.5 h-[17px] px-1.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800"
-      title="Apply directly on the company's careers page"
+      title={J.direct_title}
     >
       ⚡ Direct
     </span>
@@ -301,12 +299,13 @@ function DirectApplyBadge() {
 }
 
 function BulkImportBadge() {
+  const J = useI18n().t.job_card
   return (
     <span
       className="inline-flex items-center h-[17px] px-1.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600"
-      title="Imported via the LinkedIn Bulk Import pipeline, not a live scraper run"
+      title={J.bulk_import_title}
     >
-      Bulk Import
+      {J.bulk_import}
     </span>
   )
 }
@@ -383,17 +382,16 @@ function parseStructuredJd(jsonStr: string): StructuredJd | null {
   return null
 }
 
-const STRUCTURED_SECTION_LABELS: { key: keyof StructuredJd; label: string }[] = [
-  { key: 'company_details',  label: 'About the Company'   },
-  { key: 'role_overview',    label: 'Role Overview'        },
-  { key: 'responsibilities', label: 'Responsibilities'     },
-  { key: 'requirements',     label: 'Requirements'         },
-  { key: 'advantages',       label: 'Nice to Have'         },
-  { key: 'additional_info',  label: 'Additional Info'      },
+// Section keys match the backend's structured-JD field names and stay in
+// code; the headings come from job_card.jd_sections, looked up by key.
+const STRUCTURED_SECTION_KEYS: (keyof StructuredJd)[] = [
+  'company_details', 'role_overview', 'responsibilities',
+  'requirements', 'advantages', 'additional_info',
 ]
 
 function StructuredJdPanel({ parsed }: { parsed: StructuredJd }) {
-  const sections = STRUCTURED_SECTION_LABELS.filter(({ key }) => {
+  const J = useI18n().t.job_card
+  const sections = STRUCTURED_SECTION_KEYS.filter(key => {
     const val = parsed[key]
     return Array.isArray(val) ? val.length > 0 : Boolean(val)
   })
@@ -404,12 +402,12 @@ function StructuredJdPanel({ parsed }: { parsed: StructuredJd }) {
     <div className="rounded-lg bg-white border border-slate-200 divide-y divide-slate-100"
       style={{ boxShadow: 'inset 0 2px 4px rgba(15,23,42,0.04)' }}
     >
-      {sections.map(({ key, label }) => {
+      {sections.map(key => {
         const val = parsed[key]
         return (
           <div key={key} className="px-4 py-3">
             <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-2">
-              {label}
+              {J.jd_sections[key]}
             </p>
             {Array.isArray(val) ? (
               <ul className="space-y-1.5">
@@ -441,6 +439,7 @@ interface JdPanelProps {
   isHebrewLocale?: boolean
 }
 function JdPanel({ text, expanded, onToggleExpand, isHebrewLocale = false }: JdPanelProps) {
+  const J = useI18n().t.job_card
   const isLong   = text.length > JD_COLLAPSE_THRESHOLD
   return (
     <div>
@@ -469,7 +468,7 @@ function JdPanel({ text, expanded, onToggleExpand, isHebrewLocale = false }: JdP
           className="mt-1.5 inline-flex items-center gap-1 text-[11.5px] font-medium text-teal-700 hover:text-teal-800 transition"
         >
           <ChevronDown s={11} flipped={expanded} />
-          {expanded ? 'Collapse' : 'See more'}
+          {expanded ? J.collapse : J.see_more}
         </button>
       )}
     </div>
@@ -484,11 +483,12 @@ function JdPanel({ text, expanded, onToggleExpand, isHebrewLocale = false }: JdP
 //   (dev)    — Retry button appears in both pending states when IS_DEV=true
 
 function AnalysisSkeleton() {
+  const J = useI18n().t.job_card
   return (
     <div
       className="rounded-lg px-4 py-4 space-y-2.5 bg-slate-50 border border-slate-200"
       aria-busy="true"
-      aria-label="Generating analysis"
+      aria-label={J.generating_label}
     >
       <div className="flex items-center gap-2 mb-1">
         <span className="relative flex h-2 w-2">
@@ -496,7 +496,7 @@ function AnalysisSkeleton() {
           <span className="relative inline-flex rounded-full h-2 w-2 bg-ja-primary" />
         </span>
         <span className="text-[12px] font-medium text-teal-700">
-          Generating deep insights…
+          {J.generating_body}
         </span>
       </div>
       {[70, 90, 55].map((w, i) => (
@@ -528,16 +528,16 @@ function _isSubstantiveText(text: string): boolean {
 const AUTH_WALL_SENTINEL  = '__auth_wall__'
 
 function AnalysisUnavailable() {
+  const J = useI18n().t.job_card
   return (
     <div
       className="rounded-lg px-4 py-3 flex items-start gap-3 bg-ja-dangerSubtle border border-red-200"
     >
       <span className="text-[15px] mt-0.5" aria-hidden="true">⚠️</span>
       <div className="flex-1 min-w-0">
-        <p className="text-[12.5px] font-semibold text-slate-700 mb-0.5">Manual analysis required</p>
+        <p className="text-[12.5px] font-semibold text-slate-700 mb-0.5">{J.analysis_unavailable_title}</p>
         <p className="text-[12px] text-slate-500 leading-relaxed">
-          The scraper couldn&apos;t hydrate this job after {ENRICHMENT_MAX_FAILURES} attempts.
-          This is likely a bot-block or expired posting. Open the original listing to review manually.
+          {J.analysis_unavailable_body.replace('{attempts}', String(ENRICHMENT_MAX_FAILURES))}
         </p>
       </div>
     </div>
@@ -583,6 +583,7 @@ function SpinnerTiny({ s = 13 }: { s?: number }) {
 // for this specific job so the backend can hydrate it and run Phase B scoring.
 
 function AnalyzeJobButton({ jobId }: { jobId: string }) {
+  const J = useI18n().t.job_card
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
 
   async function handleClick(e: React.MouseEvent) {
@@ -613,7 +614,7 @@ function AnalyzeJobButton({ jobId }: { jobId: string }) {
       className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11.5px] font-semibold shrink-0 bg-ja-primarySubtle text-teal-700 border border-teal-200 hover:bg-teal-100 transition active:scale-[0.97] disabled:opacity-50"
     >
       {state === 'loading' ? (
-        <><SpinnerTiny s={11} /> Analyzing…</>
+        <><SpinnerTiny s={11} /> {J.analyzing}</>
       ) : state === 'error' ? (
         <span className="text-red-500">Failed</span>
       ) : (
@@ -636,6 +637,7 @@ function ArielInsightButton({
   userId: string
   skillName: string
 }) {
+  const J = useI18n().t.job_card
   const [loading,    setLoading]    = useState(false)
   const [probeState, setProbeState] = useState<ProbeState | null>(null)
   const [error,      setError]      = useState<string | null>(null)
@@ -688,7 +690,7 @@ function ArielInsightButton({
         new_confidence: null,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start probe.')
+      setError(err instanceof Error ? err.message : J.probe_failed)
     } finally {
       setLoading(false)
     }
@@ -820,6 +822,7 @@ export const JobCard = memo(function JobCard({
   job, userId, isTopFit = false, belowThreshold = false, initialExpanded = false,
   onSkip, onSave, onTailorCV, onInteractionChange, onMarkApplied,
 }: JobCardProps) {
+  const J = useI18n().t.job_card
   const [showDetails,      setShowDetails]      = useState(initialExpanded)
   const [jdExpanded,       setJdExpanded]       = useState(false)
   const [showOutreach,     setShowOutreach]     = useState(false)
@@ -901,7 +904,10 @@ export const JobCard = memo(function JobCard({
         role="button"
         tabIndex={0}
         aria-expanded={showDetails}
-        aria-label={`${job.title} at ${job.company || 'Unknown Company'} — ${showDetails ? 'collapse' : 'expand'} details`}
+        aria-label={J.card_label
+          .replace('{title}',   job.title)
+          .replace('{company}', job.company || J.unknown_company)
+          .replace('{action}',  showDetails ? J.collapse_action : J.expand)}
         onClick={handleToggleDetails}
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggleDetails() }
@@ -917,19 +923,19 @@ export const JobCard = memo(function JobCard({
               {job.is_new && (
                 <span
                   className="inline-block h-1.5 w-1.5 rounded-full align-middle mr-2 -translate-y-[2px] bg-ja-primary"
-                  title="New"
+                  title={J.new_badge}
                 />
               )}
               {job.title}
             </h2>
             {job.match_score >= 85 && (
               <span className="bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2 py-0.5 rounded-lg ring-1 ring-inset ring-emerald-600/20 shrink-0">
-                Exceptional Match
+                {J.exceptional_match}
               </span>
             )}
             {job.match_score >= 70 && job.match_score < 85 && (
               <span className="bg-teal-50 text-teal-700 text-[11px] font-semibold px-2 py-0.5 rounded-lg ring-1 ring-inset ring-teal-600/20 shrink-0">
-                Strong Match
+                {J.strong_match}
               </span>
             )}
             {isDirect && <DirectApplyBadge />}
@@ -944,7 +950,7 @@ export const JobCard = memo(function JobCard({
           </div>
           {/* [Company] · [Location] · [Workplace Type] · [Time Ago] */}
           <p className="text-[12.5px] text-slate-400 mt-1" dir="auto" style={{ textAlign: 'start', unicodeBidi: 'plaintext' }}>
-            {job.company || 'Unknown Company'}
+            {job.company || J.unknown_company}
             {job.location && <> · {job.location}</>}
             {workplaceType && <> · {workplaceType}</>}
             {postedLabel && <> · <span className="tabular-nums">{postedLabel}</span></>}
@@ -983,7 +989,7 @@ export const JobCard = memo(function JobCard({
                 </div>
                 {isProvisional && (
                   <span className="text-[10px] font-medium text-slate-400 text-end max-w-[130px] leading-tight">
-                    Awaiting full description — provisional score.
+                    {J.provisional_score}
                   </span>
                 )}
               </div>
@@ -1022,39 +1028,39 @@ export const JobCard = memo(function JobCard({
                 onClick={e => { e.stopPropagation(); onTailorCV(job) }}
                 className="bg-ja-primary text-white text-xs font-semibold tracking-wide uppercase px-6 py-3 rounded-lg hover:bg-ja-primaryHover transition-colors shadow-sm active:scale-[0.97]"
               >
-                Tailor CV
+                {J.tailor_cv}
               </button>
 
               <button
                 onClick={e => { e.stopPropagation(); setJdExpanded(v => !v) }}
                 className="border border-slate-200 text-slate-600 text-xs font-semibold tracking-wide uppercase px-6 py-3 rounded-lg hover:bg-slate-50 transition-colors active:scale-[0.97]"
               >
-                {jdExpanded ? 'Hide Description' : 'View Job Description'}
+                {jdExpanded ? J.hide_jd : J.view_jd}
               </button>
 
               <ActionBtn
                 onClick={e => { (e as React.MouseEvent).stopPropagation(); setShowOutreach(true) }}
                 className="border border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100"
               >
-                Outreach
+                {J.outreach}
               </ActionBtn>
 
               <ActionBtn
                 onClick={e => { (e as React.MouseEvent).stopPropagation(); setShowPitch(true) }}
                 className="border border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100"
               >
-                Direct Pitch
+                {J.direct_pitch}
               </ActionBtn>
 
               <ActionBtn
                 onClick={e => { (e as React.MouseEvent).stopPropagation(); setShowInterview(true) }}
                 disabled={!hasJD}
                 title={hasJD
-                  ? 'Practice a targeted interview question with Ariel'
-                  : 'Fetch the full job description first'}
+                  ? J.mock_ready
+                  : J.mock_needs_jd}
                 className="border border-violet-200 text-violet-700 bg-white hover:bg-violet-50"
               >
-                Mock Interview
+                {J.mock_interview}
               </ActionBtn>
 
               {/* Secondary: source, save, skip */}
@@ -1072,7 +1078,7 @@ export const JobCard = memo(function JobCard({
                     }`}
                   >
                     {job.source_type === 'linkedin' ? <LinkedInIcon s={12} /> : <ExternalLinkIcon s={11} />}
-                    {job.source_type === 'linkedin' ? 'LinkedIn' : 'Listing'}
+                    {job.source_type === 'linkedin' ? J.sources.linkedin : J.listing}
                   </a>
                 )}
 
@@ -1108,8 +1114,8 @@ export const JobCard = memo(function JobCard({
                   }
                 >
                   {(markedApplied || isAlreadyApplied)
-                    ? '✓ Applied'
-                    : isMarkingApplied ? 'Saving…' : '✓ Mark Applied'}
+                    ? J.applied
+                    : isMarkingApplied ? J.saving : J.mark_applied}
                 </ActionBtn>
               </div>
             </div>
@@ -1125,7 +1131,7 @@ export const JobCard = memo(function JobCard({
               <div style={{ overflow: 'hidden' }}>
                 <div className="pt-4 space-y-4">
                   <p className="text-[11px] font-bold tracking-widest uppercase text-slate-400">
-                    Job Description
+                    {J.jd_heading}
                   </p>
                   {hasJD ? (
                     parsedStructuredJd ? (
@@ -1140,7 +1146,7 @@ export const JobCard = memo(function JobCard({
                     ) : null
                   ) : (
                     <p className="text-[12px] text-slate-400 italic">
-                      No description available.
+                      {J.no_description}
                       {job.apply_url && (
                         <> <a href={job.apply_url} target="_blank" rel="noopener noreferrer"
                           className="underline text-teal-700 hover:text-teal-800">View original posting.</a></>
@@ -1172,7 +1178,7 @@ export const JobCard = memo(function JobCard({
                       className="flex items-center gap-1.5 text-[12px] font-medium text-slate-500 hover:text-slate-800 transition"
                     >
                       <span className="text-[10px]">{showSkillsGap ? '▼' : '▶'}</span>
-                      Skills Gap Analysis
+                      {J.skills_gap}
                       {!hasJD && <span className="text-[10px] text-amber-500 ml-0.5">(fetch JD first)</span>}
                     </button>
                     {showSkillsGap && (

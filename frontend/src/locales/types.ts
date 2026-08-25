@@ -144,6 +144,120 @@ export interface Dict {
       update_password_failed: string
     }
   }
+  // Score-band labels, keyed by ScoreBandKey (see lib/scoreBand.ts). The
+  // keys and thresholds stay in code; only the display labels translate.
+  score_bands: {
+    exceptional: string
+    strong:      string
+    moderate:    string
+    weak:        string
+    poor:        string
+  }
+  job_card: {
+    sources: { linkedin: string; company_site: string; other: string }
+    direct_title:      string
+    bulk_import:       string
+    bulk_import_title: string
+    // JD section headings, keyed by the backend's section keys.
+    jd_sections: {
+      company_details:  string
+      role_overview:    string
+      responsibilities: string
+      requirements:     string
+      advantages:       string
+      additional_info:  string
+    }
+    collapse:          string
+    see_more:          string
+    generating_label:  string
+    generating_body:   string
+    analysis_unavailable_title: string
+    analysis_unavailable_body:  string   // takes {attempts}
+    analyzing:         string
+    probe_failed:      string
+    card_label:        string   // takes {title}, {company}, {action}
+    expand:            string
+    collapse_action:   string
+    unknown_company:   string
+    new_badge:         string
+    exceptional_match: string
+    strong_match:      string
+    provisional_score: string
+    tailor_cv:         string
+    outreach:          string
+    direct_pitch:      string
+    mock_interview:    string
+    mock_ready:        string
+    mock_needs_jd:     string
+    view_jd:           string
+    hide_jd:           string
+    listing:           string
+    applied:           string
+    saving:            string
+    mark_applied:      string
+    jd_heading:        string
+    no_description:    string
+    skills_gap:        string
+  }
+  job_feed: {
+    heading:        string
+    subheading:     string
+    sync_title:     string
+    syncing:        string
+    sync_cta:       string
+    url_placeholder:string
+    analysing:      string
+    analyse:        string
+    search_placeholder: string
+    clear_search_label: string
+    sources: { all: string; company_site: string; linkedin: string; other: string }
+    // Keyed by StatusFilter ('all' + every JobStatus). The tab row shows a
+    // subset, but the empty-state message can name any of them, so all are
+    // covered here — a missing key would render `undefined` to the user.
+    statuses: {
+      all: string; new: string; saved: string; applied: string
+      ignored: string; analysing: string; auth_wall: string
+    }
+    sort_score:     string
+    sort_date:      string
+    top_fits:       string
+    top_fits_on:    string   // takes {threshold}
+    top_fits_off:   string
+    sort_paused:    string
+    indexing_title: string
+    indexing_body_one:  string   // takes {n}
+    indexing_body_many: string   // takes {n}
+    check_updates:  string
+    empty_none_title: string
+    empty_none_body:  string
+    empty_title:      string
+    empty_search:     string   // takes {query}
+    empty_top_fits:   string   // takes {threshold}
+    empty_status:     string   // takes {status}
+    clear_search:     string
+    show_all_scores:  string
+    load_more:        string
+    count_of:         string   // takes {shown} and {total}
+    errors: {
+      load_failed:    string
+      sync_failed:    string
+      analysis_failed:string
+      skip_failed:    string
+      update_failed:  string
+      still_loading:  string
+    }
+  }
+  match_score: {
+    band_suffix:      string   // "{band} match"
+    optimized_ats:    string
+    boosted_from:     string   // takes {score}
+    ai_validated:     string
+    keyword_overlap:  string
+    skills_alignment: string
+    seniority_match:  string
+    keywords_injected:string
+    skills_excluded:  string
+  }
   profile_chat: {
     empty_title:      string
     empty_body:       string
