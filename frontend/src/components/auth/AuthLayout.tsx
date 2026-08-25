@@ -53,14 +53,6 @@ function TechPattern() {
   )
 }
 
-// ── Left panel brand metrics ───────────────────────────────────────────────────
-
-// Values are numerals and read the same in both languages; only the labels
-// are translated. NOTE: these figures are unverified marketing claims
-// carried over from design mockups. See the `auth_layout.metrics` note in
-// the dictionaries before treating them as substantiated.
-const METRIC_VALUES = ['3×', '92%', '<5m'] as const
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface AuthLayoutProps {
@@ -116,35 +108,6 @@ export function AuthLayout({
               {subline}
             </p>
           </div>
-
-          {/* Metric chips */}
-          <div className="flex flex-wrap gap-3 pt-2">
-            {METRIC_VALUES.map((value, i) => (
-              <div
-                key={value}
-                className="flex flex-col px-4 py-2.5 rounded-xl"
-                style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border:     '1px solid rgba(255,255,255,0.08)',
-                }}
-              >
-                {/* dir="ltr" is load-bearing: these values contain neutral
-                    characters ("<", "×") whose visual order the bidi
-                    algorithm resolves from the surrounding paragraph. In an
-                    RTL page "<5m" renders as "5m>" — literally the opposite
-                    claim. Forcing LTR on the value itself pins it. */}
-                <span className="text-xl font-extrabold leading-none"
-                  dir="ltr"
-                  style={{ color: TOKENS.color.primary }}>
-                  {value}
-                </span>
-                <span className="text-[11px] mt-0.5" style={{ color: '#64748b' }}>
-                  {A.metrics[i]}
-                </span>
-              </div>
-            ))}
-          </div>
-
         </div>
 
         {/* Bottom: copyright */}

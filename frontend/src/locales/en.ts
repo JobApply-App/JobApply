@@ -168,6 +168,48 @@ export const en = {
     },
   },
 
+  onboarding: {
+    showcase: {
+      title:    'Welcome to JobApply',
+      subtitle: 'Three steps to your AI-powered job search.',
+      selected: 'Selected',
+      cta:      'Get Started',
+      steps: [
+        { title: 'Create your Master Profile',
+          body:  'Tell us about your experience once. It all lives in a persistent profile, so you never have to repeat yourself.' },
+        { title: 'Auto-Tailor CVs for any job',
+          body:  'Paste a job description and get a perfectly tailored, ATS-optimised CV in seconds — with a match-score so you know how strong your application is.' },
+        { title: 'Track your applications',
+          body:  'A Kanban board keeps every application visible. From "Saved" to "Offer", you always know where each opportunity stands.' },
+      ],
+    },
+    preferences: {
+      title:            'What are you looking for?',
+      intro:            'Whatever your field — engineering, sales, design, marketing, operations, or anything else — add the roles you’re targeting and your experience level in each.',
+      roles_label:      'Target roles & experience',
+      role_placeholder: 'Start typing a role — e.g. “aco” → Account Manager…',
+      remove_role:      'Remove {role}',
+      level_for_role:   'Experience level for {role}',
+      pick_level:       'Pick your experience level for this role',
+      saving:           'Saving…',
+      continue_cta:     'Continue',
+      skip:             'Skip',
+      save_failed:      'Could not save your preferences right now.',
+      seniority: ['Junior', 'Mid', 'Senior', 'Lead', 'Director', 'Executive'],
+    },
+    intake: {
+      title:          'Import your existing profile',
+      intro:          'Skip the blank slate — upload your current CV and we’ll build your Master Profile in seconds.',
+      upload_cta:     'Upload existing CV',
+      upload_hint:    'PDF, DOCX — you can select several files at once',
+      uploading_one:  'Uploading {n} file…',
+      uploading_many: 'Uploading {n} files…',
+      analyzing:      'Our AI is analyzing your experience, skills, and education',
+      upload_failed:  'Upload failed. Please try again.',
+      skip:           'Skip for now — I’ll add my details later',
+    },
+  },
+
   signup: {
     page: {
       hero_eyebrow:          'Join thousands of professionals',
@@ -230,7 +272,6 @@ export const en = {
   },
 
   auth_layout: {
-    metrics: ['More interviews', 'ATS pass rate', 'Per CV tailored'],
     default_eyebrow:      'Intelligent career management',
     default_headline:     'Your career, intelligently managed.',
     default_subline:      'Tailoring every CV, mapping every skill gap, and tracking every application.',

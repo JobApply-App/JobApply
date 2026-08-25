@@ -144,6 +144,42 @@ export interface Dict {
       update_password_failed: string
     }
   }
+  onboarding: {
+    showcase: {
+      title:    string
+      subtitle: string
+      selected: string
+      cta:      string
+      steps: ReadonlyArray<{ title: string; body: string }>
+    }
+    preferences: {
+      title:            string
+      intro:            string
+      roles_label:      string
+      role_placeholder: string
+      remove_role:      string   // takes the role name, {role}
+      level_for_role:   string   // takes the role name, {role}
+      pick_level:       string
+      saving:           string
+      continue_cta:     string
+      skip:             string
+      save_failed:      string
+      // Seniority VALUES stay English in the database; only these labels
+      // are translated. Indexed positionally against SENIORITY_OPTIONS.
+      seniority: readonly [string, string, string, string, string, string]
+    }
+    intake: {
+      title:          string
+      intro:          string
+      upload_cta:     string
+      upload_hint:    string
+      uploading_one:  string   // takes {n}
+      uploading_many: string   // takes {n}
+      analyzing:      string
+      upload_failed:  string
+      skip:           string
+    }
+  }
   signup: {
     page: {
       hero_eyebrow:   string
@@ -192,11 +228,6 @@ export interface Dict {
     }
   }
   auth_layout: {
-    // These three figures are unverified marketing claims carried over
-    // from design mockups, not measured results. The fabricated
-    // testimonial that sat beside them was removed before launch; these
-    // still need confirming or replacing.
-    metrics: readonly [string, string, string]
     default_eyebrow:     string
     default_headline:    string
     default_subline:     string
