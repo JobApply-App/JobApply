@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, memo } from 'react'
 import { fetchCrmBoard, moveCrmCard, deleteApplication } from '@/lib/api'
 import type { CrmBoard, CrmCard, CrmColumn } from '@/lib/apiTypes'
 import { TOKENS } from '@/lib/tokens'
+import { useDialogA11y } from '@/hooks/useDialogA11y'
 
 // ── Stage visual config ───────────────────────────────────────────────────────
 
@@ -69,15 +70,8 @@ interface CardModalProps {
 }
 
 function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete, deleting }: CardModalProps) {
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [onClose])
-
   const panelRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { panelRef.current?.focus() }, [])
+  useDialogA11y(onClose, panelRef)
 
   const s = stageStyle(currentStage)
 

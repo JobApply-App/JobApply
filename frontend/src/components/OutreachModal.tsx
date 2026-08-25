@@ -1,7 +1,7 @@
 'use client'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { TOKENS } from '@/lib/tokens'
-import { useEscapeToClose } from '@/hooks/useEscapeToClose'
+import { useDialogA11y } from '@/hooks/useDialogA11y'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import type { OutreachMessageType } from '@/lib/apiTypes'
 import {
@@ -100,7 +100,7 @@ interface Props {
 
 export function OutreachModal({ job, onClose }: Props) {
   const panelRef = useRef<HTMLDivElement>(null)
-  useEscapeToClose(onClose, panelRef)
+  useDialogA11y(onClose, panelRef)
 
   const [activeTab,     setActiveTab]     = useState<TabId>('hiring_manager')
   const [targetName,    setTargetName]    = useState('')

@@ -1,7 +1,8 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import { evaluateInterviewAnswer, generateInterviewQuestion } from '@/lib/api'
+import { useDialogA11y } from '@/hooks/useDialogA11y'
 
 // ── Ariel Mock Interview Simulator (JOB-61) ───────────────────────────────────
 //
@@ -98,12 +99,8 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
   // Ariel opens with a question — that's the whole point of the modal.
   useEffect(() => { fetchQuestion() }, [fetchQuestion])
 
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [onClose])
+  const panelRef = useRef<HTMLDivElement>(null)
+  useDialogA11y(onClose, panelRef)
 
   const submitAnswer = useCallback(async () => {
     const trimmed = answer.trim()
@@ -135,10 +132,12 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
       {/* Panel */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
+          ref={panelRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="interview-sim-modal-title"
-          className="w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-floating pointer-events-auto flex flex-col animate-modal-in"
+          tabIndex={-1}
+          className="w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-floating pointer-events-auto flex flex-col animate-modal-in outline-none"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}

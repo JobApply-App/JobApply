@@ -23,6 +23,7 @@ import { TOKENS } from '@/lib/tokens'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import type { TailoredSection, TailorBriefResponse } from '@/lib/apiTypes'
 import { tailorCvForJob, editTailoredCv } from '@/lib/api'
+import { useDialogA11y } from '@/hooks/useDialogA11y'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -429,12 +430,8 @@ export function TailoredCvModal({ job, onClose, onGeneratePdf }: TailoredCvModal
     }
   }, [brief, sections])
 
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [onClose])
+  const panelRef = useRef<HTMLDivElement>(null)
+  useDialogA11y(onClose, panelRef)
 
   return (
     <>
@@ -446,10 +443,12 @@ export function TailoredCvModal({ job, onClose, onGeneratePdf }: TailoredCvModal
 
       {/* Panel — slides in from the right */}
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="tailored-cv-modal-title"
-        className="fixed inset-y-0 right-0 z-50 flex flex-col bg-slate-50 shadow-floating"
+        tabIndex={-1}
+        className="fixed inset-y-0 right-0 z-50 flex flex-col bg-slate-50 shadow-floating outline-none"
         style={{ width: 'min(600px, 100vw)' }}
       >
         {/* ── Header ───────────────────────────────────────────────────────── */}

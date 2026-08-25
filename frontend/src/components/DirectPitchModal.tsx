@@ -1,7 +1,8 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import { generateDirectPitch } from '@/lib/api'
+import { useDialogA11y } from '@/hooks/useDialogA11y'
 
 // ── Direct Pitch Generator (JOB-64) ───────────────────────────────────────────
 //
@@ -71,12 +72,8 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
   // Auto-generate on open — the whole point of the modal is a ready pitch.
   useEffect(() => { run() }, [run])
 
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [onClose])
+  const panelRef = useRef<HTMLDivElement>(null)
+  useDialogA11y(onClose, panelRef)
 
   const handleCopy = useCallback(() => {
     if (!pitch) return
@@ -94,10 +91,12 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
       {/* Panel */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
+          ref={panelRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="direct-pitch-modal-title"
-          className="w-full max-w-lg rounded-2xl bg-white shadow-floating pointer-events-auto flex flex-col animate-modal-in"
+          tabIndex={-1}
+          className="w-full max-w-lg rounded-2xl bg-white shadow-floating pointer-events-auto flex flex-col animate-modal-in outline-none"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}

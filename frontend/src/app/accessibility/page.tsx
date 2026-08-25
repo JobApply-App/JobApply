@@ -10,8 +10,8 @@ import { TOKENS } from '@/lib/tokens'
 // that needs the compile-time en/he parity check the Dict type enforces
 // elsewhere.
 
-const STATEMENT_DATE = 'August 21, 2026'
-const STATEMENT_DATE_HE = '21 באוגוסט 2026'
+const STATEMENT_DATE = 'August 25, 2026'
+const STATEMENT_DATE_HE = '25 באוגוסט 2026'
 const CONTACT_EMAIL = 'accessibility@jobapply.ai'
 
 const content = {
@@ -30,8 +30,10 @@ const content = {
     doneHeading: 'What we have done',
     done: [
       'Every screen has real heading tags, not styled text that only looks like a heading. Screen readers can navigate by heading.',
+      'Every page has its own browser tab title instead of one shared title for the whole site.',
       'Buttons that show only an icon (close, notifications, email setup, remove item) now carry a text label a screen reader can read.',
-      'Pop-up windows like the outreach generator, the interview simulator, and the application detail panel are marked as real dialogs. Pressing Escape closes them, and opening one moves keyboard focus inside.',
+      'Pop-up windows like the outreach generator, the interview simulator, and the application detail panel are marked as real dialogs. Escape closes them, Tab stays inside them and wraps at the ends instead of reaching the page behind, opening one moves keyboard focus inside, and closing one returns focus to whatever you were on before.',
+      'A returning Hebrew visitor now gets the page in Hebrew and right-to-left from the very first thing the server sends, not a flash of English that switches after the page loads.',
       'Text colors meet the 4.5:1 contrast minimum required for normal-size text.',
       'Form fields are linked to their labels in code. Where a field shows an error message, the field is linked to that message too.',
       'Every image that carries information has real alt text. Purely decorative images are hidden from screen readers on purpose.',
@@ -39,9 +41,6 @@ const content = {
     ],
     limitationsHeading: 'What is still not right',
     limitations: [
-      'On the first load of a page, a Hebrew visit briefly shows in English and left-to-right before switching to Hebrew. This flash is not good for screen reader users, and we have not fixed it yet.',
-      'Keyboard focus does not fully stay inside an open dialog. Tab can still reach something behind it. Closing a dialog does not reliably send focus back to the button that opened it.',
-      'Every page currently shares one browser tab title instead of its own.',
       'Most of the signed-in product (the dashboard, the job feed, the CV editor) is in English no matter which language you picked. Hebrew coverage there is not finished.',
     ],
     testingHeading: 'How we checked this',
@@ -74,8 +73,10 @@ const content = {
     doneHeading: 'מה עשינו',
     done: [
       'לכל מסך יש תגי כותרת אמיתיים, לא טקסט מעוצב שרק נראה כמו כותרת. אפשר לנווט בין המסכים לפי כותרות עם קורא מסך.',
+      'לכל עמוד יש כותרת טאב דפדפן משלו, במקום כותרת אחת משותפת לכל האתר.',
       'כפתורים שמציגים רק איקון (סגירה, התראות, חיבור מייל, הסרת פריט) קיבלו תווית טקסט שקורא מסך יכול לקרוא.',
-      'חלונות קופצים כמו יצירת פנייה למעסיק, סימולטור הראיון, ופרטי המועמדות מסומנים כחלונות אמיתיים. לחיצה על Escape סוגרת אותם, ופתיחה מעבירה את הפוקוס במקלדת פנימה.',
+      'חלונות קופצים כמו יצירת פנייה למעסיק, סימולטור הראיון, ופרטי המועמדות מסומנים כחלונות אמיתיים. Escape סוגר אותם, Tab נשאר בתוכם ומתגלגל בקצוות במקום להגיע לעמוד שמאחוריהם, פתיחה מעבירה את הפוקוס במקלדת פנימה, וסגירה מחזירה את הפוקוס למקום שבו הייתם קודם.',
+      'מבקר חוזר בעברית מקבל כעת את העמוד בעברית ומימין לשמאל כבר מהדבר הראשון שהשרת שולח, לא הבזק של אנגלית שמתחלף אחרי הטעינה.',
       'צבעי הטקסט עומדים ביחס הניגודיות המינימלי של 4.5:1 שנדרש לטקסט בגודל רגיל.',
       'שדות טופס מקושרים בקוד לתווית שלהם. כשיש שדה עם הודעת שגיאה, השדה מקושר גם להודעה הזו.',
       'לכל תמונה שנושאת מידע יש טקסט חלופי אמיתי. תמונות עיצוביות בלבד מוסתרות מקוראי מסך בכוונה.',
@@ -83,9 +84,6 @@ const content = {
     ],
     limitationsHeading: 'מה עדיין לא תקין',
     limitations: [
-      'בטעינה ראשונה של עמוד, כניסה בעברית מראה לרגע קצר אנגלית ומשמאל לימין לפני המעבר לעברית. ההבזק הזה לא טוב למשתמשי קורא מסך, ועדיין לא תיקנו אותו.',
-      'פוקוס מקלדת לא נשאר לגמרי בתוך חלון פתוח. Tab עדיין יכול להגיע למשהו מאחוריו. סגירת חלון לא תמיד מחזירה את הפוקוס לכפתור שפתח אותו.',
-      'כרגע לכל עמוד יש אותה כותרת טאב דפדפן, במקום כותרת משלו.',
       'רוב המוצר המאומת (לוח הבקרה, פיד המשרות, עורך קורות החיים) מוצג באנגלית בלי קשר לשפה שבחרתם. הכיסוי בעברית שם עוד לא גמור.',
     ],
     testingHeading: 'איך בדקנו את זה',

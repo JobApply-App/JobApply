@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { TOKENS } from '@/lib/tokens'
-import { useEscapeToClose } from '@/hooks/useEscapeToClose'
+import { useDialogA11y } from '@/hooks/useDialogA11y'
 import {
   DEFAULT_SETTINGS,
   type AutomationSettings,
@@ -246,7 +246,7 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
   const [saved, setSaved] = useState(false)
   const panelRef = useRef<HTMLElement>(null)
 
-  useEscapeToClose(onClose, panelRef, open)
+  useDialogA11y(onClose, panelRef, open)
 
   // Sync draft when sheet opens
   useEffect(() => {
