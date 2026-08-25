@@ -144,19 +144,62 @@ export interface Dict {
       update_password_failed: string
     }
   }
+  signup: {
+    page: {
+      hero_eyebrow:   string
+      back_to_login:  string
+      back:           string
+      log_in:         string
+      title:          string
+      subtitle:       string
+      or_fill_details:string
+      full_name:      string
+      full_name_placeholder: string
+      phone:          string
+      career_stage:   string
+      career_stage_selected: string
+      email:          string
+      email_placeholder: string
+      account_exists: string
+      log_in_here:    string
+      password:       string
+      password_placeholder: string
+      creating:       string
+      create_account: string
+      have_account:   string
+      sign_in:        string
+      // Legal line is one sentence with two inline links, so it is stored
+      // as the fragments between them rather than as a single string.
+      legal_prefix:   string
+      legal_terms:    string
+      legal_middle:   string
+      legal_privacy:  string
+      legal_suffix:   string
+    }
+    errors: {
+      sign_up_failed: string
+      google_failed:  string
+    }
+    career_stages: ReadonlyArray<{ title: string; subtitle: string }>
+    password_rules: readonly [string, string, string, string]
+    password_levels: { weak: string; fair: string; strong: string }
+    phone: {
+      select_country_code: string
+      phone_number:        string
+      number_placeholder:  string
+      select_country:      string
+      search_country:      string
+    }
+  }
   auth_layout: {
-    // These three figures are unverified marketing claims, not measured
-    // results. Same for the testimonial below, which names a person and an
-    // employer. Both were carried over from design mockups — confirm they
-    // are substantiated (or replace them) before launch.
+    // These three figures are unverified marketing claims carried over
+    // from design mockups, not measured results. The fabricated
+    // testimonial that sat beside them was removed before launch; these
+    // still need confirming or replacing.
     metrics: readonly [string, string, string]
     default_eyebrow:     string
     default_headline:    string
     default_subline:     string
-    testimonial_quote:   string
-    testimonial_name:    string
-    testimonial_initials:string
-    testimonial_role:    string
   }
   settings: {
     language: {

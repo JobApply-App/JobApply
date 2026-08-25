@@ -97,13 +97,21 @@ export function setAuthErrorHandler(handler: () => void): void {
  * job description text"), which is far more useful to surface to the user
  * than a bare "422 Unprocessable Entity".
  */
-async function _handleHttpError(res: Response, path: string): Promise<never> {
+async function _handleHttpError(
+  res: Response,
+  path: string,
+  { treat401AsAuthFailure = true }: { treat401AsAuthFailure?: boolean } = {},
+): Promise<never> {
   // Only 401 signals a possibly-dead session. 503 means the BACKEND is
   // unavailable/misconfigured (e.g. LLM key missing) — treating it as an auth
   // failure hard-evicted logged-in users the moment any degraded endpoint was
   // hit (notably right after onboarding, when Ariel auto-opens and the chat
   // endpoints are called for the first time).
-  if (res.status === 401) {
+  // Some reads are legitimately attempted while signed out, where 401 is
+  // the expected answer rather than a dead session. Routing those through
+  // the global handler signs the visitor out and hard-redirects them to
+  // /login — from pages they are entitled to be on while anonymous.
+  if (res.status === 401 && treat401AsAuthFailure) {
     _onAuthError?.()
   }
   let detail: string | undefined
@@ -134,7 +142,11 @@ function _networkErrorOr(err: unknown): Error {
   return err instanceof Error ? err : new Error(String(err))
 }
 
-async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+async function get<T>(
+  path: string,
+  signal?: AbortSignal,
+  opts?: { treat401AsAuthFailure?: boolean },
+): Promise<T> {
   await _ensureFreshToken()
   let res: Response
   try {
@@ -150,7 +162,7 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
     if (err instanceof DOMException && err.name === 'AbortError') throw err
     throw _networkErrorOr(err)
   }
-  if (!res.ok) await _handleHttpError(res, path)
+  if (!res.ok) await _handleHttpError(res, path, opts)
   return res.json() as Promise<T>
 }
 
@@ -211,7 +223,11 @@ async function del<TRes>(path: string): Promise<TRes> {
   return res.json() as Promise<TRes>
 }
 
-async function patch<TBody, TRes>(path: string, body: TBody): Promise<TRes> {
+async function patch<TBody, TRes>(
+  path: string,
+  body: TBody,
+  opts?: { treat401AsAuthFailure?: boolean },
+): Promise<TRes> {
   await _ensureFreshToken()
   let res: Response
   try {
@@ -223,7 +239,7 @@ async function patch<TBody, TRes>(path: string, body: TBody): Promise<TRes> {
   } catch (err) {
     throw _networkErrorOr(err)
   }
-  if (!res.ok) await _handleHttpError(res, path)
+  if (!res.ok) await _handleHttpError(res, path, opts)
   return res.json() as Promise<TRes>
 }
 
@@ -1184,12 +1200,24 @@ export interface LocalePreferences {
   cv_locale: 'en' | 'he'
 }
 
+// Called on mount for every visitor, including anonymous ones on public
+// pages (landing, login, signup), where 401 is the correct answer and not a
+// sign of a dead session — hence treat401AsAuthFailure: false. Without it
+// this read triggers the global auth-error handler and hard-redirects
+// anonymous visitors to /login from whatever page they were on.
 export async function fetchLocalePreferences(): Promise<LocalePreferences> {
-  return get<LocalePreferences>('/api/settings/locales')
+  return get<LocalePreferences>('/api/settings/locales', undefined, {
+    treat401AsAuthFailure: false,
+  })
 }
 
+// Same reasoning as fetchLocalePreferences: an anonymous visitor can use
+// the language switcher on the landing page, and that must not sign them
+// out. The switch still applies locally; only the server copy is skipped.
 export async function updateLocalePreferences(
   patchBody: Partial<LocalePreferences>,
 ): Promise<LocalePreferences> {
-  return patch<Partial<LocalePreferences>, LocalePreferences>('/api/settings/locales', patchBody)
+  return patch<Partial<LocalePreferences>, LocalePreferences>(
+    '/api/settings/locales', patchBody, { treat401AsAuthFailure: false },
+  )
 }

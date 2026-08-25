@@ -16,6 +16,7 @@ import { useAuth }                  from '@/contexts/AuthContext'
 import { useOnboarding }            from '@/contexts/OnboardingContext'
 import { getAuthHeaders }           from '@/lib/api'
 import { LanguageSwitcher }         from '@/components/LanguageSwitcher'
+import { useI18n }                  from '@/contexts/I18nContext'
 import { AuthLayout }               from '@/components/auth/AuthLayout'
 import { CareerStageCards, type CareerStage } from '@/components/auth/CareerStageCards'
 import { evaluatePassword }         from '@/components/auth/PasswordMeter'
@@ -131,6 +132,8 @@ export default function SignupPage() {
   const { signUp, signInWithGoogle } = useAuth()
   const { set: setOnboarding }       = useOnboarding()
   const router = useRouter()
+  const { t } = useI18n()
+  const S = t.signup
 
   // ── Field state ───────────────────────────────────────────────────────────
   const [fullName,     setFullName]     = useState('')
@@ -238,7 +241,7 @@ export default function SignupPage() {
       await new Promise(r => setTimeout(r, 1500))
       router.replace('/discover')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Sign-up failed.'
+      const msg = err instanceof Error ? err.message : S.errors.sign_up_failed
       console.error(`${LOG} signUp error:`, msg)
       if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
         setEmailExists(true)
@@ -256,7 +259,7 @@ export default function SignupPage() {
     try {
       await signInWithGoogle(`${window.location.origin}/auth/callback`)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Google sign-in failed.'
+      const msg = err instanceof Error ? err.message : S.errors.google_failed
       console.error(`${LOG} Google OAuth error:`, msg)
       setSubmitError(msg)
       setGoogleBusy(false)
@@ -269,24 +272,24 @@ export default function SignupPage() {
 
   return (
     <AuthLayout
-      leftEyebrow="Join thousands of professionals"
-      leftHeadline="Your career, intelligently managed."
-      leftSubline="Tailoring every CV, mapping every skill gap, and tracking every application."
+      leftEyebrow={S.page.hero_eyebrow}
+      leftHeadline={t.auth_layout.default_headline}
+      leftSubline={t.auth_layout.default_subline}
     >
       {/* Header strip */}
       <header className="flex-shrink-0 w-full">
         <div className="h-16 flex items-center justify-between px-6 sm:px-10">
           <Link href="/login"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
-            aria-label="Back to login">
+            aria-label={S.page.back_to_login}>
             <ArrowLeftIcon />
-            Back
+            {S.page.back}
           </Link>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
             <Link href="/login"
               className="text-sm font-semibold text-teal-700 hover:text-teal-800 transition-colors">
-              Log in
+              {S.page.log_in}
             </Link>
           </div>
         </div>
@@ -296,8 +299,8 @@ export default function SignupPage() {
       <div className="flex-1 px-6 sm:px-10 pb-12 pt-4">
         <div className="max-w-lg mx-auto">
           <div className="mb-7">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Set up your account</h1>
-            <p className="text-sm text-slate-500 mt-1">Fill in your details to get started.</p>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{S.page.title}</h1>
+            <p className="text-sm text-slate-500 mt-1">{S.page.subtitle}</p>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-100 p-8 space-y-6"
@@ -309,7 +312,7 @@ export default function SignupPage() {
               {googleBusy
                 ? <span className="w-[18px] h-[18px] rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin flex-shrink-0" />
                 : <GoogleLogo />}
-              {googleBusy ? 'Redirecting…' : 'Continue with Google'}
+              {googleBusy ? t.login.card.redirecting : t.login.card.continue_google}
             </button>
 
             {/* Divider */}
@@ -318,7 +321,7 @@ export default function SignupPage() {
                 <div className="w-full border-t border-slate-100" />
               </div>
               <div className="relative flex justify-center text-xs text-slate-400">
-                <span className="bg-white px-3">or fill in your details</span>
+                <span className="bg-white px-3">{S.page.or_fill_details}</span>
               </div>
             </div>
 
@@ -327,12 +330,12 @@ export default function SignupPage() {
               {/* Full Name */}
               <div>
                 <label htmlFor="fullName" className="block text-xs font-medium text-slate-700 mb-1.5">
-                  Full Name <span className="text-rose-400">*</span>
+                  {S.page.full_name} <span className="text-rose-400">*</span>
                 </label>
                 <input
                   id="fullName" type="text" autoComplete="name" required
                   disabled={disableAll}
-                  placeholder="e.g. Ron Cohen"
+                  placeholder={S.page.full_name_placeholder}
                   value={fullName}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => {
                     setSubmitError(null)
@@ -345,7 +348,7 @@ export default function SignupPage() {
               {/* Phone */}
               <div>
                 <label htmlFor="phone" className="block text-xs font-medium text-slate-700 mb-1.5">
-                  Phone <span className="text-rose-400">*</span>
+                  {S.page.phone} <span className="text-rose-400">*</span>
                 </label>
                 <PhoneInput
                   id="phone"
@@ -359,7 +362,7 @@ export default function SignupPage() {
               {/* Career Stage */}
               <div>
                 <p className="text-xs font-medium text-slate-700 mb-2.5">
-                  Career Stage <span className="text-rose-400">*</span>
+                  {S.page.career_stage} <span className="text-rose-400">*</span>
                 </p>
                 <CareerStageCards
                   value={careerStage}
@@ -372,7 +375,7 @@ export default function SignupPage() {
                       strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    Career stage selected
+                    {S.page.career_stage_selected}
                   </p>
                 )}
               </div>
@@ -380,13 +383,13 @@ export default function SignupPage() {
               {/* Email */}
               <div>
                 <label htmlFor="email" className="block text-xs font-medium text-slate-700 mb-1.5">
-                  Email <span className="text-rose-400">*</span>
+                  {S.page.email} <span className="text-rose-400">*</span>
                 </label>
                 <div className="relative">
                   <input
                     id="email" type="email" autoComplete="username" required
                     disabled={disableAll}
-                    placeholder="you@example.com"
+                    placeholder={S.page.email_placeholder}
                     value={email}
                     aria-invalid={emailExists && !emailChecking}
                     aria-describedby={emailExists && !emailChecking ? 'email-error' : undefined}
@@ -405,10 +408,10 @@ export default function SignupPage() {
                 </div>
                 {emailExists && !emailChecking && (
                   <p id="email-error" className="mt-1.5 text-xs text-rose-600" role="alert">
-                    Account already exists.{' '}
+                    {S.page.account_exists}{' '}
                     <Link href="/login"
                       className="font-semibold underline hover:text-rose-800 transition-colors">
-                      Log in here
+                      {S.page.log_in_here}
                     </Link>
                   </p>
                 )}
@@ -417,14 +420,14 @@ export default function SignupPage() {
               {/* Password */}
               <div>
                 <label htmlFor="password" className="block text-xs font-medium text-slate-700 mb-1.5">
-                  Password <span className="text-rose-400">*</span>
+                  {S.page.password} <span className="text-rose-400">*</span>
                 </label>
                 <div className="relative">
                   <input
                     id="password" type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password" required minLength={8}
                     disabled={disableAll}
-                    placeholder="Min. 8 characters"
+                    placeholder={S.page.password_placeholder}
                     value={password}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => {
                       setSubmitError(null)
@@ -435,7 +438,7 @@ export default function SignupPage() {
                   <button type="button" tabIndex={-1}
                     onClick={() => setShowPassword(v => !v)}
                     className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600 transition-colors"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                    aria-label={showPassword ? t.login.card.hide_password : t.login.card.show_password}>
                     {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
                   </button>
                 </div>
@@ -466,25 +469,25 @@ export default function SignupPage() {
                 {busy && (
                   <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin flex-shrink-0" />
                 )}
-                {busy ? 'Creating account…' : 'Create account'}
+                {busy ? S.page.creating : S.page.create_account}
               </button>
             </form>
 
             <p className="text-center text-xs text-slate-500">
-              Already have an account?{' '}
+              {S.page.have_account}{' '}
               <Link href="/login" className="font-semibold text-teal-700 hover:text-teal-800 transition-colors">
-                Sign in
+                {S.page.sign_in}
               </Link>
             </p>
           </div>
 
           <p className="mt-6 text-center text-[11px] text-slate-400 leading-relaxed max-w-md mx-auto">
-            By creating an account you agree to our{' '}
+            {S.page.legal_prefix}
             <Link href="/terms" target="_blank" rel="noopener noreferrer"
-              className="text-teal-700 hover:underline">Terms of Service</Link>
-            {' '}and{' '}
+              className="text-teal-700 hover:underline">{S.page.legal_terms}</Link>
+            {S.page.legal_middle}
             <Link href="/privacy" target="_blank" rel="noopener noreferrer"
-              className="text-teal-700 hover:underline">Privacy Policy</Link>.
+              className="text-teal-700 hover:underline">{S.page.legal_privacy}</Link>{S.page.legal_suffix}
           </p>
         </div>
       </div>

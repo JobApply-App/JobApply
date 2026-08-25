@@ -56,9 +56,9 @@ function TechPattern() {
 // ── Left panel brand metrics ───────────────────────────────────────────────────
 
 // Values are numerals and read the same in both languages; only the labels
-// are translated. NOTE: these figures — and the testimonial below — are
-// unverified marketing claims. See the `auth_layout.metrics` note in the
-// dictionaries before treating them as substantiated.
+// are translated. NOTE: these figures are unverified marketing claims
+// carried over from design mockups. See the `auth_layout.metrics` note in
+// the dictionaries before treating them as substantiated.
 const METRIC_VALUES = ['3×', '92%', '<5m'] as const
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -145,27 +145,6 @@ export function AuthLayout({
             ))}
           </div>
 
-          {/* Testimonial */}
-          <blockquote
-            className="relative z-10 rounded-2xl p-4 mt-2"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
-          >
-            <p className="text-[13.5px] leading-relaxed italic" style={{ color: '#cbd5e1' }}>
-              &ldquo;{A.testimonial_quote}&rdquo;
-            </p>
-            <footer className="mt-3 flex items-center gap-2.5">
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                style={{ background: TOKENS.color.primary }}
-              >
-                {A.testimonial_initials}
-              </div>
-              <div>
-                <p className="text-[12px] font-semibold text-white">{A.testimonial_name}</p>
-                <p className="text-[11px]" style={{ color: '#475569' }}>{A.testimonial_role}</p>
-              </div>
-            </footer>
-          </blockquote>
         </div>
 
         {/* Bottom: copyright */}
