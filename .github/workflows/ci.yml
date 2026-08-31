@@ -68,6 +68,13 @@ jobs:
       - name: Byte-compile backend
         run: python -m py_compile $(find backend -name "*.py" -not -path "*/tests/*")
 
+      # The migrations reference Supabase's `auth` schema (an FK to
+      # auth.users, and auth.uid() inside the RLS policies), which a plain
+      # Postgres does not have. See the file's own header for why this is
+      # CI-only and deliberately minimal.
+      - name: Bootstrap Supabase auth schema (CI only)
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/scripts/ci-bootstrap-auth.sql
+
       # Two Alembic environments, two schemas: alembic_app_schema owns
       # `public`, alembic_linkedin owns `linkedin`. Both are needed — the
       # LinkedIn ingestion tests query linkedin.jobs directly.
