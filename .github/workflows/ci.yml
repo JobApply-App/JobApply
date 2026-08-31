@@ -9,6 +9,37 @@ jobs:
   backend:
     name: Backend (Python)
     runs-on: ubuntu-latest
+
+    # Without a database, backend/tests/conftest.py's `db_available` fixture
+    # skips every Postgres-backed test — 24 files, ~200 test functions. That
+    # run is still green, which is the problem: it looked like the suite
+    # passed while the entire data layer went unexercised, including the
+    # Alembic wiring and the /health DB probe this repo depends on to notice
+    # a broken deployment. A throwaway service container makes those tests
+    # actually run.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER:     postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB:       jobapply_test
+        ports:
+          - 5432:5432
+        # The job starts as soon as the container is up, which is earlier
+        # than Postgres accepting connections — without this the migration
+        # step races the server and fails intermittently.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Localhost is exempt from ensure_sslmode() (backend/core/postgres.py),
+      # so no TLS listener is needed on the container.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jobapply_test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -37,10 +68,34 @@ jobs:
       - name: Byte-compile backend
         run: python -m py_compile $(find backend -name "*.py" -not -path "*/tests/*")
 
+      # Two Alembic environments, two schemas: alembic_app_schema owns
+      # `public`, alembic_linkedin owns `linkedin`. Both are needed — the
+      # LinkedIn ingestion tests query linkedin.jobs directly.
+      - name: Apply migrations
+        run: |
+          alembic -c alembic_app_schema.ini upgrade head
+          alembic -c alembic_linkedin.ini  upgrade head
+
+      # Fails loudly if the database is unreachable, instead of letting the
+      # suite skip its way to a green tick. Uses the same engine the tests
+      # use, so it fails for exactly the reasons they would have skipped.
+      - name: Verify database is reachable
+        run: |
+          python - <<'PY'
+          from sqlalchemy import text
+          from backend.core.postgres import PG_ENGINE
+          with PG_ENGINE.connect() as conn:
+              conn.execute(text("SELECT 1"))
+          print("database reachable")
+          PY
+
+      # -rs prints the reason for every skip. The suite is allowed to skip
+      # tests that need live third-party credentials, but a skip should
+      # always be legible in the log rather than a bare 's'.
       - name: Run backend tests
         env:
           ANTHROPIC_API_KEY: 'test-key'
-        run: pytest backend/tests -q
+        run: pytest backend/tests -q -rs
 
   frontend:
     name: Frontend (Next.js)
