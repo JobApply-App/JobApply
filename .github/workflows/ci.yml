@@ -99,6 +99,12 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
             -c 'ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS fk_profiles_id_auth_users;'
 
+      # Several test modules address fixed QA accounts by UUID instead of
+      # creating a user per run. See the file header for why seeding them is
+      # the right fix rather than relaxing the tenant FKs.
+      - name: Seed fixed QA accounts (CI only)
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/scripts/ci-seed-qa-users.sql
+
       # Fails loudly if the database is unreachable, instead of letting the
       # suite skip its way to a green tick. Uses the same engine the tests
       # use, so it fails for exactly the reasons they would have skipped.
