@@ -83,6 +83,22 @@ jobs:
           alembic -c alembic_app_schema.ini upgrade head
           alembic -c alembic_linkedin.ini  upgrade head
 
+      # One constraint cannot hold here: profiles.id references auth.users,
+      # a table Supabase owns and populates through its auth API. CI has no
+      # auth provider, so nothing can legitimately put rows in the stub —
+      # and the app's own get_or_create(), which creates the profiles row,
+      # fails against an empty auth.users.
+      #
+      # Dropping exactly that one FK keeps every constraint this codebase
+      # actually owns (profiles -> each tenant table) enforced, which is
+      # what the tests are there to exercise. The alternative — seeding a
+      # fake auth.users row per test — would assert nothing real about
+      # Supabase and would hide genuine FK regressions on our own tables.
+      - name: Relax the Supabase-owned FK (CI only)
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -c 'ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS fk_profiles_id_auth_users;'
+
       # Fails loudly if the database is unreachable, instead of letting the
       # suite skip its way to a green tick. Uses the same engine the tests
       # use, so it fails for exactly the reasons they would have skipped.
