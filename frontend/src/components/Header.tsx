@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import { Logo } from './ui/Logo'
 import { StatusDot } from './ui/StatusDot'
@@ -24,11 +25,12 @@ function HelpIcon({ s = 15 }: { s?: number }) {
 
 export type Tab = 'overview' | 'apps' | 'feed' | 'all-jobs'
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview'     },
-  { id: 'feed',     label: 'Matches'      },
-  { id: 'apps',     label: 'Applications' },
-  { id: 'all-jobs', label: 'All Jobs'     },
+const TABS: { id: Tab }[] = [
+  // ids are route keys and stay in code; labels come from header.nav.
+  { id: 'overview' },
+  { id: 'feed'     },
+  { id: 'apps'     },
+  { id: 'all-jobs' },
 ]
 
 interface HeaderProps {
@@ -39,6 +41,7 @@ interface HeaderProps {
 }
 
 export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) {
+  const H = useI18n().t.header
   const [menuOpen,       setMenuOpen]       = useState(false)
   const [bellOpen,       setBellOpen]       = useState(false)
   const [mobileNavOpen,  setMobileNavOpen]  = useState(false)
@@ -126,7 +129,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
         {/* Hamburger — mobile/tablet only, opens the stacked nav panel below */}
         <button
           onClick={() => setMobileNavOpen(v => !v)}
-          aria-label={mobileNavOpen ? 'Close menu' : 'Open menu'}
+          aria-label={mobileNavOpen ? H.close_menu : H.open_menu}
           aria-expanded={mobileNavOpen}
           className="md:hidden inline-flex items-center justify-center w-11 h-11 -ml-2 rounded-lg text-slate-500 active:bg-slate-100 transition-colors"
         >
@@ -147,7 +150,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                 : 'border-transparent hover:text-slate-900'
             }`}
           >
-            {t.label}
+            {H.nav[t.id === 'all-jobs' ? 'all_jobs' : t.id]}
           </button>
         ))}
         <Link
@@ -157,7 +160,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
             onCapabilities ? 'text-slate-900 border-slate-900' : 'border-transparent hover:text-slate-900'
           }`}
         >
-          Capabilities
+          {H.nav.capabilities}
         </Link>
         <Link
           href="/analytics"
@@ -166,7 +169,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
             onAnalytics ? 'text-slate-900 border-slate-900' : 'border-transparent hover:text-slate-900'
           }`}
         >
-          Analytics
+          {H.nav.analytics}
         </Link>
       </nav>
 
@@ -201,8 +204,8 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
             than something the interaction depends on. */}
         <button
           onClick={openEliya}
-          title="Help & Support — Ask Eliya"
-          aria-label="Help & Support"
+          title={H.help_title}
+          aria-label={H.help_label}
           className={`inline-flex items-center justify-center w-11 h-11 sm:w-8 sm:h-8 rounded-md transition-colors ${
             isEliyaOpen
               ? 'text-indigo-600 bg-indigo-50'
@@ -216,8 +219,8 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
         <div className="relative" ref={bellRef}>
           <button
             onClick={() => { setMenuOpen(false); setBellOpen(v => !v) }}
-            title="Notifications"
-            aria-label="Notifications"
+            title={H.notifications}
+            aria-label={H.notifications}
             aria-haspopup="true"
             aria-expanded={bellOpen}
             className="inline-flex items-center justify-center w-11 h-11 sm:w-8 sm:h-8 rounded-md text-slate-400 active:bg-slate-100 sm:hover:text-slate-700 sm:hover:bg-slate-50 transition-colors"
@@ -293,7 +296,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                 AI Profile Builder
               </button>
               <button className="w-full text-left px-3 py-2 text-[13px] text-slate-700 active:bg-slate-100 sm:hover:bg-slate-50 transition-colors">
-                Profile & preferences
+                {H.profile_prefs}
               </button>
               <div className="border-t border-slate-200" />
               {process.env.NODE_ENV === 'development' && (
@@ -303,17 +306,17 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                     await signOut()
                   }}
                   className="w-full text-left px-3 py-2 text-[11.5px] font-mono text-amber-700 active:bg-amber-100 sm:hover:bg-amber-50 transition-colors flex items-center gap-1.5"
-                  title="Clears all Supabase session storage and forces a clean re-login — use to switch between user profiles in dev"
+                  title={H.force_reset_title}
                 >
                   <span className="text-[10px] bg-amber-100 text-amber-600 font-bold px-1 rounded">DEV</span>
-                  Force Reset Session
+                  {H.force_reset}
                 </button>
               )}
               <button
                 onClick={() => { setMenuOpen(false); void signOut() }}
                 className="w-full text-left px-3 py-2 text-[13px] text-rose-600 active:bg-rose-100 sm:hover:bg-rose-50 transition-colors"
               >
-                Sign out
+                {H.sign_out}
               </button>
             </div>
           )}
@@ -336,7 +339,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                   : 'text-slate-600 active:bg-slate-50'
               }`}
             >
-              {t.label}
+              {H.nav[t.id === 'all-jobs' ? 'all_jobs' : t.id]}
             </button>
           ))}
           <Link
@@ -346,7 +349,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
               onCapabilities ? 'text-teal-700 bg-teal-50' : 'text-slate-600 active:bg-slate-50'
             }`}
           >
-            Capabilities
+            {H.nav.capabilities}
           </Link>
           <Link
             href="/analytics"
@@ -355,7 +358,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
               onAnalytics ? 'text-teal-700 bg-teal-50' : 'text-slate-600 active:bg-slate-50'
             }`}
           >
-            Analytics
+            {H.nav.analytics}
           </Link>
         </nav>
       )}

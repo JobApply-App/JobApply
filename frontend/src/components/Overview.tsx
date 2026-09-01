@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getGreetingName } from '@/lib/nameUtils'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
 import type { ApiFeedJob, ScoreBreakdown, ConfidenceMatrixResponse, TrustScoreResponse } from '@/lib/apiTypes'
@@ -22,6 +23,7 @@ import { getLastKnownDashboardSnapshot, saveDashboardSnapshot, clearDashboardSna
 //            fresh li_at cookie is being configured.  Not an error state.
 
 function LinkedInBlockedBanner({ blockedAt }: { blockedAt: string | null }) {
+  const O = useI18n().t.overview
   const formattedAt = blockedAt
     ? new Date(blockedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
     : null
@@ -35,7 +37,7 @@ function LinkedInBlockedBanner({ blockedAt }: { blockedAt: string | null }) {
       <span className="text-[18px] shrink-0 mt-0.5" aria-hidden="true">🚫</span>
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-bold text-slate-800 mb-0.5">
-          LinkedIn Connection Blocked
+          {O.linkedin_blocked}
         </p>
         <p className="text-[12px] text-slate-600 leading-relaxed">
           The scraper hit a redirect loop (bot-detection) and has been paused to protect your
@@ -52,6 +54,7 @@ function LinkedInBlockedBanner({ blockedAt }: { blockedAt: string | null }) {
 }
 
 function LinkedInPausedBanner() {
+  const O = useI18n().t.overview
   return (
     <div
       className="rounded-xl px-4 py-3.5 flex items-start gap-3"
@@ -61,10 +64,10 @@ function LinkedInPausedBanner() {
       <span className="text-[18px] shrink-0 mt-0.5" aria-hidden="true">⏸</span>
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-bold text-slate-800 mb-0.5">
-          LinkedIn Scraper Maintenance Pause
+          {O.linkedin_maintenance}
         </p>
         <p className="text-[12px] text-slate-600 leading-relaxed">
-          The enrichment loop is paused while a fresh cookie is being configured.
+          {O.linkedin_maintenance_body}
           Update <code className="font-mono text-[11px]">LINKEDIN_LI_AT</code> in{' '}
           <code className="font-mono text-[11px]">backend/.env</code>, then run{' '}
           <code className="font-mono text-[11px]">venv/bin/python -m backend.scripts.reset_linkedin_scraper --resume</code>{' '}
@@ -130,6 +133,7 @@ function KPIRow({ jobsScannedToday, actionsTakenToday, averageMatchScore, loadin
   averageMatchScore: number
   loading:           boolean
 }) {
+  const O = useI18n().t.overview
   if (loading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -151,23 +155,23 @@ function KPIRow({ jobsScannedToday, actionsTakenToday, averageMatchScore, loadin
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
       <KPIStat
-        label="Jobs scanned today"
+        label={O.kpi.scanned.label}
         value={jobsScannedToday}
-        sub="New roles surfaced since midnight"
+        sub={O.kpi.scanned.sub}
         accent={TOKENS.color.primary}
         Icon={SearchIcon}
       />
       <KPIStat
-        label="Actions taken today"
+        label={O.kpi.actions.label}
         value={actionsTakenToday}
-        sub="Applications you submitted today"
+        sub={O.kpi.actions.sub}
         accent={TOKENS.color.success}
         Icon={BoltIcon}
       />
       <KPIStat
-        label="Average match score"
+        label={O.kpi.avg.label}
         value={`${averageMatchScore.toFixed(1)}%`}
-        sub="ATS fit across your scored jobs"
+        sub={O.kpi.avg.sub}
         accent={TOKENS.color.primaryHover}
         Icon={SparkIcon}
       />
@@ -184,6 +188,7 @@ function AnalyticsErrorBanner({ rateLimited, onRetry }: {
   rateLimited: boolean
   onRetry:     () => void
 }) {
+  const O = useI18n().t.overview
   return (
     <div
       className="rounded-xl px-4 py-3 flex items-center gap-3"
@@ -193,8 +198,8 @@ function AnalyticsErrorBanner({ rateLimited, onRetry }: {
       <span className="text-[15px] shrink-0" aria-hidden="true">⚠️</span>
       <p className="flex-1 text-[12px] text-slate-600 leading-relaxed">
         {rateLimited
-          ? 'Live analytics are briefly rate-limited. Please try again in a minute.'
-          : 'Could not load live analytics right now.'}
+          ? O.analytics_rate_limited
+          : O.analytics_failed}
       </p>
       <button
         onClick={onRetry}
@@ -213,6 +218,7 @@ function AnalyticsErrorBanner({ rateLimited, onRetry }: {
 function QuickActions({ newCount, savedCount, onGo }: {
   newCount: number; savedCount: number; onGo: (tab: string) => void
 }) {
+  const O = useI18n().t.overview
   const items = [
     {
       id: 'review', tab: 'feed',
@@ -248,7 +254,7 @@ function QuickActions({ newCount, savedCount, onGo }: {
     <div className="flex flex-col h-full">
       <div className="flex items-baseline justify-between mb-4">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-          Quick actions
+          {O.quick_actions}
         </h2>
       </div>
       {/* flex-1 lets the 2×2 grid absorb the column's remaining height; the
@@ -374,17 +380,10 @@ function TopMatchSkeleton({ opacity }: { opacity: number }) {
 // Gamified engagement copy stays encouraging even at low scores, but the
 // underlying threshold and color always come from the shared Meridian V2
 // score band (§2.3) — never a separate ad hoc scale.
-const CONFIDENCE_TIER_LABEL: Record<ReturnType<typeof getScoreBand>['key'], string> = {
-  exceptional: 'Excellent',
-  strong:      'Strong',
-  moderate:    'Building',
-  weak:        'Getting started',
-  poor:        'Just started',
-}
 
-function confidenceTier(pct: number): { label: string; color: string } {
+function confidenceTier(pct: number): { key: ReturnType<typeof getScoreBand>['key']; color: string } {
   const band = getScoreBand(pct)
-  return { label: CONFIDENCE_TIER_LABEL[band.key], color: band.hexFg }
+  return { key: band.key, color: band.hexFg }
 }
 
 function ConfidenceGauge({ pct, color }: { pct: number | null; color: string }) {
@@ -423,37 +422,12 @@ function ConfidenceGauge({ pct, color }: { pct: number | null; color: string }) 
 //   Breadth  → teal-600 (brand primary)
 //   Depth    → emerald-600 (success)
 //   Context  → teal-400 (a lighter teal, distinct but on-brand)
+// Label, caption and hint live in overview.pillars, looked up by `key`.
+// Only the things that are not language stay here.
 const PILLAR_META = [
-  {
-    key:   'breadth' as const,
-    label: 'Breadth',
-    max:   40,
-    color: TOKENS.color.primary,     // #0D9488 teal-600
-    Icon:  SearchIcon,
-    caption: 'Volume of parsed data',
-    hint:  'Breadth — how much of your professional landscape the system has '
-         + 'extracted from CVs and chats. More data means a more complete picture.',
-  },
-  {
-    key:   'depth' as const,
-    label: 'Depth',
-    max:   40,
-    color: TOKENS.color.success,     // #059669 emerald-600
-    Icon:  CheckIcon,
-    caption: 'Verified & accurate claims',
-    hint:  'Depth — claims you have verified or clarified (tests, STAR probes, '
-         + 'honest proficiency levels). This is the main path toward 100%.',
-  },
-  {
-    key:   'context' as const,
-    label: 'Context',
-    max:   20,
-    color: '#2DD4BF',                // teal-400
-    Icon:  UserBadgeIcon,
-    caption: 'Profile basics & interaction',
-    hint:  'Context — profile completeness (name, contact, goals) plus how much '
-         + 'you have engaged with Ariel. Small but steady wins.',
-  },
+  { key: 'breadth' as const, max: 40, color: TOKENS.color.primary, Icon: SearchIcon },
+  { key: 'depth'   as const, max: 40, color: TOKENS.color.success, Icon: CheckIcon },
+  { key: 'context' as const, max: 20, color: '#2DD4BF',            Icon: UserBadgeIcon },
 ]
 
 // One elegant progress rail per pillar: icon + label + value/max + fill + copy.
@@ -512,6 +486,7 @@ function ConfidenceScoreCard({ score, breakdown, onImprove }: {
   breakdown:  ScoreBreakdown | null
   onImprove:  () => void
 }) {
+  const O = useI18n().t.overview
   // 1-decimal precision throughout (.ai_rules) — no early rounding to an int.
   const pct  = score !== null ? Math.min(100, Math.max(0, score)) : null
   const tier = pct !== null ? confidenceTier(pct) : null
@@ -532,20 +507,19 @@ function ConfidenceScoreCard({ score, breakdown, onImprove }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <h2 className="text-[13.5px] font-bold text-slate-900 tracking-tight">
-              System Confidence Score
+              {O.confidence_title}
             </h2>
             {tier && (
               <span
                 className="inline-flex items-center h-[18px] px-2 rounded-md text-[10.5px] font-semibold"
                 style={{ background: `color-mix(in oklab, ${tier.color} 12%, white)`, color: tier.color }}
               >
-                {tier.label}
+                {O.bands[tier.key]}
               </span>
             )}
           </div>
           <p className="text-[12px] text-slate-500 leading-relaxed">
-            How well the system knows your profile — built from three pillars.
-            Verify your claims and share more to grow it.
+            {O.confidence_body}
           </p>
         </div>
 
@@ -555,7 +529,7 @@ function ConfidenceScoreCard({ score, breakdown, onImprove }: {
           style={{ background: TOKENS.color.primary, color: '#fff' }}
         >
           <SparkIcon s={12} />
-          Improve with Ariel
+          {O.improve_with_ariel}
         </button>
       </div>
 
@@ -563,7 +537,7 @@ function ConfidenceScoreCard({ score, breakdown, onImprove }: {
       <div
         className="mt-4 flex h-2 w-full rounded-full overflow-hidden"
         style={{ background: TOKENS.color.lineSoft }}
-        title="Your score is the sum of Breadth, Depth and Context (max 100)."
+        title={O.confidence_tooltip}
       >
         {breakdown && PILLAR_META.map(p => (
           <div
@@ -583,13 +557,13 @@ function ConfidenceScoreCard({ score, breakdown, onImprove }: {
         {PILLAR_META.map(p => (
           <PillarRail
             key={p.key}
-            label={p.label}
+            label={O.pillars[p.key].label}
             value={breakdown ? breakdown[p.key] : null}
             max={p.max}
             color={p.color}
             Icon={p.Icon}
-            caption={p.caption}
-            hint={p.hint}
+            caption={O.pillars[p.key].caption}
+            hint={O.pillars[p.key].hint}
             loading={loading}
           />
         ))}
@@ -602,7 +576,7 @@ function ConfidenceScoreCard({ score, breakdown, onImprove }: {
         style={{ background: TOKENS.color.primary, color: '#fff' }}
       >
         <SparkIcon s={12} />
-        Improve with Ariel
+        {O.improve_with_ariel}
       </button>
     </section>
   )
@@ -610,17 +584,21 @@ function ConfidenceScoreCard({ score, breakdown, onImprove }: {
 
 // ── Greeting helpers ───────────────────────────────────────────────────────────
 
-function _timeGreeting(): string {
+// Returns a dictionary key rather than a phrase, so the wording lives with
+// the other translations instead of in this file.
+function _timeOfDay(): 'morning' | 'afternoon' | 'evening' | 'night' {
   const h = new Date().getHours()
-  if (h >= 5  && h < 12) return 'Good morning'
-  if (h >= 12 && h < 17) return 'Good afternoon'
-  if (h >= 17 && h < 21) return 'Good evening'
-  return 'Good night'
+  if (h >= 5  && h < 12) return 'morning'
+  if (h >= 12 && h < 17) return 'afternoon'
+  if (h >= 17 && h < 21) return 'evening'
+  return 'night'
 }
 
-// e.g. "Tuesday, 7 July" — used in the header date pill for a live, welcoming feel.
-function _todayLabel(): string {
-  return new Date().toLocaleDateString('en-GB', {
+// e.g. "Tuesday, 7 July" — used in the header date pill for a live, welcoming
+// feel. Takes the locale so the weekday and month names follow the interface
+// language; a Hebrew page showing an English date reads as untranslated.
+function _todayLabel(locale: string): string {
+  return new Date().toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-GB', {
     weekday: 'long', day: 'numeric', month: 'long',
   })
 }
@@ -645,6 +623,8 @@ export function Overview({
   userId, jobsScannedToday, feedJobs, jobsLoading, savedIds, displayName,
   onSave, onReviewCV, onGo,
 }: OverviewProps) {
+  const { t, locale } = useI18n()
+  const O = t.overview
   const previewJobs = feedJobs.slice(0, 4)
 
   // ── System Confidence Score (Phase 14) ──────────────────────────────────────
@@ -851,18 +831,32 @@ export function Overview({
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[34px] font-bold text-slate-900 tracking-[-0.02em] leading-[1.1]">
-            {_timeGreeting()}
-            {getGreetingName(displayName ?? '') && (
-              <>
-                ,{' '}
-                <span style={{ color: TOKENS.color.primary }}>
-                  {getGreetingName(displayName ?? '')}
-                </span>
-              </>
-            )}
+            {(() => {
+              const name = getGreetingName(displayName ?? '')
+              const greeting = O[`greeting_${_timeOfDay()}` as const]
+              if (!name) return greeting
+              // Split on the placeholder so the name keeps its accent colour
+              // while the surrounding punctuation stays part of the
+              // translated string — Hebrew does not place the comma the way
+              // English does.
+              const [before, after] = O.greeting.replace('{greeting}', greeting).split('{name}')
+              return (
+                <>
+                  {before}
+                  <span style={{ color: TOKENS.color.primary }}>{name}</span>
+                  {after}
+                </>
+              )
+            })()}
           </h1>
-          <p className="text-[14.5px] text-slate-400 mt-2">
-            Here&apos;s what happened overnight.
+          {/* dir="auto" is load-bearing while this string may still be
+              English inside an RTL page: the trailing period is a neutral
+              character, so the paragraph direction decides where it lands
+              and it renders at the START of the sentence (".Here's what…").
+              Letting the element take direction from its own text fixes it
+              regardless of which language is showing. */}
+          <p dir="auto" className="text-[14.5px] text-slate-400 mt-2 text-start">
+            {O.subline}
           </p>
         </div>
 
@@ -880,14 +874,14 @@ export function Overview({
           />
           {isShowingLastKnown ? (
             <span aria-live="polite">
-              Refreshing…{lastKnownAt && (
+              {O.refreshing}{lastKnownAt && (
                 <span className="text-slate-400 font-normal">
-                  {' '}(as of {new Date(lastKnownAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })})
+                  {' '}{O.as_of.replace('{time}', new Date(lastKnownAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}
                 </span>
               )}
             </span>
           ) : (
-            _todayLabel()
+            _todayLabel(locale)
           )}
         </span>
       </div>
@@ -902,7 +896,7 @@ export function Overview({
       {/* ── KPI strip — server analytics with local fallback ─────────────── */}
       <section className="space-y-4">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-          Today at a glance
+          {O.glance_title}
         </h2>
         {overviewError && !overviewLoading && (
           <AnalyticsErrorBanner
@@ -962,7 +956,7 @@ export function Overview({
         <section>
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-              Top matches today
+              {O.top_matches}
             </h2>
             <button
               onClick={handleMatchClick}
@@ -988,7 +982,7 @@ export function Overview({
             ))
           ) : (
             <p className="py-8 text-[13px] text-slate-400">
-              No matches yet. Your agents are scanning now.
+              {O.no_matches}
             </p>
           )}
         </section>

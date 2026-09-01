@@ -1,10 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useI18n } from '@/contexts/I18nContext'
 import { StatusDot } from './ui/StatusDot'
 
-const COMING_SOON_MSG = 'This feature is currently in development and will be available soon.'
 
 export function Footer() {
+  const F = useI18n().t.footer
   const [toast, setToast] = useState(false)
 
   useEffect(() => {
@@ -24,7 +25,7 @@ export function Footer() {
         // Dark glass (§3.2) — this toast already committed to a dark theme.
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 bg-[#0A1F1C]/80 backdrop-blur-xl border border-white/10 text-white text-[13px] font-medium px-5 py-3 rounded-xl shadow-floating max-w-sm text-center animate-modal-in">
           <span>🚧</span>
-          <span>{COMING_SOON_MSG}</span>
+          <span>{F.coming_soon}</span>
         </div>
       )}
       {/* Full-bleed divider; inner container aligns to the same content
@@ -35,14 +36,14 @@ export function Footer() {
             <span>v1.3.0</span>
             <span className="text-slate-300">·</span>
             <span className="inline-flex items-center gap-1.5">
-              <StatusDot tone="success" pulse size={5} /> All systems operational
+              <StatusDot tone="success" pulse size={5} /> {F.operational}
             </span>
           </div>
           <div className="inline-flex items-center gap-4">
-            <a href="#" onClick={showComingSoon} className="hover:text-slate-700">Help</a>
-            <a href="#" onClick={showComingSoon} className="hover:text-slate-700">Privacy</a>
-            <a href="#" onClick={showComingSoon} className="hover:text-slate-700">Contact</a>
-            <a href="/accessibility" className="hover:text-slate-700">Accessibility</a>
+            <a href="#" onClick={showComingSoon} className="hover:text-slate-700">{F.help}</a>
+            <a href="#" onClick={showComingSoon} className="hover:text-slate-700">{F.privacy}</a>
+            <a href="#" onClick={showComingSoon} className="hover:text-slate-700">{F.contact}</a>
+            <a href="/accessibility" className="hover:text-slate-700">{F.accessibility}</a>
           </div>
         </div>
       </footer>

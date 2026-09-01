@@ -146,6 +146,71 @@ export interface Dict {
   }
   // Score-band labels, keyed by ScoreBandKey (see lib/scoreBand.ts). The
   // keys and thresholds stay in code; only the display labels translate.
+  header: {
+    nav: { overview: string; feed: string; apps: string; all_jobs: string
+           capabilities: string; analytics: string }
+    open_menu:    string
+    close_menu:   string
+    help_title:   string
+    help_label:   string
+    notifications:string
+    profile_prefs:string
+    force_reset:  string
+    force_reset_title: string
+    sign_out:     string
+  }
+  footer: {
+    coming_soon:  string
+    operational:  string
+    help:         string
+    privacy:      string
+    contact:      string
+    accessibility:string
+  }
+  overview: {
+    greeting_morning:   string
+    greeting_afternoon: string
+    greeting_evening:   string
+    greeting_night:     string
+    // Greeting and subline are separate sentences on purpose: the name is
+    // interpolated into the first, and Hebrew orders them differently.
+    greeting:           string   // takes {greeting} and {name}
+    subline:            string
+    refreshing:         string
+    as_of:              string   // takes {time}
+    confidence_title:   string
+    confidence_body:    string
+    confidence_tooltip: string
+    improve_with_ariel: string
+    pillars: {
+      breadth: { label: string; caption: string; hint: string }
+      depth:   { label: string; caption: string; hint: string }
+      context: { label: string; caption: string; hint: string }
+    }
+    // Wording for the score band on this screen is softer than the feed's:
+    // it describes profile progress, not a job match.
+    bands: { exceptional: string; strong: string; moderate: string; weak: string; poor: string }
+    glance_title:       string
+    kpi: {
+      scanned:  { label: string; sub: string }
+      actions:  { label: string; sub: string }
+      avg:      { label: string; sub: string }
+    }
+    analytics_rate_limited: string
+    analytics_failed:       string
+    quick_actions:      string
+    actions: {
+      review:      { label: string; sub: string }
+      strengthen:  { label: string; sub: string }
+      update_cv:   { label: string; sub: string }
+      preferences: { label: string; sub: string }
+    }
+    top_matches:   string
+    no_matches:    string
+    linkedin_blocked:      string
+    linkedin_maintenance:  string
+    linkedin_maintenance_body: string
+  }
   score_bands: {
     exceptional: string
     strong:      string
@@ -204,6 +269,7 @@ export interface Dict {
     role:            string
     launcher_title:  string
     launcher_label:  string
+    launcher_cta:    string
     job_context:     string
     continue_recent: string
     continue_hint:   string

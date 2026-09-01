@@ -65,7 +65,7 @@ export function ChatLauncher() {
         />
       )}
       <span className="flex-shrink-0"><ChatIcon /></span>
-      <span className="text-[13px] font-semibold tracking-tight">Ask Ariel</span>
+      <span className="text-[13px] font-semibold tracking-tight">{A.launcher_cta}</span>
     </button>
   )
 }
