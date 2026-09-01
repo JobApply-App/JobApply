@@ -294,6 +294,7 @@ export interface Dict {
     top_fits_on:    string   // takes {threshold}
     top_fits_off:   string
     sort_paused:    string
+    sort_paused_label: string
     indexing_title: string
     indexing_body_one:  string   // takes {n}
     indexing_body_many: string   // takes {n}

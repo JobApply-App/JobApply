@@ -325,6 +325,7 @@ export const en = {
     top_fits_on:  'Showing top fits only (ATS score > {threshold})',
     top_fits_off: 'Show all scores',
     sort_paused:  'Sort order is paused while a card is open.',
+    sort_paused_label: 'Sort paused',
     indexing_title:     'Agents are actively indexing fresh roles',
     indexing_body_one:  '{n} job found in the pipeline. Scoring and JD enrichment in progress. Results will appear here automatically.',
     indexing_body_many: '{n} jobs found in the pipeline. Scoring and JD enrichment in progress. Results will appear here automatically.',

@@ -1340,7 +1340,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       <div className="flex items-center gap-2 min-w-0">
         <div className="w-7 h-7 rounded-full text-white text-[11px] font-bold flex items-center justify-center shrink-0"
           style={{ background: TOKENS.color.gradientIntelligence, boxShadow: TOKENS.shadow.glowAi }}>A</div>
-        <p className="text-[13px] font-semibold text-slate-700 truncate">Ariel</p>
+        <p className="text-[13px] font-semibold text-slate-700 truncate">{A.name}</p>
       </div>
       {/* Right: icon buttons — 44px square on mobile (touch target minimum),
           28px on desktop for alignment with the compact header */}
