@@ -131,8 +131,11 @@ async def get_gmail_verification_code(user: CurrentUser = Depends(require_admin)
 
 
 class LocalePreferences(BaseModel):
-    ui_locale: str
-    cv_locale: str
+    # Null means "this account has no stored preference yet" — distinct from
+    # a stored "en". The client only adopts a non-null value, so it can leave
+    # a visitor's own choice alone until they set one deliberately.
+    ui_locale: Optional[str] = None
+    cv_locale: Optional[str] = None
 
 
 class LocalePreferencesUpdate(BaseModel):
@@ -144,8 +147,26 @@ class LocalePreferencesUpdate(BaseModel):
 
 @router.get("/locales", response_model=LocalePreferences)
 async def get_locale_preferences(user: CurrentUser = Depends(get_current_user)) -> LocalePreferences:
-    """The caller's own interface and CV languages, defaulted when unset."""
-    return LocalePreferences(**profile_repository.get_locales(user.user_id))
+    """
+    The caller's own interface and CV languages. Either field is null when
+    this account has no stored preference yet, which the client reads as
+    "keep whatever language you are already showing".
+
+    A database that cannot be read is a 503, not a defaulted 200. Returning
+    a plausible-looking "en" here made an infrastructure failure
+    indistinguishable from a real preference, and the client persists what
+    it receives — so a failed read silently overwrote a language the
+    visitor had chosen. The client already keeps its current locale when
+    this call fails, so the honest status code is also the one that
+    produces the right behaviour.
+    """
+    try:
+        return LocalePreferences(**profile_repository.get_locales(user.user_id))
+    except profile_repository.LocalesUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="Language preferences are temporarily unavailable.",
+        )
 
 
 @router.patch("/locales", response_model=LocalePreferences)
@@ -167,4 +188,9 @@ async def update_locale_preferences(
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except profile_repository.LocalesUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="Language preferences are temporarily unavailable.",
+        )
     return LocalePreferences(**updated)

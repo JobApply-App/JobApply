@@ -101,11 +101,16 @@ export function I18nProvider({
     fetchLocalePreferences()
       .then((prefs) => {
         if (cancelled) return
-        setCvLocaleState(prefs.cv_locale)
-        if (prefs.ui_locale !== locale) {
-          setLocaleState(prefs.ui_locale)
-          try { localStorage.setItem(LS_KEY, prefs.ui_locale) } catch { /* storage quota */ }
-          try { writeLocaleCookie(prefs.ui_locale) } catch { /* cookies disabled */ }
+        if (prefs.cv_locale) setCvLocaleState(prefs.cv_locale)
+        // Only a real stored preference may override the language already on
+        // screen. A null means this account has never chosen one, in which
+        // case the visitor's own selection — the reason they are reading this
+        // in Hebrew — is the better answer than a server-side default.
+        const stored = prefs.ui_locale
+        if (stored && stored !== locale) {
+          setLocaleState(stored)
+          try { localStorage.setItem(LS_KEY, stored) } catch { /* storage quota */ }
+          try { writeLocaleCookie(stored) } catch { /* cookies disabled */ }
         }
       })
       .catch(() => { /* anonymous visitor or offline — keep the cookie value */ })

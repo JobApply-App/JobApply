@@ -622,21 +622,37 @@ SUPPORTED_LOCALES: tuple[str, ...] = ("en", "he")
 DEFAULT_LOCALE = "en"
 
 
-def _coerce_locale(value, fallback: str = DEFAULT_LOCALE) -> str:
+def _coerce_locale(value, fallback=DEFAULT_LOCALE):
+    """Return value when it is a supported locale, else `fallback`.
+
+    `fallback` may be None where the caller needs to preserve "unknown"
+    rather than substitute a language.
+    """
     return value if value in SUPPORTED_LOCALES else fallback
+
+
+class LocalesUnavailable(RuntimeError):
+    """The stored preferences could not be read at all."""
 
 
 def get_locales(user_id: str) -> dict:
     """
-    {"ui_locale": ..., "cv_locale": ...} for user_id.
+    {"ui_locale": ..., "cv_locale": ...} for user_id, either value None when
+    this account has no stored preference yet.
 
-    Falls back to the default locale for a missing row, an unreadable
-    database, or a value outside SUPPORTED_LOCALES — a user should always
-    get a usable interface, never an error page, because a preference row
-    has not been created yet.
+    Three outcomes that used to be one. This returned DEFAULT_LOCALE for a
+    missing row, an out-of-range value AND an unreadable database alike, so
+    a caller could not tell "this user prefers English" from "the query
+    raised". The frontend adopts whatever it receives and writes it to the
+    cookie, which meant a database error silently replaced a language the
+    visitor had actively chosen — a read failure rewriting user state.
+
+    Now: a real stored value is returned, "nothing stored" is None so the
+    caller can keep whatever it is already using, and an unreadable database
+    raises LocalesUnavailable instead of being dressed up as a preference.
     """
     if not _is_valid_uuid(user_id):
-        return {"ui_locale": DEFAULT_LOCALE, "cv_locale": DEFAULT_LOCALE}
+        return {"ui_locale": None, "cv_locale": None}
     try:
         with ENGINE.connect() as conn:
             row = conn.execute(
@@ -646,13 +662,17 @@ def get_locales(user_id: str) -> dict:
                 ),
                 {"uid": user_id},
             ).fetchone()
-    except Exception:
-        logger.exception("[locales] read failed for user_id=%s — serving defaults", user_id)
-        return {"ui_locale": DEFAULT_LOCALE, "cv_locale": DEFAULT_LOCALE}
+    except Exception as exc:
+        logger.exception("[locales] read failed for user_id=%s", user_id)
+        raise LocalesUnavailable(str(exc)) from exc
 
     if row is None:
-        return {"ui_locale": DEFAULT_LOCALE, "cv_locale": DEFAULT_LOCALE}
-    return {"ui_locale": _coerce_locale(row[0]), "cv_locale": _coerce_locale(row[1])}
+        return {"ui_locale": None, "cv_locale": None}
+    # None stays None: a row can exist with the columns unset.
+    return {
+        "ui_locale": _coerce_locale(row[0], None) if row[0] is not None else None,
+        "cv_locale": _coerce_locale(row[1], None) if row[1] is not None else None,
+    }
 
 
 def set_locales(

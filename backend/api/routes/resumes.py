@@ -102,6 +102,23 @@ class ResumeGenerateResponse(BaseModel):
     layout_variant: str
 
 
+
+# get_locales() answers None when an account has no stored CV language, and
+# raises when the preferences table cannot be read at all. Generation still
+# has to pick a language either way, and English is the documented default —
+# but "we could not find out" is worth a log line, because writing a CV in
+# the wrong language spends one of the user's four daily generations.
+def _stored_cv_locale(user_id: str) -> str:
+    try:
+        stored = profile_repository.get_locales(user_id)["cv_locale"]
+    except profile_repository.LocalesUnavailable:
+        logger.warning(
+            "[resumes] could not read cv_locale for user=%s — defaulting to 'en'", user_id
+        )
+        return "en"
+    return stored or "en"
+
+
 @router.post("/generate", response_model=ResumeGenerateResponse, dependencies=[Depends(llm_rate_limit)])
 async def generate_resume(
     job_id: str = Form(...),
@@ -547,7 +564,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
     # user's stored default. Resolved before the cache lookup because the
     # cache is language-specific — a draft written in the other language is a
     # miss, not a hit.
-    cv_locale = req.cv_locale or profile_repository.get_locales(user.user_id)["cv_locale"]
+    cv_locale = req.cv_locale or _stored_cv_locale(user.user_id)
 
     # ── Return cached CV if available and force=False ─────────────────────────
     if not req.force and not req.supplemental_answers:
@@ -1145,7 +1162,7 @@ async def save_cv(req: SaveCvRequest, user: CurrentUser = Depends(get_current_us
     # Fall back to the stored default only when the editor did not say —
     # an older client that predates the field is far likelier to be editing
     # a CV in the user's usual language than in the other one.
-    saved_locale = req.cv_locale or profile_repository.get_locales(user.user_id)["cv_locale"]
+    saved_locale = req.cv_locale or _stored_cv_locale(user.user_id)
     save_tailored_cv(req.job_id, user.user_id, req.cv_data, req.match_score, cv_locale=saved_locale)
     logger.info(
         "[resumes/save-cv] Explicitly saved draft CV for job %s (locale=%s)",

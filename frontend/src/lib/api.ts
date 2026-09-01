@@ -1196,8 +1196,12 @@ export function normaliseJob(m: ApiJobMatch, rank: number): Job {
 // backend migration c5a91b3e7d02.
 
 export interface LocalePreferences {
-  ui_locale: 'en' | 'he'
-  cv_locale: 'en' | 'he'
+  // Null means the account has no stored preference yet — deliberately not
+  // collapsed into 'en'. The server used to answer 'en' for "unset" and for
+  // "the query failed" alike, and the client persists what it receives, so a
+  // database error silently replaced a language the visitor had chosen.
+  ui_locale: 'en' | 'he' | null
+  cv_locale: 'en' | 'he' | null
 }
 
 // Called on mount for every visitor, including anonymous ones on public
