@@ -168,33 +168,31 @@ input[type='range'] {
   }
 }
 
-/* ── Bidi: let each block of text resolve its own direction ────────────────────
+/* ── Bidi and trailing punctuation — why there is no global rule here ────────
  *
- * An English sentence sitting in an RTL page rendered its trailing period at
- * what looks like the start — ".Here's what happened overnight" — because a
- * period is a bidi-neutral character, so its position is decided by the
- * paragraph direction rather than by the sentence it belongs to. The same
- * applies to a Hebrew string inside an LTR page.
+ * An untranslated English sentence in the RTL layout renders its trailing
+ * period at the visual start (".Here's what happened overnight"): a period is
+ * bidi-neutral and takes its side from the paragraph direction rather than
+ * from the sentence it belongs to.
  *
- * `unicode-bidi: plaintext` makes each block take its bidi paragraph direction
- * from its own first strong character, which is what `dir="auto"` does. It is
- * applied here rather than attribute-by-attribute because the defect is a
- * property of mixed-language pages, not of any one component: it appears in
- * every string that has not been translated yet, and would reappear in any new
- * one. Patching individual elements leaves the next untranslated string broken.
+ * The obvious global fix — `unicode-bidi: plaintext` on text blocks, giving
+ * each block its direction from its own first strong character — was tried,
+ * measured, and removed. It is a straight trade, not an improvement:
  *
- * Deliberately NOT `direction` — alignment still follows the page, so an
- * English paragraph in a Hebrew layout stays right-aligned with the rest of
- * the column and only its internal character order is corrected. Fully
- * translated text is unaffected, since its first strong character already
- * matches the page direction.
+ *   rule on  → English in the RTL page renders correctly;
+ *              "JobApply סורקת 24/7 … ." resolves LTR on its Latin first word
+ *              and puts the period on the wrong side.
+ *   rule off → that Hebrew sentence is correct; English strings are not.
  *
- * Scoped to block-level text containers. Inline elements are left alone: they
- * are fragments of a sentence, and giving each its own paragraph direction
- * would break the ordering of the sentence containing them.
+ * Off is the right side of that trade. It sacrifices correctness in copy that
+ * is untranslated and shrinking for correctness in copy that is translated and
+ * permanent. The real fix for a stray period is translating the string.
+ *
+ * Measure this against the other glyphs on the period's own line. Comparing it
+ * to the paragraph's first character is meaningless once the text wraps, and
+ * that mistake produced a convincing false result in both directions here
+ * before it was caught.
+ *
+ * If an element must hold English inside the Hebrew layout permanently, give
+ * that element `dir="auto"` deliberately — opt in where the content is known.
  */
-p, h1, h2, h3, h4, h5, h6,
-li, dd, dt, blockquote, figcaption,
-label, td, th {
-  unicode-bidi: plaintext;
-}
