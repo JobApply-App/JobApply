@@ -412,7 +412,14 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       if (data.match_score)        setMatchScore(data.match_score)
       if (data.preferred_template) setSelectedTemplate(data.preferred_template)
       setPhase('preview')
-    }).catch(() => {})
+    }).catch(err => {
+      // Never swallow this. A cached CV that fails to load leaves the user on
+      // the "no CV generated yet" empty state with no indication anything went
+      // wrong — so the obvious next move is to regenerate, which costs one of
+      // a small number of daily generations to rebuild a CV that already
+      // exists. Failing quietly here is what makes that bill invisible.
+      console.error('[ApplierPreview] cached CV failed to load:', err)
+    })
   }, [job.id])
 
   // ── Core fetch helper ─────────────────────────────────────────────────────
@@ -1067,20 +1074,20 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                   background:  isEditMode ? TOKENS.color.primarySoft : 'white',
                 }}
               >
-                {isEditMode ? '← Back to Preview' : '✎ Edit CV'}
+                {isEditMode ? A.back_to_preview : A.edit_cv}
               </button>
 
               <button onClick={handleApprove} disabled={isLoading}
                 className="w-full h-10 rounded-full text-[13.5px] font-semibold text-white flex items-center justify-center gap-1.5 transition disabled:opacity-60 active:scale-[0.98]"
                 style={{ background: TOKENS.color.success }}>
-                <CheckIcon s={15} /> Approve &amp; Apply
+                <CheckIcon s={15} /> {A.approve_apply}
               </button>
 
               {/* Same reason: regenerating clears cvState, which the pending
                   Copilot response would then write straight back over. */}
               <button onClick={handleRegenerate} disabled={isLoading || isCopilotBusy}
                 className="w-full flex items-center justify-center gap-1 text-[11.5px] text-slate-400 hover:text-slate-600 transition disabled:opacity-40">
-                <RefreshIcon s={12} /> Regenerate from scratch
+                <RefreshIcon s={12} /> {A.regenerate}
               </button>
             </div>
           )}

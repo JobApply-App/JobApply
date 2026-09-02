@@ -229,6 +229,10 @@ export interface Dict {
   }
   applier: {
     close_preview:    string
+    edit_cv:          string
+    back_to_preview:  string
+    approve_apply:    string
+    regenerate:       string
     empty_title:      string
     empty_body:       string   // takes {cta}
     generate_cv:      string

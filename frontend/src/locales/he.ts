@@ -252,6 +252,10 @@ export const he = {
   },
   applier: {
     close_preview:      'סגירת התצוגה המקדימה',
+    edit_cv:         '✎ עריכת קורות החיים',
+    back_to_preview: '→ חזרה לתצוגה המקדימה',
+    approve_apply:   'אישור והגשה',
+    regenerate:      'הפקה מחדש מאפס',
     empty_title: 'טרם הופקו קורות חיים',
     empty_body:  'לחצו על {cta} כדי ליצור קורות חיים בעמוד אחד המותאמים למשרה הזו.',
     generate_cv: 'הפקת קורות חיים',

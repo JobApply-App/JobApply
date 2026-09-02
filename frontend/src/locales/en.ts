@@ -252,6 +252,10 @@ export const en = {
   },
   applier: {
     close_preview:      'Close preview',
+    edit_cv:         '✎ Edit CV',
+    back_to_preview: '← Back to Preview',
+    approve_apply:   'Approve & Apply',
+    regenerate:      'Regenerate from scratch',
     empty_title: 'No CV generated yet',
     empty_body:  'Click {cta} to create a tailored single-page CV for this role.',
     generate_cv: 'Generate CV',
