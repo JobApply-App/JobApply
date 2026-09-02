@@ -160,11 +160,36 @@ input[type='range'] {
 
 .ja-match-score-panel {
   padding: 14px 16px;
+  /* Establishes the query container for .ja-match-score-head below. */
+  container-type: inline-size;
 }
 
 @media (max-width: 768px) {
   .ja-match-score-panel {
     padding: 12px 14px;
+  }
+}
+
+/* The header lays the score gauge beside its labels. In the preview sidebar
+ * the panel is only ~173px wide, so the 72px gauge left the text column at
+ * 57px — narrow enough that "ציון ATS לאחר אופטימיזציה" broke to one word per
+ * line and ran to four lines. Measured, not estimated.
+ *
+ * The Hebrew is what exposed this: it is longer than the English it replaced,
+ * so the same 57px column had been survivable before and is not now. Widening
+ * for one language would only move the threshold, so the header stacks instead
+ * and the labels take the panel's full width.
+ *
+ * This is a container query, not a media query, on purpose. The panel is
+ * narrow because of the sidebar it sits in, not because the viewport is small
+ * — it is this cramped on a desktop screen. A `max-width` breakpoint would
+ * test the wrong box and miss the case entirely.
+ */
+@container (max-width: 260px) {
+  .ja-match-score-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
 

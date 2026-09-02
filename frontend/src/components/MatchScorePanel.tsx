@@ -163,8 +163,10 @@ export function MatchScorePanel({ score, isLoading, baselineScore }: MatchScoreP
       opacity: isLoading ? 0.55 : 1,
       transition: 'opacity 0.2s',
     }}>
-      {/* ── Header row ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
+      {/* ── Header row ──
+           Stacks under a narrow container; see .ja-match-score-head. */}
+      <div className="ja-match-score-head"
+           style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
         <CircleGauge total={displayTotal} fg={fg} ring={ring} isLoading={isLoading} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: 13, fontWeight: 700, color: fg, lineHeight: 1.2 }}>
