@@ -211,6 +211,61 @@ export interface Dict {
     linkedin_maintenance:  string
     linkedin_maintenance_body: string
   }
+  live_editor: {
+    title:            string
+    unsaved:          string
+    reset:            string
+    reset_title:      string
+    save:             string
+    saving:           string
+    add_skill:        string
+    sections: {
+      summary: string; experience: string; military: string
+      volunteering: string; skills: string
+    }
+    summary_aria:     string
+    volunteering_aria:string
+    military_note:    string
+  }
+  applier: {
+    close_preview:    string
+    empty_title:      string
+    empty_body:       string   // takes {cta}
+    generate_cv:      string
+    pct_match:        string   // takes {pct}
+    title:            string
+    subtitle:         string
+    additional_info:  string
+    answer_placeholder: string
+    generating:       string
+    save_continue:    string
+    skip_all:         string
+    skip_all_title:   string
+    // Rotating status lines shown while the CV is being written.
+    loading_statuses: readonly [string, string, string, string]
+    unsaved_draft:    string
+    save_to_profile:  string
+    saving:           string
+    copilot_placeholder: string
+    copilot_editing:  string
+    apply_edit:       string
+    evaluating:       string
+    fill_form:        string
+    one_detail:       string
+    n_details:        string   // takes {n}
+    download_pdf:     string
+    download_title:   string
+    preparing:        string
+    errors: {
+      timeout:        string
+      still_loading:  string
+      save_failed:    string
+      save_draft_failed: string
+      download_failed:string
+      copilot_failed: string
+      edit_applied:   string
+    }
+  }
   score_bands: {
     exceptional: string
     strong:      string

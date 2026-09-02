@@ -167,3 +167,34 @@ input[type='range'] {
     padding: 12px 14px;
   }
 }
+
+/* ── Bidi: let each block of text resolve its own direction ────────────────────
+ *
+ * An English sentence sitting in an RTL page rendered its trailing period at
+ * what looks like the start — ".Here's what happened overnight" — because a
+ * period is a bidi-neutral character, so its position is decided by the
+ * paragraph direction rather than by the sentence it belongs to. The same
+ * applies to a Hebrew string inside an LTR page.
+ *
+ * `unicode-bidi: plaintext` makes each block take its bidi paragraph direction
+ * from its own first strong character, which is what `dir="auto"` does. It is
+ * applied here rather than attribute-by-attribute because the defect is a
+ * property of mixed-language pages, not of any one component: it appears in
+ * every string that has not been translated yet, and would reappear in any new
+ * one. Patching individual elements leaves the next untranslated string broken.
+ *
+ * Deliberately NOT `direction` — alignment still follows the page, so an
+ * English paragraph in a Hebrew layout stays right-aligned with the rest of
+ * the column and only its internal character order is corrected. Fully
+ * translated text is unaffected, since its first strong character already
+ * matches the page direction.
+ *
+ * Scoped to block-level text containers. Inline elements are left alone: they
+ * are fragments of a sentence, and giving each its own paragraph direction
+ * would break the ordering of the sentence containing them.
+ */
+p, h1, h2, h3, h4, h5, h6,
+li, dd, dt, blockquote, figcaption,
+label, td, th {
+  unicode-bidi: plaintext;
+}

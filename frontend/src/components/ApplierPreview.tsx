@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
 import type { Job } from '@/lib/data'
@@ -112,6 +113,7 @@ function pdfDataUrl(b64: string) {
 // ── JobInfoCard ───────────────────────────────────────────────────────────────
 
 function JobInfoCard({ job }: { job: Job }) {
+  const A = useI18n().t.applier
   const band = getScoreBand(job.score)
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 mb-5"
@@ -133,7 +135,7 @@ function JobInfoCard({ job }: { job: Job }) {
           <div className="mt-2">
             <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums"
               style={{ background: band.hexBg, color: band.hexFg }}>
-              {job.score.toFixed(1)}% match
+              {A.pct_match.replace('{pct}', job.score.toFixed(1))}
             </span>
           </div>
         </div>
@@ -159,6 +161,7 @@ function MissingDataForm({
   onSkip:     () => void
   submitting: boolean
 }) {
+  const A = useI18n().t.applier
   const [idx, setIdx] = useState(0)
 
   // Guard against stale index if requests array shrinks (shouldn't happen, but safe)
@@ -185,7 +188,7 @@ function MissingDataForm({
         <div className="flex items-center gap-2">
           <span style={{ color: 'oklch(0.48 0.12 60)' }}><InfoIcon s={14} /></span>
           <p className="text-[12.5px] font-semibold" style={{ color: 'oklch(0.35 0.10 60)' }}>
-            Additional info needed
+            {A.additional_info}
           </p>
         </div>
         {total > 1 && (
@@ -207,7 +210,7 @@ function MissingDataForm({
           key={current.id}
           value={answers[current.id] || ''}
           onChange={e => onChange(current.id, e.target.value)}
-          placeholder="Type your answer here…"
+          placeholder={A.answer_placeholder}
           rows={3}
           disabled={submitting}
           className="w-full rounded-lg border border-slate-200 bg-slate-50 text-[12.5px] text-slate-800 placeholder-slate-400 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-200 disabled:opacity-60 transition resize-none"
@@ -257,7 +260,7 @@ function MissingDataForm({
             className="flex-1 h-9 rounded-full text-[12.5px] font-semibold text-white flex items-center justify-center gap-1.5 transition disabled:opacity-50 active:scale-[0.98]"
             style={{ background: TOKENS.color.primary }}
           >
-            {submitting ? <><Spinner size={13} /> Generating…</> : 'Save & Continue'}
+            {submitting ? <><Spinner size={13} /> {A.generating}</> : A.save_continue}
           </button>
         )}
 
@@ -267,9 +270,9 @@ function MissingDataForm({
             onClick={onSkip}
             disabled={submitting}
             className="h-9 px-3 rounded-full text-[12px] text-slate-500 border border-slate-200 hover:bg-slate-50 transition disabled:opacity-50 shrink-0"
-            title="Generate without answering (may produce approximate results)"
+            title={A.skip_all_title}
           >
-            Skip all
+            {A.skip_all}
           </button>
         )}
       </div>
@@ -298,6 +301,8 @@ function ErrorBanner({ message }: { message: string }) {
 }
 
 function EmptyPreview() {
+  const A = useI18n().t.applier
+  const [before, after] = A.empty_body.split('{cta}')
   return (
     <div className="flex flex-col items-center gap-4 text-center px-10">
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
@@ -313,10 +318,9 @@ function EmptyPreview() {
         </svg>
       </div>
       <div>
-        <p className="text-[14px] font-semibold text-slate-700">No CV generated yet</p>
+        <p className="text-[14px] font-semibold text-slate-700">{A.empty_title}</p>
         <p className="text-[12.5px] text-slate-400 mt-1 leading-relaxed">
-          Click <strong className="text-slate-600">Generate CV</strong> to create
-          a tailored single-page CV for this role.
+          {before}<strong className="text-slate-600">{A.generate_cv}</strong>{after}
         </p>
       </div>
     </div>
@@ -330,12 +334,6 @@ function EmptyPreview() {
 // rotation effect below could not list it as a dependency without restarting
 // its interval on each render. Hoisting makes it a stable constant, which is
 // what it always was semantically.
-const LOADING_STATUSES = [
-  'Analyzing job requirements...',
-  'Aligning past experience...',
-  'Optimizing ATS keywords...',
-  'Formatting document...',
-]
 
 export interface ApplierPreviewProps {
   job:        Job
@@ -346,6 +344,7 @@ export interface ApplierPreviewProps {
 }
 
 export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPreviewProps) {
+  const A = useI18n().t.applier
   const [phase,            setPhase]            = useState<Phase>('idle')
   const [cvState,          setCvState]          = useState<CvState | null>(null)
   const [gkMessage,        setGkMessage]        = useState('')
@@ -395,9 +394,9 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   const [loadingStatusIdx, setLoadingStatusIdx] = useState(0)
   useEffect(() => {
     if (!isLoading) { setLoadingStatusIdx(0); return }
-    const id = setInterval(() => setLoadingStatusIdx(i => (i + 1) % LOADING_STATUSES.length), 1500)
+    const id = setInterval(() => setLoadingStatusIdx(i => (i + 1) % A.loading_statuses.length), 1500)
     return () => clearInterval(id)
-  }, [isLoading])
+  }, [isLoading, A.loading_statuses.length])
 
   // ── Fetch templates on mount ──────────────────────────────────────────────
   useEffect(() => {
@@ -486,14 +485,14 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
       setError(
         isAbort
-          ? 'Generation timed out. This can happen when the AI service is busy — please try again.'
+          ? A.errors.timeout
           : e instanceof Error
             ? e.message
             : 'CV generation failed. Please try again.',
       )
       setPhase('idle')
     }
-  }, [job.id])
+  }, [job.id, A.errors.timeout])
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -526,11 +525,11 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     })
 
     if (!pipelineDone) {
-      setError('Job details are still loading. Please wait a moment and try again.')
+      setError(A.errors.still_loading)
       return
     }
     callTailor()
-  }, [callTailor, feedJob])
+  }, [callTailor, feedJob, A.errors.still_loading])
 
   const handleSubmitInfo  = useCallback(() => callTailor(answers),         [callTailor, answers])
   const handleSkipInfo    = useCallback(() => callTailor({}),              [callTailor])
@@ -575,12 +574,12 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       // (parsedCv is untouched), only the save attempt failed. Reachable
       // from LiveEditor's own 30s autosave timer, not just a manual click,
       // so this can appear without the user having just pressed anything.
-      setSaveError(e instanceof Error ? e.message : 'Save failed. Your edits are safe — try again.')
+      setSaveError(e instanceof Error ? e.message : A.errors.save_failed)
     } finally {
       setIsSaving(false)
       setIsScoreLoading(false)
     }
-  }, [parsedCv, isSaving, job.id, selectedTemplate])
+  }, [parsedCv, isSaving, job.id, selectedTemplate, A.errors.save_failed])
 
   const handleSaveDraft = useCallback(async () => {
     if (!cvState || isSavingDraft) return
@@ -592,11 +591,11 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     } catch (e: unknown) {
       // hasUnsavedDraft stays true — the banner (and this message) remain
       // visible until a retry succeeds, instead of silently disappearing.
-      setSaveDraftError(e instanceof Error ? e.message : 'Save failed. Try again.')
+      setSaveDraftError(e instanceof Error ? e.message : A.errors.save_draft_failed)
     } finally {
       setIsSavingDraft(false)
     }
-  }, [cvState, isSavingDraft, job.id, matchScore])
+  }, [cvState, isSavingDraft, job.id, matchScore, A.errors.save_draft_failed])
 
   // ── PDF download ─────────────────────────────────────────────────────────
   // Streams the binary from the server and saves it directly. The embedded
@@ -613,11 +612,11 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     try {
       await downloadCvPdf(cvState.cvData, selectedTemplate)
     } catch (err) {
-      setDownloadError(err instanceof Error ? err.message : 'Download failed.')
+      setDownloadError(err instanceof Error ? err.message : A.errors.download_failed)
     } finally {
       setIsDownloading(false)
     }
-  }, [cvState, selectedTemplate])
+  }, [cvState, selectedTemplate, A.errors.download_failed])
 
   const handleSelectTemplate = useCallback(async (templateId: string) => {
     setSelectedTemplate(templateId)
@@ -674,7 +673,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       setChatHistory(prev => [
         ...prev,
         { role: 'user',      content: promptText },
-        { role: 'assistant', content: data.message ?? 'Edit applied.' },
+        { role: 'assistant', content: data.message ?? A.errors.edit_applied },
       ])
 
       const serverCvData = (data.cv_data ?? {}) as Record<string, unknown>
@@ -729,7 +728,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
         .catch(() => { if (data.match_score) setMatchScore(data.match_score) })
         .finally(() => setIsScoreLoading(false))
     } catch (e: unknown) {
-      setCopilotError(e instanceof Error ? e.message : 'Edit failed. Please try again.')
+      setCopilotError(e instanceof Error ? e.message : A.errors.copilot_failed)
     } finally {
       setIsCopilotBusy(false)
     }
@@ -741,7 +740,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     // async fetchMatchScore below. So the closure kept the score from one edit
     // earlier: edit twice and Undo restored the right CV with the previous
     // edit's score.
-  }, [cvState, isCopilotBusy, job.id, chatHistory, matchScore])
+  }, [cvState, isCopilotBusy, job.id, chatHistory, matchScore, A.errors.copilot_failed, A.errors.edit_applied])
 
   const handleUndo = useCallback(() => {
     setEditHistory(prev => {
@@ -798,7 +797,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
         {/* Close */}
         <button onClick={onClose}
           className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-          aria-label="Close preview">
+          aria-label={A.close_preview}>
           <XIcon s={14} />
         </button>
 
@@ -814,10 +813,10 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
           <div className="mb-1">
             <h2 className="text-[16px] font-semibold text-slate-900 tracking-tight">
-              Tailored CV Preview
+              {A.title}
             </h2>
             <p className="text-[12.5px] text-slate-500 mt-0.5">
-              AI-written, single-page A4 — specific to this role.
+              {A.subtitle}
             </p>
           </div>
 
@@ -855,7 +854,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                     <span style={{ fontSize: 11.5, color: TOKENS.color.ink2 }}>
-                      Unsaved draft changes — closing without saving reverts to your base profile CV.
+                      {A.unsaved_draft}
                     </span>
                     <button
                       onClick={handleSaveDraft}
@@ -870,7 +869,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                         opacity: isSavingDraft ? 0.6 : 1,
                       }}
                     >
-                      {isSavingDraft ? 'Saving…' : 'Save Changes to Base Profile'}
+                      {isSavingDraft ? A.saving : A.save_to_profile}
                     </button>
                   </div>
                   {saveDraftError && (
@@ -973,7 +972,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                   opacity: !copilotPrompt.trim() || isCopilotBusy ? 0.55 : 1,
                 }}
               >
-                {isCopilotBusy ? <><Spinner size={12} /> Copilot is editing…</> : 'Apply Edit'}
+                {isCopilotBusy ? <><Spinner size={12} /> {A.copilot_editing}</> : A.apply_edit}
               </button>
               <p style={{ fontSize: 10, color: TOKENS.color.muted, marginTop: 6, textAlign: 'center' }}>
                 ⌘↵ to submit · edits are saved automatically
@@ -1031,20 +1030,20 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
             <button onClick={handleGenerate}
               className="w-full h-10 rounded-full text-[13.5px] font-semibold text-white flex items-center justify-center gap-2 transition active:scale-[0.98]"
               style={{ background: TOKENS.color.primary }}>
-              <WandIcon s={15} /> Generate CV
+              <WandIcon s={15} /> {A.generate_cv}
             </button>
           )}
 
           {phase === 'generating' && (
             <div className="flex items-center justify-center gap-2 h-10 text-[13px] text-slate-500">
-              <Spinner size={16} /> {LOADING_STATUSES[loadingStatusIdx]}
+              <Spinner size={16} /> {A.loading_statuses[loadingStatusIdx]}
             </div>
           )}
 
           {phase === 'missing_data' && (
             /* Form is rendered above — just show a subtle status hint here */
             <p className="text-center text-[11.5px] text-slate-400">
-              Fill in the form above to continue.
+              {A.fill_form}
             </p>
           )}
 
@@ -1103,7 +1102,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
               style={{ background: 'rgba(248,250,252,0.82)', backdropFilter: 'blur(3px)' }}>
               <Spinner size={32} />
               <p className="text-[13px] text-slate-500 font-medium">
-                {isCopilotBusy ? 'Copilot is editing…' : phase === 'generating' ? LOADING_STATUSES[loadingStatusIdx] : 'Evaluating revision…'}
+                {isCopilotBusy ? A.copilot_editing : phase === 'generating' ? A.loading_statuses[loadingStatusIdx] : A.evaluating}
               </p>
             </div>
           )}
@@ -1116,7 +1115,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                 <InfoIcon s={24} />
               </div>
               <p className="text-[13.5px] font-semibold text-slate-700">
-                {missingReqs.length === 1 ? 'One detail needed' : `${missingReqs.length} details needed`}
+                {missingReqs.length === 1 ? A.one_detail : A.n_details.replace('{n}', String(missingReqs.length))}
               </p>
               <p className="text-[12.5px] text-slate-400 leading-relaxed max-w-xs">
                 Answer the {missingReqs.length === 1 ? 'question' : 'questions'} on the left.
@@ -1130,14 +1129,14 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
               <button
                 onClick={handleDownloadPdf}
                 disabled={isDownloading}
-                title="Download your CV as a PDF"
+                title={A.download_title}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold
                            bg-white/95 backdrop-blur border border-slate-200 text-slate-700
                            hover:bg-white hover:border-teal-300 hover:text-teal-700
                            disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                 style={{ boxShadow: '0 1px 2px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.06)' }}
               >
-                {isDownloading ? 'Preparing…' : 'Download PDF'}
+                {isDownloading ? A.preparing : A.download_pdf}
               </button>
               {downloadError && (
                 <span className="max-w-[240px] text-right text-[11.5px] leading-snug text-rose-600
@@ -1162,7 +1161,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
             <iframe
               key={cvState.pdfB64.slice(-16)}
               src={pdfDataUrl(cvState.pdfB64)}
-              title="Tailored CV Preview"
+              title={A.title}
               className="w-full h-full"
               style={{ border: 'none' }}
             />
