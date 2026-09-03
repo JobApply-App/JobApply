@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useI18n } from '@/contexts/I18nContext'
 import AuthGuard from '@/components/AuthGuard'
 import { OnboardingHeader } from '@/components/OnboardingHeader'
 import { useAuth } from '@/contexts/AuthContext'
@@ -23,6 +24,7 @@ function UploadZone({
   onFiles: (files: File[]) => void
   disabled: boolean
 }) {
+  const B = useI18n().t.profile_builder
   const [dragOver, setDragOver] = useState(false)
 
   const handleDrop = useCallback(
@@ -82,10 +84,10 @@ function UploadZone({
 
       <div className="text-center space-y-1">
         <p className="text-[15px] font-semibold text-slate-800">
-          {dragOver ? 'Drop your resume here' : 'Upload your resume'}
+          {dragOver ? B.drop_prompt : B.upload_prompt}
         </p>
         <p className="text-[13px] text-slate-400">
-          Drag & drop or click to select — PDF or DOCX
+          {B.upload_hint}
         </p>
       </div>
     </label>
@@ -95,6 +97,7 @@ function UploadZone({
 // ── Progress / result states ───────────────────────────────────────────────
 
 function UploadingState() {
+  const B = useI18n().t.profile_builder
   return (
     <div className="flex flex-col items-center gap-5 py-10">
       <div
@@ -103,10 +106,10 @@ function UploadingState() {
       />
       <div className="text-center space-y-1">
         <p className="text-[15px] font-semibold text-slate-800">
-          Uploading and analyzing…
+          {B.uploading}
         </p>
         <p className="text-[13px] text-slate-400">
-          Our AI is analyzing your experience, skills, and education…
+          {B.analyzing}
         </p>
       </div>
     </div>
@@ -114,6 +117,7 @@ function UploadingState() {
 }
 
 function DoneState({ skillCount, expCount }: { skillCount: number; expCount: number }) {
+  const B = useI18n().t.profile_builder
   return (
     <div className="flex flex-col items-center gap-5 py-10">
       <div
@@ -128,10 +132,11 @@ function DoneState({ skillCount, expCount }: { skillCount: number; expCount: num
         </svg>
       </div>
       <div className="text-center space-y-1">
-        <p className="text-[15px] font-semibold text-slate-800">Profile imported!</p>
+        <p className="text-[15px] font-semibold text-slate-800">{B.done_title}</p>
         <p className="text-[13px] text-slate-400">
-          Found {expCount} role{expCount !== 1 ? 's' : ''} and {skillCount} skill{skillCount !== 1 ? 's' : ''}.
-          Taking you to your dashboard…
+          {B.done_summary
+            .replace('{roles}',  (expCount   === 1 ? B.done_roles_one  : B.done_roles_many ).replace('{n}', String(expCount)))
+            .replace('{skills}', (skillCount === 1 ? B.done_skills_one : B.done_skills_many).replace('{n}', String(skillCount)))}
         </p>
       </div>
     </div>
@@ -144,6 +149,8 @@ function ProfileBuilderContent() {
   const router = useRouter()
   const { user, updateUserMeta } = useAuth()
   const { set: setOnboarding }   = useOnboarding()
+  const { t, dir } = useI18n()
+  const B = t.profile_builder
   const [state,      setState]      = useState<UploadState>('idle')
   const [errorMsg,   setErrorMsg]   = useState('')
   const [skillCount, setSkillCount] = useState(0)
@@ -179,10 +186,10 @@ function ProfileBuilderContent() {
       armArielWelcome()
       setTimeout(() => router.push('/?tab=overview'), 1400)
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Upload failed. Please try again.')
+      setErrorMsg(err instanceof Error ? err.message : B.upload_failed)
       setState('error')
     }
-  }, [user, updateUserMeta, setOnboarding, router])
+  }, [user, updateUserMeta, setOnboarding, router, B.upload_failed])
 
   return (
     <div className="flex flex-col items-center justify-center flex-1 px-4 py-12">
@@ -193,18 +200,17 @@ function ProfileBuilderContent() {
           disabled={state === 'uploading'}
           className="text-[13px] text-slate-400 hover:text-slate-700 flex items-center gap-1 transition disabled:opacity-40"
         >
-          ← Back
+          <span aria-hidden="true">{dir === 'rtl' ? '\u2192' : '\u2190'}</span> {B.back}
         </button>
       </div>
 
       {/* Header copy */}
       <div className="text-center mb-10 space-y-2 max-w-md">
         <h1 className="text-[28px] font-bold text-slate-900 tracking-tight">
-          Import your resume
+          {B.title}
         </h1>
         <p className="text-[14px] text-slate-500 leading-relaxed">
-          Upload your CV and we&apos;ll extract your work history, skills, and
-          education to power accurate Match Scores.
+          {B.intro}
         </p>
       </div>
 
@@ -220,12 +226,12 @@ function ProfileBuilderContent() {
       {/* Error */}
       {state === 'error' && (
         <div className="mt-6 w-full max-w-lg rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
-          <strong className="font-semibold">Upload failed:</strong> {errorMsg}
+          <strong className="font-semibold">{B.error_prefix}</strong> {errorMsg}
           <button
             onClick={() => setState('idle')}
-            className="ml-3 underline hover:no-underline"
+            className="ms-3 underline hover:no-underline"
           >
-            Try again
+            {B.try_again}
           </button>
         </div>
       )}
@@ -236,7 +242,7 @@ function ProfileBuilderContent() {
           onClick={() => router.push('/discover')}
           className="mt-8 text-[13px] text-slate-400 hover:text-slate-700 underline transition-colors"
         >
-          Skip for now
+          {B.skip}
         </button>
       )}
     </div>

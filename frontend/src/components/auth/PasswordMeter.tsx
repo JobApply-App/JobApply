@@ -1,5 +1,7 @@
 'use client'
 
+import { useI18n } from '@/contexts/I18nContext'
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface PwChecks {
@@ -44,18 +46,11 @@ const BAR_COLOR: Record<PwLevel, string> = {
   strong: '#22C55E',   // green-500
 }
 
-const LEVEL_LABEL: Record<PwLevel, string> = {
-  empty:  '',
-  weak:   'Too weak',
-  fair:   'Fair — try adding symbols',
-  strong: 'Strong password',
-}
-
-const REQUIREMENTS = [
-  { key: 'length'    as keyof PwChecks, label: 'At least 8 characters'   },
-  { key: 'uppercase' as keyof PwChecks, label: '1 uppercase letter'       },
-  { key: 'number'    as keyof PwChecks, label: '1 number'                 },
-  { key: 'special'   as keyof PwChecks, label: '1 special character (!@#…)' },
+// Level labels and requirement text come from the dictionaries; only the
+// check keys live here. REQUIREMENT_KEYS is indexed positionally against
+// signup.password_rules — keep the two in the same order.
+const REQUIREMENT_KEYS: ReadonlyArray<keyof PwChecks> = [
+  'length', 'uppercase', 'number', 'special',
 ]
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -65,6 +60,7 @@ interface PasswordMeterProps {
 }
 
 export function PasswordMeter({ password }: PasswordMeterProps) {
+  const { t } = useI18n()
   const { score, level, checks } = evaluatePassword(password)
 
   if (password.length === 0) return null
@@ -86,15 +82,15 @@ export function PasswordMeter({ password }: PasswordMeterProps) {
 
       {/* Level label */}
       <p className="text-[11.5px] font-semibold transition-colors" style={{ color }}>
-        {LEVEL_LABEL[level]}
+        {level === 'empty' ? '' : t.signup.password_levels[level]}
       </p>
 
       {/* Requirements checklist */}
       <ul className="space-y-1">
-        {REQUIREMENTS.map(req => {
-          const met = checks[req.key]
+        {REQUIREMENT_KEYS.map((key, i) => {
+          const met = checks[key]
           return (
-            <li key={req.key}
+            <li key={key}
               className="flex items-center gap-1.5 text-[11px] transition-colors"
               style={{ color: met ? '#16a34a' : '#94a3b8' }}
             >
@@ -106,7 +102,7 @@ export function PasswordMeter({ password }: PasswordMeterProps) {
                   : <><line x1="5" y1="12" x2="19" y2="12" /></>
                 }
               </svg>
-              {req.label}
+              {t.signup.password_rules[i]}
             </li>
           )
         })}

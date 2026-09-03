@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import type { ApiFeedJob, JobSourceType, JobStatus } from '@/lib/apiTypes'
 import type { Job, ReasonKind, AutomationSettings, WorkMode, Region, CompanyStage } from '@/lib/data'
@@ -135,10 +136,11 @@ function Toast({ message, tone = 'success' }: { message: string; tone?: 'success
 // ── Search bar ────────────────────────────────────────────────────────────────
 
 function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const F = useI18n().t.job_feed
   return (
     <div className="relative">
       <svg
-        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+        className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
         width={14} height={14} viewBox="0 0 24 24" fill="none"
         stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
       >
@@ -147,16 +149,16 @@ function SearchBar({ value, onChange }: { value: string; onChange: (v: string) =
       </svg>
       <input
         type="text"
-        placeholder="Search by title or company…"
+        placeholder={F.search_placeholder}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full h-9 pl-8 pr-8 rounded-lg border border-slate-200 bg-white text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition"
+        className="w-full h-9 ps-8 pe-8 rounded-lg border border-slate-200 bg-white text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition"
       />
       {value && (
         <button
           onClick={() => onChange('')}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-          aria-label="Clear search"
+          className="absolute end-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          aria-label={F.clear_search_label}
         >
           <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="2.5" strokeLinecap="round">
@@ -172,12 +174,9 @@ function SearchBar({ value, onChange }: { value: string; onChange: (v: string) =
 
 type SourceFilter = 'all' | JobSourceType
 
-const SOURCE_CHIP_OPTIONS: { id: SourceFilter; label: string }[] = [
-  { id: 'all',          label: 'All Sources'    },
-  { id: 'company_site', label: '🏢 Company Sites' },
-  { id: 'linkedin',     label: '💼 LinkedIn'      },
-  { id: 'other',        label: 'Other'            },
-]
+// ids are the persisted filter values and stay English; labels come from
+// job_feed.sources, looked up by id.
+const SOURCE_CHIP_IDS: SourceFilter[] = ['all', 'company_site', 'linkedin', 'other']
 
 function SourceChips({
   active,
@@ -186,19 +185,20 @@ function SourceChips({
   active:    SourceFilter
   setActive: (s: SourceFilter) => void
 }) {
+  const F = useI18n().t.job_feed
   return (
     <div className="flex items-center gap-1 flex-wrap">
-      {SOURCE_CHIP_OPTIONS.map(opt => (
+      {SOURCE_CHIP_IDS.map(id => (
         <button
-          key={opt.id}
-          onClick={() => setActive(opt.id)}
+          key={id}
+          onClick={() => setActive(id)}
           className={`h-7 px-2.5 rounded-full text-[11.5px] font-medium transition ${
-            active === opt.id
+            active === id
               ? 'bg-slate-900 text-white'
               : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
           }`}
         >
-          {opt.label}
+          {F.sources[id]}
         </button>
       ))}
     </div>
@@ -209,19 +209,16 @@ function SourceChips({
 
 type StatusFilter = 'all' | JobStatus
 
-const STATUS_TABS: { id: StatusFilter; label: string }[] = [
-  { id: 'all',     label: 'All'     },
-  { id: 'new',     label: 'New'     },
-  { id: 'saved',   label: 'Saved'   },
-  { id: 'applied', label: 'Applied' },
-  { id: 'ignored', label: 'Skipped' },
-]
+// ids are the persisted JobStatus values and stay English; labels come from
+// job_feed.statuses, looked up by id.
+const STATUS_TAB_IDS: StatusFilter[] = ['all', 'new', 'saved', 'applied', 'ignored']
 
 // ── Sort toggle ───────────────────────────────────────────────────────────────
 
 type SortBy = 'score' | 'date'
 
 function SortToggle({ value, onChange }: { value: SortBy; onChange: (v: SortBy) => void }) {
+  const F = useI18n().t.job_feed
   return (
     <div className="flex items-center gap-0.5 rounded-full border border-slate-200 p-0.5 bg-white text-[11.5px]">
       {(['score', 'date'] as SortBy[]).map(v => (
@@ -234,7 +231,7 @@ function SortToggle({ value, onChange }: { value: SortBy; onChange: (v: SortBy) 
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          {v === 'score' ? 'ATS Score' : 'Newest'}
+          {v === 'score' ? F.sort_score : F.sort_date}
         </button>
       ))}
     </div>
@@ -246,17 +243,18 @@ function SortToggle({ value, onChange }: { value: SortBy; onChange: (v: SortBy) 
 const TOP_FITS_THRESHOLD = 60.0
 
 function TopFitsToggle({ active, onToggle }: { active: boolean; onToggle: () => void }) {
+  const F = useI18n().t.job_feed
   return (
     <button
       onClick={onToggle}
-      title={active ? 'Showing top fits only (ATS score > 60)' : 'Show all scores'}
+      title={active ? F.top_fits_on.replace('{threshold}', String(TOP_FITS_THRESHOLD)) : F.top_fits_off}
       className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[11.5px] font-semibold transition ${
         active
           ? 'bg-emerald-600 text-white shadow-sm'
           : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
       }`}
     >
-      {active ? '✦' : '◇'} Top Fits
+      {active ? '✦' : '◇'} {F.top_fits}
     </button>
   )
 }
@@ -314,6 +312,7 @@ export function JobFeed({
   onFeedRefreshed, preferences, expandJobId, userId,
   initialFeedJobs, initialFeedJobsLoading,
 }: JobFeedProps = {}) {
+  const F = useI18n().t.job_feed
   const [jobs,         setJobs]         = useState<ApiFeedJob[]>([])
   // Raw count before the zero-click completeness filter — distinguishes
   // "pipeline still running" (totalFetched > 0, jobs === 0) from
@@ -376,11 +375,11 @@ export function JobFeed({
       setTotalFetched(data.length)
       setJobs(_applyCompletenessFilter(data))
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load jobs.')
+      setError(e instanceof Error ? e.message : F.errors.load_failed)
     } finally {
       setLoading(false)
     }
-  }, [preferences?.minScore])
+  }, [preferences?.minScore, F.errors.load_failed])
 
   // Initial mount only — loadJobs is NOT in the dependency array intentionally.
   // Putting loadJobs here would re-fire on every preferences change because
@@ -446,11 +445,11 @@ export function JobFeed({
         tone: 'success',
       })
     } catch {
-      setToast({ message: 'Sync failed. Please try again.', tone: 'error' })
+      setToast({ message: F.errors.sync_failed, tone: 'error' })
     } finally {
       setSyncing(false)
     }
-  }, [loadJobs, onFeedRefreshed])
+  }, [loadJobs, onFeedRefreshed, F.errors.sync_failed])
 
   /**
    * Submit a single job URL for the Zero-Click blocking pipeline.
@@ -478,12 +477,12 @@ export function JobFeed({
       setFreshExpandId(newJob.job_id)
       setToast({ message: `"${newJob.title}" added to your feed (ATS ${newJob.match_score.toFixed(1)})`, tone: 'success' })
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Analysis failed.'
+      const msg = e instanceof Error ? e.message : F.errors.analysis_failed
       setToast({ message: msg, tone: 'error' })
     } finally {
       setIsAnalyzing(false)
     }
-  }, [jobUrl])
+  }, [jobUrl, F.errors.analysis_failed])
 
   const handleSkip = useCallback(async (id: string) => {
     setJobs(prev => prev.map(j => j.job_id === id ? { ...j, status: 'ignored' } : j))
@@ -491,9 +490,9 @@ export function JobFeed({
       await updateJobStatus(id, 'ignored')
     } catch {
       setJobs(prev => prev.map(j => j.job_id === id ? { ...j, status: 'new' } : j))
-      setToast({ message: 'Could not skip job. Please try again.', tone: 'error' })
+      setToast({ message: F.errors.skip_failed, tone: 'error' })
     }
-  }, [])
+  }, [F.errors.skip_failed])
 
   const handleSave = useCallback(async (id: string) => {
     const job       = jobs.find(j => j.job_id === id)
@@ -504,9 +503,9 @@ export function JobFeed({
     } catch {
       const prevStatus = job?.status ?? 'new'
       setJobs(prev => prev.map(j => j.job_id === id ? { ...j, status: prevStatus as JobStatus } : j))
-      setToast({ message: 'Could not update job. Please try again.', tone: 'error' })
+      setToast({ message: F.errors.update_failed, tone: 'error' })
     }
-  }, [jobs])
+  }, [jobs, F.errors.update_failed])
 
   const handleTailorCV = useCallback((feedJob: ApiFeedJob) => {
     // Always re-read from jobs state rather than using the prop snapshot that
@@ -529,12 +528,12 @@ export function JobFeed({
       // the same explanation regardless of which guard actually catches it.
       console.warn('[JobFeed] CV generation blocked — job not ready',
         { job_id: fresh.job_id, status: fresh.status, score_is_proxy: fresh.score_is_proxy, has_jd: Boolean(fresh.jd_structured) })
-      setToast({ message: 'Job details are still loading. Please wait a moment and try again.', tone: 'error' })
+      setToast({ message: F.errors.still_loading, tone: 'error' })
       return
     }
 
     setReviewJob({ feedJob: fresh, job: toJob(fresh, rank) })
-  }, [jobs])
+  }, [jobs, F.errors.still_loading])
 
   /**
    * Called by each JobCard whenever its expanded/fetch state changes.
@@ -650,15 +649,15 @@ export function JobFeed({
         {/* ── Page heading + sync ───────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Top Matches for You</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{F.heading}</h1>
             <p className="text-sm text-slate-400 mt-1">
-              Jobs scored against your profile and sorted by ATS match.
+              {F.subheading}
             </p>
           </div>
           <button
             onClick={handleSync}
             disabled={syncing || loading}
-            title="Fetch missing job descriptions and re-score all jobs against your latest profile"
+            title={F.sync_title}
             className="shrink-0 inline-flex items-center gap-2 h-9 px-4 rounded-lg text-[13px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none"
           >
             {syncing ? <Spinner /> : (
@@ -669,7 +668,7 @@ export function JobFeed({
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
               </svg>
             )}
-            {syncing ? 'Syncing…' : 'Sync Data'}
+            {syncing ? F.syncing : F.sync_cta}
           </button>
         </div>
 
@@ -677,7 +676,7 @@ export function JobFeed({
         <form onSubmit={e => { e.preventDefault(); handleAnalyze() }} className="flex gap-2">
           <input
             type="url"
-            placeholder="Paste a job URL to analyse…"
+            placeholder={F.url_placeholder}
             value={jobUrl}
             onChange={e => setJobUrl(e.target.value)}
             disabled={isAnalyzing}
@@ -689,7 +688,7 @@ export function JobFeed({
             className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[13px] font-medium text-white transition active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none"
             style={{ background: isAnalyzing ? '#94a3b8' : TOKENS.color.primary }}
           >
-            {isAnalyzing ? <><Spinner size={13} /> Analysing…</> : 'Analyse'}
+            {isAnalyzing ? <><Spinner size={13} /> {F.analysing}</> : F.analyse}
           </button>
         </form>
 
@@ -721,35 +720,35 @@ export function JobFeed({
         {/* ── Status tabs + sort + count ────────────────────────────────────── */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-4 text-sm font-medium text-slate-400">
-            {STATUS_TABS.map(t => (
+            {STATUS_TAB_IDS.map(id => (
               <button
-                key={t.id}
-                onClick={() => setStatus(t.id)}
+                key={id}
+                onClick={() => setStatus(id)}
                 className={`pb-1 transition-colors ${
-                  status === t.id
+                  status === id
                     ? 'text-slate-900 border-b-2 border-slate-900'
                     : 'hover:text-slate-900'
                 }`}
               >
-                {t.label}
+                {F.statuses[id]}
               </button>
             ))}
           </div>
 
           <div className="flex items-center gap-3">
             <span className="text-[12px] text-slate-400 tabular-nums">
-              {totalShown} of {displayList.length}
+              {F.count_of.replace('{shown}', String(totalShown)).replace('{total}', String(displayList.length))}
               {sortLocked && (
                 <span
-                  className="ml-1.5 inline-flex items-center gap-0.5 text-[10.5px] text-amber-600 font-medium"
-                  title="Sort order is paused while a card is open."
+                  className="ms-1.5 inline-flex items-center gap-0.5 text-[10.5px] text-amber-600 font-medium"
+                  title={F.sort_paused}
                 >
                   <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor"
                     strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
-                  Sort paused
+                  {F.sort_paused_label}
                 </span>
               )}
             </span>
@@ -800,11 +799,11 @@ export function JobFeed({
                     <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                     <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                   </svg>
-                  <span className="text-[13px] font-semibold text-teal-700">Agents are actively indexing fresh roles</span>
+                  <span className="text-[13px] font-semibold text-teal-700">{F.indexing_title}</span>
                 </div>
                 <p className="text-[12.5px] text-center text-slate-500 max-w-xs">
-                  {totalFetched} job{totalFetched !== 1 ? 's' : ''} found in the pipeline.
-                  Scoring and JD enrichment in progress. Results will appear here automatically.
+                  {(totalFetched === 1 ? F.indexing_body_one : F.indexing_body_many)
+                    .replace('{n}', String(totalFetched))}
                 </p>
                 <button
                   onClick={handleSync}
@@ -812,7 +811,7 @@ export function JobFeed({
                   className="mt-3 inline-flex items-center gap-1.5 h-8 px-4 rounded-lg text-[12px] font-medium border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 transition disabled:opacity-50"
                 >
                   {syncing ? <Spinner size={12} /> : null}
-                  {syncing ? 'Syncing…' : 'Check for updates'}
+                  {syncing ? F.syncing : F.check_updates}
                 </button>
               </>
             ) : !search && !topFitsOnly && status === 'all' && totalFetched === 0 ? (
@@ -826,9 +825,9 @@ export function JobFeed({
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                   <line x1="8" y1="11" x2="14" y2="11" />
                 </svg>
-                <p className="text-[14px] font-medium text-slate-600">No jobs discovered yet</p>
+                <p className="text-[14px] font-medium text-slate-600">{F.empty_none_title}</p>
                 <p className="text-[13px] text-center text-slate-500 max-w-xs">
-                  Agents are warming up. New roles will appear here once the first scraping cycle completes.
+                  {F.empty_none_body}
                 </p>
               </>
             ) : (
@@ -842,13 +841,13 @@ export function JobFeed({
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                   <line x1="8" y1="11" x2="14" y2="11" />
                 </svg>
-                <p className="text-[14px] font-medium text-slate-600">No jobs found</p>
+                <p className="text-[14px] font-medium text-slate-600">{F.empty_title}</p>
                 <p className="text-[13px] text-center">
                   {search
-                    ? `No results for "${search}". Try a different search term.`
+                    ? F.empty_search.replace('{query}', search)
                     : topFitsOnly
-                      ? `No matches with ATS score above ${TOP_FITS_THRESHOLD}. Try disabling Top Fits.`
-                      : `No jobs with status "${status}".`}
+                      ? F.empty_top_fits.replace('{threshold}', String(TOP_FITS_THRESHOLD))
+                      : F.empty_status.replace('{status}', F.statuses[status])}
                 </p>
               </>
             )}
@@ -856,12 +855,12 @@ export function JobFeed({
               <div className="mt-2 flex items-center gap-3">
                 {search && (
                   <button onClick={() => setSearch('')} className="text-[12.5px] font-medium text-teal-700 hover:underline">
-                    Clear search
+                    {F.clear_search}
                   </button>
                 )}
                 {topFitsOnly && (
                   <button onClick={() => setTopFitsOnly(false)} className="text-[12.5px] font-medium text-teal-700 hover:underline">
-                    Show all scores
+                    {F.show_all_scores}
                   </button>
                 )}
               </div>
@@ -893,7 +892,7 @@ export function JobFeed({
                   onClick={() => setPageEnd(p => p + PAGE_SIZE)}
                   className="inline-flex items-center gap-2 h-9 px-6 rounded-lg text-[13px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition active:scale-[0.97]"
                 >
-                  Load more
+                  {F.load_more}
                   <span className="text-slate-400 tabular-nums text-[12px]">
                     +{Math.min(PAGE_SIZE, filtered.length - pageEnd)}
                   </span>

@@ -48,6 +48,35 @@ class PdfEngineUnavailable(RuntimeError):
     for genuine blips sends users into an infinite retry loop against a wall.
     """
 
+
+_pdf_engine_available: bool | None = None
+
+
+async def pdf_engine_available() -> bool:
+    """
+    Whether Chromium is actually installed, resolved without launching it.
+
+    Answers the exact gap PdfEngineUnavailable's docstring describes: a
+    deploy that imports this module fine but can never render a PDF.
+
+    Async because the sync Playwright API raises inside a running asyncio
+    loop, which would make this always report "unavailable" from the async
+    /health route regardless of the real answer. Cached after the first
+    call — a browser binary does not appear or vanish mid-process, and
+    /health is probed continuously.
+    """
+    global _pdf_engine_available
+    if _pdf_engine_available is None:
+        try:
+            from playwright.async_api import async_playwright
+
+            async with async_playwright() as pw:
+                _pdf_engine_available = Path(pw.chromium.executable_path).exists()
+        except Exception:
+            _pdf_engine_available = False
+    return _pdf_engine_available
+
+
 # ── Template resolution ───────────────────────────────────────────────────────
 # Legacy default (kept for backward-compat — all existing callers pass no template_id)
 TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "cv_template.html"

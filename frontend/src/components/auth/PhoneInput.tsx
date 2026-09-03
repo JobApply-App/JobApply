@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { isValidPhoneNumber }          from 'react-phone-number-input'
+import { useI18n }                    from '@/contexts/I18nContext'
 
 // ── Country data ──────────────────────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ export function PhoneInput({
   hasError  = false,
   id        = 'phone',
 }: PhoneInputProps) {
+  const { t } = useI18n()
   const [country,  setCountry]  = useState<Country>(() =>
     COUNTRIES.find(c => value.startsWith(c.dial)) ?? COUNTRIES[0]
   )
@@ -166,7 +168,7 @@ export function PhoneInput({
           disabled={disabled}
           className="flex items-center gap-1.5 px-3 py-2.5 border-r bg-slate-50 hover:bg-slate-100 transition-colors flex-shrink-0"
           style={{ borderColor: '#E2E8F0' }}
-          aria-label="Select country code"
+          aria-label={t.signup.phone.select_country_code}
           aria-haspopup="listbox"
           aria-expanded={open}
         >
@@ -189,12 +191,12 @@ export function PhoneInput({
           inputMode="tel"
           autoComplete="tel-national"
           disabled={disabled}
-          placeholder="50 000 0000"
+          placeholder={t.signup.phone.number_placeholder}
           value={local}
           onChange={handleLocalChange}
           onBlur={() => setTouched(true)}
           className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none"
-          aria-label="Phone number"
+          aria-label={t.signup.phone.phone_number}
         />
 
         {/* Valid checkmark */}
@@ -223,7 +225,7 @@ export function PhoneInput({
         <div
           className="absolute z-50 left-0 mt-1.5 w-72 rounded-xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-floating overflow-hidden"
           role="listbox"
-          aria-label="Select country"
+          aria-label={t.signup.phone.select_country}
         >
           {/* Search */}
           <div className="p-2 border-b border-slate-100">
@@ -235,7 +237,7 @@ export function PhoneInput({
               <input
                 ref={searchRef}
                 type="text"
-                placeholder="Search country…"
+                placeholder={t.signup.phone.search_country}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 className="flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 outline-none"

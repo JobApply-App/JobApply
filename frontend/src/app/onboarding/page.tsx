@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { useRouter }        from 'next/navigation'
+import { useI18n } from '@/contexts/I18nContext'
 import AuthGuard            from '@/components/AuthGuard'
 import { OnboardingHeader } from '@/components/OnboardingHeader'
 import { useAuth }          from '@/contexts/AuthContext'
@@ -51,6 +52,7 @@ function OnboardingShell({ onBack, children }: {
   onBack?:  () => void
   children: React.ReactNode
 }) {
+  const { t, dir } = useI18n()
   return (
     <div className="flex flex-col min-h-screen bg-[#FBFBFA]">
       <OnboardingHeader />
@@ -61,7 +63,7 @@ function OnboardingShell({ onBack, children }: {
               onClick={onBack}
               className="text-[13px] text-slate-400 hover:text-slate-700 mb-6 flex items-center gap-1 transition"
             >
-              ← Back
+              <span aria-hidden="true">{dir === 'rtl' ? '\u2192' : '\u2190'}</span> {t.login.page.back}
             </button>
           )}
           {children}
@@ -71,25 +73,18 @@ function OnboardingShell({ onBack, children }: {
   )
 }
 
+// A "forward" arrow points right in LTR and left in RTL. A literal "→" in a
+// Hebrew CTA points backwards, away from where the flow actually goes.
+function DirectionalArrow() {
+  const { dir } = useI18n()
+  return <span aria-hidden="true">{dir === 'rtl' ? '\u2190' : '\u2192'}</span>
+}
+
 // ── Steps data ────────────────────────────────────────────────────────────────
 
-const STEPS = [
-  {
-    icon:  '🗂️',
-    title: 'Create your Master Profile',
-    body:  'Tell us about your experience once. It all lives in a persistent profile, so you never have to repeat yourself.',
-  },
-  {
-    icon:  '⚡',
-    title: 'Auto-Tailor CVs for any job',
-    body:  'Paste a job description and get a perfectly tailored, ATS-optimised CV in seconds — with a match-score so you know how strong your application is.',
-  },
-  {
-    icon:  '📊',
-    title: 'Track your applications',
-    body:  'A Kanban board keeps every application visible. From "Saved" to "Offer", you always know where each opportunity stands.',
-  },
-]
+// Icons only — title/body live in the dictionaries (onboarding.showcase.steps)
+// and are indexed positionally against this list. Keep both in the same order.
+const STEP_ICONS = ['🗂️', '⚡', '📊'] as const
 
 // ── Role catalogue for autocomplete (~40 common tech/startup roles) ───────────
 
@@ -108,13 +103,12 @@ const ROLE_CATALOG = [
   'UX Designer', 'UX Researcher',
 ]
 
-const SENIORITY_OPTIONS: { value: SeniorityLevel; label: string }[] = [
-  { value: 'junior',    label: 'Junior'    },
-  { value: 'mid',       label: 'Mid'       },
-  { value: 'senior',    label: 'Senior'    },
-  { value: 'lead',      label: 'Lead'      },
-  { value: 'director',  label: 'Director'  },
-  { value: 'executive', label: 'Executive' },
+// Values are persisted to the profile and stay English — the stored profile
+// is canonically English so downstream matching sees one spelling per level
+// (see backend migration c5a91b3e7d02). Only the display labels translate,
+// from onboarding.preferences.seniority, indexed against this list.
+const SENIORITY_VALUES: SeniorityLevel[] = [
+  'junior', 'mid', 'senior', 'lead', 'director', 'executive',
 ]
 
 // ── Roles combobox with per-role seniority ────────────────────────────────────
@@ -128,6 +122,8 @@ function RolePicker({ selected, setSelected }: {
   selected:    PendingRole[]
   setSelected: React.Dispatch<React.SetStateAction<PendingRole[]>>
 }) {
+  const { t } = useI18n()
+  const P = t.onboarding.preferences
   const [query,     setQuery]     = useState('')
   const [open,      setOpen]      = useState(false)
   const [highlight, setHighlight] = useState(0)
@@ -180,7 +176,7 @@ function RolePicker({ selected, setSelected }: {
             }
             if (e.key === 'Escape') setOpen(false)
           }}
-          placeholder="Start typing a role — e.g. “aco” → Account Manager…"
+          placeholder={P.role_placeholder}
           maxLength={80}
           disabled={selected.length >= 10}
           className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-[13.5px] text-slate-800 placeholder:text-slate-300 outline-none focus:border-teal-400 transition disabled:opacity-50"
@@ -197,7 +193,7 @@ function RolePicker({ selected, setSelected }: {
                 <button
                   onMouseDown={e => { e.preventDefault(); addRole(s) }}
                   onMouseEnter={() => setHighlight(i)}
-                  className={`w-full text-left px-3.5 py-2.5 text-[13px] transition ${
+                  className={`w-full text-start px-3.5 py-2.5 text-[13px] transition ${
                     i === highlight ? 'bg-teal-50 text-teal-800' : 'text-slate-700'
                   }`}
                 >
@@ -221,21 +217,21 @@ function RolePicker({ selected, setSelected }: {
                 <span className="text-[13.5px] font-semibold text-slate-800">{item.role}</span>
                 <button
                   onClick={() => setSelected(prev => prev.filter(r => r.role !== item.role))}
-                  aria-label={`Remove ${item.role}`}
+                  aria-label={P.remove_role.replace('{role}', item.role)}
                   className="text-slate-300 hover:text-slate-600 text-[13px] transition"
                 >✕</button>
               </div>
-              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={`Experience level for ${item.role}`}>
-                {SENIORITY_OPTIONS.map(opt => {
-                  const on = item.seniority === opt.value
+              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={P.level_for_role.replace('{role}', item.role)}>
+                {SENIORITY_VALUES.map((value, i) => {
+                  const on = item.seniority === value
                   return (
                     <button
-                      key={opt.value}
+                      key={value}
                       role="radio"
                       aria-checked={on}
                       onClick={() =>
                         setSelected(prev => prev.map(r =>
-                          r.role === item.role ? { ...r, seniority: on ? null : opt.value } : r
+                          r.role === item.role ? { ...r, seniority: on ? null : value } : r
                         ))
                       }
                       className={`text-[11.5px] font-medium px-2.5 py-1 rounded-full border transition ${
@@ -244,13 +240,13 @@ function RolePicker({ selected, setSelected }: {
                           : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
                       }`}
                     >
-                      {opt.label}
+                      {P.seniority[i]}
                     </button>
                   )
                 })}
               </div>
               {item.seniority === null && (
-                <p className="mt-1.5 text-[11px] text-amber-600">Pick your experience level for this role</p>
+                <p className="mt-1.5 text-[11px] text-amber-600">{P.pick_level}</p>
               )}
             </li>
           ))}
@@ -268,6 +264,8 @@ function OnboardingContent() {
   const router = useRouter()
   const { user, updateUserMeta } = useAuth()
   const { set: setOnboarding }   = useOnboarding()
+  const { t } = useI18n()
+  const O = t.onboarding
 
   const [phase,  setPhase]  = useState<Phase>('showcase')
   const [active, setActive] = useState(0)
@@ -295,7 +293,7 @@ function OnboardingContent() {
       await saveRolePreferences({ roles })
       setPhase('intake')
     } catch {
-      setSaveError('Could not save your preferences right now.')
+      setSaveError(O.preferences.save_failed)
     } finally {
       setSaving(false)
     }
@@ -332,7 +330,7 @@ function OnboardingContent() {
       await uploadCvFiles(files)   // all files go up together under the `files` key
       await completeOnboarding()
     } catch (err) {
-      setCvError(err instanceof Error ? err.message : 'Upload failed. Please try again.')
+      setCvError(err instanceof Error ? err.message : O.intake.upload_failed)
       setCvBusy(false)
     }
   }
@@ -344,21 +342,21 @@ function OnboardingContent() {
       <OnboardingShell>
         <div className="text-center mb-10">
           <h1 className="text-[28px] font-semibold text-slate-900 tracking-tight">
-            Welcome to JobApply
+            {O.showcase.title}
           </h1>
           <p className="text-[14px] text-slate-400 mt-1.5">
-            Three steps to your AI-powered job search.
+            {O.showcase.subtitle}
           </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-5 mb-10">
-          {STEPS.map((step, idx) => {
+          {STEP_ICONS.map((icon, idx) => {
             const isActive = active === idx
             return (
               <button
                 key={idx}
                 onClick={() => setActive(idx)}
-                className={`relative text-left rounded-2xl border p-6 transition-all duration-200 cursor-pointer ${
+                className={`relative text-start rounded-2xl border p-6 transition-all duration-200 cursor-pointer ${
                   isActive
                     ? 'border-teal-300 bg-white shadow-elevation-2 scale-[1.02]'
                     : 'border-slate-200 bg-white/70 hover:bg-white hover:border-slate-300'
@@ -370,13 +368,13 @@ function OnboardingContent() {
                   {idx + 1}
                 </div>
 
-                <div className="text-3xl mb-3">{step.icon}</div>
-                <p className="text-[15px] font-bold text-slate-900 mb-2 leading-snug">{step.title}</p>
-                <p className="text-[13px] text-slate-500 leading-relaxed">{step.body}</p>
+                <div className="text-3xl mb-3">{icon}</div>
+                <p className="text-[15px] font-bold text-slate-900 mb-2 leading-snug">{O.showcase.steps[idx].title}</p>
+                <p className="text-[13px] text-slate-500 leading-relaxed">{O.showcase.steps[idx].body}</p>
 
                 {isActive && (
                   <div className="mt-3 flex items-center gap-1.5 text-[12px] font-semibold text-teal-700">
-                    <CheckIcon /> Selected
+                    <CheckIcon /> {O.showcase.selected}
                   </div>
                 )}
               </button>
@@ -390,7 +388,7 @@ function OnboardingContent() {
             className="h-12 px-8 rounded-2xl text-[15px] font-semibold text-white shadow-elevation-2 hover:shadow-floating hover:-translate-y-0.5 transition-all"
             style={{ background: `linear-gradient(135deg, ${TOKENS.color.primary}, ${TOKENS.color.primaryHover})` }}
           >
-            Get Started →
+            {O.showcase.cta} <DirectionalArrow />
           </button>
         </div>
       </OnboardingShell>
@@ -403,14 +401,13 @@ function OnboardingContent() {
     return (
       <OnboardingShell onBack={() => setPhase('showcase')}>
         <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-          <h1 className="text-[20px] font-bold text-slate-900 mb-1">What are you looking for?</h1>
+          <h1 className="text-[20px] font-bold text-slate-900 mb-1">{O.preferences.title}</h1>
           <p className="text-[13.5px] text-slate-500 mb-7 leading-relaxed">
-            Whatever your field — engineering, sales, design, marketing, operations, or anything
-            else — add the roles you&apos;re targeting and your experience level in each.
+            {O.preferences.intro}
           </p>
 
           <label htmlFor="target-roles-combobox" className="block text-[12px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
-            Target roles &amp; experience
+            {O.preferences.roles_label}
           </label>
           <RolePicker selected={selected} setSelected={setSelected} />
 
@@ -425,13 +422,13 @@ function OnboardingContent() {
               className="flex-1 h-11 rounded-xl text-[14px] font-semibold text-white transition disabled:opacity-40"
               style={{ background: TOKENS.color.primary }}
             >
-              {saving ? 'Saving…' : 'Continue →'}
+              {saving ? O.preferences.saving : <>{O.preferences.continue_cta} <DirectionalArrow /></>}
             </button>
             <button
               onClick={() => setPhase('intake')}
               className="text-[13px] text-slate-400 hover:text-slate-600 px-3 transition"
             >
-              Skip
+              {O.preferences.skip}
             </button>
           </div>
         </div>
@@ -444,10 +441,9 @@ function OnboardingContent() {
   return (
     <OnboardingShell onBack={() => setPhase('preferences')}>
       <div className="max-w-md mx-auto bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-        <h1 className="text-[20px] font-bold text-slate-900 mb-1">Import your existing profile</h1>
+        <h1 className="text-[20px] font-bold text-slate-900 mb-1">{O.intake.title}</h1>
         <p className="text-[13.5px] text-slate-500 mb-7 leading-relaxed">
-          Skip the blank slate — upload your current CV and we&apos;ll build your
-          Master Profile in seconds.
+          {O.intake.intro}
         </p>
 
         {/* Upload CV — opens the OS file picker directly (no extra screen) */}
@@ -466,7 +462,7 @@ function OnboardingContent() {
         <button
           onClick={() => fileRef.current?.click()}
           disabled={cvBusy}
-          className="w-full flex items-center gap-4 rounded-2xl border-2 border-dashed border-slate-200 p-5 hover:border-teal-400 hover:bg-teal-50 transition text-left group disabled:opacity-60 disabled:pointer-events-none"
+          className="w-full flex items-center gap-4 rounded-2xl border-2 border-dashed border-slate-200 p-5 hover:border-teal-400 hover:bg-teal-50 transition text-start group disabled:opacity-60 disabled:pointer-events-none"
         >
           <div className="w-11 h-11 rounded-xl bg-slate-100 group-hover:bg-teal-100 flex items-center justify-center text-slate-500 group-hover:text-teal-600 flex-shrink-0 transition">
             {cvBusy ? <SpinnerIcon s={20} /> : <UploadIcon s={20} />}
@@ -475,17 +471,18 @@ function OnboardingContent() {
             {cvBusy ? (
               <>
                 <p className="text-[14px] font-semibold text-slate-800">
-                  Uploading {cvFileCount} file{cvFileCount !== 1 ? 's' : ''}…
+                  {(cvFileCount === 1 ? O.intake.uploading_one : O.intake.uploading_many)
+                    .replace('{n}', String(cvFileCount))}
                 </p>
                 <p className="text-[12px] text-slate-400 mt-0.5">
-                  Our AI is analyzing your experience, skills, and education
+                  {O.intake.analyzing}
                 </p>
               </>
             ) : (
               <>
-                <p className="text-[14px] font-semibold text-slate-800">Upload existing CV</p>
+                <p className="text-[14px] font-semibold text-slate-800">{O.intake.upload_cta}</p>
                 <p className="text-[12px] text-slate-400 mt-0.5">
-                  PDF, DOCX — you can select several files at once
+                  {O.intake.upload_hint}
                 </p>
               </>
             )}
@@ -501,7 +498,7 @@ function OnboardingContent() {
           disabled={cvBusy}
           className="w-full mt-6 text-[13px] text-slate-400 hover:text-slate-600 transition disabled:opacity-40"
         >
-          Skip for now — I&apos;ll add my details later
+          {O.intake.skip}
         </button>
       </div>
     </OnboardingShell>

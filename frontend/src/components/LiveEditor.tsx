@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import type { ParsedCV, ParsedSkillCategory, GeneratedField } from '@/lib/cv'
 import { updateFieldById, updateSkillItemsById } from '@/lib/cvParser'
@@ -195,6 +196,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function SkillCategoryEditor({
   category, onChange,
 }: { category: ParsedSkillCategory; onChange: (categoryId: string, items: string[]) => void }) {
+  const L = useI18n().t.live_editor
   const inputRef = useRef<HTMLInputElement>(null)
 
   const remove = (i: number) => onChange(category.id, category.items.filter((_, idx) => idx !== i))
@@ -234,7 +236,7 @@ function SkillCategoryEditor({
         <input
           ref={inputRef}
           onKeyDown={e => e.key === 'Enter' && add()}
-          placeholder="Add skill…"
+          placeholder={L.add_skill}
           dir="auto"
           style={{
             flex: 1, fontSize: 11, padding: '3px 8px', borderRadius: 5,
@@ -262,6 +264,7 @@ function SkillCategoryEditor({
 export function LiveEditor({
   cv, onChange, onReset, isDirty, isSaving, onSave, saveError,
 }: LiveEditorProps) {
+  const L = useI18n().t.live_editor
 
   // ── ID-based update handlers ──────────────────────────────────────────────
   // No array indices anywhere below: every edit is routed through the field's
@@ -302,17 +305,17 @@ export function LiveEditor({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 16, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <p style={{ fontSize: 12.5, fontWeight: 600, color: TOKENS.color.ink }}>
-            Live Editor
+            {L.title}
             {isDirty && (
               <span style={{ fontSize: 10.5, fontWeight: 400, color: TOKENS.color.muted, marginLeft: 6 }}>
-                · unsaved changes
+                {L.unsaved}
               </span>
             )}
           </p>
           <div style={{ display: 'flex', gap: 6 }}>
             <button
               onClick={onReset}
-              title="Reset to original generated CV"
+              title={L.reset_title}
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '4px 10px', borderRadius: 20,
@@ -323,7 +326,7 @@ export function LiveEditor({
                 cursor: 'pointer',
               }}
             >
-              <UndoIcon /> Reset
+              <UndoIcon /> {L.reset}
             </button>
             <button
               onClick={onSave}
@@ -338,7 +341,7 @@ export function LiveEditor({
                 transition: 'background 0.15s',
               }}
             >
-              <SaveIcon /> {isSaving ? 'Saving…' : 'Save'}
+              <SaveIcon /> {isSaving ? L.saving : L.save}
             </button>
           </div>
         </div>
@@ -350,12 +353,12 @@ export function LiveEditor({
       </div>
 
       {/* ── Summary ── */}
-      <Section title="Professional Summary">
-        <EditableField field={cv.summary} onChange={setFieldValue} rows={4} ariaLabel="Professional summary" />
+      <Section title={L.sections.summary}>
+        <EditableField field={cv.summary} onChange={setFieldValue} rows={4} ariaLabel={L.summary_aria} />
       </Section>
 
       {/* ── Experience bullets ── */}
-      <Section title="Experience">
+      <Section title={L.sections.experience}>
         {cv.experience.map(exp => (
           <div key={exp.id} style={{ marginBottom: 14 }}>
             <div style={{
@@ -391,7 +394,7 @@ export function LiveEditor({
 
       {/* ── Military Service (read-only — always injected from verified profile) ── */}
       {cv.militaryService?.roleTitle && (
-        <Section title="Military Service">
+        <Section title={L.sections.military}>
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
             padding: '7px 10px',
@@ -418,20 +421,20 @@ export function LiveEditor({
             fontSize: 10, color: TOKENS.color.muted,
             marginTop: 5, fontStyle: 'italic',
           }}>
-            Auto-injected from your verified profile — not editable here.
+            {L.military_note}
           </p>
         </Section>
       )}
 
       {/* ── Volunteering — hidden entirely when absent or empty ── */}
       {cv.volunteering.value && cv.volunteering.value.trim().length > 0 && (
-        <Section title="Volunteering">
-          <EditableField field={cv.volunteering} onChange={setFieldValue} rows={2} ariaLabel="Volunteering" />
+        <Section title={L.sections.volunteering}>
+          <EditableField field={cv.volunteering} onChange={setFieldValue} rows={2} ariaLabel={L.volunteering_aria} />
         </Section>
       )}
 
       {/* ── Skills ── */}
-      <Section title="Skills">
+      <Section title={L.sections.skills}>
         {cv.skills.map(category => (
           <SkillCategoryEditor
             key={category.id}

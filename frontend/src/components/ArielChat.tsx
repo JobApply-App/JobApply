@@ -6,6 +6,7 @@ import {
 } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm    from 'remark-gfm'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS }         from '@/lib/tokens'
 import { ensureFreshToken, getAuthHeaders } from '@/lib/api'
 import { useOnboarding }  from '@/contexts/OnboardingContext'
@@ -288,6 +289,7 @@ interface ActionBarCallbacks {
 }
 
 function MessageActionBar({ isUser, callbacks }: { isUser: boolean; callbacks: ActionBarCallbacks }) {
+  const A = useI18n().t.ariel
   // Brief "Copied!" feedback — swap the icon/label back after 2s. A ref holds
   // the timeout id so a rapid second click restarts the window instead of
   // stacking timeouts, and so it can be cleared on unmount.
@@ -306,11 +308,11 @@ function MessageActionBar({ isUser, callbacks }: { isUser: boolean; callbacks: A
   const actions = [
     {
       icon:  copied ? <CheckIcon /> : <CopyIcon />,
-      label: copied ? 'Copied!' : 'Copy',
+      label: copied ? A.msg.copied : A.msg.copy,
       danger: false,
       fn: handleCopy,
     },
-    { icon: <ReplyIcon />,   label: 'Reply',  danger: false, fn: callbacks.onReply  },
+    { icon: <ReplyIcon />,   label: A.msg.reply,  danger: false, fn: callbacks.onReply  },
     // Edit — user messages only
     ...(isUser && callbacks.onEdit ? [{
       icon: <EditIcon />, label: 'Edit', danger: false, fn: callbacks.onEdit,
@@ -318,15 +320,15 @@ function MessageActionBar({ isUser, callbacks }: { isUser: boolean; callbacks: A
     // Translate — assistant messages only
     ...(!isUser ? [{
       icon:  callbacks.isTranslating ? <SpinnerIcon s={13} /> : <TranslateIcon />,
-      label: 'Translate', danger: false, fn: callbacks.onTranslate,
+      label: A.msg.translate, danger: false, fn: callbacks.onTranslate,
     }] : []),
     // Regenerate — latest assistant message only
     ...(!isUser && callbacks.onRegenerate ? [{
-      icon: <RegenerateIcon />, label: 'Regenerate', danger: false, fn: callbacks.onRegenerate,
+      icon: <RegenerateIcon />, label: A.msg.regenerate, danger: false, fn: callbacks.onRegenerate,
     }] : []),
-    { icon: <PinIcon filled={callbacks.isPinned} />, label: callbacks.isPinned ? 'Unpin' : 'Pin', danger: false, fn: callbacks.onPin },
-    { icon: <FlagIcon />,    label: 'Report', danger: false, fn: callbacks.onReport  },
-    { icon: <TrashIcon />,   label: 'Delete', danger: true,  fn: callbacks.onDelete  },
+    { icon: <PinIcon filled={callbacks.isPinned} />, label: callbacks.isPinned ? A.msg.unpin : A.msg.pin, danger: false, fn: callbacks.onPin },
+    { icon: <FlagIcon />,    label: A.msg.report, danger: false, fn: callbacks.onReport  },
+    { icon: <TrashIcon />,   label: A.msg.delete, danger: true,  fn: callbacks.onDelete  },
   ]
 
   // Inline below the bubble — never clipped by overflow-y-auto.
@@ -347,7 +349,7 @@ function MessageActionBar({ isUser, callbacks }: { isUser: boolean; callbacks: A
           className={`
             w-6 h-6 flex items-center justify-center rounded-lg transition
             ${a.danger ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-300 hover:text-slate-600 hover:bg-slate-100'}
-            ${a.label === 'Unpin' || a.label === 'Copied!' ? '!text-violet-500' : ''}
+            ${a.label === A.msg.unpin || a.label === A.msg.copied ? '!text-violet-500' : ''}
           `}>
           {a.icon}
         </button>
@@ -379,6 +381,7 @@ const MessageBubble = memo(function MessageBubble({
   message, isStreaming, showTranslation, isTranslating, isLatestAssistant,
   onDelete, onReply, onPin, onTranslate, onReport, onEdit, onRegenerate,
 }: BubbleProps) {
+  const A = useI18n().t.ariel
   const isUser   = message.role === 'user'
   const rendered = showTranslation && message.translatedContent ? message.translatedContent : message.content
 
@@ -445,7 +448,7 @@ const MessageBubble = memo(function MessageBubble({
           {!isUser && message.translatedContent && (
             <button onClick={() => onTranslate(message.id)}
               className="mt-1.5 block text-[10.5px] text-violet-500 hover:text-violet-700 transition">
-              {showTranslation ? 'Show original' : 'Show translation'}
+              {showTranslation ? A.msg.show_original : A.msg.show_translation}
             </button>
           )}
           {isStreaming && !isUser && (
@@ -498,6 +501,7 @@ interface HistoryPanelProps {
 function HistoryPanel({
   isOpen, onClose, sessions, loadingList, activeSessionId, onSelectSession, onNewSession,
 }: HistoryPanelProps) {
+  const A = useI18n().t.ariel
   return (
     <>
       {/* Backdrop */}
@@ -526,8 +530,8 @@ function HistoryPanel({
           </div>
           <button
             onClick={onClose}
-            aria-label="Close history panel"
-            title="Close"
+            aria-label={A.history_close_label}
+            title={A.close}
             className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 focus-visible:text-slate-700 transition text-[16px] leading-none"
           >×</button>
         </div>
@@ -712,6 +716,7 @@ async function consumeStream(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
+  const A = useI18n().t.ariel
   const { data: onboardingData, clear: clearOnboarding } = useOnboarding()
   const { triggerProfileRefresh } = useChat()
 
@@ -1047,7 +1052,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       })
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return
-      const errMsg = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      const errMsg = err instanceof Error ? err.message : A.generic_error
       setMessages(prev => {
         const next = [...prev]
         const i    = next.findIndex(m => m.id === newAsstId)
@@ -1060,11 +1065,11 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       setStreaming(false)
       triggerProfileRefresh()
     }
-  }, [messages, streaming, forceBottom, triggerProfileRefresh])
+  }, [messages, streaming, forceBottom, triggerProfileRefresh, A.generic_error])
 
   // ── Send ───────────────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (override?: string) => {
-    const rawText = (override ?? input).trim() || (attachments.length ? 'Please look at the attached files.' : '')
+    const rawText = (override ?? input).trim() || (attachments.length ? A.attached_files : '')
     if (!rawText || streaming) return
 
     const replySnippet  = replyingTo
@@ -1107,7 +1112,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       }, capturedAttachments.length ? capturedAttachments : undefined)
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return
-      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      const msg = err instanceof Error ? err.message : A.generic_error
       setMessages(prev => {
         const next = [...prev]
         const idx  = next.findIndex(m => m.id === assistantId)
@@ -1132,7 +1137,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
         setTimeout(triggerProfileRefresh, 5000)
       }
     }
-  }, [input, messages, streaming, replyingTo, attachments, forceBottom, triggerProfileRefresh])
+  }, [input, messages, streaming, replyingTo, attachments, forceBottom, triggerProfileRefresh, A.attached_files, A.generic_error])
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
@@ -1239,7 +1244,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
                     textRef.current?.focus()
                   }}
                   className="shrink-0 opacity-70 hover:opacity-100 transition leading-none ml-0.5"
-                  title="Remove"
+                  title={A.remove}
                   aria-label={`Remove ${a.name}`}
                 >✕</button>
               </div>
@@ -1273,7 +1278,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
           title={`Attach files (images, PDFs, videos, Word docs) — max ${MAX_ATTACHMENTS} files, up to ${MAX_TOTAL_SIZE_MB}MB total${
             attachments.length > 0 ? ` (${attachments.length}/${MAX_ATTACHMENTS} attached)` : ''
           }`}
-          aria-label="Attach files"
+          aria-label={A.attach}
           disabled={streaming || attachments.length >= MAX_ATTACHMENTS}
           className="shrink-0 w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 transition disabled:opacity-40"
         >
@@ -1298,8 +1303,8 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
           <button
             type="button"
             onClick={() => abortRef.current?.abort()}
-            title="Stop generation"
-            aria-label="Stop generation"
+            title={A.stop}
+            aria-label={A.stop}
             className="shrink-0 w-11 h-11 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white transition active:scale-95 bg-rose-500 sm:hover:bg-rose-600"
           >
             <StopIcon s={15} />
@@ -1309,8 +1314,8 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
             type="button"
             onClick={() => sendMessage()}
             disabled={(!input.trim() && !attachments.length) || loadingSession}
-            title="Send (Enter)"
-            aria-label="Send message"
+            title={A.send}
+            aria-label={A.send}
             className="shrink-0 w-11 h-11 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white transition active:scale-95 disabled:opacity-35 disabled:pointer-events-none bg-violet-600 hover:bg-violet-700"
           >
             <SendIcon s={15} />
@@ -1335,14 +1340,14 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       <div className="flex items-center gap-2 min-w-0">
         <div className="w-7 h-7 rounded-full text-white text-[11px] font-bold flex items-center justify-center shrink-0"
           style={{ background: TOKENS.color.gradientIntelligence, boxShadow: TOKENS.shadow.glowAi }}>A</div>
-        <p className="text-[13px] font-semibold text-slate-700 truncate">Ariel</p>
+        <p className="text-[13px] font-semibold text-slate-700 truncate">{A.name}</p>
       </div>
       {/* Right: icon buttons — 44px square on mobile (touch target minimum),
           28px on desktop for alignment with the compact header */}
       <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={openHistory}
-          title="Conversation history"
+          title={A.history_title}
           className={`h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg transition-colors
             ${showHistory ? 'text-violet-600 bg-violet-50' : 'text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100'}`}
         >
@@ -1350,7 +1355,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
         </button>
         <button
           onClick={startNewSession}
-          title="New conversation"
+          title={A.new_conversation}
           className="h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 transition-colors text-[15px] leading-none"
         >↺</button>
         {onClose && (
@@ -1362,8 +1367,8 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
                 per-message trigger. */}
             <button
               onClick={() => { triggerProfileRefresh(); onClose() }}
-              title="Minimize"
-              aria-label="Minimize Ariel"
+              title={A.minimize}
+              aria-label={A.minimize_label}
               className="h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 transition-colors"
             >
               <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
@@ -1375,8 +1380,8 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
                 via the launcher. */}
             <button
               onClick={() => { triggerProfileRefresh(); onClose() }}
-              title="Close"
-              aria-label="Close Ariel"
+              title={A.close}
+              aria-label={A.close_label}
               // Persistent bg-slate-100 circle on mobile only (not
               // hover/active-only) so the close control is unambiguously
               // pinned and visible on touch devices, where :hover never
@@ -1399,28 +1404,14 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
   if (messages.length === 0 && !loadingSession) {
     const latestSession = sessionList[0] ?? null   // list is already newest-first
 
-    const actions: { icon: string; label: string; prompt: string }[] = [
-      {
-        icon:   '🗺️',
-        label:  'Map my career gaps',
-        prompt: "I want to map the gaps between my current experience and my target role. Let's start.",
-      },
-      {
-        icon:   '🎤',
-        label:  'Prepare for an interview',
-        prompt: 'I have an interview coming up. Help me prepare.',
-      },
-      {
-        icon:   '🔍',
-        label:  'Analyze a job description',
-        prompt: "I'd like to analyze a job description together. I'll paste it now.",
-      },
-      {
-        icon:   '🛤️',
-        label:  'Build my career roadmap',
-        prompt: 'Help me build a realistic roadmap to my next career milestone.',
-      },
-    ]
+    // Icons only — label and prompt come from ariel.quick_actions, indexed
+    // positionally against this list.
+    const actionIcons = ['🗺️', '🎤', '🔍', '🛤️']
+    const actions = actionIcons.map((icon, i) => ({
+      icon,
+      label:  A.quick_actions[i].label,
+      prompt: A.quick_actions[i].prompt,
+    }))
 
     return (
       <div className="flex flex-col h-full">
@@ -1434,8 +1425,8 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
             <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-base font-bold shrink-0"
               style={{ background: TOKENS.color.gradientIntelligence, boxShadow: TOKENS.shadow.glowAi }}>A</div>
             <div>
-              <p className="text-[14px] font-bold text-slate-900 leading-tight">Ariel</p>
-              <p className="text-[11.5px] text-slate-400 leading-tight">Career Intelligence Agent</p>
+              <p className="text-[14px] font-bold text-slate-900 leading-tight">{A.name}</p>
+              <p className="text-[11.5px] text-slate-400 leading-tight">{A.role}</p>
             </div>
           </div>
 
@@ -1447,12 +1438,12 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
             >
               <span className="text-[18px] leading-none shrink-0">💬</span>
               <div className="min-w-0">
-                <p className="text-[12px] font-semibold text-violet-700 leading-tight">Continue recent conversation</p>
+                <p className="text-[12px] font-semibold text-violet-700 leading-tight">{A.continue_recent}</p>
                 <p dir="auto" className="text-[11px] text-violet-500 truncate mt-0.5">
-                  {latestSession.preview || 'Pick up where you left off'}
+                  {latestSession.preview || A.continue_hint}
                 </p>
               </div>
-              <svg className="ml-auto shrink-0 text-violet-400" width={14} height={14} viewBox="0 0 24 24"
+              <svg className="ms-auto shrink-0 text-violet-400" width={14} height={14} viewBox="0 0 24 24"
                 fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
@@ -1461,7 +1452,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
 
           {/* Divider label */}
           <p className="text-[10.5px] font-semibold text-slate-400 uppercase tracking-wider px-0.5">
-            {latestSession ? 'Or start something new' : 'What would you like to work on?'}
+            {latestSession ? A.start_new : A.what_work_on}
           </p>
 
           {/* Compact suggestion pills — icon + title only, wrap to fill width.
@@ -1482,7 +1473,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
 
         </div>
 
-        {renderInputBar("Or just type to start…")}
+        {renderInputBar(A.input_start)}
       </div>
     )
   }
@@ -1544,7 +1535,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
         />
       </div>
 
-      {renderInputBar("Type your reply… (Shift+Enter for new line)")}
+      {renderInputBar(A.input_reply)}
     </div>
   )
 }

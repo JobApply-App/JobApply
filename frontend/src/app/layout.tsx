@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Assistant } from 'next/font/google'
 import { cookies } from 'next/headers'
 import './globals.css'
 
@@ -11,7 +11,16 @@ import { ChatOverlay }         from '@/components/ChatOverlay'
 import { ChatLauncher }        from '@/components/ChatLauncher'
 import type { Locale }         from '@/locales'
 
-const inter = Inter({ subsets: ['latin', 'latin-ext'] })
+const inter = Inter({ subsets: ['latin', 'latin-ext'], variable: '--font-latin' })
+
+// Inter ships no Hebrew subset, so every Hebrew glyph on the site was
+// silently falling back to whatever the OS picked — a different typeface,
+// different weights and different metrics from the Latin UI around it, on
+// half the product's supported languages. Assistant is a Hebrew-first face
+// with a matching Latin set, so mixed strings ("CV באנגלית") stay in one
+// voice. Listed after Inter in the body stack: Latin glyphs keep coming
+// from Inter, Hebrew falls through to Assistant.
+const assistant = Assistant({ subsets: ['hebrew', 'latin'], variable: '--font-hebrew' })
 
 export const metadata: Metadata = {
   title: {
@@ -37,7 +46,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} dir={dir}>
       {/* bg-ja-bg (--ja-bg token) prevents flash of warm ivory on paint */}
-      <body className={`${inter.className} bg-ja-bg min-h-screen`}>
+      <body className={`${inter.variable} ${assistant.variable} font-sans bg-ja-bg min-h-screen`}>
         <I18nProvider initialLocale={locale}>
           <AuthProvider>
             <OnboardingProvider>

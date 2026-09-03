@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useChat } from '@/contexts/ChatContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS }  from '@/lib/tokens'
 
 const ONBOARDING_ROUTES = ['/onboarding', '/profile-builder']
@@ -29,6 +30,7 @@ function ChatIcon() {
 // Floating launcher for Ariel (authenticated career agent).
 // Hidden when the panel is already open, or when the user is not signed in.
 export function ChatLauncher() {
+  const A = useI18n().t.ariel
   const { isOpen, isEliyaOpen, jobContext, openChat } = useChat()
   const { user } = useAuth()
   const pathname = usePathname()
@@ -46,8 +48,8 @@ export function ChatLauncher() {
   return (
     <button
       onClick={() => openChat()}
-      title="Open Ariel — your career agent"
-      aria-label="Open Ariel career agent"
+      title={A.launcher_title}
+      aria-label={A.launcher_label}
       className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 h-12 px-4 rounded-full text-white transition-all duration-200 active:scale-95 hover:opacity-90"
       style={{
         background: TOKENS.color.primary,
@@ -59,11 +61,11 @@ export function ChatLauncher() {
         <span
           className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white"
           style={{ background: '#f59e0b' }}
-          title="Job context loaded"
+          title={A.job_context}
         />
       )}
       <span className="flex-shrink-0"><ChatIcon /></span>
-      <span className="text-[13px] font-semibold tracking-tight">Ask Ariel</span>
+      <span className="text-[13px] font-semibold tracking-tight">{A.launcher_cta}</span>
     </button>
   )
 }

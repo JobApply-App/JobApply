@@ -9,6 +9,7 @@ import { CareerStageCards, type CareerStage } from '@/components/auth/CareerStag
 import { useAuth }                   from '@/contexts/AuthContext'
 import { useOnboarding }             from '@/contexts/OnboardingContext'
 import { getAuthHeaders }            from '@/lib/api'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS }                    from '@/lib/tokens'
 
 const PhoneInput = dynamic(
@@ -56,6 +57,8 @@ function WorkspaceAnimation({ name }: { name: string }) {
 // ── Inner content ─────────────────────────────────────────────────────────────
 
 function CompleteProfileContent() {
+  const { t } = useI18n()
+  const CP = t.complete_profile
   const { user, updateUserMeta } = useAuth()
   const { set: setOnboarding }   = useOnboarding()
   const router = useRouter()
@@ -95,7 +98,7 @@ function CompleteProfileContent() {
       await new Promise(r => setTimeout(r, 1500))
       router.replace('/discover')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong.'
+      const msg = err instanceof Error ? err.message : CP.generic_error
       console.error(`${LOG} error:`, msg)
       setError(msg)
       setBusy(false)
@@ -121,10 +124,10 @@ function CompleteProfileContent() {
           )}
           <div>
             <h1 className="text-xl font-bold text-slate-900">
-              Welcome, {firstName || 'there'}!
+              {CP.welcome.replace('{name}', firstName || CP.welcome_there)}
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              One last step — complete your profile details.
+              {CP.subtitle}
             </p>
           </div>
         </div>
@@ -137,7 +140,7 @@ function CompleteProfileContent() {
             {/* Phone */}
             <div>
               <label htmlFor="phone" className="block text-xs font-medium text-slate-700 mb-1.5">
-                Phone <span className="text-rose-400">*</span>
+                {t.signup.page.phone} <span className="text-rose-400">*</span>
               </label>
               <PhoneInput
                 id="phone"
@@ -150,7 +153,7 @@ function CompleteProfileContent() {
             {/* Career Stage */}
             <div>
               <p className="text-xs font-medium text-slate-700 mb-2.5">
-                Career Stage <span className="text-rose-400">*</span>
+                {t.signup.page.career_stage} <span className="text-rose-400">*</span>
               </p>
               <CareerStageCards
                 value={careerStage}
@@ -163,7 +166,7 @@ function CompleteProfileContent() {
                     strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
-                  Career stage selected
+                  {t.signup.page.career_stage_selected}
                 </p>
               )}
             </div>
@@ -186,7 +189,7 @@ function CompleteProfileContent() {
               className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ background: TOKENS.color.primary }}>
               {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin flex-shrink-0" />}
-              {busy ? 'Setting up…' : 'Complete Setup'}
+              {busy ? CP.setting_up : CP.submit}
             </button>
           </form>
         </div>

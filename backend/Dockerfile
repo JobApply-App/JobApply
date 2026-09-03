@@ -43,7 +43,20 @@ RUN python -m playwright install --with-deps chromium
 # the frozen Streamlit reference app, see CLAUDE.md).
 COPY backend/ backend/
 
+# Alembic config for the app-schema migrations, plus the entrypoint that runs
+# them. The .ini lives at the repo root while its script_location points at
+# backend/alembic_app_schema, so it must sit next to backend/ inside /app for
+# that relative path to resolve.
+COPY alembic_app_schema.ini ./
+COPY backend/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 8000
+
+# The entrypoint applies pending Alembic migrations (Postgres only) before
+# handing off to whatever CMD/dockerCommand it wraps — so both the local
+# compose run and Render's overridden command get migrated automatically.
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # --reload picks up bind-mounted source changes (see docker-compose.yml).
 # backend/jobs.db is created on first startup if the bind-mounted backend/

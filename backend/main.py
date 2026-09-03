@@ -499,4 +499,40 @@ app.include_router(scraper.router,      prefix="/api/v1/scraper",   tags=["scrap
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    """
+    Readiness probe wired to Render's healthCheckPath.
+
+    Actually opens a database connection rather than returning a constant:
+    an unconditional 200 here meant a fully unreachable Postgres still
+    passed every health check, so Render kept routing traffic to an
+    instance that could not serve a single data-backed request.
+
+    Chromium is reported but never gates the result — PDF export is one
+    feature, and failing the whole service (triggering a restart loop) over
+    it would be a worse outcome than serving everything else.
+    """
+    from sqlalchemy import text
+
+    from backend.core.database import ENGINE
+
+    checks: dict = {"database": "ok", "pdf_engine": "unknown"}
+
+    try:
+        with ENGINE.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:
+        logger.error("[health] database unreachable: %s", exc)
+        checks["database"] = "unreachable"
+        return JSONResponse(
+            status_code=503,
+            content={"status": "degraded", "checks": checks},
+        )
+
+    try:
+        from backend.services.pdf_builder import pdf_engine_available
+
+        checks["pdf_engine"] = "ok" if await pdf_engine_available() else "unavailable"
+    except Exception:
+        checks["pdf_engine"] = "unavailable"
+
+    return {"status": "ok", "checks": checks}

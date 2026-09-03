@@ -9,7 +9,14 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        // --font-latin (Inter) first, --font-hebrew (Assistant) right behind
+        // it: Inter has no Hebrew glyphs, so Hebrew text falls through to
+        // Assistant instead of to an arbitrary system font. Both variables
+        // are set on <body> in app/layout.tsx.
+        sans: [
+          'var(--font-latin)', 'var(--font-hebrew)',
+          'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif',
+        ],
       },
       colors: {
         ja: {

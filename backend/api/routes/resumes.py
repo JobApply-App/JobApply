@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
-from backend.repositories import job_repository as job_store
+from backend.repositories import job_repository as job_store, profile_repository
 from backend.agents.resume import ResumeAgent
 from backend.agents.tailor import TailorAgent, _inject_static_sections
 from backend.agents.gatekeeper import RevisionGatekeeper
@@ -100,6 +100,23 @@ class ResumeGenerateResponse(BaseModel):
     missing_data_requests: list[MissingDataRequest]
     job_id: str
     layout_variant: str
+
+
+
+# get_locales() answers None when an account has no stored CV language, and
+# raises when the preferences table cannot be read at all. Generation still
+# has to pick a language either way, and English is the documented default —
+# but "we could not find out" is worth a log line, because writing a CV in
+# the wrong language spends one of the user's four daily generations.
+def _stored_cv_locale(user_id: str) -> str:
+    try:
+        stored = profile_repository.get_locales(user_id)["cv_locale"]
+    except profile_repository.LocalesUnavailable:
+        logger.warning(
+            "[resumes] could not read cv_locale for user=%s — defaulting to 'en'", user_id
+        )
+        return "en"
+    return stored or "en"
 
 
 @router.post("/generate", response_model=ResumeGenerateResponse, dependencies=[Depends(llm_rate_limit)])
@@ -207,6 +224,10 @@ class TailorRequest(BaseModel):
     supplemental_answers: Optional[dict] = None
     # Set to True to skip any cached CV and force a fresh LLM generation.
     force: bool = False
+    # Language to write THIS CV in, overriding the user's stored default.
+    # Lets someone reading the site in Hebrew generate one English CV for a
+    # specific job without changing their standing preference.
+    cv_locale: Optional[str] = None
 
 
 class TailorResponse(BaseModel):
@@ -538,9 +559,16 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
             req.job_id, purged,
         )
 
+    # An explicit cv_locale on the request wins (generating one CV in another
+    # language without changing the standing preference); otherwise use the
+    # user's stored default. Resolved before the cache lookup because the
+    # cache is language-specific — a draft written in the other language is a
+    # miss, not a hit.
+    cv_locale = req.cv_locale or _stored_cv_locale(user.user_id)
+
     # ── Return cached CV if available and force=False ─────────────────────────
     if not req.force and not req.supplemental_answers:
-        cached = get_tailored_cv(req.job_id, user.user_id)
+        cached = get_tailored_cv(req.job_id, user.user_id, cv_locale=cv_locale)
         if cached and cached.get("cv_data"):
             logger.info(
                 "[resumes/tailor] Cache hit for job %s — returning persisted CV", req.job_id
@@ -599,7 +627,9 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
 
     try:
         agent  = TailorAgent(user.user_id)
-        result = await agent.tailor(job, supplemental_answers=jd_answers or None)
+        result = await agent.tailor(
+            job, supplemental_answers=jd_answers or None, cv_locale=cv_locale,
+        )
     except Exception as exc:
         logger.exception("[resumes/tailor] TailorAgent failed for job %s", req.job_id)
         raise HTTPException(status_code=502, detail="CV tailoring failed. Please try again shortly.") from exc
@@ -625,6 +655,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                 result = await agent.tailor(
                     job,
                     supplemental_answers={**jd_answers, **auto_filled},
+                    cv_locale=cv_locale,
                 )
             except Exception as exc:
                 logger.exception(
@@ -756,8 +787,10 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
 
     # ── Persist generated CV so future requests are served from cache ─────────
     try:
-        save_tailored_cv(req.job_id, user.user_id, cv_data, match_score_dict)
-        logger.info("[resumes/tailor] Cached tailored CV for job %s", req.job_id)
+        save_tailored_cv(req.job_id, user.user_id, cv_data, match_score_dict, cv_locale=cv_locale)
+        logger.info(
+            "[resumes/tailor] Cached tailored CV for job %s (locale=%s)", req.job_id, cv_locale,
+        )
     except Exception as exc:
         logger.warning("[resumes/tailor] Failed to cache CV (non-fatal): %s", exc)
 
@@ -1104,6 +1137,11 @@ class SaveCvRequest(BaseModel):
     job_id:      str
     cv_data:     dict
     match_score: Optional[dict] = None
+    # Language the edited CV is written in. Sent by the editor so a Hebrew
+    # CV is not re-cached as English, which would make the next open treat
+    # it as a language mismatch and silently regenerate over the user's
+    # manual edits.
+    cv_locale:   Optional[str] = None
 
 
 @router.post("/save-cv")
@@ -1121,8 +1159,15 @@ async def save_cv(req: SaveCvRequest, user: CurrentUser = Depends(get_current_us
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job '{req.job_id}' not found.")
 
-    save_tailored_cv(req.job_id, user.user_id, req.cv_data, req.match_score)
-    logger.info("[resumes/save-cv] Explicitly saved draft CV for job %s", req.job_id)
+    # Fall back to the stored default only when the editor did not say —
+    # an older client that predates the field is far likelier to be editing
+    # a CV in the user's usual language than in the other one.
+    saved_locale = req.cv_locale or _stored_cv_locale(user.user_id)
+    save_tailored_cv(req.job_id, user.user_id, req.cv_data, req.match_score, cv_locale=saved_locale)
+    logger.info(
+        "[resumes/save-cv] Explicitly saved draft CV for job %s (locale=%s)",
+        req.job_id, saved_locale,
+    )
     return {"status": "ok"}
 
 

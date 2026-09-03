@@ -10,10 +10,13 @@ _migrate_tenant_id) is built entirely on SQLite-only introspection
 (`PRAGMA table_info`, `sqlite_master`, `PRAGMA foreign_keys`/`wal_checkpoint`)
 — none of it has a Postgres equivalent, and none of it needs one: when
 backend/core/database.py's ENGINE points at Postgres, the schema is already
-fully created and versioned by backend/alembic_app_schema/ (run explicitly as
-a deploy step, `alembic -c alembic_app_schema.ini upgrade head` — never from
-here). init_db() therefore only runs this file's migration logic on SQLite;
-on Postgres it just confirms connectivity and logs the target.
+fully created and versioned by backend/alembic_app_schema/. That runs as a
+deploy step (`alembic -c alembic_app_schema.ini upgrade head`) — never from
+here — and since it is invoked by backend/scripts/docker-entrypoint.sh
+before uvicorn starts, it is bound to the deploy rather than left to be
+remembered by hand. init_db() therefore only runs this file's migration
+logic on SQLite; on Postgres it just confirms connectivity and logs the
+target.
 """
 from __future__ import annotations
 

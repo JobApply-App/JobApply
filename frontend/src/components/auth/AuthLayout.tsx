@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 
 // ── Decorative SVG — abstract tech / neural-network pattern ──────────────────
@@ -52,14 +53,6 @@ function TechPattern() {
   )
 }
 
-// ── Left panel brand metrics ───────────────────────────────────────────────────
-
-const METRICS = [
-  { value: '3×',  label: 'More interviews'  },
-  { value: '92%', label: 'ATS pass rate'    },
-  { value: '<5m', label: 'Per CV tailored'  },
-]
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface AuthLayoutProps {
@@ -72,10 +65,17 @@ interface AuthLayoutProps {
 
 export function AuthLayout({
   children,
-  leftEyebrow   = 'Intelligent career management',
-  leftHeadline  = 'Your career, intelligently managed.',
-  leftSubline   = 'Tailoring every CV, mapping every skill gap, and tracking every application.',
+  leftEyebrow,
+  leftHeadline,
+  leftSubline,
 }: AuthLayoutProps) {
+  const { t } = useI18n()
+  const A = t.auth_layout
+  // Defaults come from the dictionary rather than from literals in the
+  // signature, so a caller that passes nothing still gets translated copy.
+  const eyebrow  = leftEyebrow  ?? A.default_eyebrow
+  const headline = leftHeadline ?? A.default_headline
+  const subline  = leftSubline  ?? A.default_subline
   return (
     <div className="min-h-screen flex">
 
@@ -99,60 +99,15 @@ export function AuthLayout({
           <div className="space-y-3">
             <p className="text-xs font-semibold tracking-widest uppercase"
               style={{ color: TOKENS.color.primary }}>
-              {leftEyebrow}
+              {eyebrow}
             </p>
             <h2 className="text-4xl font-extrabold text-white leading-tight tracking-tight">
-              {leftHeadline}
+              {headline}
             </h2>
             <p className="text-[15px] leading-relaxed max-w-sm" style={{ color: '#94a3b8' }}>
-              {leftSubline}
+              {subline}
             </p>
           </div>
-
-          {/* Metric chips */}
-          <div className="flex flex-wrap gap-3 pt-2">
-            {METRICS.map(m => (
-              <div
-                key={m.label}
-                className="flex flex-col px-4 py-2.5 rounded-xl"
-                style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border:     '1px solid rgba(255,255,255,0.08)',
-                }}
-              >
-                <span className="text-xl font-extrabold leading-none"
-                  style={{ color: TOKENS.color.primary }}>
-                  {m.value}
-                </span>
-                <span className="text-[11px] mt-0.5" style={{ color: '#64748b' }}>
-                  {m.label}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Testimonial */}
-          <blockquote
-            className="relative z-10 rounded-2xl p-4 mt-2"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
-          >
-            <p className="text-[13.5px] leading-relaxed italic" style={{ color: '#cbd5e1' }}>
-              &ldquo;I was applying to jobs for 3 months with no response. JobApply got me 5 interviews
-              in my first week.&rdquo;
-            </p>
-            <footer className="mt-3 flex items-center gap-2.5">
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                style={{ background: TOKENS.color.primary }}
-              >
-                DL
-              </div>
-              <div>
-                <p className="text-[12px] font-semibold text-white">Daniel Levi</p>
-                <p className="text-[11px]" style={{ color: '#475569' }}>Product Manager, hired at Meta</p>
-              </div>
-            </footer>
-          </blockquote>
         </div>
 
         {/* Bottom: copyright */}

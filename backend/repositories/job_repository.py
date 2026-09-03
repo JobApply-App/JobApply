@@ -506,7 +506,7 @@ def mark_applied(job_id: str, applied_at: str, user_id: str) -> None:
         session.commit()
 
 
-def get_tailored_cv(job_id: str, user_id: str) -> Optional[dict]:
+def get_tailored_cv(job_id: str, user_id: str, cv_locale: Optional[str] = None) -> Optional[dict]:
     """
     Return the cached tailored CV payload for a job owned by user_id, or None.
 
@@ -514,6 +514,13 @@ def get_tailored_cv(job_id: str, user_id: str) -> Optional[dict]:
     the user's master profile (see profile_fingerprint) — the caller then
     regenerates from current data instead of serving a draft built from
     since-edited experience/skills/contact details.
+
+    Also returns None when cv_locale is given and does not match the language
+    the cached draft was written in. Without that check, switching CV
+    language and regenerating returns the previous language's draft from
+    cache — the setting appears to do nothing, which reads as a broken
+    feature rather than a cache hit. Drafts saved before this field existed
+    have no stored locale and are treated as English, which is what they are.
     """
     with Session(ENGINE) as session:
         row = session.execute(
@@ -533,6 +540,13 @@ def get_tailored_cv(job_id: str, user_id: str) -> Optional[dict]:
             job_id,
         )
         return None
+
+    if cv_locale is not None and cached.get("cv_locale", "en") != cv_locale:
+        logger.info(
+            "[job_store] Tailored CV for job=%s was written in %s, %s requested — ignoring cache",
+            job_id, cached.get("cv_locale", "en"), cv_locale,
+        )
+        return None
     return cached
 
 
@@ -549,12 +563,19 @@ def profile_fingerprint(user_id: str) -> str:
     return get_updated_at(user_id)
 
 
-def save_tailored_cv(job_id: str, user_id: str, cv_data: dict, match_score: Optional[dict]) -> None:
+def save_tailored_cv(
+    job_id: str,
+    user_id: str,
+    cv_data: dict,
+    match_score: Optional[dict],
+    cv_locale: str = "en",
+) -> None:
     """Persist the generated CV data + match score for a job owned by user_id."""
     payload = {
         "cv_data": cv_data,
         "match_score": match_score,
         "profile_fingerprint": profile_fingerprint(user_id),
+        "cv_locale": cv_locale,
     }
     with Session(ENGINE) as session:
         session.execute(
