@@ -148,7 +148,7 @@ export const en = {
       verify_code:        'Verify Code',
       verifying:          'Verifying…',
       resend_code:        'Resend code',
-      code_sent:          'A 6-digit code was sent to {email}',
+      code_sent:          'A {n}-digit code was sent to {email}',
       new_pw_title:       'Set new password',
       new_pw_sub:         'Choose a strong password for your account.',
       new_pw_label:       'New Password',

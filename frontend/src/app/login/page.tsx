@@ -15,7 +15,7 @@ import { TOKENS }              from '@/lib/tokens'
 type LoginPhase =
   | 'login'              // normal sign-in form
   | 'forgot-email'       // enter email to receive OTP
-  | 'forgot-otp'         // enter 6-digit OTP
+  | 'forgot-otp'         // enter the emailed OTP (see OTP_LENGTH)
   | 'forgot-new-pw'      // enter and confirm new password
 
 // ── Shared icons ──────────────────────────────────────────────────────────────
@@ -100,6 +100,19 @@ function BackArrow() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+/**
+ * Number of boxes in the reset-code input.
+ *
+ * This MUST match Supabase's "Email OTP Length" (Authentication → Sign In /
+ * Providers → Email). The two are set in different places and nothing checks
+ * they agree: when the dashboard was set to 8 while this was 6, the emailed
+ * code physically could not be typed in and password reset was unusable —
+ * with no error message, because the form simply never became submittable.
+ *
+ * If you change one, change the other.
+ */
+const OTP_LENGTH = 8
+
 export default function LoginPage() {
   const { signIn, signInWithGoogle, sendPasswordResetOtp, verifyPasswordResetOtp, updatePassword } = useAuth()
   const router = useRouter()
@@ -114,17 +127,12 @@ export default function LoginPage() {
   // ── Forgot password state ──────────────────────────────────────────────────
   const [phase,         setPhase]         = useState<LoginPhase>('login')
   const [fpEmail,       setFpEmail]       = useState('')
-  const [otp,           setOtp]           = useState(['','','','','',''])
+  const [otp,           setOtp]           = useState<string[]>(() => Array(OTP_LENGTH).fill(''))
   const [newPw,         setNewPw]         = useState('')
   const [showNewPw,     setShowNewPw]     = useState(false)
-  const otpRefs = [
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-  ]
+  // One ref array rather than N useRef calls, so OTP_LENGTH can change without
+  // breaking the rules of hooks.
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
 
   // ── Shared ─────────────────────────────────────────────────────────────────
   const [busy,          setBusy]          = useState(false)
@@ -167,7 +175,7 @@ export default function LoginPage() {
     setBusy(true)
     try {
       await sendPasswordResetOtp(fpEmail.trim())
-      setSuccessMsg(L.reset.code_sent.replace('{email}', fpEmail))
+      setSuccessMsg(L.reset.code_sent.replace('{n}', String(OTP_LENGTH)).replace('{email}', fpEmail))
       setPhase('forgot-otp')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : L.errors.send_code_failed
@@ -185,7 +193,7 @@ export default function LoginPage() {
   async function handleVerifyOtp(e: FormEvent) {
     e.preventDefault()
     const code = otp.join('')
-    if (code.length < 6) { setError(L.errors.enter_all_digits); return }
+    if (code.length < OTP_LENGTH) { setError(L.errors.enter_all_digits); return }
     setError(null)
     setBusy(true)
     try {
@@ -222,12 +230,29 @@ export default function LoginPage() {
     const next  = [...otp]
     next[idx]   = digit
     setOtp(next)
-    if (digit && idx < 5) otpRefs[idx + 1].current?.focus()
+    if (digit && idx < OTP_LENGTH - 1) otpRefs.current[idx + 1]?.focus()
+  }
+
+  /**
+   * Accept the whole code at once. Without this, the only way in is typing one
+   * digit per box — paste drops everything but the first character, which is
+   * the single worst part of this screen when the code is sitting in another
+   * window ready to copy.
+   */
+  function handleOtpPaste(idx: number, e: React.ClipboardEvent<HTMLInputElement>) {
+    const digits = e.clipboardData.getData('text').replace(/\D/g, '')
+    if (!digits) return
+    e.preventDefault()
+    const next = [...otp]
+    for (let i = 0; i < digits.length && idx + i < OTP_LENGTH; i++) next[idx + i] = digits[i]
+    setOtp(next)
+    const landed = Math.min(idx + digits.length, OTP_LENGTH - 1)
+    otpRefs.current[landed]?.focus()
   }
 
   function handleOtpKeyDown(idx: number, e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
-      otpRefs[idx - 1].current?.focus()
+      otpRefs.current[idx - 1]?.focus()
     }
   }
 
@@ -236,7 +261,7 @@ export default function LoginPage() {
     setError(null)
     setSuccessMsg(null)
     setFpEmail('')
-    setOtp(['','','','','',''])
+    setOtp(Array(OTP_LENGTH).fill(''))
     setNewPw('')
   }
 
@@ -297,13 +322,14 @@ export default function LoginPage() {
           {otp.map((digit, i) => (
             <input
               key={i}
-              ref={otpRefs[i]}
+              ref={el => { otpRefs.current[i] = el }}
               type="text"
               inputMode="numeric"
               maxLength={1}
               value={digit}
               onChange={e => handleOtpInput(i, e.target.value)}
               onKeyDown={e => handleOtpKeyDown(i, e)}
+              onPaste={e => handleOtpPaste(i, e)}
               disabled={busy}
               className="w-11 h-12 rounded-xl border border-slate-200 bg-slate-50 text-center text-xl font-bold text-slate-900
                 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 transition disabled:opacity-50"
@@ -314,7 +340,7 @@ export default function LoginPage() {
         </div>
 
         {error && <ErrorBanner msg={error} />}
-        <button type="submit" disabled={busy || otp.join('').length < 6}
+        <button type="submit" disabled={busy || otp.join('').length < OTP_LENGTH}
           className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
           style={{ background: TOKENS.color.primary }}>
           {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}

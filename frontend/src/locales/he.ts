@@ -148,7 +148,7 @@ export const he = {
       verify_code:        'אימות הקוד',
       verifying:          'מאמת…',
       resend_code:        'שליחת קוד מחדש',
-      code_sent:          'נשלח קוד בן 6 ספרות אל {email}',
+      code_sent:          'נשלח קוד בן {n} ספרות אל {email}',
       new_pw_title:       'בחירת סיסמה חדשה',
       new_pw_sub:         'בחרו סיסמה חזקה לחשבון שלכם.',
       new_pw_label:       'סיסמה חדשה',
