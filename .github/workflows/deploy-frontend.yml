@@ -1,0 +1,80 @@
+# Deploys the frontend to Vercel on every push to main.
+#
+# Why this exists rather than Vercel's own Git integration: this repository is
+# owned by an organisation, and the Vercel account on it is a Hobby plan, which
+# does not deploy organisation-owned repositories automatically. The integration
+# is connected and correctly permissioned — it simply never fires. That is what
+# it looks like from the outside: no build, no failure, no notification.
+#
+# It went unnoticed for five weeks. The repository moved from a personal account
+# to the organisation on 2026-07-27, deployments stopped that day, and 83
+# commits — 16 of them touching the frontend — accumulated behind a production
+# site nobody realised was frozen. A silent stop is worse than a failing build,
+# so this workflow fails loudly instead.
+#
+# Setup (one-time):
+#   1. Vercel → Project → Settings → Git → Deploy Hooks → create one for `main`.
+#   2. Copy its URL into GitHub → repo Settings → Secrets and variables →
+#      Actions → New repository secret, named VERCEL_DEPLOY_HOOK_URL.
+#
+# The hook URL is a credential: anyone holding it can trigger a deploy, so it
+# belongs in a secret and never in this file. If Vercel's own integration is
+# ever restored (a paid plan, or moving the repo back to a personal account),
+# delete this workflow rather than leaving both in place and double-deploying.
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+  # Lets a deploy be re-run from the Actions tab without an empty commit.
+  workflow_dispatch:
+
+# A newer push to main should supersede an in-flight run; deploying an older
+# commit after a newer one would silently roll production back.
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Trigger Vercel deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the hook is configured
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::VERCEL_DEPLOY_HOOK_URL is not set. The frontend will NOT deploy."
+            echo "Create a Deploy Hook for 'main' in Vercel → Settings → Git, then add"
+            echo "its URL as a repository secret named VERCEL_DEPLOY_HOOK_URL."
+            exit 1
+          fi
+
+      - name: Trigger deploy
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          # --fail-with-body so a non-2xx is a failed job and not a green tick
+          # over a deploy that never started — the exact failure mode this
+          # workflow exists to prevent.
+          code=$(curl --silent --show-error --fail-with-body \
+                      --retry 3 --retry-delay 5 --retry-all-errors \
+                      --max-time 30 \
+                      -X POST "$HOOK" \
+                      -o response.json -w '%{http_code}')
+          echo "HTTP $code"
+          cat response.json
+          echo
+
+      - name: Summary
+        run: |
+          {
+            echo "### Vercel deploy triggered"
+            echo
+            echo "Commit \`${GITHUB_SHA:0:7}\` — ${GITHUB_REF_NAME}"
+            echo
+            echo "The hook only *starts* the build. Watch it finish in the Vercel"
+            echo "dashboard; a green tick here means the request was accepted, not"
+            echo "that the deployment succeeded."
+          } >> "$GITHUB_STEP_SUMMARY"
