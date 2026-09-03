@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, type FormEvent } from 'react'
+import { useState, useRef, useEffect, type FormEvent } from 'react'
 import { useRouter }           from 'next/navigation'
 import Link                    from 'next/link'
 import { useAuth }             from '@/contexts/AuthContext'
@@ -105,13 +105,13 @@ function BackArrow() {
  *
  * This MUST match Supabase's "Email OTP Length" (Authentication → Sign In /
  * Providers → Email). The two are set in different places and nothing checks
- * they agree: when the dashboard was set to 8 while this was 6, the emailed
- * code physically could not be typed in and password reset was unusable —
- * with no error message, because the form simply never became submittable.
+ * they agree: with the dashboard on 8 and this on 6, the emailed code
+ * physically could not be typed in and password reset was unusable — and
+ * silently so, because the form simply never became submittable.
  *
  * If you change one, change the other.
  */
-const OTP_LENGTH = 8
+const OTP_LENGTH = 6
 
 export default function LoginPage() {
   const { signIn, signInWithGoogle, sendPasswordResetOtp, verifyPasswordResetOtp, updatePassword } = useAuth()
@@ -133,6 +133,23 @@ export default function LoginPage() {
   // One ref array rather than N useRef calls, so OTP_LENGTH can change without
   // breaking the rules of hooks.
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
+  /**
+   * Box to focus once the digit that was just typed (or pasted) has rendered.
+   *
+   * Focus cannot be moved inline in the change handler: that runs before React
+   * commits, so the call lands on the pre-update DOM and the caret stays put.
+   * The visible effect is that typing appears to do nothing after the first
+   * digit — the next keystroke goes to a box that is already full and is
+   * dropped by maxLength, silently. Moving focus in an effect runs it after
+   * the commit, when the target box actually exists in its new state.
+   */
+  const advanceTo = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (advanceTo.current === null) return
+    otpRefs.current[advanceTo.current]?.focus()
+    advanceTo.current = null
+  })
 
   // ── Shared ─────────────────────────────────────────────────────────────────
   const [busy,          setBusy]          = useState(false)
@@ -230,7 +247,7 @@ export default function LoginPage() {
     const next  = [...otp]
     next[idx]   = digit
     setOtp(next)
-    if (digit && idx < OTP_LENGTH - 1) otpRefs.current[idx + 1]?.focus()
+    if (digit && idx < OTP_LENGTH - 1) advanceTo.current = idx + 1
   }
 
   /**
@@ -246,8 +263,7 @@ export default function LoginPage() {
     const next = [...otp]
     for (let i = 0; i < digits.length && idx + i < OTP_LENGTH; i++) next[idx + i] = digits[i]
     setOtp(next)
-    const landed = Math.min(idx + digits.length, OTP_LENGTH - 1)
-    otpRefs.current[landed]?.focus()
+    advanceTo.current = Math.min(idx + digits.length, OTP_LENGTH - 1)
   }
 
   function handleOtpKeyDown(idx: number, e: React.KeyboardEvent<HTMLInputElement>) {
@@ -273,7 +289,7 @@ export default function LoginPage() {
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">{L.reset.request_title}</h2>
           <p className="text-sm text-slate-500 mt-1">
-            {L.reset.request_sub}
+            {L.reset.request_sub.replace('{n}', String(OTP_LENGTH))}
           </p>
         </div>
         <div>

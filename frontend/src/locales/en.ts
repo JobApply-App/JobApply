@@ -140,7 +140,7 @@ export const en = {
     },
     reset: {
       request_title:      'Reset your password',
-      request_sub:        'Enter your account email — we’ll send a 6-digit code.',
+      request_sub:        'Enter your account email — we’ll send a {n}-digit code.',
       send_code:          'Send Code',
       sending:            'Sending…',
       otp_title:          'Enter the code',
