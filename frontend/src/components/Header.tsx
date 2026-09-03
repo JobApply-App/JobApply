@@ -295,7 +295,15 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                 <span className="text-base leading-none">✦</span>
                 AI Profile Builder
               </button>
-              <button className="w-full text-left px-3 py-2 text-[13px] text-slate-700 active:bg-slate-100 sm:hover:bg-slate-50 transition-colors">
+              {/* Routes to /settings, which is where the interface language and
+                  the CV output language are set. That page existed but nothing
+                  in the signed-in UI linked to it, and this button had no
+                  onClick — so once a user logged in there was no way to change
+                  either language at any screen size. */}
+              <button
+                onClick={() => { setMenuOpen(false); router.push('/settings') }}
+                className="w-full text-left px-3 py-2 text-[13px] text-slate-700 active:bg-slate-100 sm:hover:bg-slate-50 transition-colors"
+              >
                 {H.profile_prefs}
               </button>
               <div className="border-t border-slate-200" />
