@@ -24,8 +24,6 @@ interface I18nContextValue {
   // English-speaking companies in English is a normal pattern, not an edge
   // case. Null until the server preference has loaded (anonymous visitors
   // never load one), so callers can tell "not known yet" from a real value.
-  cvLocale:    Locale | null
-  setCvLocale: (l: Locale) => void
 }
 
 // ── Context ────────────────────────────────────────────────────────────────────
@@ -85,7 +83,6 @@ export function I18nProvider({
     document.documentElement.lang = locale
   }, [locale, dir])
 
-  const [cvLocale, setCvLocaleState] = useState<Locale | null>(null)
 
   // Pull the signed-in user's stored preferences once on mount and adopt
   // them. The cookie/localStorage copy is only a per-browser cache; the
@@ -101,7 +98,6 @@ export function I18nProvider({
     fetchLocalePreferences()
       .then((prefs) => {
         if (cancelled) return
-        if (prefs.cv_locale) setCvLocaleState(prefs.cv_locale)
         // Only a real stored preference may override the language already on
         // screen. A null means this account has never chosen one, in which
         // case the visitor's own selection — the reason they are reading this
@@ -132,11 +128,6 @@ export function I18nProvider({
     updateLocalePreferences({ ui_locale: l }).catch(() => { /* see above */ })
   }, [])
 
-  const setCvLocale = useCallback((l: Locale) => {
-    setCvLocaleState(l)
-    updateLocalePreferences({ cv_locale: l }).catch(() => { /* see setLocale */ })
-  }, [])
-
   // This is the outermost provider in the app (wraps everything else) — an
   // unmemoized value here would re-render the entire app on every render of
   // I18nProvider, not just on an actual locale change.
@@ -145,9 +136,7 @@ export function I18nProvider({
     setLocale,
     t: dictionaries[locale],
     dir,
-    cvLocale,
-    setCvLocale,
-  }), [locale, setLocale, dir, cvLocale, setCvLocale])
+  }), [locale, setLocale, dir])
 
   return (
     <I18nContext.Provider value={value}>

@@ -252,6 +252,7 @@ export const en = {
   },
   applier: {
     close_preview:      'Close preview',
+    cv_language:        'CV language',
     edit_cv:         '✎ Edit CV',
     back_to_preview: '← Back to Preview',
     approve_apply:   'Approve & Apply',

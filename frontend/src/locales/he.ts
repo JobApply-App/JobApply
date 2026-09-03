@@ -252,6 +252,7 @@ export const he = {
   },
   applier: {
     close_preview:      'סגירת התצוגה המקדימה',
+    cv_language:        'שפת קורות החיים',
     edit_cv:         '✎ עריכת קורות החיים',
     back_to_preview: '→ חזרה לתצוגה המקדימה',
     approve_apply:   'אישור והגשה',
