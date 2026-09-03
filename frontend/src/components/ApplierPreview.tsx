@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
+import { LOCALES, type Locale } from '@/locales'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
 import type { Job } from '@/lib/data'
@@ -345,6 +346,23 @@ export interface ApplierPreviewProps {
 
 export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPreviewProps) {
   const A = useI18n().t.applier
+  const { locale } = useI18n()
+
+  /**
+   * Language the CV itself is written in, chosen per generation.
+   *
+   * Seeded from the interface language because that is the best available
+   * guess, but deliberately not bound to it: the language someone reads the
+   * app in and the language an employer reads their CV in are different
+   * decisions, and an Israeli applying to a US company needs to make them
+   * differently. Kept in local state rather than saved as a profile setting
+   * so the choice is reconsidered per job instead of being decided once and
+   * silently applied forever.
+   */
+  const [cvLang, setCvLang] = useState<Locale>(locale)
+  // Follow the interface language until the user overrides it for this job.
+  const cvLangTouched = useRef(false)
+  useEffect(() => { if (!cvLangTouched.current) setCvLang(locale) }, [locale])
   const [phase,            setPhase]            = useState<Phase>('idle')
   const [cvState,          setCvState]          = useState<CvState | null>(null)
   const [gkMessage,        setGkMessage]        = useState('')
@@ -450,6 +468,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
           body:    JSON.stringify({
             job_id:               job.id,
             supplemental_answers: supplementalAnswers ?? null,
+            cv_locale:            cvLang,
             force,
           }),
           signal: controller.signal,
@@ -499,7 +518,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       )
       setPhase('idle')
     }
-  }, [job.id, A.errors.timeout])
+  }, [job.id, A.errors.timeout, cvLang])
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -1034,11 +1053,48 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
           {/* ── Action area ── */}
 
           {phase === 'idle' && (
-            <button onClick={handleGenerate}
-              className="w-full h-10 rounded-full text-[13.5px] font-semibold text-white flex items-center justify-center gap-2 transition active:scale-[0.98]"
-              style={{ background: TOKENS.color.primary }}>
-              <WandIcon s={15} /> {A.generate_cv}
-            </button>
+            <div className="space-y-2.5">
+              {/* Output language, decided here rather than in a settings screen.
+                  It belongs next to the action it affects: this is the moment
+                  the choice actually matters, and it is a per-job decision —
+                  the same person may want a Hebrew CV for one employer and an
+                  English one for the next. Rendered from LOCALES, so a new
+                  language appears here without touching this file. */}
+              <div>
+                <p className="text-[11.5px] font-medium text-slate-500 mb-1.5">
+                  {A.cv_language}
+                </p>
+                <div className="grid grid-cols-2 gap-2" role="group" aria-label={A.cv_language}>
+                  {LOCALES.map(({ code, native }) => {
+                    const active = cvLang === code
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        lang={code}
+                        aria-pressed={active}
+                        onClick={() => { cvLangTouched.current = true; setCvLang(code) }}
+                        className={[
+                          'h-9 rounded-lg text-[13px] font-semibold border transition-colors',
+                          active
+                            ? 'text-white border-transparent'
+                            : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700',
+                        ].join(' ')}
+                        style={active ? { background: TOKENS.color.primary } : undefined}
+                      >
+                        {native}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <button onClick={handleGenerate}
+                className="w-full h-10 rounded-full text-[13.5px] font-semibold text-white flex items-center justify-center gap-2 transition active:scale-[0.98]"
+                style={{ background: TOKENS.color.primary }}>
+                <WandIcon s={15} /> {A.generate_cv}
+              </button>
+            </div>
           )}
 
           {phase === 'generating' && (

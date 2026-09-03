@@ -229,6 +229,7 @@ export interface Dict {
   }
   applier: {
     close_preview:    string
+    cv_language:      string
     edit_cv:          string
     back_to_preview:  string
     approve_apply:    string

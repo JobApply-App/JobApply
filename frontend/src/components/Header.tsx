@@ -7,6 +7,7 @@ import { TOKENS } from '@/lib/tokens'
 import { Logo } from './ui/Logo'
 import { StatusDot } from './ui/StatusDot'
 import { BellIcon, SlidersIcon, ChevIcon, MenuIcon, XIcon } from './icons'
+import { LanguageSwitcher } from './LanguageSwitcher'
 import { useAuth } from '@/contexts/AuthContext'
 import { useChat } from '@/contexts/ChatContext'
 import { resolveDisplayName, getInitials } from '@/lib/nameUtils'
@@ -198,6 +199,14 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
           )
         })()}
 
+        {/* Interface language. In the header rather than behind a settings
+            screen so it can be changed from anywhere, at any point — a user
+            who ends up in a language they cannot read should not have to
+            navigate a menu written in that language to get out. Hidden on
+            the narrowest widths, where it appears in the mobile drawer
+            instead so it is never simply unavailable. */}
+        <LanguageSwitcher className="hidden sm:inline-flex" />
+
         {/* Help — opens Eliya support chat (indigo theme). Color is driven purely
             by isEliyaOpen state; the hover tint is a plain Tailwind :hover class,
             not imperative JS — so it's a harmless desktop-only enhancement rather
@@ -360,6 +369,10 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
           >
             {H.nav.analytics}
           </Link>
+          {/* Same control as the desktop header, which is hidden below `sm`. */}
+          <div className="pt-2 mt-1 border-t border-slate-100">
+            <LanguageSwitcher className="w-full justify-center" />
+          </div>
         </nav>
       )}
     </header>
