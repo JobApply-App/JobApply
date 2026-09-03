@@ -363,6 +363,46 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   // Follow the interface language until the user overrides it for this job.
   const cvLangTouched = useRef(false)
   useEffect(() => { if (!cvLangTouched.current) setCvLang(locale) }, [locale])
+
+  /**
+   * Output-language picker, rendered wherever a generation can be started.
+   *
+   * It appears in the idle phase (before the first generation) and again in
+   * the preview phase beside "regenerate". Leaving it out of preview was a
+   * real gap: a cached CV loads straight into preview, so the control was
+   * gone while the button that acts on it was still there — the language
+   * would come from state the user could no longer see, which is the silent
+   * choice this whole feature exists to avoid.
+   */
+  const cvLanguagePicker = (label: string, hint?: string) => (
+    <div>
+      <p className="text-[11.5px] font-medium text-slate-500 mb-1.5">{label}</p>
+      <div className="grid grid-cols-2 gap-2" role="group" aria-label={label}>
+        {LOCALES.map(({ code, native }) => {
+          const active = cvLang === code
+          return (
+            <button
+              key={code}
+              type="button"
+              lang={code}
+              aria-pressed={active}
+              onClick={() => { cvLangTouched.current = true; setCvLang(code) }}
+              className={[
+                'h-9 rounded-lg text-[13px] font-semibold border transition-colors',
+                active
+                  ? 'text-white border-transparent'
+                  : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700',
+              ].join(' ')}
+              style={active ? { background: TOKENS.color.primary } : undefined}
+            >
+              {native}
+            </button>
+          )
+        })}
+      </div>
+      {hint && <p className="text-[10.5px] text-slate-400 mt-1.5">{hint}</p>}
+    </div>
+  )
   const [phase,            setPhase]            = useState<Phase>('idle')
   const [cvState,          setCvState]          = useState<CvState | null>(null)
   const [gkMessage,        setGkMessage]        = useState('')
@@ -1054,40 +1094,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
           {phase === 'idle' && (
             <div className="space-y-2.5">
-              {/* Output language, decided here rather than in a settings screen.
-                  It belongs next to the action it affects: this is the moment
-                  the choice actually matters, and it is a per-job decision —
-                  the same person may want a Hebrew CV for one employer and an
-                  English one for the next. Rendered from LOCALES, so a new
-                  language appears here without touching this file. */}
-              <div>
-                <p className="text-[11.5px] font-medium text-slate-500 mb-1.5">
-                  {A.cv_language}
-                </p>
-                <div className="grid grid-cols-2 gap-2" role="group" aria-label={A.cv_language}>
-                  {LOCALES.map(({ code, native }) => {
-                    const active = cvLang === code
-                    return (
-                      <button
-                        key={code}
-                        type="button"
-                        lang={code}
-                        aria-pressed={active}
-                        onClick={() => { cvLangTouched.current = true; setCvLang(code) }}
-                        className={[
-                          'h-9 rounded-lg text-[13px] font-semibold border transition-colors',
-                          active
-                            ? 'text-white border-transparent'
-                            : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700',
-                        ].join(' ')}
-                        style={active ? { background: TOKENS.color.primary } : undefined}
-                      >
-                        {native}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
+              {cvLanguagePicker(A.cv_language)}
 
               <button onClick={handleGenerate}
                 className="w-full h-10 rounded-full text-[13.5px] font-semibold text-white flex items-center justify-center gap-2 transition active:scale-[0.98]"
@@ -1138,6 +1145,8 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                 style={{ background: TOKENS.color.success }}>
                 <CheckIcon s={15} /> {A.approve_apply}
               </button>
+
+              {cvLanguagePicker(A.cv_language, A.cv_language_regen_hint)}
 
               {/* Same reason: regenerating clears cvState, which the pending
                   Copilot response would then write straight back over. */}
