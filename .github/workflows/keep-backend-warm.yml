@@ -1,0 +1,90 @@
+# Keeps the Render backend from cold-starting in a user's face.
+#
+# THE PROBLEM
+# -----------
+# The backend runs on a Render free instance, which spins down after a period
+# of inactivity. The next request pays the wake-up cost. Measured on 2026-09-03:
+# 6s on one occasion, 64s on another a few hours later. 64s is past the point
+# where a browser fetch, a proxy, or a user's patience gives out — the first
+# visitor after a quiet spell doesn't see a slow app, they see a broken one.
+#
+# This pings /health often enough that the instance rarely gets to sleep.
+#
+# WHY NOT AROUND THE CLOCK
+# ------------------------
+# Render's free tier bills instance-hours from a monthly allowance. Holding one
+# service awake 24/7 consumes essentially the whole month, leaving no headroom
+# for a second free service or a burst of real traffic. The schedule below
+# covers waking hours in Israel and lets the instance sleep overnight, which
+# costs one slow request each morning instead of the entire allowance.
+# If the allowance stops mattering (a paid plan), widen the cron or delete this
+# workflow — a paid instance does not sleep, and this becomes pure noise.
+#
+# WHY UTC (same reasoning as linkedin_scraper.yml)
+# ------------------------------------------------
+# `schedule.cron` is always UTC; there is no per-workflow timezone. The window
+# below is anchored to IDT (UTC+3, roughly Mar-Oct), giving 06:00-23:00 Israel
+# time. During IST (UTC+2, roughly Oct-Mar) it shifts an hour earlier —
+# 05:00-22:00 local. That drift is accepted, not a bug.
+#
+# HOW MUCH TO TRUST THIS
+# ----------------------
+# GitHub's scheduled runs are best-effort: they are frequently delayed under
+# load and can be skipped entirely. This makes a cold start much rarer; it does
+# not make it impossible. The only real fix is an instance that does not sleep.
+# GitHub also disables schedules in repos with 60 days of no activity.
+name: Keep backend warm
+
+on:
+  schedule:
+    # Every 10 minutes, 03:00-20:00 UTC (06:00-23:00 IDT).
+    - cron: '*/10 3-20 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: keep-backend-warm
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Ping /health
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping
+        env:
+          # Public health URL — deliberately not a secret. It exposes nothing
+          # (see backend/main.py's /health) and keeping it visible means this
+          # workflow is readable without hunting through repo settings.
+          URL: https://jobapply-backend-cjen.onrender.com/health
+        run: |
+          # A cold instance can take over a minute to answer, so the per-attempt
+          # timeout is generous. Retries exist so a single blip is not reported
+          # as an outage: only a sustained failure fails the job, which makes a
+          # red run here a real signal worth opening.
+          for attempt in 1 2 3; do
+            start=$(date +%s)
+            if body=$(curl --silent --show-error --fail \
+                           --max-time 120 "$URL" 2>&1); then
+              elapsed=$(( $(date +%s) - start ))
+              echo "attempt $attempt: ok in ${elapsed}s"
+              echo "$body"
+
+              # Surface the wake-up cost rather than only whether it answered.
+              # A run that takes this long means the instance had gone to sleep
+              # and a real visitor would have waited the same.
+              if [ "$elapsed" -gt 15 ]; then
+                echo "::warning::Backend took ${elapsed}s — it had spun down. A user hitting this would have waited the same."
+              fi
+
+              # /health returns 200 with a JSON body whose checks can still be
+              # failing; a 200 alone is not proof the backend is usable.
+              case "$body" in
+                *'"status":"ok"'*) exit 0 ;;
+                *) echo "::error::Reachable but unhealthy: $body"; exit 1 ;;
+              esac
+            fi
+            echo "attempt $attempt failed: $body"
+            [ "$attempt" -lt 3 ] && sleep 15
+          done
+          echo "::error::Backend did not respond after 3 attempts over ~6 minutes."
+          exit 1
