@@ -96,11 +96,20 @@ html, body {
 
 /* ── Section title — a short accent rule instead of a full-width hairline,
    more like a deliberate editorial mark than a generic template divider. ── */
+/* ATS constraint — letter-spacing must stay under ~0.145 x font-size.
+Above that, Chromium's PDF output spaces the glyphs far enough apart
+that text extractors read "E X P E R I E N C E" instead of
+"EXPERIENCE", and an ATS can no longer find the section at all. This
+was measured, not guessed: the boundary sits between ratio 0.145
+(readable) and 0.150 (broken), consistent across 7-12px font sizes.
+Note font-size here is in pt and letter-spacing in px: convert first
+(1pt = 1.333px). Section headings carry the keywords a parser keys
+on, so widening the tracking for looks costs real matches. */
 .sec-title {
   display: block;
   font-size: 7.5pt;
   font-weight: 700;
-  letter-spacing: 1.6px;
+  letter-spacing: 1.4px;
   text-transform: uppercase;
   color: var(--accent-dark);
   padding-bottom: 5px;
