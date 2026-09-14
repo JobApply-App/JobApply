@@ -68,6 +68,15 @@ jobs:
       - name: Byte-compile backend
         run: python -m py_compile $(find backend -name "*.py" -not -path "*/tests/*")
 
+      # backend/tests/test_ats_pdf_extraction.py renders every CV template
+      # for real and asserts on the extracted PDF text, so it needs an
+      # actual Chromium binary — the same one backend/Dockerfile installs
+      # for production. Without this, those tests fail with
+      # PdfEngineUnavailable rather than skipping, since the whole point of
+      # that suite is to fail loudly instead of mocking build_pdf away.
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+
       # The migrations reference Supabase's `auth` schema (an FK to
       # auth.users, and auth.uid() inside the RLS policies), which a plain
       # Postgres does not have. See the file's own header for why this is
