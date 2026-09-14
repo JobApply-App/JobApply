@@ -104,12 +104,20 @@ was measured, not guessed: the boundary sits between ratio 0.145
 (readable) and 0.150 (broken), consistent across 7-12px font sizes.
 Note font-size here is in pt and letter-spacing in px: convert first
 (1pt = 1.333px). Section headings carry the keywords a parser keys
-on, so widening the tracking for looks costs real matches. */
+on, so widening the tracking for looks costs real matches.
+
+t2_modern-specific note: 0.14 (the ratio every other template settled
+on) still broke here in CI — this is the one template that loads a
+webfont (Inter, via Google Fonts) instead of a system font, and its
+glyph metrics apparently push the same ratio past the real threshold
+on the Chromium build CI installs. Dropped to 0.09, well under
+t1_classic's 0.1105 (confirmed safe there), for real margin instead
+of another guess at the boundary. */
 .sec-title {
   display: block;
   font-size: 7.5pt;
   font-weight: 700;
-  letter-spacing: 1.4px;
+  letter-spacing: 0.9px;
   text-transform: uppercase;
   color: var(--accent-dark);
   padding-bottom: 5px;
