@@ -36,6 +36,92 @@ if str(_PROJECT_ROOT) not in sys.path:
 # — is never clobbered.
 os.environ.setdefault("SUPABASE_JWT_SECRET", "test-only-dummy-jwt-secret-not-a-real-secret")
 
+
+# ── Refuse to run against a database that isn't disposable ───────────────────
+#
+# This suite writes. It creates and deletes auth users, inserts profiles, and
+# truncates tables between tests. That is fine against a throwaway database and
+# unacceptable against a real one.
+#
+# Nothing used to stop the second case. backend/.env carries two DATABASE_URL
+# lines and the later one wins, so the value backend.config resolves locally is
+# the production Supabase pooler — the same database the deployed app serves
+# users from. `pytest backend/tests` therefore ran the full write-heavy suite
+# against production, and the only reason no user data was lost is that the
+# disposable-account fixture happens to clean up after itself. A fixture that
+# raised before its `finally`, or one test with a DELETE whose WHERE clause was
+# a little too broad, would have taken real rows with it.
+#
+# CI never hit this because it points DATABASE_URL at a localhost service
+# container. Same command, different environment — which is exactly why the
+# green CI run was not evidence that running the suite locally was safe.
+#
+# A database is considered disposable if it is on this machine or its name says
+# it is a test database. Anything else has to be opted into explicitly, so the
+# unsafe case requires a deliberate act rather than an unlucky default.
+
+_LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "", None, "host.docker.internal"}
+_ALLOW_REMOTE_ENV = "ALLOW_TESTS_ON_REMOTE_DB"
+
+
+def _db_is_disposable(url_str: str) -> tuple[bool, str]:
+    """Return (is_disposable, human_readable_reason)."""
+    from sqlalchemy.engine.url import make_url
+    try:
+        url = make_url(url_str)
+    except Exception as exc:                      # unparseable — refuse rather than guess
+        return False, f"could not parse DATABASE_URL ({exc})"
+
+    if url.drivername.startswith("sqlite"):
+        return True, "sqlite"
+    if url.host in _LOCAL_HOSTS:
+        return True, f"local host ({url.host})"
+    if "test" in (url.database or "").lower():
+        return True, f"database name looks disposable ({url.database})"
+    return False, f"remote host {url.host}, database {url.database!r}"
+
+
+def pytest_configure(config):
+    """
+    Fail the run before collection rather than at the first write, so the
+    message arrives before anything has touched the database.
+    """
+    if os.getenv(_ALLOW_REMOTE_ENV) == "1":
+        return
+
+    from backend.config import DATABASE_URL
+    if not DATABASE_URL:
+        return                                    # unset -> sqlite fallback, harmless
+
+    ok, reason = _db_is_disposable(DATABASE_URL)
+    if ok:
+        return
+
+    from sqlalchemy.engine.url import make_url
+    safe = make_url(DATABASE_URL).render_as_string(hide_password=True)
+    raise pytest.UsageError(
+        "\n"
+        "Refusing to run the test suite against a non-disposable database.\n"
+        "\n"
+        f"  resolved DATABASE_URL : {safe}\n"
+        f"  why it was rejected   : {reason}\n"
+        "\n"
+        "These tests create and delete users, write profiles, and truncate\n"
+        "tables. Against a real database that destroys real data.\n"
+        "\n"
+        "Two things make this easy to hit by accident:\n"
+        "  * backend/.env may define DATABASE_URL more than once, and the\n"
+        "    last definition wins;\n"
+        "  * backend/config.py loads that file with override=True, so the\n"
+        "    file beats your shell — `DATABASE_URL=... pytest` is silently\n"
+        "    ignored locally.\n"
+        "\n"
+        "So to point this run somewhere safe, edit the effective DATABASE_URL\n"
+        "in backend/.env. To run against this database on purpose, set\n"
+        f"{_ALLOW_REMOTE_ENV}=1 — that one is read from the environment and\n"
+        "does work as a prefix.\n"
+    )
+
 @pytest.fixture(autouse=True)
 def mock_env_vars():
     """Mock environment variables for tests."""
