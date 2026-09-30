@@ -1,12 +1,20 @@
+'use client'
+
 import Link from 'next/link'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 
 /**
  * Shared shell for /terms and /privacy.
  *
- * Deliberately a plain server component with no auth dependency — these
- * pages must be readable by a signed-out visitor deciding whether to sign
- * up, not just an authenticated user.
+ * No auth dependency — these pages must be readable by a signed-out visitor
+ * deciding whether to sign up, not just an authenticated user. It is a client
+ * component only so the chrome can follow the interface language; the route
+ * itself stays a server component so `metadata` still works.
+ *
+ * `updated` is passed in rather than read here because the date belongs to the
+ * document, not to the shell: the English and Hebrew texts could legitimately
+ * be revised at different times.
  */
 export function LegalPage({
   title, updated, children,
@@ -15,6 +23,8 @@ export function LegalPage({
   updated: string
   children: React.ReactNode
 }) {
+  const L = useI18n().t.legal
+
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b" style={{ borderColor: TOKENS.color.line }}>
@@ -25,7 +35,7 @@ export function LegalPage({
           </Link>
           <Link href="/signup" className="text-[13px] font-medium hover:underline"
             style={{ color: TOKENS.color.primary }}>
-            Back to sign up
+            {L.back_to_signup}
           </Link>
         </div>
       </header>
@@ -35,19 +45,15 @@ export function LegalPage({
           className="rounded-2xl px-5 py-4 mb-8 text-[13px] leading-relaxed"
           style={{ background: TOKENS.color.primarySoft, border: `1px solid ${TOKENS.color.line}` }}
         >
-          <strong style={{ color: TOKENS.color.ink }}>Draft — pending legal review.</strong>{' '}
-          <span style={{ color: TOKENS.color.ink2 }}>
-            This page describes what JobApply actually does with your data, in plain language,
-            to the best of our current knowledge. It has not yet been reviewed by a lawyer and
-            should not be treated as a final, binding legal document until it has.
-          </span>
+          <strong style={{ color: TOKENS.color.ink }}>{L.draft_label}</strong>{' '}
+          <span style={{ color: TOKENS.color.ink2 }}>{L.draft_body}</span>
         </div>
 
         <h1 className="text-3xl font-extrabold tracking-tight mb-1" style={{ color: TOKENS.color.ink }}>
           {title}
         </h1>
         <p className="text-[13px] mb-8" style={{ color: TOKENS.color.muted }}>
-          Last updated {updated}
+          {L.last_updated.replace('{date}', updated)}
         </p>
 
         <div className="prose-legal">{children}</div>
@@ -57,7 +63,7 @@ export function LegalPage({
         <div className="max-w-2xl mx-auto px-6 py-6 flex items-center justify-between text-[12px]"
           style={{ color: TOKENS.color.muted }}>
           <span>&copy; {new Date().getFullYear()} JobApply</span>
-          <a href="mailto:support@jobapply.ai" className="hover:underline">Contact</a>
+          <a href="mailto:support@jobapply.ai" className="hover:underline">{L.contact}</a>
         </div>
       </footer>
 

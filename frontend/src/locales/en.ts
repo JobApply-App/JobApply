@@ -300,6 +300,16 @@ export const en = {
     },
   },
 
+  legal: {
+    draft_label:    'Draft — pending legal review.',
+    draft_body:     'This page describes what JobApply actually does with your data, in plain language, to the best of our current knowledge. It has not yet been reviewed by a lawyer and should not be treated as a final, binding legal document until it has.',
+    last_updated:   'Last updated {date}',
+    back_to_signup: 'Back to sign up',
+    contact:        'Contact',
+    privacy_title:  'Privacy Policy',
+    terms_title:    'Terms of Service',
+    updated_date:   'August 2026',
+  },
   score_bands: {
     exceptional: 'Exceptional',
     strong:      'Strong',

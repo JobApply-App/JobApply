@@ -300,6 +300,16 @@ export const he = {
     },
   },
 
+  legal: {
+    draft_label:    'טיוטה — ממתינה לבדיקה משפטית.',
+    draft_body:     'העמוד הזה מתאר מה JobApply באמת עושה עם הנתונים שלכם, בשפה פשוטה ולפי מיטב ידיעתנו כרגע. הוא טרם נבדק על ידי עורך דין, ואין להתייחס אליו כמסמך משפטי מחייב עד שייבדק.',
+    last_updated:   'עודכן לאחרונה {date}',
+    back_to_signup: 'חזרה להרשמה',
+    contact:        'יצירת קשר',
+    privacy_title:  'מדיניות פרטיות',
+    terms_title:    'תנאי שימוש',
+    updated_date:   'אוגוסט 2026',
+  },
   score_bands: {
     exceptional: 'יוצאת דופן',
     strong:      'חזקה',

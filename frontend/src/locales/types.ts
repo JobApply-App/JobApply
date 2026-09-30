@@ -272,6 +272,16 @@ export interface Dict {
       edit_applied:   string
     }
   }
+  legal: {
+    draft_label:   string
+    draft_body:    string
+    last_updated:  string   // takes {date}
+    back_to_signup:string
+    contact:       string
+    privacy_title: string
+    terms_title:   string
+    updated_date:  string
+  }
   score_bands: {
     exceptional: string
     strong:      string
