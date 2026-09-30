@@ -42,5 +42,33 @@ const nextConfig = {
       },
     ]
   },
+
+  // The backend already sends X-Frame-Options and nosniff (verified against
+  // the deployed service); the frontend sent neither, so every page a user
+  // actually looks at could be framed by another origin. Clickjacking on the
+  // sign-in page is the case that matters: an attacker frames it invisibly
+  // over their own UI and harvests the clicks.
+  //
+  // `frame-ancestors 'none'` is the modern control and X-Frame-Options is the
+  // fallback for older agents that ignore CSP. Deliberately NOT a full CSP:
+  // a default-src policy on a Next.js app needs its inline/eval allowances
+  // worked out and verified page by page, and a CSP that is wrong is worse
+  // than none because it breaks the app while looking like hardening. Framing
+  // is the part that can be closed correctly today.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options',        value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy',        value: 'strict-origin-when-cross-origin' },
+          // No camera/mic/geolocation anywhere in this product.
+          { key: 'Permissions-Policy',     value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+    ]
+  },
 }
 export default nextConfig;
