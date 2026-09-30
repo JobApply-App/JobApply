@@ -656,13 +656,18 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
         onDragOver={e => e.preventDefault()}
         onDrop={e => { e.preventDefault(); attachFiles(Array.from(e.dataTransfer.files)) }}
       >
-        {/* Hidden file input */}
+        {/* Hidden file input.
+            `className="hidden"` hides it visually but it stays in the
+            accessibility tree, so a screen reader still announces it — as
+            nothing at all without a name. It needs a label even though no
+            sighted user ever sees it. */}
         <input
           ref={fileRef}
           type="file"
           accept="image/*,.pdf"
           multiple
           className="hidden"
+          aria-label={S.attach}
           onChange={handleFileChange}
         />
 
@@ -719,6 +724,11 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
             onChange={handleDraftChange}
             onKeyDown={handleKeyDown}
             placeholder={S.placeholder}
+            /* A placeholder is not an accessible name: it is not announced by
+               every screen reader, and it disappears as soon as the field has
+               content. WCAG 2.1 AA (3.3.2, 4.1.2) wants a real label, and this
+               site publishes a conformance claim. */
+            aria-label={S.placeholder}
             dir="auto"
             rows={1}
             autoFocus
