@@ -24,18 +24,30 @@ services:
     runtime: docker
     dockerfilePath: backend/Dockerfile
     dockerContext: .
-    # Free tier: the instance is spun down after ~15 minutes without inbound
-    # requests and cold-starts on the next one. Two consequences specific to
-    # this service, both silent rather than error-producing:
+    # `starter` rather than `free` because a free instance spins down after
+    # ~15 minutes idle, and every consequence of that is silent rather than
+    # error-producing:
+    #   - cold start is not a small delay. Measured on the deployed service:
+    #     6s, then 64s, then 78s on separate days. At 78s the first visitor
+    #     after a quiet spell does not experience a slow app, they get a
+    #     failed request — past the patience of a browser fetch, an upstream
+    #     proxy, and a person. That is every first-time visitor, which is the
+    #     one request that has to work.
     #   - the three background loops in main.py (enrichment 30s, all-jobs
     #     matching 30min, discovery 24h) only run while the instance is awake,
-    #     so match scoring and the Matches feed advance sporadically instead of
-    #     on their configured intervals.
+    #     so match scoring and the Matches feed advance sporadically instead
+    #     of on their configured intervals. This degrades the product quietly
+    #     even for users who never notice a slow page.
     #   - memory is capped at 512MB, and the Chromium that backend/Dockerfile
     #     installs for PDF export routinely needs a large share of that.
-    # Move back to `starter` when either the loops or PDF export need to be
-    # dependable.
-    plan: free
+    #
+    # A scheduled GitHub workflow was tried first, to keep the instance warm
+    # for free. It did not work: GitHub throttles scheduled runs hard, and it
+    # fired 28 times in seven days against a schedule of 756 — about 3%. The
+    # backend still cold-started at 78s with it running. It is removed in the
+    # same change as this line; a paid instance does not sleep, so keeping it
+    # would only burn Actions minutes.
+    plan: starter
     healthCheckPath: /health
     # Overrides the Dockerfile's own dev CMD (which uses --reload — fine
     # locally with a bind-mounted volume, wasteful/pointless on a static
