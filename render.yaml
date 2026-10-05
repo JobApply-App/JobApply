@@ -112,3 +112,30 @@ services:
         sync: false
       - key: EMAIL_WEBHOOK_SECRET
         sync: false
+      # Turns a missing required variable from a warning into a refusal to
+      # start. Without it the app serves traffic half-configured and says so
+      # only in a log line nobody reads.
+      #
+      # That is not hypothetical here. EMAIL_WEBHOOK_SECRET was unset in
+      # production, so the inbound-email webhook accepted unauthenticated
+      # requests from anyone — AI classification on attacker-supplied content,
+      # billed to us. The guard that exists for exactly this case lives in
+      # webhooks.py and is gated on STRICT_CONFIG, which was never declared
+      # here. The safety net was written, then left switched off in the one
+      # environment it was written for.
+      #
+      # Enforces three things: ANTHROPIC_API_KEY, SUPABASE_URL or
+      # SUPABASE_JWT_SECRET, and EMAIL_WEBHOOK_SECRET. All three are set on
+      # the live service — the latter two confirmed by probing it (a request
+      # to a protected route answers 401 rather than the 503 that an
+      # unconfigured auth stack returns, and the webhook answers 401 rather
+      # than the 422 it returned while the secret was missing).
+      #
+      # If one is ever absent the container exits at import. Because
+      # healthCheckPath never goes green, Render keeps the previous release
+      # serving: the failure mode is "this deploy does not promote", not
+      # "the site goes down". A deploy that refuses to ship is the correct
+      # outcome for a backend that cannot authenticate its own webhook.
+      - key: STRICT_CONFIG
+        value: "true"
+
