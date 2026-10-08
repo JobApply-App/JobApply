@@ -308,6 +308,38 @@ export interface Dict {
       off_label:       string; off_sub:       string
     }
   }
+  outreach: {
+    title:            string
+    close:            string
+    copy:             string
+    copied:           string
+    hint_hm:          string
+    words:            string
+    strategy_title:   string
+    hint_after_reply: string
+    hint_steps:       string
+    hint_agency:      string
+    extra_context:    string
+    extra_ph:         string
+    generation_failed:string
+    default_recruiter:string
+    name_recruiter:   string
+    name_manager:     string
+    company_agency:   string
+    company_their:    string
+    title_escalation: string
+    title_recruiter:  string
+    title_manager:    string
+    ph_escalation:    string
+    ph_recruiter:     string
+    ph_manager:       string
+    tabs: {
+      hm_label:         string; hm_sub:         string; hm_badge:         string
+      step1_label:      string; step1_sub:      string; step1_badge:      string
+      step2_label:      string; step2_sub:      string; step2_badge:      string
+      headhunter_label: string; headhunter_sub: string; headhunter_badge: string
+    }
+  }
   score_bands: {
     exceptional: string
     strong:      string

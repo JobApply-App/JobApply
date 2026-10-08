@@ -1,5 +1,6 @@
 'use client'
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import { useDialogA11y } from '@/hooks/useDialogA11y'
 import type { ApiFeedJob } from '@/lib/apiTypes'
@@ -41,41 +42,17 @@ type TabId = 'hiring_manager' | 'consultation' | 'escalation' | 'headhunter'
 
 interface TabMeta {
   id:       TabId
-  label:    string
-  subtitle: string
-  badge:    string
+  key:        'hm' | 'step1' | 'step2' | 'headhunter'
   badgeColor: string
 }
 
+// Keys, not wording: this is a module-level constant and cannot call a hook.
+// Labels/subtitles/badges are resolved from the dictionary at render.
 const TABS: TabMeta[] = [
-  {
-    id:         'hiring_manager',
-    label:      'Hiring Manager',
-    subtitle:   'One message for THIS role, grounded in your tailored CV. Saved automatically.',
-    badge:      'This role',
-    badgeColor: 'bg-violet-50 text-violet-700 border-violet-200',
-  },
-  {
-    id:         'consultation',
-    label:      'Step 1 — Consultation',
-    subtitle:   'Ask for advice, never for a job. Plant the seed.',
-    badge:      'Low pressure',
-    badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  },
-  {
-    id:         'escalation',
-    label:      'Step 2 — Escalation',
-    subtitle:   'Follow up 24–48 hrs later with a forwardable summary.',
-    badge:      'Referral ask',
-    badgeColor: 'bg-teal-50 text-teal-700 border-teal-200',
-  },
-  {
-    id:         'headhunter',
-    label:      'Agency / Headhunter',
-    subtitle:   'Direct pitch to recruiters at placement agencies.',
-    badge:      'Value-first',
-    badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
-  },
+  { id: 'hiring_manager', key: 'hm',         badgeColor: 'bg-violet-50 text-violet-700 border-violet-200'  },
+  { id: 'consultation',   key: 'step1',      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { id: 'escalation',     key: 'step2',      badgeColor: 'bg-teal-50 text-teal-700 border-teal-200'       },
+  { id: 'headhunter',     key: 'headhunter', badgeColor: 'bg-amber-50 text-amber-700 border-amber-200'    },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -99,6 +76,7 @@ interface Props {
 }
 
 export function OutreachModal({ job, onClose }: Props) {
+  const O = useI18n().t.outreach
   const panelRef = useRef<HTMLDivElement>(null)
   useDialogA11y(onClose, panelRef)
 
@@ -135,11 +113,11 @@ export function OutreachModal({ job, onClose }: Props) {
       const res = await generateJobOutreach(job.job_id)
       setJobMsg(res.outreach_text ?? '')
     } catch (e) {
-      setJobError(e instanceof Error ? e.message : 'Generation failed')
+      setJobError(e instanceof Error ? e.message : O.generation_failed)
     } finally {
       setJobLoading(false)
     }
-  }, [job.job_id])
+  }, [job.job_id, O.generation_failed])
 
   const currentTab = TABS.find(t => t.id === activeTab)!
 
@@ -156,7 +134,7 @@ export function OutreachModal({ job, onClose }: Props) {
       if (activeTab === 'headhunter') {
         result = await generateHeadhunterMessage({
           recruiter_name:  targetName.trim(),
-          recruiter_title: targetTitle.trim() || 'Recruiter',
+          recruiter_title: targetTitle.trim() || O.default_recruiter,
           agency_name:     targetCompany.trim() || job.company,
           context:         context.trim() || undefined,
         })
@@ -172,11 +150,11 @@ export function OutreachModal({ job, onClose }: Props) {
       }
       setGeneratedMsg(result.message)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Generation failed')
+      setError(e instanceof Error ? e.message : O.generation_failed)
     } finally {
       setIsGenerating(false)
     }
-  }, [activeTab, targetName, targetTitle, targetCompany, context, job])
+  }, [activeTab, targetName, targetTitle, targetCompany, context, job, O.default_recruiter, O.generation_failed])
 
   // Reset generated message when tab changes so stale messages don't persist
   const handleTabChange = (id: TabId) => {
@@ -210,7 +188,7 @@ export function OutreachModal({ job, onClose }: Props) {
         <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between gap-4 sticky top-0 bg-white z-10 rounded-t-2xl">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">
-              Outreach Generator
+              {O.title}
             </div>
             <h2 id="outreach-modal-title" className="text-[15px] font-semibold text-slate-900 leading-tight">
               {job.title}
@@ -219,7 +197,7 @@ export function OutreachModal({ job, onClose }: Props) {
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={O.close}
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
           >
             ✕
@@ -229,10 +207,14 @@ export function OutreachModal({ job, onClose }: Props) {
         <div className="p-6 flex flex-col gap-5">
           {/* Strategy explanation */}
           <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-[12.5px] text-slate-600 leading-relaxed">
-            <span className="font-semibold text-slate-800">The &quot;Foot in the Door&quot; strategy:</span>{' '}
-            Message the Hiring Manager directly (Director, VP, C-level) — not HR.
-            Use <strong>Step 1</strong> to start a human conversation, then escalate with <strong>Step 2</strong> after a positive reply.
-            Use <strong>Agency / Headhunter</strong> for direct recruiter outreach at placement firms.
+            <span className="font-semibold text-slate-800">{O.strategy_title}</span>{' '}
+            {O.hint_hm}{' '}
+            {/* Step names are read from the tab labels rather than repeated here,
+                so renaming a tab cannot leave this sentence pointing at a name
+                that no longer appears on any button. */}
+            <strong>{O.tabs.step1_label}</strong> {O.hint_steps}{' '}
+            <strong>{O.tabs.step2_label}</strong> {O.hint_after_reply}{' '}
+            <strong>{O.tabs.headhunter_label}</strong> {O.hint_agency}
           </div>
 
           {/* Tab selector */}
@@ -247,10 +229,10 @@ export function OutreachModal({ job, onClose }: Props) {
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                 }`}
               >
-                {tab.label.split(' — ')[0]}
+                {O.tabs[`${tab.key}_label`].split(' — ')[0]}
                 {tab.id !== activeTab && (
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${tab.badgeColor}`}>
-                    {tab.badge}
+                    {O.tabs[`${tab.key}_badge`]}
                   </span>
                 )}
               </button>
@@ -260,9 +242,9 @@ export function OutreachModal({ job, onClose }: Props) {
           {/* Tab description */}
           <div className="flex items-center gap-2">
             <div className={`text-[11px] px-2 py-1 rounded-full border font-semibold ${currentTab.badgeColor}`}>
-              {currentTab.badge}
+              {O.tabs[`${currentTab.key}_badge`]}
             </div>
-            <p className="text-[12.5px] text-slate-500">{currentTab.subtitle}</p>
+            <p className="text-[12.5px] text-slate-500">{O.tabs[`${currentTab.key}_sub`]}</p>
           </div>
 
           {/* ── Phase 3: job-anchored hiring-manager outreach ─────────────── */}
@@ -305,7 +287,7 @@ export function OutreachModal({ job, onClose }: Props) {
                           : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300'
                       }`}
                     >
-                      {copied ? <><CheckIcon s={12} /> Copied!</> : <><CopyIcon s={12} /> Copy</>}
+                      {copied ? <><CheckIcon s={12} /> {O.copied}</> : <><CopyIcon s={12} /> {O.copy}</>}
                     </button>
                   </div>
                   <div className="px-4 py-4 text-[13px] text-slate-800 leading-relaxed whitespace-pre-wrap font-[system-ui]">
@@ -334,7 +316,7 @@ export function OutreachModal({ job, onClose }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                {activeTab === 'headhunter' ? 'Recruiter Name' : 'Manager Name'} *
+                {activeTab === 'headhunter' ? O.name_recruiter : O.name_manager} *
               </label>
               <input
                 value={targetName}
@@ -345,7 +327,7 @@ export function OutreachModal({ job, onClose }: Props) {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                {activeTab === 'headhunter' ? 'Agency Name' : 'Their Company'}
+                {activeTab === 'headhunter' ? O.company_agency : O.company_their}
               </label>
               <input
                 value={targetCompany}
@@ -357,10 +339,10 @@ export function OutreachModal({ job, onClose }: Props) {
             <div className="flex flex-col gap-1 col-span-2">
               <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
                 {activeTab === 'escalation'
-                  ? 'Describe the prior conversation (required for Step 2)'
+                  ? O.title_escalation
                   : activeTab === 'headhunter'
-                  ? 'Recruiter Title / Focus area (optional)'
-                  : 'Their Title (VP Product, Director of CS…)'}
+                  ? O.title_recruiter
+                  : O.title_manager}
               </label>
               <input
                 value={activeTab === 'escalation' ? context : targetTitle}
@@ -371,10 +353,10 @@ export function OutreachModal({ job, onClose }: Props) {
                 }
                 placeholder={
                   activeTab === 'escalation'
-                    ? 'e.g. We spoke briefly at TechTLV, they mentioned scaling the CS team'
+                    ? O.ph_escalation
                     : activeTab === 'headhunter'
-                    ? 'e.g. Tech Recruiter, PM & Product roles'
-                    : 'e.g. VP Product'
+                    ? O.ph_recruiter
+                    : O.ph_manager
                 }
                 className="h-9 px-3 rounded-lg border border-slate-200 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 bg-white"
               />
@@ -382,12 +364,12 @@ export function OutreachModal({ job, onClose }: Props) {
             {activeTab !== 'escalation' && (
               <div className="flex flex-col gap-1 col-span-2">
                 <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                  Additional context (optional)
+                  {O.extra_context}
                 </label>
                 <input
                   value={context}
                   onChange={e => setContext(e.target.value)}
-                  placeholder="e.g. mutual connection, specific initiative you admire, shared background"
+                  placeholder={O.extra_ph}
                   className="h-9 px-3 rounded-lg border border-slate-200 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 bg-white"
                 />
               </div>
@@ -422,7 +404,7 @@ export function OutreachModal({ job, onClose }: Props) {
             <div className="rounded-2xl border border-slate-100 bg-slate-50 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 bg-white">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                  {currentTab.label} · {generatedMsg.split(/\s+/).length} words
+                  {O.tabs[`${currentTab.key}_label`]} · {generatedMsg.split(/\s+/).length} {O.words}
                 </span>
                 <button
                   onClick={() => copy(generatedMsg)}
@@ -432,7 +414,7 @@ export function OutreachModal({ job, onClose }: Props) {
                       : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300'
                   }`}
                 >
-                  {copied ? <><CheckIcon s={12} /> Copied!</> : <><CopyIcon s={12} /> Copy</>}
+                  {copied ? <><CheckIcon s={12} /> {O.copied}</> : <><CopyIcon s={12} /> {O.copy}</>}
                 </button>
               </div>
               <div className="px-4 py-4 text-[13px] text-slate-800 leading-relaxed whitespace-pre-wrap font-[system-ui]">
