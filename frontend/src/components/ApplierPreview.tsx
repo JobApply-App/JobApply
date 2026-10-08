@@ -6,7 +6,7 @@ import { LOCALES, type Locale } from '@/locales'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
 import type { Job } from '@/lib/data'
-import type { ApiFeedJob, CopilotResponse, MatchScoreResult, TemplateInfo } from '@/lib/apiTypes'
+import type { ApiFeedJob, CopilotResponse, MatchScoreResult, TailorApiResponse, TemplateInfo } from '@/lib/apiTypes'
 import type { ParsedCV } from '@/lib/cv'
 import { parseCv, toLiveEditorCvData, resetToOriginal } from '@/lib/cvParser'
 import { applyCvPatch, jsonEqual } from '@/lib/cvPatch'
@@ -490,37 +490,71 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     setGkMessage('')
 
     try {
-      const controller = new AbortController()
-      // 180s, not the previous 90s. A single /tailor request can legitimately
-      // chain several LLM calls (JD structuring -> tailoring -> optional
-      // refinement -> match scoring), and when Gemini rate-limits, each one
-      // falls back to Anthropic with its own retries. Observed real-world
-      // worst case in this pipeline is ~145s, so 90s was aborting healthy
-      // in-flight generations. Still below next.config.mjs's proxyTimeout
-      // (300_000) so the browser, not the proxy, owns the deadline.
-      const timeoutId  = setTimeout(() => controller.abort(), 180_000)
-      let res: Response
-      try {
-        await ensureFreshToken()
-        res = await fetch('/api/resumes/tailor', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body:    JSON.stringify({
-            job_id:               job.id,
-            supplemental_answers: supplementalAnswers ?? null,
-            cv_locale:            cvLang,
-            force,
-          }),
-          signal: controller.signal,
-        })
-      } finally {
-        clearTimeout(timeoutId)
+      // Start the run and poll, rather than holding one long request open.
+      //
+      // Generation takes 60-90s. A request open that long does not survive the
+      // path between browser and backend: on Vercel the /api/* rewrite is
+      // handled by the platform gateway, which applies its own timeout.
+      // next.config.mjs's `experimental.proxyTimeout` raises the limit for
+      // Next's own Node proxy only, so it applies in local dev and is ignored
+      // in production — which is why this worked on every machine and failed
+      // the first time a real user pressed the button. The backend had
+      // produced a valid CV; the response had nowhere to go, and this code
+      // reported "Unknown error" because the body it tried to parse was an
+      // infrastructure error page rather than JSON.
+      //
+      // Now no single request is long enough for anything in between to have
+      // an opinion about it.
+      await ensureFreshToken()
+      const startRes = await fetch('/api/resumes/tailor/start', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body:    JSON.stringify({
+          job_id:               job.id,
+          supplemental_answers: supplementalAnswers ?? null,
+          cv_locale:            cvLang,
+          force,
+        }),
+      })
+      if (!startRes.ok) {
+        const err = await startRes.json().catch(() => ({ detail: `HTTP ${startRes.status}` }))
+        throw new Error(err.detail ?? `HTTP ${startRes.status}`)
       }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Unknown error' }))
-        throw new Error(err.detail ?? `HTTP ${res.status}`)
+      const { task_id: taskId } = await startRes.json()
+
+      // Poll to a wall-clock deadline rather than a fixed attempt count, so
+      // the limit stays meaningful if the interval ever changes.
+      const POLL_MS  = 3_000
+      const DEADLINE = Date.now() + 240_000
+
+      const pollUntilDone = async (): Promise<TailorApiResponse> => {
+        for (;;) {
+          if (Date.now() > DEADLINE) throw new Error(A.errors.timeout)
+          await new Promise(r => setTimeout(r, POLL_MS))
+          await ensureFreshToken()
+          const pollRes = await fetch(`/api/resumes/tailor/status/${taskId}`, {
+            headers: getAuthHeaders(),
+            cache:   'no-store',
+          })
+          if (pollRes.status === 404) {
+            // Task expired or lost to a restart. The CV is persisted
+            // independently of the task map, so the cache is worth a look
+            // before reporting failure for work that may well have succeeded.
+            const cached = await fetchCachedCV(job.id)
+            if (cached?.cv_data) return cached as unknown as TailorApiResponse
+            throw new Error(A.errors.timeout)
+          }
+          if (!pollRes.ok) {
+            const err = await pollRes.json().catch(() => ({ detail: `HTTP ${pollRes.status}` }))
+            throw new Error(err.detail ?? `HTTP ${pollRes.status}`)
+          }
+          const poll = await pollRes.json()
+          if (poll.status === 'error') throw new Error(poll.detail ?? `HTTP ${poll.status_code}`)
+          if (poll.status === 'done')  return poll.result as TailorApiResponse
+        }
       }
-      const data = await res.json()
+
+      const data = await pollUntilDone()
 
       if (data.status === 'missing_data') {
         setMissingReqs(data.missing_data_requests ?? [])

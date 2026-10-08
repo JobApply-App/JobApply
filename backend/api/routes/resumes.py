@@ -4,7 +4,9 @@ import base64
 import json
 import logging
 import re
+import asyncio as _asyncio
 import time
+import uuid as _uuid
 
 from typing import Optional
 
@@ -831,6 +833,125 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
 # ── Cached CV retrieval ───────────────────────────────────────────────────────
 
 from fastapi.responses import Response as _FastAPIResponse
+
+
+# ── Asynchronous generation ───────────────────────────────────────────────────
+#
+# Tailoring takes 60-90s (measured: one production run spent 79.5s in the LLM
+# alone, after a Gemini 503 forced an Anthropic fallback). Holding an HTTP
+# connection open that long does not survive the path between browser and
+# backend: on Vercel the /api/* rewrite is handled by the platform gateway,
+# which applies its own timeout. `experimental.proxyTimeout` in
+# next.config.mjs raises the limit only for Next's own Node proxy, so the
+# setting is honoured in local dev and ignored in production — which is
+# exactly why this worked on every machine and failed the first time a real
+# user pressed the button. The backend had already produced a valid CV; the
+# response had nowhere to go, and the UI showed "Unknown error".
+#
+# So the long work is detached from the request. Start returns immediately
+# with a task id; the client polls. No single request is ever long enough for
+# an intermediary to have an opinion about it.
+#
+# Task state is in-memory, which is a deliberate limit rather than an
+# oversight: it is lost on restart and not shared across instances (the
+# service runs one). That is survivable because the finished CV is persisted
+# by the existing save_tailored_cv() path, so a client that loses its task can
+# still recover the result from /cached/{job_id}. Durable task state belongs
+# in Postgres if this ever needs to outlive a deploy or scale past one
+# instance.
+
+_TASK_TTL_S = 1800          # keep finished tasks half an hour for late pollers
+_TASKS: dict[str, dict] = {}
+
+
+def _reap_tasks() -> None:
+    """Drop tasks past their TTL so the map cannot grow without bound."""
+    now = time.time()
+    for tid in [t for t, v in _TASKS.items() if now - v["updated_at"] > _TASK_TTL_S]:
+        _TASKS.pop(tid, None)
+
+
+@router.post(
+    "/tailor/start",
+    dependencies=[Depends(llm_rate_limit), Depends(daily_generation_limit)],
+)
+async def start_tailor_resume(
+    req: TailorRequest, user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Begin a tailoring run and return a task id immediately.
+
+    The rate limit and daily quota are enforced here, on the request the user
+    actually made, rather than inside the background task — a quota rejection
+    has to reach the caller as a 429 they can act on, not as a task that
+    quietly reports failure later.
+    """
+    _reap_tasks()
+    task_id = str(_uuid.uuid4())
+    _TASKS[task_id] = {
+        "status":     "pending",
+        "user_id":    user.user_id,
+        "job_id":     req.job_id,
+        "result":     None,
+        "detail":     None,
+        "created_at": time.time(),
+        "updated_at": time.time(),
+    }
+
+    async def _run() -> None:
+        try:
+            result = await tailor_resume(req, user)
+            _TASKS[task_id].update(status="done", result=result)
+        except HTTPException as exc:
+            # Preserve the status code the synchronous path would have
+            # returned; the client branches on it (402 quota, 404 missing job).
+            _TASKS[task_id].update(
+                status="error", detail=str(exc.detail), status_code=exc.status_code
+            )
+        except Exception as exc:
+            logger.exception("[resumes/tailor/start] task %s failed", task_id)
+            _TASKS[task_id].update(status="error", detail=str(exc), status_code=500)
+        finally:
+            _TASKS[task_id]["updated_at"] = time.time()
+            _TASKS[task_id].pop("_task", None)
+
+    # Hold a strong reference. asyncio keeps only a weak one, so a task with
+    # no live reference can be garbage-collected mid-flight — the generation
+    # would stop partway through and the task would sit at "pending" forever,
+    # which is indistinguishable from slow. Dropped in the finally above.
+    _TASKS[task_id]["_task"] = _asyncio.create_task(_run())
+    logger.info(
+        "[resumes/tailor/start] task=%s job=%s user=%s", task_id, req.job_id, user.user_id
+    )
+    return {"task_id": task_id, "status": "pending"}
+
+
+@router.get("/tailor/status/{task_id}")
+async def get_tailor_status(task_id: str, user: CurrentUser = Depends(get_current_user)):
+    """
+    Report a task's progress, and hand back the CV once it is finished.
+
+    A task is readable only by the user who started it. Without that check a
+    task id — which is guessable in bulk far more easily than a CV is — would
+    expose another person's generated resume.
+    """
+    task = _TASKS.get(task_id)
+    if task is None:
+        # Expired, lost to a restart, or never existed. The client's correct
+        # move is the same in all three cases: fall back to /cached/{job_id}.
+        raise HTTPException(status_code=404, detail="Unknown or expired task.")
+    if task["user_id"] != user.user_id:
+        raise HTTPException(status_code=404, detail="Unknown or expired task.")
+
+    if task["status"] == "done":
+        return {"status": "done", "result": task["result"]}
+    if task["status"] == "error":
+        return {
+            "status":      "error",
+            "detail":      task["detail"],
+            "status_code": task.get("status_code", 500),
+        }
+    return {"status": "pending", "elapsed_s": round(time.time() - task["created_at"], 1)}
 
 
 @router.get("/cached/{job_id}")
