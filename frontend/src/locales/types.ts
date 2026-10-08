@@ -282,6 +282,32 @@ export interface Dict {
     terms_title:   string
     updated_date:  string
   }
+  controls: {
+    close:            string
+    match_filters:    string
+    matches_only:     string
+    min_score:        string
+    work_mode:        string
+    all_modes:        string
+    location:         string
+    all_regions:      string
+    company_stage:    string
+    all_stages:       string
+    alerts:           string
+    reset:            string
+    saved:            string
+    save:             string
+    unlimited:        string
+    modes:    { hybrid: string; remote: string; onsite: string }
+    regions:  { tel_aviv: string; central: string; sharon: string; haifa: string; jerusalem: string; south: string }
+    stages:   { startup: string; growth: string; enterprise: string }
+    cadence: {
+      immediate_label: string; immediate_sub: string
+      daily_label:     string; daily_sub:     string
+      weekly_label:    string; weekly_sub:    string
+      off_label:       string; off_sub:       string
+    }
+  }
   score_bands: {
     exceptional: string
     strong:      string
