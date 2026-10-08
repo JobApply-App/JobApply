@@ -282,6 +282,50 @@ export interface Dict {
     terms_title:   string
     updated_date:  string
   }
+  trust: {
+    confidence_matrix:   string
+    confidence_radar:    string
+    subtitle:            string
+    top_capabilities:    string
+    view_all:            string
+    back_to_dashboard:   string
+    evidence_ledger:     string
+    recent_changes:      string
+    score_reasoning:     string
+    improvement_tips:    string
+    improve_with_ariel:  string
+    evaluated_by_ariel:  string
+    none_in_category:    string
+    refresh:             string
+    retry:               string
+    verify:              string
+    strengthen:          string
+    review:              string
+    resubmit:            string
+    why_flagged:         string
+    whiteboard:          string
+    attach_evidence:     string
+    evidence_attached:   string
+    drop_file:           string
+    reply_no_ai:         string
+    linkedin_expired:    string
+    fix_connection:      string
+    answer_placeholder:  string
+    loading_label:       string
+    close_challenge:     string
+    remove_attachment:   string
+    tips: {
+      verify_locked:     string
+      start_probe:       string
+      view_flagged:      string
+      attach_file:       string
+      attach_screenshot: string
+      ai_assisted:       string
+      no_verified_yet:   string
+    }
+    bands:   { high: string; medium: string; low: string; unverified: string }
+    entity:  { skill: string; trait: string; domain: string; experience: string }
+  }
   score_bands: {
     exceptional: string
     strong:      string
