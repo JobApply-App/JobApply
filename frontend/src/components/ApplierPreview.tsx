@@ -525,30 +525,53 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       // Poll to a wall-clock deadline rather than a fixed attempt count, so
       // the limit stays meaningful if the interval ever changes.
       const POLL_MS  = 3_000
-      const DEADLINE = Date.now() + 240_000
+      // Generous because the work genuinely varies: one production run took
+      // 79.5s, another 190s when the provider timed out twice and the client
+      // retried. The deadline exists to stop an abandoned task polling
+      // forever, not to express how long generation "should" take.
+      const DEADLINE = Date.now() + 420_000
+
+      // The CV is persisted independently of the task map, so before
+      // reporting any failure it is worth asking whether the work actually
+      // succeeded. Reporting an error over a finished CV is the worse mistake
+      // — it is what the original bug did.
+      const cachedOrThrow = async (): Promise<TailorApiResponse> => {
+        const cached = await fetchCachedCV(job.id)
+        if (cached?.cv_data) return cached as unknown as TailorApiResponse
+        throw new Error(A.errors.timeout)
+      }
 
       const pollUntilDone = async (): Promise<TailorApiResponse> => {
+        // A 190s generation is ~60 polls. Treating any one failed poll as
+        // fatal means a single gateway hiccup discards a CV the backend
+        // already produced — which is exactly what happened on the first
+        // production run of this code: the work succeeded, one poll came back
+        // 502, and the UI reported HTTP 502. Transient failures are retried
+        // until the deadline; only a definitive answer ends the loop.
         for (;;) {
-          if (Date.now() > DEADLINE) throw new Error(A.errors.timeout)
+          if (Date.now() > DEADLINE) return cachedOrThrow()
           await new Promise(r => setTimeout(r, POLL_MS))
-          await ensureFreshToken()
-          const pollRes = await fetch(`/api/resumes/tailor/status/${taskId}`, {
-            headers: getAuthHeaders(),
-            cache:   'no-store',
-          })
-          if (pollRes.status === 404) {
-            // Task expired or lost to a restart. The CV is persisted
-            // independently of the task map, so the cache is worth a look
-            // before reporting failure for work that may well have succeeded.
-            const cached = await fetchCachedCV(job.id)
-            if (cached?.cv_data) return cached as unknown as TailorApiResponse
-            throw new Error(A.errors.timeout)
+
+          let poll: { status?: string; result?: unknown; detail?: string; status_code?: number }
+          try {
+            await ensureFreshToken()
+            const pollRes = await fetch(`/api/resumes/tailor/status/${taskId}`, {
+              headers: getAuthHeaders(),
+              cache:   'no-store',
+            })
+            // Gone for good: expired, or lost to a restart. Retrying cannot
+            // help, so settle it against the cache now.
+            if (pollRes.status === 404) return cachedOrThrow()
+            // Anything else non-OK is treated as transient. A 502 from the
+            // gateway says nothing about whether generation is still running.
+            if (!pollRes.ok) continue
+            poll = await pollRes.json()
+          } catch {
+            // Network blip, token refresh failure, unparseable body — all
+            // reasons to poll again rather than discard the run.
+            continue
           }
-          if (!pollRes.ok) {
-            const err = await pollRes.json().catch(() => ({ detail: `HTTP ${pollRes.status}` }))
-            throw new Error(err.detail ?? `HTTP ${pollRes.status}`)
-          }
-          const poll = await pollRes.json()
+
           if (poll.status === 'error') throw new Error(poll.detail ?? `HTTP ${poll.status_code}`)
           if (poll.status === 'done')  return poll.result as TailorApiResponse
         }
