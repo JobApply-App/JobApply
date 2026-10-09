@@ -282,6 +282,64 @@ export interface Dict {
     terms_title:   string
     updated_date:  string
   }
+  controls: {
+    close:            string
+    match_filters:    string
+    matches_only:     string
+    min_score:        string
+    work_mode:        string
+    all_modes:        string
+    location:         string
+    all_regions:      string
+    company_stage:    string
+    all_stages:       string
+    alerts:           string
+    reset:            string
+    saved:            string
+    save:             string
+    unlimited:        string
+    modes:    { hybrid: string; remote: string; onsite: string }
+    regions:  { tel_aviv: string; central: string; sharon: string; haifa: string; jerusalem: string; south: string }
+    stages:   { startup: string; growth: string; enterprise: string }
+    cadence: {
+      immediate_label: string; immediate_sub: string
+      daily_label:     string; daily_sub:     string
+      weekly_label:    string; weekly_sub:    string
+      off_label:       string; off_sub:       string
+    }
+  }
+  outreach: {
+    title:            string
+    close:            string
+    copy:             string
+    copied:           string
+    hint_hm:          string
+    words:            string
+    strategy_title:   string
+    hint_after_reply: string
+    hint_steps:       string
+    hint_agency:      string
+    extra_context:    string
+    extra_ph:         string
+    generation_failed:string
+    default_recruiter:string
+    name_recruiter:   string
+    name_manager:     string
+    company_agency:   string
+    company_their:    string
+    title_escalation: string
+    title_recruiter:  string
+    title_manager:    string
+    ph_escalation:    string
+    ph_recruiter:     string
+    ph_manager:       string
+    tabs: {
+      hm_label:         string; hm_sub:         string; hm_badge:         string
+      step1_label:      string; step1_sub:      string; step1_badge:      string
+      step2_label:      string; step2_sub:      string; step2_badge:      string
+      headhunter_label: string; headhunter_sub: string; headhunter_badge: string
+    }
+  }
   score_bands: {
     exceptional: string
     strong:      string
