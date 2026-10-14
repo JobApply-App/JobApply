@@ -606,6 +606,18 @@ export interface RolePreferences {
   roles: RoleSeniorityItem[]
 }
 
+/**
+ * Admit the user to the background matching pipeline.
+ *
+ * The pipeline only fans out over users whose profiles.onboarding_status is
+ * 'complete'. The wizard used to set only `profile_completed` in Supabase auth
+ * metadata — which nothing on the backend reads — so users finished onboarding
+ * and were never matched against anything. Idempotent on the server.
+ */
+export async function markOnboardingComplete(): Promise<void> {
+  await post<Record<string, never>, { status: string; changed: boolean }>('/api/profile/onboarding/complete', {})
+}
+
 /** Persist onboarding target roles, each with its own seniority (used by job matching). */
 export async function saveRolePreferences(prefs: RolePreferences): Promise<void> {
   await post<RolePreferences, { status: string }>('/api/profile/preferences', prefs)

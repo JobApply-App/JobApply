@@ -599,6 +599,47 @@ def get_updated_at(user_id: str) -> str:
         return ""
 
 
+def mark_onboarding_complete(user_id: str) -> bool:
+    """
+    Set onboarding_status = 'complete' for one user. Returns True if this call
+    changed it, False if it was already complete.
+
+    This is the gate the background matching pipeline reads
+    (list_onboarding_complete_user_ids below). Until something sets it, a user
+    is invisible to that pipeline regardless of what else they have done.
+
+    That is not hypothetical: when this was added, zero users had the status,
+    including one who had used the product for months. The only writer was an
+    Ariel tool that fires when a user tells the chat "that's everything" — while
+    the onboarding wizard, which tells the user they are done, wrote a separate
+    `profile_completed` flag into Supabase auth metadata that nothing here
+    reads. So the loop ran every 30 minutes over an empty list, without
+    failing, and new users finished onboarding into an empty dashboard.
+
+    A targeted UPDATE rather than get_or_create() + save(): save() replaces
+    profile_answers wholesale, which is far heavier than flipping one column
+    and would let a concurrent profile write be clobbered by a stale copy.
+    The upsert covers a user whose profiles row has not been created yet.
+    """
+    with ENGINE.begin() as conn:
+        prior = conn.execute(
+            text("SELECT onboarding_status FROM public.profiles WHERE id = CAST(:uid AS uuid)"),
+            {"uid": user_id},
+        ).scalar()
+        if prior == "complete":
+            return False
+        conn.execute(
+            text(
+                "INSERT INTO public.profiles (id, onboarding_status, updated_at) "
+                "VALUES (CAST(:uid AS uuid), 'complete', now()) "
+                "ON CONFLICT (id) DO UPDATE "
+                "SET onboarding_status = 'complete', updated_at = now()"
+            ),
+            {"uid": user_id},
+        )
+    return True
+
+
 def list_onboarding_complete_user_ids() -> list[str]:
     """user_ids with onboarding_status='complete' — tenant_registry's pipeline fan-out."""
     with ENGINE.connect() as conn:

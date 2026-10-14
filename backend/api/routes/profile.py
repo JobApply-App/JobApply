@@ -322,6 +322,28 @@ class LinkedInImportPayload(BaseModel):
     linkedin_url: str = Field(..., max_length=300)
 
 
+@router.post("/onboarding/complete")
+async def complete_onboarding(user: CurrentUser = Depends(get_current_user)) -> dict:
+    """
+    Mark the calling user's onboarding complete, admitting them to the
+    background matching pipeline.
+
+    Called by the onboarding wizard when the user finishes intake. Before this
+    existed the wizard only set `profile_completed` in Supabase auth metadata,
+    which the pipeline never reads, so finishing onboarding left a user in an
+    empty dashboard indefinitely — see profile_repository.mark_onboarding_complete.
+
+    Scoped to the authenticated user and idempotent: a repeat call is a no-op,
+    so a retried request or a double-submitted wizard cannot do any harm.
+    """
+    changed = profile_repository.mark_onboarding_complete(user.user_id)
+    logger.info(
+        "[profile/onboarding/complete] user=%s %s",
+        user.user_id, "marked complete" if changed else "already complete",
+    )
+    return {"status": "complete", "changed": changed}
+
+
 @router.post("/linkedin-import")
 async def linkedin_import(
     body: LinkedInImportPayload,

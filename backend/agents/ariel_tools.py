@@ -28,8 +28,13 @@ Design rules
 • Handlers are idempotent where possible (upsert semantics).
 • No handler raises; they return a descriptive error string on failure so the
   model can surface a friendly message instead of crashing.
-• The finalize_onboarding tool is the *only* path that sets
-  onboarding_status = 'complete'.  No other code should modify that field.
+• onboarding_status = 'complete' has two writers: the finalize_onboarding
+  tool here, and POST /api/profile/onboarding/complete, which the onboarding
+  wizard calls when the user finishes intake. This file once claimed to be
+  the only one. That was true, and it was the bug: the wizard told users they
+  were done while leaving them outside the matching pipeline, which only
+  admits users with this status. Both paths go through equivalent writes;
+  nothing else should set the field.
 """
 from __future__ import annotations
 
@@ -784,7 +789,8 @@ def _handle_finalize_onboarding(
     """
     Set onboarding_status = 'complete'.
 
-    This is the sole authorised writer of that field.  The handler logs the
+    One of two writers of that field — the other is the onboarding wizard's
+    POST /api/profile/onboarding/complete (see the module docstring). The handler logs the
     confirmation phrase for audit purposes and returns a summary of what was
     collected so the model can relay it to the user.
     """
