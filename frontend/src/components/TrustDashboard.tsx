@@ -29,6 +29,7 @@
 import {
   useState, useEffect, useCallback, useRef, lazy, Suspense,
 } from 'react'
+import { useI18n } from '@/contexts/I18nContext'
 import Link from 'next/link'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
@@ -411,6 +412,7 @@ function EvidenceAccordion({ entries, open }: { entries: TrustEvidenceEntry[]; o
 }
 
 function EvidenceRow({ entry }: { entry: TrustEvidenceEntry }) {
+  const T = useI18n().t.trust
   const isNeg       = entry.base_weight < 0
   const sourceLabel = SOURCE_LABELS[entry.source_type] ?? entry.source_type
   return (
@@ -440,7 +442,7 @@ function EvidenceRow({ entry }: { entry: TrustEvidenceEntry }) {
             <span
               className="inline-flex items-center h-[16px] px-1.5 rounded text-[9px] font-bold tracking-wide uppercase"
               style={{ background: 'oklch(0.94 0.07 290)', color: 'oklch(0.35 0.18 290)' }}
-              title="AI-assisted: architecture understood, AI generated the boilerplate"
+              title={T.tips.ai_assisted}
             >
               AI-Aug ×0.6
             </span>
@@ -570,6 +572,7 @@ interface EntityTrustRowProps {
 function EntityTrustRow({
   entity, defaultOpen = false, onProbe, onReview, onManualVerify, probing,
 }: EntityTrustRowProps) {
+  const T = useI18n().t.trust
   const [open, setOpen] = useState(defaultOpen)
 
   const canProbe  = entity.confidence_score < 70 && !entity.manual_review_required
@@ -647,7 +650,7 @@ function EntityTrustRow({
           {entity.verification_level !== 'VERIFIED_MANUAL' && (
             <button
               onClick={() => onManualVerify(entity)}
-              title="Manual verification required to unlock full score"
+              title={T.tips.verify_locked}
               className="inline-flex items-center gap-1 h-11 sm:h-7 px-2.5 rounded-lg text-[11px] font-semibold transition active:scale-[0.97]"
               style={{
                 background: 'oklch(0.93 0.12 50)',
@@ -658,14 +661,14 @@ function EntityTrustRow({
               <svg width={10} height={10} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2.2}>
                 <path d="M9 12l2 2 4-4M4 6h12M4 10h6M4 14h4"/>
               </svg>
-              Verify
+              {T.verify}
             </button>
           )}
           {canProbe && (
             <button
               onClick={() => onProbe(entity)}
               disabled={probing}
-              title="Start a STAR behavioral probe to strengthen this skill's evidence"
+              title={T.tips.start_probe}
               className="inline-flex items-center gap-1 h-11 sm:h-7 px-2.5 rounded-lg text-[11px] font-semibold transition active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 background: TOKENS.color.primarySoft,
@@ -674,13 +677,13 @@ function EntityTrustRow({
               }}
             >
               {probing ? <SpinnerIcon s={11} /> : <ZapIcon s={11} />}
-              Strengthen
+              {T.strengthen}
             </button>
           )}
           {needsFlag && (
             <button
               onClick={() => onReview(entity)}
-              title="View why this entity was flagged and re-submit evidence"
+              title={T.tips.view_flagged}
               className="inline-flex items-center gap-1 h-11 sm:h-7 px-2.5 rounded-lg text-[11px] font-semibold transition active:scale-[0.97]"
               style={{
                 background: 'oklch(0.96 0.06 60)',
@@ -689,7 +692,7 @@ function EntityTrustRow({
               }}
             >
               <WarnTriangle s={10} />
-              Review
+              {T.review}
             </button>
           )}
         </div>
@@ -752,6 +755,7 @@ function parseFlagNote(note: string): { flagType: string; reason: string } {
 }
 
 function FlagNoteCard({ note }: { note: string }) {
+  const T = useI18n().t.trust
   const { flagType, reason } = parseFlagNote(note)
   const cfg = FLAG_TYPE_CONFIG[flagType] ?? FLAG_TYPE_DEFAULT
 
@@ -763,7 +767,7 @@ function FlagNoteCard({ note }: { note: string }) {
       <div className="flex items-center gap-2">
         <span className="text-[15px]" aria-hidden="true">⚠️</span>
         <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400">
-          Why it was flagged
+          {T.why_flagged}
         </p>
         {/* Flag type badge */}
         <span
@@ -793,6 +797,7 @@ interface ManualReviewModalProps {
 }
 
 function ManualReviewModal({ entity, onClose, onDone }: ManualReviewModalProps) {
+  const T = useI18n().t.trust
   const [audit,      setAudit]      = useState<AuditResponse | null>(null)
   const [loadingAudit, setLoadingAudit] = useState(true)
   const [auditError, setAuditError] = useState<string | null>(null)
@@ -900,7 +905,7 @@ function ManualReviewModal({ entity, onClose, onDone }: ManualReviewModalProps) 
               {audit.audit_log.length > 0 && (
                 <div>
                   <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-2">
-                    Recent score changes
+                    {T.recent_changes}
                   </p>
                   <div className="space-y-1.5">
                     {audit.audit_log.slice(0, 5).map(entry => (
@@ -932,7 +937,7 @@ function ManualReviewModal({ entity, onClose, onDone }: ManualReviewModalProps) 
             <span className="text-slate-400"><UploadIcon s={20} /></span>
             <div className="text-center">
               <p className="text-[12.5px] font-semibold text-slate-700">
-                Re-submit evidence
+                {T.resubmit}
               </p>
               <p className="text-[11.5px] text-slate-400 mt-0.5">
                 Upload a certificate, portfolio, or CV to add positive evidence.
@@ -998,6 +1003,7 @@ interface ProbeModalProps {
 }
 
 export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalProps) {
+  const T = useI18n().t.trust
   const [probe,        setProbe]        = useState<ProbeState>(initialProbe)
   const [answer,       setAnswer]       = useState('')
   const [sending,      setSending]      = useState(false)
@@ -1145,7 +1151,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                 className="inline-flex items-center h-[18px] px-2 rounded-full text-[9.5px] font-bold tracking-wide"
                 style={{ background: TOKENS.color.primarySoft, color: TOKENS.color.primary }}
               >
-                Evaluated by Ariel
+                {T.evaluated_by_ariel}
               </span>
             </div>
             <p className="text-[12px] text-slate-500">
@@ -1257,7 +1263,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                 className="w-full h-9 rounded-xl text-[12.5px] font-semibold transition active:scale-[0.98]"
                 style={{ background: TOKENS.color.primary, color: '#fff' }}
               >
-                Back to Dashboard
+                {T.back_to_dashboard}
               </button>
             </div>
           ) : (
@@ -1309,7 +1315,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                   }
                 }}
                 rows={4}
-                placeholder="Share a specific, concrete example…"
+                placeholder={T.answer_placeholder}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-700 leading-relaxed resize-none focus:outline-none focus:ring-2 focus:border-transparent placeholder:text-slate-300"
                 style={{ '--tw-ring-color': TOKENS.color.primary } as React.CSSProperties}
               />
@@ -1333,14 +1339,14 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: TOKENS.color.primary }}>
-                      Evidence attached
+                      {T.evidence_attached}
                     </p>
                     <p className="text-[11.5px] text-slate-600 truncate leading-tight">{attachment.name}</p>
                   </div>
                   <button
                     onClick={() => setAttachment(null)}
                     aria-label={`Remove attachment ${attachment.name}`}
-                    title="Remove attachment"
+                    title={T.remove_attachment}
                     className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-white/60 focus-visible:text-slate-700 transition text-[13px]"
                   >×</button>
                 </div>
@@ -1362,8 +1368,8 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                   {/* Paperclip — attach evidence */}
                   <button
                     onClick={() => fileRef.current?.click()}
-                    title="Attach a file or screenshot as evidence"
-                    aria-label="Attach a file or screenshot as evidence"
+                    title={T.tips.attach_file}
+                    aria-label={T.tips.attach_file}
                     className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
                   >
                     <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1441,6 +1447,7 @@ function ManualReviewCallout({
 // Mirrors AnalysisAuthWall in JobCard but adapted for the Trust context.
 
 function AuthWallCallout() {
+  const T = useI18n().t.trust
   return (
     <div
       className="rounded-xl px-4 py-3.5 flex items-start gap-3"
@@ -1449,7 +1456,7 @@ function AuthWallCallout() {
       <span className="text-[15px] mt-0.5" aria-hidden="true">🔒</span>
       <div className="flex-1 min-w-0">
         <p className="text-[12.5px] font-semibold text-slate-700 mb-0.5">
-          LinkedIn session expired
+          {T.linkedin_expired}
         </p>
         <p className="text-[12px] text-slate-500 leading-relaxed">
           The scraper hit a LinkedIn login wall — the{' '}
@@ -1471,7 +1478,7 @@ function AuthWallCallout() {
         }}
       >
         <LinkIcon s={11} />
-        Fix Connection
+        {T.fix_connection}
       </a>
     </div>
   )
@@ -1492,8 +1499,9 @@ const FILTER_TABS: { value: FilterCategory; label: string }[] = [
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function DashboardSkeleton() {
+  const T = useI18n().t.trust
   return (
-    <div className="space-y-3" aria-busy="true" aria-label="Loading trust scores">
+    <div className="space-y-3" aria-busy="true" aria-label={T.loading_label}>
       {/* Radar + stats skeleton */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div
@@ -1537,18 +1545,19 @@ function StatRow({
 // ── TrustRadarChart ───────────────────────────────────────────────────────────
 
 function TrustRadarChart({ data }: { data: RadarDatum[] }) {
+  const T = useI18n().t.trust
   const hasSyntax = data.some(d => d.syn_value > 0)
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-center justify-between w-full mb-2 px-1">
         <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400">
-          Confidence Radar
+          {T.confidence_radar}
         </p>
         {!hasSyntax && (
           <span
             className="inline-flex items-center gap-1 h-[18px] px-2 rounded text-[9.5px] font-semibold"
             style={{ background: 'oklch(0.96 0.05 50)', color: 'oklch(0.48 0.14 50)' }}
-            title="No Ariel-verified challenges yet. Complete a STAR probe or Whiteboard Challenge to unlock the inner polygon."
+            title={T.tips.no_verified_yet}
           >
             ⚠ Pending Ariel Verification
           </span>
@@ -1601,6 +1610,7 @@ interface UploadZoneProps {
 }
 
 function UploadZone({ userId, onUploaded }: UploadZoneProps) {
+  const T = useI18n().t.trust
   const [isDragging,  setIsDragging]  = useState(false)
   const [uploading,   setUploading]   = useState(false)
   const [uploadDone,  setUploadDone]  = useState(false)
@@ -1738,7 +1748,7 @@ function UploadZone({ userId, onUploaded }: UploadZoneProps) {
           </p>
           {!uploading && (
             <p className="text-[12.5px] text-slate-400 mt-1.5 leading-relaxed max-w-sm">
-              Drop a PDF or DOCX here, or click to browse.
+              {T.drop_file}
               Ariel will extract your skills, experience, and domain knowledge
               and score each entity based on the evidence in your CV.
             </p>
@@ -2013,6 +2023,7 @@ interface CapabilityDetailDrawerProps {
 }
 
 function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps) {
+  const T = useI18n().t.trust
   const isOpen    = !!entity
   const insights  = entity ? buildCapabilityInsights(entity) : null
   const band      = entity ? getScoreBand(entity.confidence_score) : null
@@ -2105,12 +2116,12 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
                 style={{ background: TOKENS.color.primary, color: '#fff' }}
               >
                 <SparkIcon s={13} />
-                Improve with Ariel
+                {T.improve_with_ariel}
               </button>
 
               <section>
                 <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
-                  Score Reasoning
+                  {T.score_reasoning}
                 </p>
                 <div className="space-y-2.5">
                   {insights.reasoning.map((line, i) => (
@@ -2121,7 +2132,7 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
 
               <section>
                 <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
-                  Improvement Tips
+                  {T.improvement_tips}
                 </p>
                 <div className="space-y-2">
                   {insights.tips.map((tip, i) => (
@@ -2136,7 +2147,7 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
               {entity.trust_breakdown.length > 0 && (
                 <section>
                   <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
-                    Evidence Ledger
+                    {T.evidence_ledger}
                   </p>
                   <div className="space-y-1.5">
                     {entity.trust_breakdown.map(ev => (
@@ -2174,6 +2185,7 @@ interface WhiteboardChallengeModalProps {
 }
 
 function WhiteboardChallengeModal({ entity, session, loading, onClose }: WhiteboardChallengeModalProps) {
+  const T = useI18n().t.trust
   const [attachment, setAttachment] = useState<{ name: string; dataUrl: string } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -2216,13 +2228,13 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
                 <path d="M6 17h8M10 14v3"/><path d="M5.5 9.5l2 2 4-4" strokeLinecap="round"/>
               </svg>
               <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: 'oklch(0.65 0.18 170)' }}>
-                Whiteboard Challenge
+                {T.whiteboard}
               </span>
               <span
                 className="inline-flex items-center h-[16px] px-1.5 rounded text-[9px] font-bold tracking-wide"
                 style={{ background: 'oklch(0.30 0.06 170)', color: 'oklch(0.75 0.18 170)' }}
               >
-                Evaluated by Ariel
+                {T.evaluated_by_ariel}
               </span>
             </div>
             <h3 className="text-[16px] font-bold text-white leading-tight">{entity.name}</h3>
@@ -2232,7 +2244,7 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
           </div>
           <button
             onClick={onClose}
-            aria-label="Close challenge dialog"
+            aria-label={T.close_challenge}
             title="Close"
             className="h-7 w-7 flex items-center justify-center rounded-lg text-[16px] transition hover:bg-white/10 focus-visible:bg-white/10"
             style={{ color: 'oklch(0.55 0.04 250)' }}
@@ -2283,13 +2295,13 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
                 <button
                   onClick={() => fileRef.current?.click()}
                   className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11.5px] font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 transition"
-                  title="Attach a screenshot or code file as evidence"
+                  title={T.tips.attach_screenshot}
                 >
                   {/* Paperclip icon */}
                   <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                   </svg>
-                  Attach evidence
+                  {T.attach_evidence}
                 </button>
                 {attachment && (
                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -2305,7 +2317,7 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
                     <button
                       onClick={() => setAttachment(null)}
                       aria-label={`Remove attachment ${attachment.name}`}
-                      title="Remove attachment"
+                      title={T.remove_attachment}
                       className="shrink-0 text-[13px] text-slate-400 hover:text-slate-700 focus-visible:text-slate-700 transition"
                     >×</button>
                   </div>
@@ -2314,7 +2326,7 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
 
               {/* Rules */}
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Reply in the Ariel chat without AI assistance.
+                {T.reply_no_ai}
                 Session <code className="font-mono text-[10px]">{session.session_id.slice(0, 8)}…</code>
               </p>
 
@@ -2343,6 +2355,7 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
 // Render this inside /app/capabilities/page.tsx.
 
 export function CapabilitiesList({ userId, className = '' }: { userId: string; className?: string }) {
+  const T = useI18n().t.trust
   const [data,    setData]    = useState<TrustScoreResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
@@ -2524,7 +2537,7 @@ export function CapabilitiesList({ userId, className = '' }: { userId: string; c
       <div className="space-y-2">
         {sorted.length === 0 ? (
           <p className="text-center py-12 text-[13px] text-slate-400">
-            No capabilities in this category.
+            {T.none_in_category}
           </p>
         ) : sorted.map(entity => (
           <CapabilityRow
@@ -2624,6 +2637,7 @@ export function TrustDashboard({
   userId, showAuthWall = false, className = '', onScoreChange, profileVersion,
   initialTrustScore, initialConfidenceMatrix, deferInitialFetch = false, streamError = null,
 }: TrustDashboardProps) {
+  const T = useI18n().t.trust
   const [data,      setData]      = useState<TrustScoreResponse | null>(initialTrustScore ?? null)
   const [radarData, setRadarData] = useState<ConfidenceRadarDatum[]>(
     initialConfidenceMatrix ? _mapRadarData(initialConfidenceMatrix.radar_data) : []
@@ -2874,7 +2888,7 @@ export function TrustDashboard({
             Confidence Matrix
           </h2>
           <p className="text-[12px] text-slate-400 mt-0.5">
-            Evidence-backed trust scores across your profile entities
+            {T.subtitle}
           </p>
         </div>
         <button
@@ -2893,7 +2907,7 @@ export function TrustDashboard({
               </svg>
             )
           }
-          Refresh
+          {T.refresh}
         </button>
       </div>
 
@@ -2915,7 +2929,7 @@ export function TrustDashboard({
             onClick={fetchData}
             className="shrink-0 text-[11.5px] font-medium text-teal-700 hover:text-teal-800 transition"
           >
-            Retry
+            {T.retry}
           </button>
         </div>
       )}
@@ -2952,7 +2966,7 @@ export function TrustDashboard({
                     style={{ boxShadow: TOKENS.shadow.card }}
                   >
                     <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-3">
-                      Top Capabilities
+                      {T.top_capabilities}
                     </p>
                     <div className="space-y-1.5">
                       {top3.map((ent, i) => (
@@ -2976,7 +2990,7 @@ export function TrustDashboard({
                 className="w-full h-11 rounded-xl text-[13.5px] font-semibold flex items-center justify-center gap-2 transition active:scale-[0.98] border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white hover:border-slate-300"
                 style={{ background: 'oklch(0.98 0.00 0)' }}
               >
-                View All Capabilities
+                {T.view_all}
                 <svg width={13} height={13} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M4 10h12M11 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
