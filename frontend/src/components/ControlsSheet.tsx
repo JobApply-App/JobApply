@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import { useDialogA11y } from '@/hooks/useDialogA11y'
 import {
@@ -78,31 +79,11 @@ function PillGroup<T extends string>({
 
 // ── Notification cadence cards ────────────────────────────────────────────────
 
-const CADENCE_OPTIONS: { value: Cadence; icon: string; label: string; sub: string }[] = [
-  {
-    value: 'immediate',
-    icon:  '⚡',
-    label: 'Immediate',
-    sub:   'Alert when match > 90%',
-  },
-  {
-    value: 'daily',
-    icon:  '📋',
-    label: 'Daily Digest',
-    sub:   'Morning summary of new matches',
-  },
-  {
-    value: 'weekly',
-    icon:  '📅',
-    label: 'Weekly Summary',
-    sub:   'Sunday overview of the week',
-  },
-  {
-    value: 'off',
-    icon:  '🔕',
-    label: 'Off',
-    sub:   'No automated alerts',
-  },
+const CADENCE_OPTIONS: { value: Cadence; icon: string; key: 'immediate' | 'daily' | 'weekly' | 'off' }[] = [
+  { value: 'immediate', icon: '⚡', key: 'immediate' },
+  { value: 'daily',     icon: '📋', key: 'daily'     },
+  { value: 'weekly',    icon: '📅', key: 'weekly'    },
+  { value: 'off',       icon: '🔕', key: 'off'       },
 ]
 
 function CadenceCard({
@@ -114,6 +95,7 @@ function CadenceCard({
   active:  boolean
   onClick: () => void
 }) {
+  const C = useI18n().t.controls
   return (
     <button
       type="button"
@@ -127,9 +109,9 @@ function CadenceCard({
       <span className="text-base leading-none shrink-0">{option.icon}</span>
       <div className="flex-1 min-w-0">
         <p className={`text-[12.5px] font-semibold ${active ? 'text-teal-800' : 'text-slate-800'}`}>
-          {option.label}
+          {C.cadence[`${option.key}_label`]}
         </p>
-        <p className="text-[11px] text-slate-500 truncate">{option.sub}</p>
+        <p className="text-[11px] text-slate-500 truncate">{C.cadence[`${option.key}_sub`]}</p>
       </div>
       <div className={`shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
         active ? 'border-teal-500 bg-teal-500' : 'border-slate-300 bg-white'
@@ -206,32 +188,38 @@ interface Props {
   setSettings: (s: AutomationSettings) => void
 }
 
-const WORK_MODE_OPTIONS: { value: WorkMode; label: string; icon: string }[] = [
-  { value: 'hybrid', label: 'Hybrid',  icon: '🏢' },
-  { value: 'remote', label: 'Remote',  icon: '🌐' },
-  { value: 'onsite', label: 'Office',  icon: '📍' },
+// Labels are resolved at render time, not stored here: these are
+// module-level constants and cannot call a hook. The key is what is stable;
+// the wording is per-locale.
+const WORK_MODE_OPTIONS: { value: WorkMode; key: 'hybrid' | 'remote' | 'onsite'; icon: string }[] = [
+  { value: 'hybrid', key: 'hybrid', icon: '🏢' },
+  { value: 'remote', key: 'remote', icon: '🌐' },
+  { value: 'onsite', key: 'onsite', icon: '📍' },
 ]
 
-const REGION_OPTIONS: { value: Region; label: string }[] = [
-  { value: 'tel-aviv',   label: 'Tel Aviv'   },
-  { value: 'central',    label: 'Central'    },
-  { value: 'sharon',     label: 'Sharon'     },
-  { value: 'haifa',      label: 'Haifa'      },
-  { value: 'jerusalem',  label: 'Jerusalem'  },
-  { value: 'south',      label: 'South'      },
+type RegionKey = 'tel_aviv' | 'central' | 'sharon' | 'haifa' | 'jerusalem' | 'south'
+const REGION_OPTIONS: { value: Region; key: RegionKey }[] = [
+  { value: 'tel-aviv',  key: 'tel_aviv'  },
+  { value: 'central',   key: 'central'   },
+  { value: 'sharon',    key: 'sharon'    },
+  { value: 'haifa',     key: 'haifa'     },
+  { value: 'jerusalem', key: 'jerusalem' },
+  { value: 'south',     key: 'south'     },
 ]
 
-const RADIUS_OPTIONS: { value: RadiusKm; label: string }[] = [
-  { value: 10, label: '10 km'     },
-  { value: 20, label: '20 km'     },
-  { value: 40, label: '40 km'     },
-  { value: 0,  label: 'Unlimited' },
+// 0 means no limit; its wording is the only localised one here, since the
+// km values read the same in both languages.
+const RADIUS_OPTIONS: { value: RadiusKm; label: string | null }[] = [
+  { value: 10, label: '10 km' },
+  { value: 20, label: '20 km' },
+  { value: 40, label: '40 km' },
+  { value: 0,  label: null    },
 ]
 
-const COMPANY_STAGE_OPTIONS: { value: CompanyStage; label: string; icon: string }[] = [
-  { value: 'startup',    label: 'Startup',    icon: '🚀' },
-  { value: 'growth',     label: 'Growth',     icon: '📈' },
-  { value: 'enterprise', label: 'Enterprise', icon: '🏛' },
+const COMPANY_STAGE_OPTIONS: { value: CompanyStage; key: 'startup' | 'growth' | 'enterprise'; icon: string }[] = [
+  { value: 'startup',    key: 'startup',    icon: '🚀' },
+  { value: 'growth',     key: 'growth',     icon: '📈' },
+  { value: 'enterprise', key: 'enterprise', icon: '🏛' },
 ]
 
 const ACTIVE_FILTERS_THAT_COUNT = (s: AutomationSettings) =>
@@ -241,6 +229,7 @@ const ACTIVE_FILTERS_THAT_COUNT = (s: AutomationSettings) =>
   + (s.companyStages.length > 0 ? 1 : 0)
 
 export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
+  const C = useI18n().t.controls
   // Local draft — only committed on Save
   const [draft, setDraft] = useState<AutomationSettings>(settings)
   const [saved, setSaved] = useState(false)
@@ -303,7 +292,7 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
               </span>
             )}
           </div>
-          <IconBtn onClick={onClose} title="Close" aria-label="Close"><XIcon s={14} /></IconBtn>
+          <IconBtn onClick={onClose} title={C.close} aria-label={C.close}><XIcon s={14} /></IconBtn>
         </div>
 
         {/* ── Scrollable body ── */}
@@ -312,13 +301,13 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
 
             {/* ════ MATCH FILTERS ═════════════════════════════════════════ */}
             <section>
-              <SectionHeader title="Match Filters" badge="Matches page only" />
+              <SectionHeader title={C.match_filters} badge={C.matches_only} />
 
               <div className="space-y-6">
 
                 {/* Min score */}
                 <SliderRow
-                  label="Minimum match score"
+                  label={C.min_score}
                   min={0} max={100} step={5}
                   value={draft.minScore}
                   onChange={v => patch('minScore', v)}
@@ -330,20 +319,20 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
 
                 {/* Work mode */}
                 <div>
-                  <p className="text-[13px] font-medium text-slate-800 mb-2">Work mode</p>
+                  <p className="text-[13px] font-medium text-slate-800 mb-2">{C.work_mode}</p>
                   <PillGroup
-                    options={WORK_MODE_OPTIONS}
+                    options={WORK_MODE_OPTIONS.map(o => ({ ...o, label: C.modes[o.key] }))}
                     selected={draft.workModes}
                     onChange={v => patch('workModes', v as WorkMode[])}
                   />
                   {draft.workModes.length === 0 && (
-                    <p className="text-[11.5px] text-slate-400 mt-1.5">All modes shown</p>
+                    <p className="text-[11.5px] text-slate-400 mt-1.5">{C.all_modes}</p>
                   )}
                 </div>
 
                 {/* Location */}
                 <div>
-                  <p className="text-[13px] font-medium text-slate-800 mb-2.5">Location</p>
+                  <p className="text-[13px] font-medium text-slate-800 mb-2.5">{C.location}</p>
 
                   {/* Region grid */}
                   <div className="grid grid-cols-3 gap-1.5 mb-3">
@@ -367,7 +356,7 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
                           }`}
                           style={on ? { background: TOKENS.color.primary } : undefined}
                         >
-                          {r.label}
+                          {C.regions[r.key]}
                         </button>
                       )
                     })}
@@ -392,27 +381,27 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
                             }`}
                             style={active ? { background: TOKENS.color.primary } : undefined}
                           >
-                            {opt.label}
+                            {opt.label ?? C.unlimited}
                           </button>
                         )
                       })}
                     </div>
                   </div>
                   {draft.regions.length === 0 && (
-                    <p className="text-[11.5px] text-slate-400 mt-1.5">All regions shown — select regions to enable radius</p>
+                    <p className="text-[11.5px] text-slate-400 mt-1.5">{C.all_regions}</p>
                   )}
                 </div>
 
                 {/* Company stage */}
                 <div>
-                  <p className="text-[13px] font-medium text-slate-800 mb-2">Company stage</p>
+                  <p className="text-[13px] font-medium text-slate-800 mb-2">{C.company_stage}</p>
                   <PillGroup
-                    options={COMPANY_STAGE_OPTIONS}
+                    options={COMPANY_STAGE_OPTIONS.map(o => ({ ...o, label: C.stages[o.key] }))}
                     selected={draft.companyStages}
                     onChange={v => patch('companyStages', v as CompanyStage[])}
                   />
                   {draft.companyStages.length === 0 && (
-                    <p className="text-[11.5px] text-slate-400 mt-1.5">All company stages shown</p>
+                    <p className="text-[11.5px] text-slate-400 mt-1.5">{C.all_stages}</p>
                   )}
                 </div>
 
@@ -423,7 +412,7 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
 
             {/* ════ NOTIFICATIONS ════════════════════════════════════════ */}
             <section>
-              <SectionHeader title="Alert Notifications" />
+              <SectionHeader title={C.alerts} />
               <div className="space-y-2">
                 {CADENCE_OPTIONS.map(opt => (
                   <CadenceCard
@@ -446,7 +435,7 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
             onClick={handleReset}
             className="text-[12.5px] text-slate-500 hover:text-slate-800 transition underline underline-offset-2"
           >
-            Reset to defaults
+            {C.reset}
           </button>
 
           <div className="flex-1" />
@@ -459,10 +448,10 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
             style={{ background: saved ? TOKENS.color.success : TOKENS.color.primary }}
           >
             {saved ? (
-              <><CheckIcon s={13} /> Saved!</>
+              <><CheckIcon s={13} /> {C.saved}</>
             ) : (
               <>
-                Save Changes
+                {C.save}
                 {hasChanges && (
                   <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
                 )}
