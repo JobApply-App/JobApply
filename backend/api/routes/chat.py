@@ -1078,7 +1078,9 @@ def _ingest_cv_from_chat(user_id: str, item: AttachmentItem) -> None:
     from datetime import datetime, timezone
 
     try:
-        from backend.services.cv_aggregator_service import extract_text, aggregate_cv_claims
+        from backend.services.cv_aggregator_service import (
+            aggregate_cv_claims, claims_have_cv_content, extract_text,
+        )
         from backend.services.profile_update_service import ProfileUpdateService
         from backend.services.user_profile_store import load as user_load, save as user_save
         from backend.api.routes.profile import _cv_claims_to_parsed_entities
@@ -1116,6 +1118,14 @@ def _ingest_cv_from_chat(user_id: str, item: AttachmentItem) -> None:
         # signature ever changes, re-verify that invariant before relying on
         # asyncio.run() again.
         cv_claims = asyncio.run(aggregate_cv_claims([text], user_id=user_id))
+        if not claims_have_cv_content(cv_claims):
+            # Not a CV (or nothing extractable). Persisting would overwrite
+            # the user's existing cv_data with an empty extraction.
+            logger.warning(
+                "[chat/cv-ingest] No CV content in %s — skipping ingestion",
+                item.filename,
+            )
+            return
 
         # Step 4 — persist cv_claims to profile JSON + master_profiles table
         profile = user_load(user_id)

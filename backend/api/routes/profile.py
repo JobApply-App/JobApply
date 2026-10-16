@@ -17,7 +17,10 @@ POST /api/profile/interview/{id}/upload — upload a document for claim verifica
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
+import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -490,6 +493,209 @@ def _cv_claims_to_parsed_entities(cv_claims: dict) -> list[dict]:
     return entities
 
 
+def _cv_error(status_code: int, code: str, message: str) -> None:
+    """
+    Raise an upload error the frontend can translate.
+
+    `code` is stable and machine-readable; `message` is an English fallback.
+    The UI shows its own localised text per code — Hebrew users were seeing
+    raw English server strings (or nothing) when an upload failed.
+    """
+    raise HTTPException(status_code=status_code, detail={"code": code, "message": message})
+
+
+async def _extract_cv_texts(files: List[UploadFile]) -> tuple[list[str], list[str], list[str]]:
+    """Validate the uploads and extract their text. Raises a coded 422 if none is usable."""
+    from backend.services.cv_aggregator_service import extract_text
+
+    if not files:
+        _cv_error(422, "no_files", "At least one file is required.")
+    if len(files) > _CV_MAX_FILES:
+        _cv_error(422, "too_many_files", f"Too many files. Maximum is {_CV_MAX_FILES} per upload.")
+
+    texts: list[str]     = []
+    processed: list[str] = []
+    errors: list[str]    = []
+    reasons: list[str]   = []
+
+    for upload in files:
+        fname = upload.filename or "upload"
+        ext   = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
+        if ext not in ("pdf", "docx"):
+            errors.append(f"{fname}: unsupported format (PDF or DOCX only)")
+            reasons.append("unsupported_format")
+            continue
+
+        content = await upload.read()
+        if len(content) > _CV_MAX_BYTES:
+            errors.append(f"{fname}: file too large (max 10 MB)")
+            reasons.append("too_large")
+            continue
+        if not _content_matches_extension(content, ext):
+            errors.append(f"{fname}: file content does not match its .{ext} extension")
+            reasons.append("unsupported_format")
+            continue
+
+        text = extract_text(content, fname)
+        if not text.strip():
+            errors.append(f"{fname}: could not extract text")
+            reasons.append("no_text")
+            continue
+
+        texts.append(text)
+        processed.append(fname)
+
+    if not texts:
+        # One code for the whole request. With a single file — the normal
+        # case — it is exactly that file's reason. "no_text" almost always
+        # means a scanned PDF (an image of a page, no text layer).
+        code = reasons[0] if len(set(reasons)) == 1 else "no_text"
+        logger.warning("[profile/cv-upload] no usable text: code=%s errors=%s", code, errors)
+        _cv_error(422, code, "No readable text could be extracted. " + " | ".join(errors))
+
+    return texts, processed, errors
+
+
+async def _ingest_cv_full(
+    texts: list[str], processed: list[str], errors: list[str], user_id: str,
+) -> dict:
+    """Mode A: aggregate the CV via the LLM, persist it and update the Confidence Matrix."""
+    from backend.services.cv_aggregator_service import (
+        CvAggregationError, aggregate_cv_claims, claims_have_cv_content,
+    )
+    from backend.services.user_profile_store import load as user_load, save as user_save
+
+    # ── Mode A: Full CV ingestion pipeline ────────────────────────────────────
+
+    # Phase 2: Aggregate via LLM. Both failure modes stop here, BEFORE
+    # anything is persisted — writing an empty extraction would replace a
+    # user's existing CV data with nothing while reporting success.
+    try:
+        cv_claims = await aggregate_cv_claims(texts, user_id=user_id)
+    except CvAggregationError:
+        _cv_error(
+            503, "llm_unavailable",
+            "We couldn't read your CV right now. Please try again in a minute.",
+        )
+    if not claims_have_cv_content(cv_claims):
+        logger.warning(
+            "[profile/cv-upload] no CV content found: user=%s files=%s",
+            user_id, processed,
+        )
+        _cv_error(
+            422, "not_a_cv",
+            "This file doesn't look like a CV — we couldn't find any work "
+            "experience, skills or education in it.",
+        )
+
+    # Phase 3: Persist cv_claims to profile JSON + master_profiles table
+    profile = user_load(user_id)
+    profile["cv_claims"] = cv_claims
+    user_save(user_id, profile)
+
+    _now = datetime.now(timezone.utc).isoformat()
+    parsed_personal = cv_claims.get("personal") or {}
+    with Session(ENGINE) as _sess:
+        row, _created = profile_repository.get_or_create(_sess, user_id, now=_now)
+        mp = dict(row.master_profile or {})
+        mp["cv_data"] = cv_claims
+        mp["cv_imported_at"] = _now
+        # Top-level onboarding `personal` block — same fill-blanks-only rule
+        # as the metrics_doc merge below, and the same key names get_profile()
+        # reads (name/phone/linkedin, not full_name/linkedin_url).
+        existing_personal = mp.get("personal")
+        if not isinstance(existing_personal, dict):
+            existing_personal = {}
+        for src, dst in (
+            ("full_name", "name"), ("phone", "phone"), ("email", "email"),
+            ("linkedin_url", "linkedin"), ("location", "location"),
+        ):
+            value = str(parsed_personal.get(src, "") or "").strip()
+            if value and not str(existing_personal.get(dst, "") or "").strip():
+                existing_personal[dst] = value
+        if existing_personal:
+            mp["personal"] = existing_personal
+        row.master_profile = mp
+        row.updated_at = _now
+        profile_repository.save(_sess, row)
+        _sess.commit()
+
+    # metrics_doc["personal"] — the other place get_profile() looks for
+    # contact details. Non-fatal: a CV whose contact block failed to merge is
+    # still a successfully imported CV.
+    try:
+        merge_parsed_contact(parsed_personal, user_id)
+    except Exception as exc:
+        logger.warning("[cv-upload] contact merge failed (non-fatal): %s", exc)
+
+    # Phase 4: Ingest entities into the Confidence Matrix
+    parsed_entities = _cv_claims_to_parsed_entities(cv_claims)
+    svc = ProfileUpdateService(ENGINE)
+    entity_ids: list[str] = []
+    ingestion_error: Optional[str] = None
+
+    if parsed_entities:
+        try:
+            entity_ids = svc.ingest_cv_parse(user_id, parsed_entities)
+        except Exception as exc:
+            # Entity ingestion failure must NOT roll back the cv_claims persist —
+            # the profile data is still valuable.  Log and surface as a warning.
+            ingestion_error = str(exc)
+            logger.exception(
+                "[profile/cv-upload] ingest_cv_parse failed for user=%s",
+                user_id,
+            )
+
+    # Phase 5: Recompute overall trust score + its three-pillar breakdown.
+    # Compute both from the SAME familiarity call so any consumer of this
+    # endpoint receives the breakdown alongside the overall score — never an
+    # overall value with a missing score_breakdown (the Phase 33 bug).
+    familiarity = svc.compute_profile_familiarity(user_id)
+    overall_trust_score = familiarity["overall"]
+
+    logger.info(
+        "[profile/cv-upload] Mode A complete: user=%s  files=%s  "
+        "skills=%d  domains=%d  experiences=%d  "
+        "entities_ingested=%d  overall_score=%.1f",
+        user_id,
+        processed,
+        len(cv_claims.get("skills", [])),
+        len(cv_claims.get("domains", [])),
+        len(cv_claims.get("experiences", [])),
+        len(entity_ids),
+        overall_trust_score,
+    )
+
+    response: dict = {
+        "status":              "ok",
+        "mode":                "full_ingestion",
+        "processed":           processed,
+        "errors":              errors,
+        "cv_claims":           cv_claims,
+        "entities_ingested":   len(entity_ids),
+        "overall_trust_score": overall_trust_score,
+        "score_breakdown": {
+            "breadth": familiarity["breadth"],
+            "depth":   familiarity["depth"],
+            "context": familiarity["context"],
+        },
+    }
+    if ingestion_error:
+        response["ingestion_warning"] = ingestion_error
+
+    # A user with a parsed CV is ready for the matching pipeline, whichever
+    # screen they uploaded from. Before this, only the onboarding wizard's
+    # last step admitted them — a CV uploaded from the profile page left the
+    # user out of the background matcher indefinitely. Non-fatal: the CV is
+    # already saved, and the wizard path still marks completion itself.
+    try:
+        profile_repository.mark_onboarding_complete(user_id)
+    except Exception:
+        logger.exception("[profile/cv-upload] mark_onboarding_complete failed for user=%s", user_id)
+
+    return response
+
+
 @router.post("/cv-upload", dependencies=[Depends(llm_rate_limit)])
 async def upload_cv_files(
     files:     List[UploadFile]  = File(..., description="One or more CV files (PDF or DOCX)"),
@@ -519,50 +725,7 @@ async def upload_cv_files(
       3. Recompute the entity's confidence score.
       Returns the updated confidence score.
     """
-    from backend.services.cv_aggregator_service import extract_text, aggregate_cv_claims
-    from backend.services.user_profile_store import load as user_load, save as user_save
-
-    if not files:
-        raise HTTPException(status_code=422, detail="At least one file is required.")
-    if len(files) > _CV_MAX_FILES:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Too many files. Maximum is {_CV_MAX_FILES} per upload.",
-        )
-
-    # ── Phase 1: Extract text from all uploaded files ─────────────────────────
-    texts: list[str]     = []
-    processed: list[str] = []
-    errors: list[str]    = []
-
-    for upload in files:
-        fname = upload.filename or "upload"
-        ext   = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
-        if ext not in ("pdf", "docx"):
-            errors.append(f"{fname}: unsupported format (PDF or DOCX only)")
-            continue
-
-        content = await upload.read()
-        if len(content) > _CV_MAX_BYTES:
-            errors.append(f"{fname}: file too large (max 10 MB)")
-            continue
-        if not _content_matches_extension(content, ext):
-            errors.append(f"{fname}: file content does not match its .{ext} extension")
-            continue
-
-        text = extract_text(content, fname)
-        if not text.strip():
-            errors.append(f"{fname}: could not extract text")
-            continue
-
-        texts.append(text)
-        processed.append(fname)
-
-    if not texts:
-        raise HTTPException(
-            status_code=422,
-            detail="No readable text could be extracted. " + " | ".join(errors),
-        )
+    texts, processed, errors = await _extract_cv_texts(files)
 
     # ── Mode B: Targeted evidence re-upload for a specific entity ─────────────
     if entity_id:
@@ -639,107 +802,89 @@ async def upload_cv_files(
                 detail="Evidence upload failed. Please try again shortly.",
             ) from exc
 
-    # ── Mode A: Full CV ingestion pipeline ────────────────────────────────────
+    return await _ingest_cv_full(texts, processed, errors, user.user_id)
 
-    # Phase 2: Aggregate via LLM
-    cv_claims = await aggregate_cv_claims(texts, user_id=user.user_id)
 
-    # Phase 3: Persist cv_claims to profile JSON + master_profiles table
-    profile = user_load(user.user_id)
-    profile["cv_claims"] = cv_claims
-    user_save(user.user_id, profile)
+# ── POST /api/profile/cv-upload/start + GET /cv-upload/status/{task_id} ──────
+#
+# Full ingestion is one LLM call plus persistence — 20-60s normally, longer
+# when Gemini 503s and the call falls back to Anthropic. That is the same
+# window in which the Vercel gateway drops a proxied /api/* request (see the
+# /tailor/start comment in resumes.py: `experimental.proxyTimeout` is ignored
+# in production). The backend would finish and log "Mode A complete" while
+# the user saw a failed upload — and uploaded again.
+#
+# So the slow part is detached. Start validates and extracts text inside the
+# request (fast, and an unreadable file must come back as an immediate 422
+# the user can act on), then runs ingestion as a task the client polls.
+# In-memory for the same reasons as the tailor tasks: one instance, and the
+# result is persisted by ingestion itself, so a lost task loses no data.
 
-    _now = datetime.now(timezone.utc).isoformat()
-    parsed_personal = cv_claims.get("personal") or {}
-    with Session(ENGINE) as _sess:
-        row, _created = profile_repository.get_or_create(_sess, user.user_id, now=_now)
-        mp = dict(row.master_profile or {})
-        mp["cv_data"] = cv_claims
-        mp["cv_imported_at"] = _now
-        # Top-level onboarding `personal` block — same fill-blanks-only rule
-        # as the metrics_doc merge below, and the same key names get_profile()
-        # reads (name/phone/linkedin, not full_name/linkedin_url).
-        existing_personal = mp.get("personal")
-        if not isinstance(existing_personal, dict):
-            existing_personal = {}
-        for src, dst in (
-            ("full_name", "name"), ("phone", "phone"), ("email", "email"),
-            ("linkedin_url", "linkedin"), ("location", "location"),
-        ):
-            value = str(parsed_personal.get(src, "") or "").strip()
-            if value and not str(existing_personal.get(dst, "") or "").strip():
-                existing_personal[dst] = value
-        if existing_personal:
-            mp["personal"] = existing_personal
-        row.master_profile = mp
-        row.updated_at = _now
-        profile_repository.save(_sess, row)
-        _sess.commit()
+_CV_TASK_TTL_S = 1800
+_CV_TASKS: dict[str, dict] = {}
 
-    # metrics_doc["personal"] — the other place get_profile() looks for
-    # contact details. Non-fatal: a CV whose contact block failed to merge is
-    # still a successfully imported CV.
-    try:
-        merge_parsed_contact(parsed_personal, user.user_id)
-    except Exception as exc:
-        logger.warning("[cv-upload] contact merge failed (non-fatal): %s", exc)
 
-    # Phase 4: Ingest entities into the Confidence Matrix
-    parsed_entities = _cv_claims_to_parsed_entities(cv_claims)
-    svc = ProfileUpdateService(ENGINE)
-    entity_ids: list[str] = []
-    ingestion_error: Optional[str] = None
+def _reap_cv_tasks() -> None:
+    now = time.time()
+    for tid in [t for t, v in _CV_TASKS.items() if now - v["updated_at"] > _CV_TASK_TTL_S]:
+        _CV_TASKS.pop(tid, None)
 
-    if parsed_entities:
-        try:
-            entity_ids = svc.ingest_cv_parse(user.user_id, parsed_entities)
-        except Exception as exc:
-            # Entity ingestion failure must NOT roll back the cv_claims persist —
-            # the profile data is still valuable.  Log and surface as a warning.
-            ingestion_error = str(exc)
-            logger.exception(
-                "[profile/cv-upload] ingest_cv_parse failed for user=%s",
-                user.user_id,
-            )
 
-    # Phase 5: Recompute overall trust score + its three-pillar breakdown.
-    # Compute both from the SAME familiarity call so any consumer of this
-    # endpoint receives the breakdown alongside the overall score — never an
-    # overall value with a missing score_breakdown (the Phase 33 bug).
-    familiarity = svc.compute_profile_familiarity(user.user_id)
-    overall_trust_score = familiarity["overall"]
+@router.post("/cv-upload/start", dependencies=[Depends(llm_rate_limit)])
+async def start_cv_upload(
+    files: List[UploadFile] = File(..., description="One or more CV files (PDF or DOCX)"),
+    user:  CurrentUser      = Depends(get_current_user),
+):
+    """Validate + extract now; run full ingestion in the background. Returns a task id."""
+    texts, processed, errors = await _extract_cv_texts(files)
 
-    logger.info(
-        "[profile/cv-upload] Mode A complete: user=%s  files=%s  "
-        "skills=%d  domains=%d  experiences=%d  "
-        "entities_ingested=%d  overall_score=%.1f",
-        user.user_id,
-        processed,
-        len(cv_claims.get("skills", [])),
-        len(cv_claims.get("domains", [])),
-        len(cv_claims.get("experiences", [])),
-        len(entity_ids),
-        overall_trust_score,
-    )
-
-    response: dict = {
-        "status":              "ok",
-        "mode":                "full_ingestion",
-        "processed":           processed,
-        "errors":              errors,
-        "cv_claims":           cv_claims,
-        "entities_ingested":   len(entity_ids),
-        "overall_trust_score": overall_trust_score,
-        "score_breakdown": {
-            "breadth": familiarity["breadth"],
-            "depth":   familiarity["depth"],
-            "context": familiarity["context"],
-        },
+    _reap_cv_tasks()
+    task_id = str(uuid.uuid4())
+    _CV_TASKS[task_id] = {
+        "status":     "pending",
+        "user_id":    user.user_id,
+        "result":     None,
+        "detail":     None,
+        "created_at": time.time(),
+        "updated_at": time.time(),
     }
-    if ingestion_error:
-        response["ingestion_warning"] = ingestion_error
 
-    return response
+    async def _run() -> None:
+        try:
+            result = await _ingest_cv_full(texts, processed, errors, user.user_id)
+            _CV_TASKS[task_id].update(status="done", result=result)
+        except HTTPException as exc:
+            _CV_TASKS[task_id].update(
+                status="error", detail=exc.detail, status_code=exc.status_code,
+            )
+        except Exception:
+            logger.exception("[profile/cv-upload/start] task %s failed", task_id)
+            _CV_TASKS[task_id].update(
+                status="error",
+                detail={"code": "failed", "message": "CV processing failed. Please try again."},
+                status_code=500,
+            )
+        finally:
+            _CV_TASKS[task_id]["updated_at"] = time.time()
+            _CV_TASKS[task_id].pop("_task", None)
+
+    # Strong reference — asyncio holds only a weak one (see resumes.py).
+    _CV_TASKS[task_id]["_task"] = asyncio.create_task(_run())
+    logger.info("[profile/cv-upload/start] task=%s user=%s files=%s", task_id, user.user_id, processed)
+    return {"task_id": task_id, "status": "pending"}
+
+
+@router.get("/cv-upload/status/{task_id}")
+async def get_cv_upload_status(task_id: str, user: CurrentUser = Depends(get_current_user)):
+    """Poll an ingestion task. Readable only by the user who started it."""
+    task = _CV_TASKS.get(task_id)
+    if task is None or task["user_id"] != user.user_id:
+        raise HTTPException(status_code=404, detail="Unknown or expired task.")
+    if task["status"] == "done":
+        return {"status": "done", "result": task["result"]}
+    if task["status"] == "error":
+        return {"status": "error", "detail": task["detail"], "status_code": task.get("status_code", 500)}
+    return {"status": "pending", "elapsed_s": round(time.time() - task["created_at"], 1)}
 
 
 # ── GET /api/profile/{user_id}/trust-score ────────────────────────────────────

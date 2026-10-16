@@ -12,6 +12,7 @@ import { TOKENS }           from '@/lib/tokens'
 import {
   saveRolePreferences, markOnboardingComplete,
   uploadCvFiles,
+  cvUploadErrorMessage,
   type RoleSeniorityItem,
   type SeniorityLevel,
 } from '@/lib/api'
@@ -338,7 +339,8 @@ function OnboardingContent() {
       await uploadCvFiles(files)   // all files go up together under the `files` key
       await completeOnboarding()
     } catch (err) {
-      setCvError(err instanceof Error ? err.message : O.intake.upload_failed)
+      console.error('[onboarding] CV upload failed:', err)
+      setCvError(cvUploadErrorMessage(err, t.cv_upload_errors))
       setCvBusy(false)
     }
   }

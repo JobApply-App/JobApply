@@ -2,7 +2,8 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { TOKENS } from '@/lib/tokens'
-import { uploadCvFiles, type CvClaimsResult } from '@/lib/api'
+import { cvUploadErrorMessage, uploadCvFiles, type CvClaimsResult } from '@/lib/api'
+import { useI18n } from '@/contexts/I18nContext'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -145,6 +146,7 @@ interface CvUploadPanelProps {
 }
 
 export function CvUploadPanel({ onUploaded }: CvUploadPanelProps) {
+  const { t } = useI18n()
   const [files,      setFiles]      = useState<File[]>([])
   const [uploading,  setUploading]  = useState(false)
   const [result,     setResult]     = useState<CvClaimsResult | null>(null)
@@ -207,11 +209,12 @@ export function CvUploadPanel({ onUploaded }: CvUploadPanelProps) {
       if (res.errors?.length) setErrors(res.errors)
       onUploaded?.(res.cv_claims)
     } catch (err: unknown) {
-      setErrors([(err as Error).message ?? 'Upload failed. Please try again.'])
+      console.error('[CvUploadPanel] CV upload failed:', err)
+      setErrors([cvUploadErrorMessage(err, t.cv_upload_errors)])
     } finally {
       setUploading(false)
     }
-  }, [files, uploading, onUploaded])
+  }, [files, uploading, onUploaded, t.cv_upload_errors])
 
   // ── Render ───────────────────────────────────────────────────────────────────
 

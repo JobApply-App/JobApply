@@ -842,4 +842,16 @@ export const en = {
     auto_refreshes: 'Auto-refreshes every hour · 3 new matches since yesterday',
     coverage_label: 'Senior PM · Fiverr',
   },
+  cv_upload_errors: {
+    no_text:            "We couldn't read any text in this file. It looks like a scanned image — please upload a PDF exported from Word or Google Docs, or a DOCX file.",
+    unsupported_format: 'Only PDF or DOCX files are supported. If your CV is in another format (e.g. .doc or an image), save it as PDF or DOCX and try again.',
+    too_large:          'The file is too large (max 10 MB).',
+    too_many_files:     'Too many files — upload up to 10 at a time.',
+    no_files:           'Please choose a file to upload.',
+    not_a_cv:           "This file doesn't look like a CV — we couldn't find work experience, skills or education in it. Please check you picked the right file.",
+    llm_unavailable:    "We couldn't process your CV right now. Your file is fine — please try again in a minute.",
+    timeout:            'Processing is taking longer than usual. Please refresh the page in a minute — your CV may already be saved.',
+    network:            "We couldn't reach the server. Check your connection and try again.",
+    failed:             'Upload failed. Please try again.',
+  },
 } satisfies Dict
