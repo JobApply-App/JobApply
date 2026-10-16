@@ -248,7 +248,10 @@ _SENIORITY_LEVELS: frozenset = frozenset({
 
 class RoleSeniorityItem(BaseModel):
     role:      str = Field(..., max_length=80)
-    seniority: str = Field(..., max_length=40)
+    # Optional: the onboarding step used to keep "Continue" disabled until
+    # every role had a level, so almost every user pressed Skip and saved no
+    # roles at all. A role without a level is still a role worth matching on.
+    seniority: str = Field("", max_length=40)
 
 
 class RolePreferencesPayload(BaseModel):
@@ -261,7 +264,13 @@ async def get_role_preferences(user: CurrentUser = Depends(get_current_user)) ->
     """Return the calling user's saved role/seniority preferences."""
     from backend.services.user_profile_store import load as user_load
 
-    prefs = (user_load(user.user_id).get("role_preferences") or {})
+    # Postgres first. The per-user JSON file lives on the container's disk,
+    # which Render wipes on every deploy — reading only that made saved roles
+    # vanish after each release. The file stays as a fallback for anything
+    # written before the database copy existed.
+    prefs = (profile_repository.get_profile_json(user.user_id).get("role_preferences") or {})
+    if not prefs.get("roles") and not prefs.get("target_titles"):
+        prefs = (user_load(user.user_id).get("role_preferences") or {})
     return {
         "roles":         prefs.get("roles", []),
         "target_titles": prefs.get("target_titles", []),
@@ -283,7 +292,7 @@ async def save_role_preferences(
         seniority = sanitize_text(item.seniority.strip().lower())[:40]
         if not role:
             continue
-        if seniority not in _SENIORITY_LEVELS:
+        if seniority and seniority not in _SENIORITY_LEVELS:
             raise HTTPException(
                 status_code=422,
                 detail=f"seniority for {role!r} must be one of {sorted(_SENIORITY_LEVELS)}",
@@ -312,6 +321,11 @@ async def save_role_preferences(
         _sess.commit()
 
     logger.info("[profile/preferences] user=%s roles=%d", user.user_id, len(roles))
+
+    # New roles mean a new title filter — apply it now rather than at the
+    # next loop tick (no-op for a user not yet in the pipeline).
+    from backend.services.all_jobs_match_service import schedule_refresh_for_user
+    schedule_refresh_for_user(user.user_id)
     return {"status": "ok", "roles": roles}
 
 
@@ -692,6 +706,11 @@ async def _ingest_cv_full(
         profile_repository.mark_onboarding_complete(user_id)
     except Exception:
         logger.exception("[profile/cv-upload] mark_onboarding_complete failed for user=%s", user_id)
+
+    # A new CV can change the user's title filter (when they picked no roles,
+    # it is derived from the CV) — match against it now.
+    from backend.services.all_jobs_match_service import schedule_refresh_for_user
+    schedule_refresh_for_user(user_id)
 
     return response
 

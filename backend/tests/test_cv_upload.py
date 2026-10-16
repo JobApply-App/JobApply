@@ -115,6 +115,11 @@ def uid(db_available, monkeypatch):
     """A user who already has a good CV on file. Profile JSON kept in memory."""
     u = str(uuid.uuid4())
     store: dict = {}
+    # The post-upload matching refresh is covered in test_user_title_terms.py;
+    # here it would fire a real LLM call and a catalog scan in the background.
+    monkeypatch.setattr(
+        "backend.services.all_jobs_match_service.schedule_refresh_for_user", lambda user_id: None
+    )
     monkeypatch.setattr(
         "backend.services.user_profile_store.load", lambda user_id: dict(store.get(user_id, {}))
     )

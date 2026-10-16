@@ -599,7 +599,7 @@ export type SeniorityLevel = 'junior' | 'entry' | 'mid' | 'senior' | 'lead' | 'd
 
 export interface RoleSeniorityItem {
   role:      string
-  seniority: SeniorityLevel
+  seniority: SeniorityLevel | ''   // '' = the user didn't pick a level (optional)
 }
 
 export interface RolePreferences {

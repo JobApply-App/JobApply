@@ -147,3 +147,56 @@ def reset_pattern() -> None:
     """Force pattern recompile on next call.  Use in tests only."""
     global _PATTERN
     _PATTERN = None
+
+
+# ── Per-user gate ─────────────────────────────────────────────────────────────
+# The pattern above is global: one list of roles (config.TARGET_SEARCH_QUERIES)
+# applied to every user. build_title_matcher() compiles the same kind of
+# matcher from one user's own search terms (services/user_title_terms.py), so
+# a marketing manager's feed is filtered by marketing titles rather than the
+# founder's Product/CS list.
+
+_MATCHER_CACHE: dict[tuple, "re.Pattern"] = {}  # type: ignore[type-arg]
+
+# Israeli postings write gendered titles with a slash suffix: "אנליסט/ית",
+# "מנהל/ת". Dropping the suffix lets "אנליסט פיננסי" match "אנליסט/ית פיננסי".
+_HE_GENDER_SUFFIX = re.compile(r"(?<=[\u0590-\u05FF])/(?:ית|ת|ה|ים|ות)(?![\u0590-\u05FF])")
+
+
+def _normalise_for_user(text: str) -> str:
+    return _HE_GENDER_SUFFIX.sub("", _normalise(text))
+
+
+def _term_pattern(term: str) -> str:
+    """
+    Short tokens ("PM", "CSM", "FP&A") need word boundaries or they match
+    inside unrelated words ("npm", "RPM"); longer phrases match as substrings
+    like the global gate. Boundaries are written as lookarounds rather than
+    \\b because a term may start or end with a non-word char ("FP&A", "C++").
+    """
+    norm = _normalise_for_user(term)
+    escaped = re.escape(norm)
+    if len(norm) <= 4:
+        return rf"(?<!\w){escaped}(?!\w)"
+    return escaped
+
+
+def build_title_matcher(terms: Optional[list[str]]):
+    """
+    Return a callable title -> bool for *terms*, or the global gate when
+    *terms* is empty/None (a user with no stated or CV titles).
+    """
+    clean = tuple(sorted({t.strip() for t in (terms or []) if t and t.strip()}, key=len, reverse=True))
+    if not clean:
+        return is_title_relevant
+    pattern = _MATCHER_CACHE.get(clean)
+    if pattern is None:
+        pattern = re.compile("|".join(_term_pattern(t) for t in clean), re.IGNORECASE)
+        if len(_MATCHER_CACHE) > 500:
+            _MATCHER_CACHE.clear()
+        _MATCHER_CACHE[clean] = pattern
+
+    def _match(title: str) -> bool:
+        return bool(title) and bool(pattern.search(_normalise_for_user(title)))
+
+    return _match

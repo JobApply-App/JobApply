@@ -172,6 +172,7 @@ class ScraperManager:
         jobs: list[JobMatch],
         limit: Optional[int] = None,
         user_id: Optional[str] = None,
+        matcher=None,
     ) -> int:
         """
         Upsert jobs with source priority, up to *limit* new inserts.
@@ -191,12 +192,15 @@ class ScraperManager:
         """
         from backend.scrapers.relevancy import is_title_relevant
 
+        # matcher: a per-user title gate (relevancy.build_title_matcher). The
+        # global gate stays the default for every caller that doesn't pass one.
+        relevant = matcher or is_title_relevant
         saved = 0
         for job in jobs:
             if limit is not None and saved >= limit:
                 break
             # Safety-net: gate out irrelevant titles even from company-site scrapers
-            if not is_title_relevant(job.title):
+            if not relevant(job.title):
                 logger.debug(
                     "[ScraperManager] SKIP (irrelevant): '%s' @ %s",
                     job.title, job.company,

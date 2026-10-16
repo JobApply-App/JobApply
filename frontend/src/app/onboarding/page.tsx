@@ -247,7 +247,7 @@ function RolePicker({ selected, setSelected }: {
                 })}
               </div>
               {item.seniority === null && (
-                <p className="mt-1.5 text-[11px] text-amber-600">{P.pick_level}</p>
+                <p className="mt-1.5 text-[11px] text-slate-400">{P.pick_level}</p>
               )}
             </li>
           ))}
@@ -282,16 +282,19 @@ function OnboardingContent() {
   const [cvFileCount, setCvFileCount] = useState(0)
   const [cvError,     setCvError]     = useState('')
 
-  const allLeveled = selected.length > 0 && selected.every(r => r.seniority !== null)
+  // One role is enough to continue; the level is optional. Requiring a level
+  // for every role kept this button disabled for most users, who then pressed
+  // Skip — so in production no user had saved a single target role, and the
+  // matcher fell back to a global list of someone else's roles.
+  const hasRoles = selected.length > 0
+  const toItems = (): RoleSeniorityItem[] =>
+    selected.map(r => ({ role: r.role, seniority: r.seniority ?? '' }))
 
   const handleSavePreferences = async () => {
     setSaving(true)
     setSaveError('')
     try {
-      const roles: RoleSeniorityItem[] = selected
-        .filter((r): r is PendingRole & { seniority: SeniorityLevel } => r.seniority !== null)
-        .map(r => ({ role: r.role, seniority: r.seniority }))
-      await saveRolePreferences({ roles })
+      await saveRolePreferences({ roles: toItems() })
       setPhase('intake')
     } catch {
       setSaveError(O.preferences.save_failed)
@@ -313,9 +316,7 @@ function OnboardingContent() {
     setOnboarding({
       fullName:    displayName,
       careerStage: typeof meta?.career_stage === 'string' ? meta.career_stage : '',
-      roles: selected
-        .filter((r): r is PendingRole & { seniority: SeniorityLevel } => r.seniority !== null)
-        .map(r => ({ role: r.role, seniority: r.seniority })),
+      roles: toItems(),
     })
     try { await updateUserMeta({ profile_completed: true }) } catch { /* backfilled by sync-user later */ }
     // The flag above drives the UI; this one is what the matching pipeline
@@ -428,7 +429,7 @@ function OnboardingContent() {
           <div className="flex items-center gap-3 mt-8">
             <button
               onClick={handleSavePreferences}
-              disabled={saving || !allLeveled}
+              disabled={saving || !hasRoles}
               className="flex-1 h-11 rounded-xl text-[14px] font-semibold text-white transition disabled:opacity-40"
               style={{ background: TOKENS.color.primary }}
             >

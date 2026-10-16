@@ -58,11 +58,11 @@ _JOB_ID_PREFIX = "allj"
 # through the rest over subsequent cycles rather than in one burst.
 DEFAULT_CYCLE_LIMIT = 20
 
-# How many candidate all_jobs rows to inspect per user per cycle, before
-# per-user existing-match filtering narrows it down to DEFAULT_CYCLE_LIMIT
-# actually-new ones. Wider than the save limit since most rows in a mature
-# catalog will already be matched for an established user.
-_CANDIDATE_POOL_SIZE = 300
+# How many all_jobs titles to scan per user per cycle (a light id/title/url
+# query). Covers the whole current catalog (~8.5k rows) with headroom; the
+# bound only keeps a runaway catalog from turning one cycle into a full-table
+# load per user.
+_CANDIDATE_POOL_SIZE = 20_000
 
 
 def _location_to_string(location: Optional[dict]) -> str:
@@ -138,24 +138,56 @@ def _existing_job_ids(user_id: str) -> set[str]:
     return {r[0] for r in rows}
 
 
-def _candidate_all_jobs_rows(limit: int):
-    """Most-recently-seen all_jobs rows, capped at *limit*. Lives on the
-    dedicated LinkedIn/all_jobs Postgres engine (backend/core/postgres.py),
-    not the primary app engine — see all_jobs_repository.py's module
-    docstring for why these are separate connections."""
+def _candidate_all_jobs_rows(matcher, existing: set[str], user_id: str, limit: int):
+    """
+    Up to *limit* all_jobs rows whose title passes *matcher* and that the user
+    doesn't already have, most-recently-seen first. Lives on the dedicated
+    LinkedIn/all_jobs Postgres engine (backend/core/postgres.py), not the
+    primary app engine — see all_jobs_repository.py's module docstring for
+    why these are separate connections.
+
+    Scans titles across the whole catalog (a light id/title/url query)
+    rather than the 300 most recent rows it used to inspect. With a per-user
+    title filter a niche role can be a handful of rows in 8,000+, and a
+    fixed recency window would almost never contain one — the cycle would
+    report zero new matches for a user who has plenty waiting.
+    """
     from backend.core.postgres import get_pg_session
     from backend.models.all_jobs import AllJobRow
+    from backend.scrapers.base_scraper import make_job_id, make_tenant_job_id
 
     with get_pg_session() as session:
-        return (
-            session.query(AllJobRow)
+        light = (
+            session.query(AllJobRow.id, AllJobRow.job_title, AllJobRow.job_url)
             .order_by(AllJobRow.last_seen_at.desc())
-            .limit(limit)
+            .limit(_CANDIDATE_POOL_SIZE)
             .all()
         )
+        chosen = []
+        for row_id, title, url in light:
+            apply_url = (url or "").strip()
+            if not apply_url or not matcher((title or "").strip()):
+                continue
+            # Predict the salted id _save_new will produce (it re-salts
+            # job_id internally when user_id is passed) so this check and
+            # what actually gets saved agree — without pre-salting the
+            # JobMatch we hand to _save_new ourselves, which would
+            # double-salt it.
+            if make_tenant_job_id(make_job_id(apply_url, prefix=_JOB_ID_PREFIX), user_id) in existing:
+                continue
+            chosen.append(row_id)
+            if len(chosen) >= limit:
+                break
+        if not chosen:
+            return []
+        rows = session.query(AllJobRow).filter(AllJobRow.id.in_(chosen)).all()
+        order = {rid: i for i, rid in enumerate(chosen)}
+        return sorted(rows, key=lambda r: order[r.id])
 
 
-def run_all_jobs_matching_cycle(user_id: str, *, limit: int = DEFAULT_CYCLE_LIMIT) -> int:
+def run_all_jobs_matching_cycle(
+    user_id: str, *, limit: int = DEFAULT_CYCLE_LIMIT, terms: Optional[list[str]] = None,
+) -> int:
     """
     For one user: find all_jobs rows they don't already have a match for,
     map up to *limit* of them into zero-score JobMatch objects, and save
@@ -166,35 +198,31 @@ def run_all_jobs_matching_cycle(user_id: str, *, limit: int = DEFAULT_CYCLE_LIMI
     Returns the number of new user_job_matches rows actually inserted
     (mirrors ScraperManager._save_new's own return contract).
     """
-    from backend.scrapers.base_scraper import make_job_id, make_tenant_job_id
-    from backend.scrapers.relevancy import is_title_relevant
+    from backend.scrapers.relevancy import build_title_matcher
     from backend.scrapers.scraper_manager import ScraperManager
 
+    # This user's own title terms (services/user_title_terms.py), or the
+    # global list when their profile names no titles. Relevancy is checked
+    # here, across the whole catalog, not just inside _save_new — so a pool
+    # front-loaded with irrelevant rows can't exhaust *limit* before a
+    # single real job is found.
+    matcher = build_title_matcher(terms)
     existing = _existing_job_ids(user_id)
-    candidates = _candidate_all_jobs_rows(_CANDIDATE_POOL_SIZE)
+    candidates = _candidate_all_jobs_rows(matcher, existing, user_id, limit)
 
-    # Relevancy is checked here too (not just inside _save_new) so that a
-    # candidate pool front-loaded with irrelevant rows (ads, unrelated
-    # postings) doesn't exhaust *limit* before a single real job is found —
-    # _save_new alone would silently save nothing in that case, since it
-    # stops filtering only the slice it's handed, not the whole pool.
+    from backend.scrapers.base_scraper import make_job_id, make_tenant_job_id
+
     to_save = []
     for row in candidates:
         if len(to_save) >= limit:
             break
-
+        # Re-checked here even though the candidate query already excludes
+        # existing matches: re-saving a zero-score row for a job the user
+        # already has would reset its real score (module docstring), so this
+        # guard must not depend on how candidates were selected.
         apply_url = (row.job_url or "").strip()
-        title = (row.job_title or "").strip()
-        if not apply_url or not is_title_relevant(title):
+        if not apply_url or make_tenant_job_id(make_job_id(apply_url, prefix=_JOB_ID_PREFIX), user_id) in existing:
             continue
-        # Predict the salted id _save_new will produce (it re-salts
-        # job_id internally when user_id is passed) so this check and what
-        # actually gets saved agree — without pre-salting the JobMatch we
-        # hand to _save_new ourselves, which would double-salt it.
-        salted_id = make_tenant_job_id(make_job_id(apply_url, prefix=_JOB_ID_PREFIX), user_id)
-        if salted_id in existing:
-            continue
-
         job = _all_jobs_row_to_job_match(row, user_id)
         if job is not None:
             to_save.append(job)
@@ -202,9 +230,46 @@ def run_all_jobs_matching_cycle(user_id: str, *, limit: int = DEFAULT_CYCLE_LIMI
     if not to_save:
         return 0
 
-    saved = ScraperManager._save_new(to_save, limit=limit, user_id=user_id)
+    saved = ScraperManager._save_new(to_save, limit=limit, user_id=user_id, matcher=matcher)
     logger.info(
         "[all_jobs_match] user=%s  candidates=%d  new_matches=%d",
         user_id, len(candidates), saved,
     )
     return saved
+
+
+# ── Immediate refresh after a profile change ─────────────────────────────────
+
+_REFRESH_TASKS: set = set()
+
+
+def schedule_refresh_for_user(user_id: str) -> None:
+    """
+    Fire-and-forget: refresh this user's title terms and run one matching
+    cycle now, instead of leaving them on the old filter until the next
+    30-minute loop tick. Called after a CV upload or a roles change.
+
+    Only for users already in the pipeline (onboarding complete) — the same
+    gate the background loop applies, so this never feeds anyone the loop
+    itself wouldn't. Must be called from a running event loop.
+    """
+    import asyncio
+
+    async def _run() -> None:
+        from backend.repositories import profile_repository
+        from backend.services.user_title_terms import refresh_user_terms
+
+        try:
+            handle = profile_repository.get(user_id)
+            if handle is None or handle.onboarding_status != "complete":
+                return
+            terms = await refresh_user_terms(user_id)
+            saved = await asyncio.to_thread(run_all_jobs_matching_cycle, user_id, terms=terms)
+            logger.info("[all_jobs_match] immediate refresh user=%s new_matches=%d", user_id, saved)
+        except Exception:
+            logger.exception("[all_jobs_match] immediate refresh failed for user=%s", user_id)
+
+    task = asyncio.create_task(_run())
+    # Strong reference until done — asyncio keeps only a weak one.
+    _REFRESH_TASKS.add(task)
+    task.add_done_callback(_REFRESH_TASKS.discard)
