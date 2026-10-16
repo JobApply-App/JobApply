@@ -44,6 +44,7 @@ import logging
 import re
 from datetime import date
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -440,8 +441,14 @@ async def aggregate_cv_claims(texts: list[str], user_id: str) -> dict:
     """
     Pass combined CV text through the LLM aggregator.
 
-    Returns the structured cv_claims dict, or a minimal stub if the LLM call
-    fails so callers always receive a valid object.
+    Returns the structured cv_claims dict. Empty input yields an empty stub;
+    an LLM failure or unparseable output raises CvAggregationError.
+
+    It used to return the same empty stub for a failure, which made "the LLM
+    was down" indistinguishable from "this document has no CV content in it".
+    Callers persisted that stub as the user's cv_data — overwriting a good
+    earlier CV with nothing and reporting 200 — so a user whose upload had
+    failed was told it succeeded.
     """
     if not texts:
         return _empty_claims()
@@ -469,6 +476,8 @@ async def aggregate_cv_claims(texts: list[str], user_id: str) -> dict:
         )
         raw    = result_llm.text.strip()
         claims = _parse_json(raw)
+        if claims is None:
+            raise CvAggregationError("LLM returned output that is not valid JSON")
         # Apply the Date-Anchor Overrides Text rule as a deterministic
         # post-processing pass — catches any inflation the LLM missed.
         claims = _cross_validate_experience_claims(claims)
@@ -477,12 +486,30 @@ async def aggregate_cv_claims(texts: list[str], user_id: str) -> dict:
         # it (and guarantees the key exists at all for older/partial output).
         claims["personal"] = _normalize_personal(claims.get("personal"))
         return claims
+    except CvAggregationError:
+        logger.error("[cv_aggregator] unparseable LLM output for user=%s", user_id)
+        raise
     except Exception as exc:
         logger.error("[cv_aggregator] LLM aggregation failed for user=%s: %s", user_id, exc)
-        return _empty_claims()
+        raise CvAggregationError(str(exc)) from exc
 
 
-def _parse_json(raw: str) -> dict:
+class CvAggregationError(Exception):
+    """The LLM could not turn the CV text into claims (call failed or bad output)."""
+
+
+def claims_have_cv_content(claims: dict) -> bool:
+    """
+    True when the extraction found anything a CV is made of.
+
+    A document with no experiences, no skills and no education is not a CV —
+    in production this was a Bar Association regulations PDF. Persisting its
+    empty claims would replace the user's real CV data with nothing.
+    """
+    return any(claims.get(k) for k in ("experiences", "skills", "education"))
+
+
+def _parse_json(raw: str) -> Optional[dict]:
     text = re.sub(r"```(?:json)?", "", raw).strip()
     try:
         return json.loads(text)
@@ -494,7 +521,7 @@ def _parse_json(raw: str) -> dict:
                 return json.loads(text[start:end + 1])
             except json.JSONDecodeError:
                 pass
-    return _empty_claims()
+    return None
 
 
 def _empty_personal() -> dict:

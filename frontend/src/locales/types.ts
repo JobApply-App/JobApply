@@ -766,4 +766,18 @@ export interface Dict {
     auto_refreshes:  string
     coverage_label:  string   // role · company label inside keyword panel
   }
+  // Why a CV upload failed, keyed by the backend's stable error code
+  // (backend/api/routes/profile.py _cv_error). Shared by every upload surface.
+  cv_upload_errors: {
+    no_text:            string   // scanned / image-only PDF
+    unsupported_format: string
+    too_large:          string
+    too_many_files:     string
+    no_files:           string
+    not_a_cv:           string
+    llm_unavailable:    string
+    timeout:            string
+    network:            string
+    failed:             string
+  }
 }

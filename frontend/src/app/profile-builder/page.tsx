@@ -7,7 +7,7 @@ import { OnboardingHeader } from '@/components/OnboardingHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOnboarding } from '@/contexts/OnboardingContext'
 import { resolveDisplayName } from '@/lib/nameUtils'
-import { fetchRolePreferences, uploadCvFiles } from '@/lib/api'
+import { cvUploadErrorMessage, fetchRolePreferences, uploadCvFiles } from '@/lib/api'
 import { armArielWelcome } from '@/lib/onboardingFlags'
 import { TOKENS } from '@/lib/tokens'
 
@@ -186,10 +186,11 @@ function ProfileBuilderContent() {
       armArielWelcome()
       setTimeout(() => router.push('/?tab=overview'), 1400)
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : B.upload_failed)
+      console.error('[profile-builder] CV upload failed:', err)
+      setErrorMsg(cvUploadErrorMessage(err, t.cv_upload_errors))
       setState('error')
     }
-  }, [user, updateUserMeta, setOnboarding, router, B.upload_failed])
+  }, [user, updateUserMeta, setOnboarding, router, t.cv_upload_errors])
 
   return (
     <div className="flex flex-col items-center justify-center flex-1 px-4 py-12">

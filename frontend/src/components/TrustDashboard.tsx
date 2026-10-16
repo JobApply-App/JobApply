@@ -33,7 +33,7 @@ import { useI18n } from '@/contexts/I18nContext'
 import Link from 'next/link'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
-import { ensureFreshToken, getAuthHeaders, setAuthToken } from '@/lib/api'
+import { cvUploadErrorFromDetail, cvUploadErrorMessage, ensureFreshToken, getAuthHeaders, setAuthToken, uploadCvFiles } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { useChat } from '@/contexts/ChatContext'
 import { SparkIcon } from './icons'
@@ -797,7 +797,8 @@ interface ManualReviewModalProps {
 }
 
 function ManualReviewModal({ entity, onClose, onDone }: ManualReviewModalProps) {
-  const T = useI18n().t.trust
+  const { t } = useI18n()
+  const T = t.trust
   const [audit,      setAudit]      = useState<AuditResponse | null>(null)
   const [loadingAudit, setLoadingAudit] = useState(true)
   const [auditError, setAuditError] = useState<string | null>(null)
@@ -825,7 +826,10 @@ function ManualReviewModal({ entity, onClose, onDone }: ManualReviewModalProps) 
     setUploadError(null)
     try {
       const form = new FormData()
-      form.append('file',     file)
+      // `files`, not `file`: the endpoint's parameter is `files: List[UploadFile]`.
+      // Under the old key FastAPI rejected every evidence upload with a 422
+      // before the handler ran, and the modal only ever said "HTTP 422".
+      form.append('files',     file)
       form.append('entity_id', entity.entity_id)
       await ensureFreshToken()
       const res = await fetch('/api/profile/cv-upload', {
@@ -833,11 +837,15 @@ function ManualReviewModal({ entity, onClose, onDone }: ManualReviewModalProps) 
         headers: getAuthHeaders(),
         body:    form,
       })
-      if (!res.ok) throw new Error(`Upload failed (HTTP ${res.status})`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw cvUploadErrorFromDetail((body as { detail?: unknown }).detail, res.status)
+      }
       setUploadDone(true)
       setTimeout(() => { onDone(); onClose() }, 1500)
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed')
+      console.error('[TrustDashboard] evidence upload failed:', err)
+      setUploadError(cvUploadErrorMessage(err, t.cv_upload_errors))
     } finally {
       setUploading(false)
     }
@@ -1610,7 +1618,8 @@ interface UploadZoneProps {
 }
 
 function UploadZone({ userId, onUploaded }: UploadZoneProps) {
-  const T = useI18n().t.trust
+  const { t } = useI18n()
+  const T = t.trust
   const [isDragging,  setIsDragging]  = useState(false)
   const [uploading,   setUploading]   = useState(false)
   const [uploadDone,  setUploadDone]  = useState(false)
@@ -1623,31 +1632,17 @@ function UploadZone({ userId, onUploaded }: UploadZoneProps) {
 
   async function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return
-    const allowed = Array.from(fileList).filter(
-      f => f.name.endsWith('.pdf') || f.name.endsWith('.docx')
-    )
+    // Case-insensitive: "CV.PDF" is a perfectly good CV and was being refused.
+    const allowed = Array.from(fileList).filter(f => /\.(pdf|docx)$/i.test(f.name))
     if (allowed.length === 0) {
-      setUploadError('Only PDF or DOCX files are supported.')
+      setUploadError(t.cv_upload_errors.unsupported_format)
       return
     }
 
     setUploading(true)
     setUploadError(null)
     try {
-      const form = new FormData()
-      allowed.forEach(f => form.append('files', f))
-
-      await ensureFreshToken()
-      const res = await fetch('/api/profile/cv-upload', {
-        method:  'POST',
-        headers: getAuthHeaders(),
-        body:    form,
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error((body as { detail?: string }).detail ?? `HTTP ${res.status}`)
-      }
-      const data = await res.json()
+      const data = await uploadCvFiles(allowed)
       setStats({
         entities_ingested:   data.entities_ingested  ?? 0,
         overall_trust_score: data.overall_trust_score ?? 0,
@@ -1656,7 +1651,8 @@ function UploadZone({ userId, onUploaded }: UploadZoneProps) {
       // Give a short pause so the user sees the success state, then re-fetch
       setTimeout(() => onUploaded(), 1800)
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed.')
+      console.error('[TrustDashboard] CV upload failed:', err)
+      setUploadError(cvUploadErrorMessage(err, t.cv_upload_errors))
     } finally {
       setUploading(false)
     }

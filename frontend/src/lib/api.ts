@@ -657,12 +657,58 @@ export interface CvUploadResponse {
   processed: string[]
   errors:    string[]
   cv_claims: CvClaimsResult
+  entities_ingested?:   number
+  overall_trust_score?: number
+}
+
+/** Stable reasons a CV upload can fail — mirrors backend `_cv_error` codes. */
+export type CvUploadErrorCode =
+  | 'no_text' | 'unsupported_format' | 'too_large' | 'too_many_files' | 'no_files'
+  | 'not_a_cv' | 'llm_unavailable' | 'timeout' | 'network' | 'failed'
+
+/**
+ * A CV upload failure carrying a code the UI translates (t.cv_upload_errors).
+ * `message` is the server's English fallback, kept for logs.
+ */
+export class CvUploadError extends Error {
+  code: CvUploadErrorCode
+  constructor(code: CvUploadErrorCode, message?: string) {
+    super(message || code)
+    this.name = 'CvUploadError'
+    this.code = code
+  }
+}
+
+const _CV_CODES: readonly CvUploadErrorCode[] = [
+  'no_text', 'unsupported_format', 'too_large', 'too_many_files', 'no_files',
+  'not_a_cv', 'llm_unavailable', 'timeout', 'network', 'failed',
+]
+
+export function cvUploadErrorFromDetail(detail: unknown, status?: number): CvUploadError {
+  if (detail && typeof detail === 'object') {
+    const { code, message } = detail as { code?: string; message?: string }
+    if (code && (_CV_CODES as readonly string[]).includes(code)) {
+      return new CvUploadError(code as CvUploadErrorCode, message)
+    }
+  }
+  return new CvUploadError('failed', typeof detail === 'string' ? detail : `HTTP ${status ?? '?'}`)
+}
+
+/** The localised message for any error thrown by uploadCvFiles. */
+export function cvUploadErrorMessage(err: unknown, messages: Record<CvUploadErrorCode, string>): string {
+  return err instanceof CvUploadError ? messages[err.code] : messages.failed
 }
 
 /**
  * Upload one or more CV files (PDF/DOCX) for aggregation.
  * The backend extracts text, deduplicates via LLM, and persists cv_claims
  * to the user's profile so Jonathan can use them during gap-analysis.
+ *
+ * Asynchronous on the server: ingestion takes 20-60s, inside the window in
+ * which the Vercel gateway drops a proxied request — the backend finished and
+ * the user saw a failure. /cv-upload/start validates the files and returns at
+ * once (an unreadable file still fails immediately); the result is polled.
+ * Throws CvUploadError.
  */
 export async function uploadCvFiles(files: File[]): Promise<CvUploadResponse> {
   await _ensureFreshToken()
@@ -672,19 +718,50 @@ export async function uploadCvFiles(files: File[]): Promise<CvUploadResponse> {
   }
   let res: Response
   try {
-    res = await fetch(`${BASE}/api/profile/cv-upload`, {
+    res = await fetch(`${BASE}/api/profile/cv-upload/start`, {
       method:  'POST',
       headers: _authHeaders(),
       body:    fd,
     })
-  } catch (err) {
-    if (err instanceof TypeError) {
-      throw new Error('Could not reach the server — is the backend running? (network error)')
-    }
-    throw err
+  } catch {
+    throw new CvUploadError('network')
   }
-  if (!res.ok) await _handleHttpError(res, "/api/profile/cv-upload")
-  return res.json()
+  if (!res.ok) {
+    if (res.status === 401) _onAuthError?.()
+    const body = await res.json().catch(() => ({}))
+    throw cvUploadErrorFromDetail((body as { detail?: unknown }).detail, res.status)
+  }
+  const { task_id: taskId } = await res.json() as { task_id: string }
+
+  // Deadline, not attempt count. Generous because the LLM can fall back to a
+  // second provider; the limit only stops an abandoned task polling forever.
+  const POLL_MS  = 2_500
+  const deadline = Date.now() + 300_000
+  for (;;) {
+    if (Date.now() > deadline) throw new CvUploadError('timeout')
+    await new Promise(r => setTimeout(r, POLL_MS))
+
+    let poll: { status?: string; result?: CvUploadResponse; detail?: unknown; status_code?: number }
+    try {
+      await _ensureFreshToken()
+      const pollRes = await fetch(`${BASE}/api/profile/cv-upload/status/${taskId}`, {
+        headers: _authHeaders(),
+        cache:   'no-store',
+      })
+      // Expired or lost to a restart. Ingestion persists its own result, so
+      // the CV may well be saved — say so rather than claiming failure.
+      if (pollRes.status === 404) throw new CvUploadError('timeout')
+      // Any other non-OK (a gateway 502) says nothing about the task: retry.
+      if (!pollRes.ok) continue
+      poll = await pollRes.json()
+    } catch (err) {
+      if (err instanceof CvUploadError) throw err
+      continue   // network blip — keep polling until the deadline
+    }
+
+    if (poll.status === 'error') throw cvUploadErrorFromDetail(poll.detail, poll.status_code)
+    if (poll.status === 'done' && poll.result) return poll.result
+  }
 }
 
 // ── Outreach message generation ───────────────────────────────────────────────
