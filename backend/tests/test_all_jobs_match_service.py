@@ -122,14 +122,14 @@ def test_cycle_skips_rows_the_user_already_has_a_match_for(monkeypatch):
     monkeypatch.setattr(svc, "_existing_job_ids", lambda user_id: {salted_existing})
     monkeypatch.setattr(
         svc, "_candidate_all_jobs_rows",
-        lambda limit: [_row(job_url=already_matched_url), _row(job_url=new_url)],
+        lambda *a, **k: [_row(job_url=already_matched_url), _row(job_url=new_url)],
     )
 
     captured = {}
 
     class _FakeScraperManager:
         @staticmethod
-        def _save_new(jobs, limit=None, user_id=None):
+        def _save_new(jobs, limit=None, user_id=None, **_kw):
             captured["jobs"] = jobs
             captured["user_id"] = user_id
             return len(jobs)
@@ -151,14 +151,14 @@ def test_cycle_respects_limit(monkeypatch):
     monkeypatch.setattr(svc, "_existing_job_ids", lambda user_id: set())
     monkeypatch.setattr(
         svc, "_candidate_all_jobs_rows",
-        lambda limit: [_row(job_url=u) for u in urls],
+        lambda *a, **k: [_row(job_url=u) for u in urls],
     )
 
     captured = {}
 
     class _FakeScraperManager:
         @staticmethod
-        def _save_new(jobs, limit=None, user_id=None):
+        def _save_new(jobs, limit=None, user_id=None, **_kw):
             captured["jobs"] = jobs
             return len(jobs)
 
@@ -172,7 +172,7 @@ def test_cycle_respects_limit(monkeypatch):
 
 def test_cycle_returns_zero_and_skips_save_when_nothing_new(monkeypatch):
     monkeypatch.setattr(svc, "_existing_job_ids", lambda user_id: set())
-    monkeypatch.setattr(svc, "_candidate_all_jobs_rows", lambda limit: [])
+    monkeypatch.setattr(svc, "_candidate_all_jobs_rows", lambda *a, **k: [])
 
     def _boom(*a, **k):
         raise AssertionError("_save_new must not be called with nothing to save")
@@ -263,7 +263,7 @@ def test_cycle_against_real_dev_writes_zero_score_matches(disposable_qa_account)
     )
 
     real_candidates_fn = svc._candidate_all_jobs_rows
-    svc._candidate_all_jobs_rows = lambda limit: [target_row]
+    svc._candidate_all_jobs_rows = lambda *a, **k: [target_row]
     try:
         saved_repeat = svc.run_all_jobs_matching_cycle(disposable_qa_account, limit=5)
     finally:

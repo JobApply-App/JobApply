@@ -167,6 +167,26 @@ async def _discovery_loop() -> None:
         await asyncio.sleep(DISCOVERY_INTERVAL_SECONDS)
 
 
+async def _title_terms_for(user_id: str):
+    """
+    This user's title search terms for the matching cycle (None = global list).
+
+    Refreshes them when the user's roles or CV changed since the last cycle —
+    one cheap LLM call, only then. A failure here must not cost the user their
+    matches for the cycle, so it falls back to whatever was cached last.
+    """
+    from backend.services.user_title_terms import cached_user_terms, refresh_user_terms
+
+    try:
+        return await refresh_user_terms(user_id)
+    except Exception:
+        logger.exception("[all-jobs-match-loop] title-term refresh failed for user=%s", user_id)
+        try:
+            return cached_user_terms(user_id)
+        except Exception:
+            return None
+
+
 async def _all_jobs_matching_loop() -> None:
     """
     Background worker that bridges public.all_jobs (the global, read-only
@@ -191,7 +211,7 @@ async def _all_jobs_matching_loop() -> None:
     while True:
         try:
             for uid in list_pipeline_user_ids():
-                run_all_jobs_matching_cycle(user_id=uid)
+                run_all_jobs_matching_cycle(user_id=uid, terms=await _title_terms_for(uid))
             consecutive_failures = 0
         except Exception as exc:
             consecutive_failures += 1

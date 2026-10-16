@@ -730,7 +730,7 @@ export const he = {
       role_placeholder: 'התחילו להקליד תפקיד — לדוגמה ״aco״ ← Account Manager…',
       remove_role:      'הסרת {role}',
       level_for_role:   'רמת ניסיון עבור {role}',
-      pick_level:       'בחרו את רמת הניסיון שלכם בתפקיד הזה',
+      pick_level:       'לא חובה: בחרו את רמת הניסיון שלכם בתפקיד הזה',
       saving:           'שומר…',
       continue_cta:     'המשך',
       skip:             'דילוג',

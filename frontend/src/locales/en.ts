@@ -730,7 +730,7 @@ export const en = {
       role_placeholder: 'Start typing a role — e.g. “aco” → Account Manager…',
       remove_role:      'Remove {role}',
       level_for_role:   'Experience level for {role}',
-      pick_level:       'Pick your experience level for this role',
+      pick_level:       'Optional: pick your experience level for this role',
       saving:           'Saving…',
       continue_cta:     'Continue',
       skip:             'Skip',
