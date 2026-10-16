@@ -10,7 +10,7 @@ import { useOnboarding }    from '@/contexts/OnboardingContext'
 import { resolveDisplayName } from '@/lib/nameUtils'
 import { TOKENS }           from '@/lib/tokens'
 import {
-  saveRolePreferences,
+  saveRolePreferences, markOnboardingComplete,
   uploadCvFiles,
   type RoleSeniorityItem,
   type SeniorityLevel,
@@ -317,6 +317,14 @@ function OnboardingContent() {
         .map(r => ({ role: r.role, seniority: r.seniority })),
     })
     try { await updateUserMeta({ profile_completed: true }) } catch { /* backfilled by sync-user later */ }
+    // The flag above drives the UI; this one is what the matching pipeline
+    // reads. They are separate columns in separate systems, and for a long time
+    // only the first was set — so the dashboard said "done" while the user was
+    // never matched. Not fatal if it fails: the user still lands in the app,
+    // and the Ariel finalize_onboarding tool remains a second route in.
+    try { await markOnboardingComplete() } catch (err) {
+      console.error('[onboarding] could not mark onboarding complete:', err)
+    }
     armArielWelcome()
     router.push('/?tab=overview')   // soft transition to Overview
   }
