@@ -1,6 +1,7 @@
 import asyncio
 from typing import Optional
 import logging
+import time
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -485,6 +486,44 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(SecurityHeadersMiddleware)
+
+
+# ── Request timing ────────────────────────────────────────────────────────────
+# Testers reported slow responses and there was no way to say which requests
+# were slow: uvicorn's access log has no duration, and Render keeps no HTTP
+# request logs on this plan. One line per API request, grouped by the route
+# TEMPLATE (/api/jobs/{job_id}, not the concrete id) so the log can be
+# aggregated per endpoint. Slow requests log at WARNING so they are findable
+# without aggregating anything.
+#
+# For a streaming response (Ariel chat) this measures time until the response
+# starts — which is the wait the user actually feels before anything appears.
+
+_SLOW_REQUEST_MS = 3000
+
+
+class RequestTimingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+        if not path.startswith("/api/"):
+            return await call_next(request)
+        start = time.perf_counter()
+        status = 500
+        try:
+            response = await call_next(request)
+            status = response.status_code
+            return response
+        finally:
+            ms = (time.perf_counter() - start) * 1000
+            route = request.scope.get("route")
+            template = getattr(route, "path", None) or path
+            logger.log(
+                logging.WARNING if ms >= _SLOW_REQUEST_MS else logging.INFO,
+                "[timing] %s %s %d %.0fms", request.method, template, status, ms,
+            )
+
+
+app.add_middleware(RequestTimingMiddleware)
 
 # Origin list is environment-based (backend/config.py::CORS_ORIGINS):
 #   ENVIRONMENT=development (default) → same localhost list as before.
