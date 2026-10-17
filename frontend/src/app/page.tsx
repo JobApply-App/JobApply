@@ -4,7 +4,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/contexts/I18nContext'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { DEFAULT_SETTINGS, type AutomationSettings } from '@/lib/data'
-import { useAgentStatus }       from '@/hooks/useAgentStatus'
 import { useJobMatches }        from '@/hooks/useJobMatches'
 import { Header }               from '@/components/Header'
 import type { Tab }             from '@/components/Header'
@@ -14,7 +13,7 @@ import { Overview }             from '@/components/Overview'
 import { JobFeed }              from '@/components/JobFeed'
 import { ApplicationsTab }      from '@/components/ApplicationsTab'
 import { AllJobsTab }           from '@/components/AllJobsTab'
-import { AgentStatusCenter }    from '@/components/AgentStatusCenter'
+import { AnalyzeTrigger }       from '@/components/AgentStatusCenter'
 import { ApplierPreview }       from '@/components/ApplierPreview'
 import AuthGuard                from '@/components/AuthGuard'
 import { useAuth }              from '@/contexts/AuthContext'
@@ -231,7 +230,6 @@ function HomePageContent() {
   }, [settings])
 
   // ── Live data ───────────────────────────────────────────────────────────────
-  const { agents, loading: agentsLoading, error: agentsError, refetch: retryAgents } = useAgentStatus()
   const { jobs: rawJobs, feedJobs, loading: jobsLoading } = useJobMatches()
 
   // Merge manually-analyzed jobs with hook-fetched data so stats stay live.
@@ -346,11 +344,13 @@ function HomePageContent() {
               displayName={displayName}
               onSave={onSave} onReviewCV={onReviewCV} onGo={onGo}
             />
-            <AgentStatusCenter
-              agents={agents}
-              loading={agentsLoading}
-              error={agentsError}
-              onRetry={retryAgents}
+            {/* The four agent status cards and "Run Pipeline" are gone: their
+                descriptions were written for a single user ("Why Ron?",
+                "USER_PROFILE") and were shown to every user, the manual run
+                timed out against slow job boards and spent AI budget, and the
+                background search runs on its own regardless. What remains is
+                the one useful piece — analyzing a pasted job link. */}
+            <AnalyzeTrigger
               onJobAnalyzed={handleJobAnalyzed}
               onTailorCV={handleTailorCVFromOverview}
             />
