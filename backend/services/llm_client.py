@@ -775,11 +775,15 @@ async def stream_llm(
             # nothing rather than falling back to Anthropic.
             yield _gemini_stream_events(gemini_agen)
             return
-        except Exception:
+        except Exception as exc:
+            # Same diagnostics as the non-streaming path: without the status
+            # and quota id, "still on the free tier", "billing not yet
+            # active" (402) and "rate limited" all read identically here.
             logger.warning(
                 "[llm_client] purpose=%s model=%s user_id=%s job_id=%s "
-                "Gemini stream failed to open — falling back to Anthropic streaming",
+                "Gemini stream failed to open (%s status=%s)%s — falling back to Anthropic streaming",
                 purpose, model, user_id, job_id,
+                type(exc).__name__, getattr(exc, "code", None), _gemini_quota_hint(exc),
             )
         else:
             yield _gemini_stream_events(_prepend(first_chunk, gemini_agen))
