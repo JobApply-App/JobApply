@@ -54,6 +54,7 @@ import asyncio
 import base64
 import json
 import logging
+import re
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -393,6 +394,21 @@ def _gemini_generation_config(
     return genai_types.GenerateContentConfig(**kwargs)
 
 
+def _gemini_quota_hint(exc: Exception) -> str:
+    """
+    For a 429, name the quota that was hit (e.g. "...free_tier_requests",
+    "GenerateRequestsPerDayPerProjectPerModel"). The bare status code could not
+    tell "this key is still on the free tier" from "a paid project hit its
+    per-minute limit" — which is the difference between "enable billing" and
+    "wait a minute". Quota identifiers only; the error body never contains
+    prompt content, and nothing else from it is logged.
+    """
+    if getattr(exc, "code", None) != 429:
+        return ""
+    ids = sorted(set(re.findall(r"(?:quotaMetric|quotaId)['\"]?\s*[:=]\s*['\"]([\w./-]+)", str(exc))))
+    return f" quota={','.join(ids[:4])}" if ids else ""
+
+
 async def _call_gemini(
     *,
     system: Optional[str],
@@ -423,8 +439,8 @@ async def _call_gemini(
         )
     except genai_errors.APIError as exc:
         logger.error(
-            "[llm_client] purpose=%s GEMINI CALL FAILED %s (status=%s)",
-            purpose, type(exc).__name__, getattr(exc, "code", None),
+            "[llm_client] purpose=%s GEMINI CALL FAILED %s (status=%s)%s",
+            purpose, type(exc).__name__, getattr(exc, "code", None), _gemini_quota_hint(exc),
         )
         raise LLMCallError(
             "The AI service is temporarily unavailable. Please try again shortly."
