@@ -1,4 +1,5 @@
 'use client'
+import { useI18n } from '@/contexts/I18nContext'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import { generateDirectPitch } from '@/lib/api'
@@ -48,6 +49,11 @@ interface DirectPitchModalProps {
 }
 
 export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
+  const M = useI18n().t.modals
+  // Callbacks read the dictionary through a ref: depending on it directly
+  // would re-create them on a language switch and re-run the auto-fetch.
+  const MRef = useRef(M)
+  MRef.current = M
   const [pitch,     setPitch]     = useState('')
   const [wordCount, setWordCount] = useState(0)
   const [loading,   setLoading]   = useState(true)
@@ -63,7 +69,7 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
       setPitch(res.pitch)
       setWordCount(res.word_count)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Pitch generation failed. Please try again.')
+      setError(e instanceof Error ? e.message : MRef.current.pitch_failed)
     } finally {
       setLoading(false)
     }
@@ -103,7 +109,7 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
           <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-slate-100">
             <div className="min-w-0 flex-1 pr-3">
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                Direct Pitch
+                {M.pitch_title}
               </p>
               <h3 id="direct-pitch-modal-title" className="text-[15px] font-bold text-slate-900 leading-snug truncate">
                 {job.title}
@@ -112,7 +118,7 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
             </div>
             <button
               onClick={onClose}
-              aria-label="Close"
+              aria-label={M.close}
               className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
             >
               <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -124,15 +130,14 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
           {/* Body */}
           <div className="px-5 py-4">
             <p className="text-[11.5px] text-slate-400 mb-2.5">
-              A short, punchy recruiter pitch — under ~120 words. Edit freely before copying;
-              it isn&apos;t saved anywhere, so regenerating simply asks again.
+              {M.pitch_intro}
             </p>
 
             {loading ? (
               <div className="rounded-lg px-4 py-4 space-y-2.5 bg-slate-50 border border-slate-200" aria-busy="true">
                 <div className="flex items-center gap-2 mb-1">
                   <SpinnerIcon s={14} />
-                  <span className="text-[12px] font-medium text-teal-700">Writing your pitch…</span>
+                  <span className="text-[12px] font-medium text-teal-700">{M.pitch_writing}</span>
                 </div>
                 {[95, 100, 80, 60].map((w, i) => (
                   <div key={i} className="h-2.5 rounded-full animate-pulse bg-slate-200" style={{ width: `${w}%`, animationDelay: `${i * 100}ms` }} />
@@ -142,7 +147,7 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 flex items-center justify-between gap-3">
                 <p className="text-[12.5px] text-rose-700">{error}</p>
                 <button onClick={run} className="shrink-0 text-[11.5px] font-medium text-rose-700 underline underline-offset-2">
-                  Retry
+                  {M.retry}
                 </button>
               </div>
             ) : (
@@ -156,8 +161,8 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
 
             {!loading && !error && (
               <p className="text-[11px] text-slate-400 mt-1.5 tabular-nums">
-                {pitch.trim().split(/\s+/).filter(Boolean).length} words
-                {wordCount > 0 && wordCount !== pitch.trim().split(/\s+/).filter(Boolean).length ? ' (edited)' : ''}
+                {M.words.replace('{n}', String(pitch.trim().split(/\s+/).filter(Boolean).length))}
+                {wordCount > 0 && wordCount !== pitch.trim().split(/\s+/).filter(Boolean).length ? M.edited : ''}
               </p>
             )}
           </div>
@@ -169,14 +174,14 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
               disabled={loading}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition disabled:opacity-50 disabled:pointer-events-none"
             >
-              <RegenerateIcon /> Regenerate
+              <RegenerateIcon /> {M.regenerate}
             </button>
             <div className="flex items-center gap-2">
               <button
                 onClick={onClose}
                 className="h-8 px-4 rounded-lg text-[12.5px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
               >
-                Close
+                {M.close}
               </button>
               <button
                 onClick={handleCopy}
@@ -187,7 +192,7 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
                     : 'bg-ja-primary text-white hover:bg-ja-primaryHover'
                 }`}
               >
-                {copied ? <><CheckIcon /> Copied!</> : <><CopyIcon /> Copy</>}
+                {copied ? <><CheckIcon /> {M.copied}</> : <><CopyIcon /> {M.copy}</>}
               </button>
             </div>
           </div>

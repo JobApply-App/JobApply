@@ -282,7 +282,7 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-6 h-14 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-2.5">
-            <h2 id="controls-sheet-title" className="text-[15px] font-semibold text-slate-900">Match &amp; Notification Preferences</h2>
+            <h2 id="controls-sheet-title" className="text-[15px] font-semibold text-slate-900">{C.title}</h2>
             {activeCount > 0 && (
               <span
                 className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white"
@@ -311,10 +311,10 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
                   min={0} max={100} step={5}
                   value={draft.minScore}
                   onChange={v => patch('minScore', v)}
-                  format={v => v === 0 ? 'Off' : `${v}%+`}
+                  format={v => v === 0 ? C.score_off : `${v}%+`}
                   sub={draft.minScore === 0
-                    ? 'Showing all scores — drag right to set a floor'
-                    : `Hiding jobs below ${draft.minScore}% match`}
+                    ? C.score_all
+                    : C.score_hiding.replace('{n}', String(draft.minScore))}
                 />
 
                 {/* Work mode */}
@@ -364,7 +364,7 @@ export function ControlsSheet({ open, onClose, settings, setSettings }: Props) {
 
                   {/* Radius */}
                   <div className="flex items-center gap-2">
-                    <span className="text-[12px] text-slate-500 shrink-0">Radius:</span>
+                    <span className="text-[12px] text-slate-500 shrink-0">{C.radius}</span>
                     <div className="flex gap-1.5">
                       {RADIUS_OPTIONS.map(opt => {
                         const active = draft.radiusKm === opt.value

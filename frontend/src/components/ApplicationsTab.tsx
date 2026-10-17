@@ -6,7 +6,7 @@ import type { AppListItem } from '@/lib/api'
 import { ApplicationsKanban } from './ApplicationsKanban'
 import { TOKENS } from '@/lib/tokens'
 import { useI18n } from '@/contexts/I18nContext'
-import type { Dict } from '@/locales'
+import { stageLabel } from '@/lib/stages'
 
 // ── View toggle ───────────────────────────────────────────────────────────────
 
@@ -68,12 +68,6 @@ const STAGE_COLORS: Record<string, string> = {
   interview:    'bg-amber-100 text-amber-700',
   offer:        'bg-emerald-100 text-emerald-700',
   rejected:     'bg-rose-100 text-rose-600',
-}
-
-/** Localised label for a stage key ("phone screen" -> stages.phone_screen). */
-export function stageLabel(stage: string, stages: Dict['applications']['stages']): string {
-  const key = stage.toLowerCase().replace(/\s+/g, '_') as keyof typeof stages
-  return stages[key] ?? stage.charAt(0).toUpperCase() + stage.slice(1)
 }
 
 function StageBadge({ stage }: { stage: string }) {

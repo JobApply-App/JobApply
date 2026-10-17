@@ -1,5 +1,7 @@
 'use client'
 
+import { useI18n } from '@/contexts/I18nContext'
+import { stageLabel } from '@/lib/stages'
 import { useEffect, useState } from 'react'
 import { fetchAnalyticsSummary, type AnalyticsSummary } from '@/lib/api'
 import { TOKENS } from '@/lib/tokens'
@@ -73,6 +75,7 @@ function KpiCard({
 function FunnelRow({
   stage, count, maxCount, isLast,
 }: { stage: string; count: number; maxCount: number; isLast: boolean }) {
+  const A = useI18n().t.applications
   const pct    = barPct(count, maxCount)
   const config = STAGE_CONFIG[stage] ?? FALLBACK_CONFIG
   const isEmpty = count === 0
@@ -87,7 +90,7 @@ function FunnelRow({
         color: isEmpty ? TOKENS.color.subtle : config.labelColor,
         marginBottom: 5,
       }}>
-        {stage}
+        {stageLabel(stage, A.stages)}
       </span>
 
       {/* Bar + count pill — vertically centered together */}
@@ -233,6 +236,7 @@ function Skeleton() {
 // 3 jobs so the funnel, rate, and company charts have meaningful data to render.
 
 function GetStartedOverlay({ onGoToMatches }: { onGoToMatches?: () => void }) {
+  const N = useI18n().t.analytics
   return (
     <div
       className="rounded-2xl border border-slate-100 bg-white flex flex-col items-center justify-center text-center gap-5"
@@ -250,12 +254,12 @@ function GetStartedOverlay({ onGoToMatches }: { onGoToMatches?: () => void }) {
 
       <div>
         <h1 style={{ fontSize: 18, fontWeight: 700, color: TOKENS.color.ink, margin: 0 }}>
-          Your analytics will appear here
+          {N.empty_title}
         </h1>
         <p style={{
           fontSize: 13.5, color: TOKENS.color.muted, marginTop: 8, lineHeight: 1.6, maxWidth: 360,
         }}>
-          Apply to 3 jobs to see your interview rate, pipeline funnel, and top companies.
+          {N.empty_body}
         </p>
       </div>
 
@@ -265,7 +269,7 @@ function GetStartedOverlay({ onGoToMatches }: { onGoToMatches?: () => void }) {
           className="inline-flex items-center gap-2 h-10 px-6 rounded-xl text-[13px] font-semibold transition active:scale-[0.97]"
           style={{ background: TOKENS.color.primary, color: '#fff' }}
         >
-          Browse Matches →
+          {N.browse}
         </button>
       )}
     </div>
@@ -275,6 +279,7 @@ function GetStartedOverlay({ onGoToMatches }: { onGoToMatches?: () => void }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function AnalyticsDashboard({ onGoToMatches }: { onGoToMatches?: () => void } = {}) {
+  const N = useI18n().t.analytics
   const [data,    setData]    = useState<AnalyticsSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
@@ -292,7 +297,7 @@ export function AnalyticsDashboard({ onGoToMatches }: { onGoToMatches?: () => vo
     return (
       <div className="flex items-center justify-center h-80 text-sm"
         style={{ color: TOKENS.color.danger }}>
-        Failed to load analytics. {error}
+        {N.load_failed} {error}
       </div>
     )
   }
@@ -319,10 +324,10 @@ export function AnalyticsDashboard({ onGoToMatches }: { onGoToMatches?: () => vo
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: TOKENS.color.ink, margin: 0 }}>
-            Job Search Analytics
+            {N.title}
           </h1>
           <p style={{ fontSize: 13, color: TOKENS.color.muted, marginTop: 5 }}>
-            Your pipeline performance at a glance
+            {N.subtitle}
           </p>
         </div>
 
@@ -331,21 +336,21 @@ export function AnalyticsDashboard({ onGoToMatches }: { onGoToMatches?: () => vo
       {/* ── KPI cards ── */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         <KpiCard
-          label="Total Applications"
+          label={N.kpi_total}
           value={data.total_applications}
-          sub="Submitted to active pipeline stages"
+          sub={N.kpi_total_sub}
           accentColor={TOKENS.color.ink}
         />
         <KpiCard
-          label="Active Processes"
+          label={N.kpi_active}
           value={data.active_processes}
-          sub="Processes currently in progress"
+          sub={N.kpi_active_sub}
           accentColor={TOKENS.color.primary}
         />
         <KpiCard
-          label="Interview Rate"
+          label={N.kpi_rate}
           value={`${data.interview_conversion_rate}%`}
-          sub="Applications that reached interview stage"
+          sub={N.kpi_rate_sub}
           accentColor={
             data.interview_conversion_rate >= 20
               ? TOKENS.color.success
@@ -358,7 +363,7 @@ export function AnalyticsDashboard({ onGoToMatches }: { onGoToMatches?: () => vo
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'stretch' }}>
 
         {/* Pipeline funnel — always renders all 6 stages from backend */}
-        <Panel title="Current Pipeline Distribution">
+        <Panel title={N.funnel}>
           {data.funnel_stages.map((s, i) => (
             <FunnelRow
               key={s.stage}
@@ -371,9 +376,9 @@ export function AnalyticsDashboard({ onGoToMatches }: { onGoToMatches?: () => vo
         </Panel>
 
         {/* Top companies from CRM data */}
-        <Panel title="Top Companies Applied To">
+        <Panel title={N.companies}>
           {topCompanies.length === 0 ? (
-            <EmptyHint message="Submit applications and they'll appear here, grouped by company." />
+            <EmptyHint message={N.companies_empty} />
           ) : (
             topCompanies.map((c, i) => (
               <CompanyRow
@@ -388,9 +393,9 @@ export function AnalyticsDashboard({ onGoToMatches }: { onGoToMatches?: () => vo
         </Panel>
 
         {/* Top skills cloud */}
-        <Panel title="Top Skills in Tailored CVs">
+        <Panel title={N.skills}>
           {sortedKeywords.length === 0 ? (
-            <EmptyHint message="Generate tailored CVs and apply to see your most-used skills here." />
+            <EmptyHint message={N.skills_empty} />
           ) : (
             <div className="flex flex-wrap gap-2" style={{ alignContent: 'flex-start' }}>
               {sortedKeywords.map(kw => (

@@ -263,13 +263,13 @@ export function OutreachModal({ job, onClose }: Props) {
                 style={{ background: TOKENS.color.primary }}
               >
                 {jobLoading ? (
-                  <><SpinnerIcon s={15} /> Generating…</>
+                  <><SpinnerIcon s={15} /> {O.generating}</>
                 ) : !jobLoaded ? (
-                  <><SpinnerIcon s={15} /> Loading…</>
+                  <><SpinnerIcon s={15} /> {O.loading}</>
                 ) : jobMsg ? (
-                  '↺ Regenerate Message'
+                  O.regenerate
                 ) : (
-                  '✦ Generate Message'
+                  O.generate
                 )}
               </button>
 
@@ -277,7 +277,7 @@ export function OutreachModal({ job, onClose }: Props) {
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 bg-white">
                     <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                      Hiring Manager · {jobMsg.split(/\s+/).length} words · saved
+                      {O.hm_saved.replace('{n}', String(jobMsg.split(/\s+/).length))}
                     </span>
                     <button
                       onClick={() => copy(jobMsg)}
@@ -298,11 +298,11 @@ export function OutreachModal({ job, onClose }: Props) {
 
               {!jobMsg && jobLoaded && (
                 <div className="rounded-2xl border border-slate-100 px-4 py-3">
-                  <p className="text-[11.5px] font-semibold text-slate-600 mb-2">💡 How this differs</p>
+                  <p className="text-[11.5px] font-semibold text-slate-600 mb-2">{O.differs_title}</p>
                   <ul className="space-y-1 text-[12px] text-slate-500">
-                    <li>• One message tailored to <strong>this specific role</strong>, mapped to its requirements</li>
-                    <li>• Grounded only in your verified CV — no invented claims</li>
-                    <li>• Saved automatically, so it&apos;s here when you come back</li>
+                    <li>• {O.differs_1a}<strong>{O.differs_1b}</strong>{O.differs_1c}</li>
+                    <li>• {O.differs_2}</li>
+                    <li>• {O.differs_3}</li>
                   </ul>
                 </div>
               )}
@@ -391,11 +391,11 @@ export function OutreachModal({ job, onClose }: Props) {
             style={{ background: TOKENS.color.primary }}
           >
             {isGenerating ? (
-              <><SpinnerIcon s={15} /> Generating…</>
+              <><SpinnerIcon s={15} /> {O.generating}</>
             ) : generatedMsg ? (
-              '↺ Regenerate Message'
+              O.regenerate
             ) : (
-              '✦ Generate Message'
+              O.generate
             )}
           </button>
 

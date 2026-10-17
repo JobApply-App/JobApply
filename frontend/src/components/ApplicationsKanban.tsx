@@ -1,6 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, memo } from 'react'
+import { useI18n } from '@/contexts/I18nContext'
+import { stageLabel } from '@/lib/stages'
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { fetchCrmBoard, moveCrmCard, deleteApplication } from '@/lib/api'
 import type { CrmBoard, CrmCard, CrmColumn } from '@/lib/apiTypes'
 import { TOKENS } from '@/lib/tokens'
@@ -28,26 +30,31 @@ function stageStyle(stage: string) {
   }
 }
 
-const ALL_STAGES: { key: StageKey; label: string }[] = [
-  { key: 'submitted',    label: 'Submitted'    },
-  { key: 'phone screen', label: 'Phone Screen' },
-  { key: 'technical',    label: 'Technical'    },
-  { key: 'interview',    label: 'Interview'    },
-  { key: 'offer',        label: 'Offer'        },
-  { key: 'rejected',     label: 'Rejected'     },
-]
+// Labels come from the dictionary (applications.stages) via useStages().
+const STAGE_KEYS: StageKey[] = ['submitted', 'phone screen', 'technical', 'interview', 'offer', 'rejected']
+
+function useStages() {
+  const A = useI18n().t.applications
+  // Memoised on the dictionary so it is stable across renders (it sits in
+  // useCallback dependency lists below).
+  const ALL_STAGES = useMemo(
+    () => STAGE_KEYS.map(key => ({ key, label: stageLabel(key, A.stages) })),
+    [A.stages],
+  )
+  return { A, ALL_STAGES }
+}
 
 // ── Date formatter ─────────────────────────────────────────────────────────────
 // Converts "2026-05-27 09:17 UTC" → "May 27, 09:17"
 
-function formatCardDate(raw: string): string {
+function formatCardDate(raw: string, locale: string): string {
   if (!raw) return ''
   try {
     // Normalise "2026-05-27 09:17 UTC" → ISO by replacing space with T and removing " UTC"
     const iso = raw.replace(' UTC', 'Z').replace(' ', 'T')
     const d   = new Date(iso)
     if (isNaN(d.getTime())) return raw
-    const month = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })
+    const month = d.toLocaleString(locale === 'he' ? 'he-IL' : 'en-US', { month: 'short', timeZone: 'UTC' })
     const day   = d.getUTCDate()
     const hh    = String(d.getUTCHours()).padStart(2, '0')
     const mm    = String(d.getUTCMinutes()).padStart(2, '0')
@@ -70,6 +77,8 @@ interface CardModalProps {
 }
 
 function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete, deleting }: CardModalProps) {
+  const { A, ALL_STAGES } = useStages()
+  const { locale } = useI18n()
   const panelRef = useRef<HTMLDivElement>(null)
   useDialogA11y(onClose, panelRef)
 
@@ -120,13 +129,13 @@ function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete
               </div>
               {card.last_update && (
                 <p className="text-[11px] text-slate-400 mt-1.5">
-                  Updated: {formatCardDate(card.last_update)}
+                  {A.updated.replace('{when}', formatCardDate(card.last_update, locale))}
                 </p>
               )}
             </div>
             <button
               onClick={onClose}
-              aria-label="Close"
+              aria-label={A.close}
               className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
             >
               <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
@@ -139,7 +148,7 @@ function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete
           {/* Stage action buttons */}
           <div className="px-5 py-4">
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
-              Move to stage
+              {A.move_to_stage}
             </p>
             <div className="grid grid-cols-3 gap-2">
               {ALL_STAGES.map(({ key, label }) => {
@@ -172,20 +181,20 @@ function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete
           <div className="px-5 pb-5 pt-1 flex items-center justify-between">
             <button
               onClick={() => {
-                if (window.confirm(`Delete the application for "${card.title}"? This cannot be undone.`)) {
+                if (window.confirm(A.delete_confirm.replace('{title}', card.title))) {
                   void onDelete()
                 }
               }}
               disabled={deleting}
               className="h-8 px-3 rounded-lg text-[12.5px] font-medium border transition disabled:opacity-50 text-rose-600 border-rose-200 hover:bg-rose-50"
             >
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting ? A.deleting : A.delete}
             </button>
             <button
               onClick={onClose}
               className="h-8 px-4 rounded-lg text-[12.5px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
             >
-              Close
+              {A.close}
             </button>
           </div>
         </div>
@@ -215,6 +224,8 @@ const KanbanCard = memo(function KanbanCard({
   onOpen:       (card: CrmCard) => void
   onQuickMove:  (card: CrmCard, toStage: string) => void
 }) {
+  const { A, ALL_STAGES } = useStages()
+  const { locale } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -256,8 +267,8 @@ const KanbanCard = memo(function KanbanCard({
             onClick={e => { e.stopPropagation(); setMenuOpen(v => !v) }}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            aria-label="Move to stage"
-            title="Move to…"
+            aria-label={A.move_to_stage}
+            title={A.move_to}
             className={`mt-0.5 w-5 h-6 flex items-center justify-center rounded transition-colors ${
               menuOpen
                 ? 'text-slate-600 bg-slate-100'
@@ -282,7 +293,7 @@ const KanbanCard = memo(function KanbanCard({
               className="absolute right-0 top-7 z-30 w-44 rounded-xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-floating py-1"
             >
               <p className="px-3 pt-1.5 pb-1 text-[9.5px] font-bold uppercase tracking-widest text-slate-400">
-                Move to…
+                {A.move_to}
               </p>
               {ALL_STAGES.map(({ key, label }) => {
                 const isCurrent = key === currentStage
@@ -304,7 +315,7 @@ const KanbanCard = memo(function KanbanCard({
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.dot}`} />
                     {label}
                     {isCurrent && (
-                      <span className="ml-auto text-[9px] font-semibold text-slate-300">CURRENT</span>
+                      <span className="ml-auto text-[9px] font-semibold text-slate-300">{A.current}</span>
                     )}
                   </button>
                 )
@@ -320,7 +331,7 @@ const KanbanCard = memo(function KanbanCard({
 
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-slate-400 truncate max-w-[70%]">
-          {formatCardDate(card.last_update)}
+          {formatCardDate(card.last_update, locale)}
         </span>
         {card.score > 0 && (
           <span className="text-[10px] font-semibold text-slate-500 shrink-0">
@@ -349,6 +360,8 @@ function KanbanColumn({
   onOpenCard:  (card: CrmCard, stage: string) => void
   onQuickMove: (card: CrmCard, toStage: string) => void
 }) {
+  const { A, ALL_STAGES } = useStages()
+  const { locale } = useI18n()
   const [isDragOver, setIsDragOver] = useState(false)
   const s = stageStyle(col.stage)
 
@@ -365,7 +378,7 @@ function KanbanColumn({
         ${s.header}
       `}>
         <span className={`w-2 h-2 rounded-full shrink-0 ${s.dot}`} />
-        <span className="text-[12px] font-semibold text-slate-700 flex-1">{col.label}</span>
+        <span className="text-[12px] font-semibold text-slate-700 flex-1">{stageLabel(col.stage, A.stages)}</span>
         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${s.count}`}>
           {col.cards.length}
         </span>
@@ -386,7 +399,7 @@ function KanbanColumn({
       >
         {col.cards.length === 0 && !isDragOver && (
           <p className="text-[11px] text-slate-400 italic text-center pt-8 px-2">
-            No applications here
+            {A.column_empty}
           </p>
         )}
         {col.cards.map(card => (
@@ -405,7 +418,7 @@ function KanbanColumn({
             h-14 rounded-lg border-2 border-dashed flex items-center justify-center
             ${s.dropBg} border-current
           `}>
-            <span className="text-[11px] font-medium text-slate-600">Drop here</span>
+            <span className="text-[11px] font-medium text-slate-600">{A.drop_here}</span>
           </div>
         )}
       </div>
@@ -416,6 +429,8 @@ function KanbanColumn({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ApplicationsKanban({ onRefresh }: { onRefresh?: () => void }) {
+  const { A, ALL_STAGES } = useStages()
+  const { locale } = useI18n()
   const [board,    setBoard]    = useState<CrmBoard | null>(null)
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState<string | null>(null)
@@ -497,10 +512,10 @@ export function ApplicationsKanban({ onRefresh }: { onRefresh?: () => void }) {
       const label = ALL_STAGES.find(s => s.key === targetStage)?.label ?? targetStage
       if (opts.isUndo) {
         // Terminal confirmation — no undo-of-undo chains.
-        setToast({ message: `Move undone — back in ${label}` })
+        setToast({ message: A.move_undone.replace('{stage}', label) })
       } else {
         setToast({
-          message: `Moved to ${label}`,
+          message: A.moved_to.replace('{stage}', label),
           // Reverse mutation: same doMove path (optimistic update + API +
           // failure rollback), from the new stage back to the origin.
           undo: previousStage
@@ -510,12 +525,12 @@ export function ApplicationsKanban({ onRefresh }: { onRefresh?: () => void }) {
       }
       onRefresh?.()
     } catch {
-      setToast({ message: 'Move failed — reloading…' })
+      setToast({ message: A.move_failed })
       await load()
     } finally {
       setMovingId(null)
     }
-  }, [board, load, onRefresh])
+  }, [board, load, onRefresh, A, ALL_STAGES])
 
   doMoveRef.current = doMove
 
@@ -563,19 +578,19 @@ export function ApplicationsKanban({ onRefresh }: { onRefresh?: () => void }) {
       setModalCard(null)
       onRefresh?.()
     } catch {
-      setToast({ message: 'Delete failed — reloading…' })
+      setToast({ message: A.delete_failed_reload })
       await load()
     } finally {
       setModalDeleting(false)
     }
-  }, [modalCard, board, load, onRefresh])
+  }, [modalCard, board, load, onRefresh, A])
 
   // ── States ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 text-sm text-slate-400">
-        Loading board…
+        {A.loading_board}
       </div>
     )
   }
@@ -583,7 +598,7 @@ export function ApplicationsKanban({ onRefresh }: { onRefresh?: () => void }) {
   if (error || !board) {
     return (
       <div className="flex items-center justify-center h-64 text-sm" style={{ color: TOKENS.color.danger }}>
-        Failed to load board. {error}
+        {A.board_failed} {error}
       </div>
     )
   }
@@ -595,8 +610,8 @@ export function ApplicationsKanban({ onRefresh }: { onRefresh?: () => void }) {
       {/* Refresh button */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-[12px] text-slate-500">
-          {totalCards} application{totalCards !== 1 ? 's' : ''} in pipeline
-          <span className="ml-2 text-slate-400">· drag cards between columns or click to update status</span>
+          {totalCards === 1 ? A.board_count_one : A.board_count_many.replace('{n}', String(totalCards))}
+          <span className="ms-2 text-slate-400">{A.board_hint}</span>
         </p>
         <button
           onClick={load}

@@ -1,5 +1,7 @@
 'use client'
 
+import { useI18n } from '@/contexts/I18nContext'
+import type { Dict } from '@/locales'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAllJobs } from '@/hooks/useAllJobs'
@@ -63,6 +65,7 @@ function formatLocation(location: AllJobItem['location']): string {
 // ── Company logo with fallback ────────────────────────────────────────────────
 
 function CompanyLogo({ url, company }: { url: string | null; company: string | null }) {
+  const AJ = useI18n().t.all_jobs
   const [failed, setFailed] = useState(false)
   const label = (company ?? '?').charAt(0).toUpperCase()
   if (!url || failed) {
@@ -76,7 +79,7 @@ function CompanyLogo({ url, company }: { url: string | null; company: string | n
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={url}
-      alt={`${company ?? 'Company'} logo`}
+      alt={AJ.logo_alt.replace('{company}', company ?? AJ.company_fallback)}
       className="w-8 h-8 rounded-lg object-contain bg-white border border-slate-100 shrink-0"
       onError={() => setFailed(true)}
     />
@@ -101,8 +104,12 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
 // list-query payload (see backend/repositories/all_jobs_repository.py's
 // _LIST_VIEW_COLUMNS), so expanding is instant, no extra network call.
 function JobRowDetails({ job }: { job: AllJobItem }) {
+  const AJ = useI18n().t.all_jobs
   const applicantsText = job.applicants?.value != null
-    ? `${job.applicants.exact ? '' : 'Fewer than '}${job.applicants.value} applicant${job.applicants.value === 1 ? '' : 's'}`
+    ? (!job.applicants.exact
+        ? AJ.applicants_fewer
+        : job.applicants.value === 1 ? AJ.applicants_one : AJ.applicants_exact
+      ).replace('{n}', String(job.applicants.value))
     : null
 
   return (
@@ -135,6 +142,7 @@ const SHADOW_HOVER = 'hover:shadow-[0_4px_16px_rgba(15,23,42,0.08),0_1px_3px_rgb
 const SHADOW_EXPANDED = 'shadow-[0_4px_16px_rgba(15,23,42,0.08),0_1px_3px_rgba(15,23,42,0.05)]'
 
 function JobRow({ job }: { job: AllJobItem }) {
+  const AJ = useI18n().t.all_jobs
   const [expanded, setExpanded] = useState(false)
   const hasDetails = !!job.description || !!job.applicants?.value || (job.industries?.length ?? 0) > 0
 
@@ -165,19 +173,19 @@ function JobRow({ job }: { job: AllJobItem }) {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px] text-slate-400">
             <span>{dash(job.employment_type)}</span>
             <span>{dash(job.seniority_level)}</span>
-            <span>Posted {dash(job.posted_text)}</span>
+            <span>{AJ.posted.replace('{when}', dash(job.posted_text))}</span>
           </div>
         </div>
 
         <div className="flex items-start gap-2 shrink-0">
-          <div className="text-right hidden sm:block">
-            <p className="text-[11px] text-slate-400">First seen {formatDateTime(job.first_seen_at)}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Last seen {formatDateTime(job.last_seen_at)}</p>
+          <div className="text-end hidden sm:block">
+            <p className="text-[11px] text-slate-400">{AJ.first_seen.replace('{when}', formatDateTime(job.first_seen_at))}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{AJ.last_seen.replace('{when}', formatDateTime(job.last_seen_at))}</p>
           </div>
           {hasDetails && (
             <button
               onClick={() => setExpanded((e) => !e)}
-              aria-label={expanded ? 'Hide details' : 'Show details'}
+              aria-label={expanded ? AJ.hide_details : AJ.show_details}
               className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition"
             >
               <ChevronIcon expanded={expanded} />
@@ -204,20 +212,22 @@ function JobListSkeleton() {
 }
 
 function JobListError({ error, onRetry }: { error: string; onRetry: () => void }) {
+  const AJ = useI18n().t.all_jobs
   return (
     <div className="flex flex-col items-center justify-center h-40 gap-3 text-sm" style={{ color: TOKENS.color.danger }}>
-      <p>Failed to load jobs. {error}</p>
+      <p>{AJ.load_failed} {error}</p>
       <button
         onClick={onRetry}
         className="h-8 px-4 rounded-lg text-[12px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition"
       >
-        Retry
+        {AJ.retry}
       </button>
     </div>
   )
 }
 
 function JobListEmpty() {
+  const AJ = useI18n().t.all_jobs
   return (
     <div className="flex flex-col items-center justify-center h-48 text-slate-400">
       <svg width={36} height={36} viewBox="0 0 24 24" fill="none"
@@ -226,7 +236,7 @@ function JobListEmpty() {
         <rect x="3" y="7" width="18" height="13" rx="2" />
         <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
       </svg>
-      <p className="text-[13px] font-medium text-slate-500">No jobs were found.</p>
+      <p className="text-[13px] font-medium text-slate-500">{AJ.empty}</p>
     </div>
   )
 }
@@ -254,20 +264,21 @@ const EMPTY_FILTER_INPUTS: FilterInputs = {
   company: '', title: '', min_applicants: '', max_applicants: '', posted_within_hours: '',
 }
 
+// Labels are dictionary keys (all_jobs.*), resolved where rendered.
 const POSTED_WITHIN_OPTIONS = [
-  { label: 'Any time', value: '' },
-  { label: 'Last 24 hours', value: '24' },
-  { label: 'Last 3 days', value: '72' },
-  { label: 'Last 7 days', value: '168' },
-  { label: 'Last 30 days', value: '720' },
-]
+  { labelKey: 'posted_any', value: '' },
+  { labelKey: 'posted_24', value: '24' },
+  { labelKey: 'posted_72', value: '72' },
+  { labelKey: 'posted_168', value: '168' },
+  { labelKey: 'posted_720', value: '720' },
+] as const
 
-const SORT_OPTIONS: { label: string; value: AllJobsSortBy }[] = [
-  { label: 'Recently scraped', value: 'recent' },
-  { label: 'Newest posted', value: 'posted' },
-  { label: 'Most applicants', value: 'applicants_desc' },
-  { label: 'Fewest applicants', value: 'applicants_asc' },
-  { label: 'Company (A-Z)', value: 'company' },
+const SORT_OPTIONS: { labelKey: keyof Dict['all_jobs']; value: AllJobsSortBy }[] = [
+  { labelKey: 'sort_recent', value: 'recent' },
+  { labelKey: 'sort_posted', value: 'posted' },
+  { labelKey: 'sort_app_desc', value: 'applicants_desc' },
+  { labelKey: 'sort_app_asc', value: 'applicants_asc' },
+  { labelKey: 'sort_company', value: 'company' },
 ]
 
 function selectClass(hasValue: boolean): string {
@@ -300,6 +311,7 @@ function MultiSelectDropdown({
   selected: string[]
   onChange: (next: string[]) => void
 }) {
+  const AJ = useI18n().t.all_jobs
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false))
@@ -324,7 +336,7 @@ function MultiSelectDropdown({
       {open && (
         <div className="absolute z-10 mt-1 max-h-56 w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-elevation-2 py-1">
           {options.length === 0 && (
-            <p className="px-3 py-1.5 text-[12px] text-slate-400">No options</p>
+            <p className="px-3 py-1.5 text-[12px] text-slate-400">{AJ.no_options}</p>
           )}
           {options.map((opt) => (
             <label key={opt} className="flex items-start gap-2 px-3 py-1.5 text-[12px] text-slate-700 hover:bg-slate-50 cursor-pointer">
@@ -364,43 +376,44 @@ function FilterBar({
   sortBy: AllJobsSortBy
   onSortChange: (value: AllJobsSortBy) => void
 }) {
+  const AJ = useI18n().t.all_jobs
   return (
     <div className="flex flex-wrap items-center gap-2 pb-1">
       <input
         type="text"
         value={inputs.company}
         onChange={(e) => onChange('company', e.target.value)}
-        placeholder="Company"
+        placeholder={AJ.ph_company}
         className="h-8 w-32 rounded-lg border border-slate-200 bg-white text-[12px] px-2.5 placeholder:text-slate-400"
       />
       <input
         type="text"
         value={inputs.title}
         onChange={(e) => onChange('title', e.target.value)}
-        placeholder="Job title"
+        placeholder={AJ.ph_title}
         className="h-8 w-36 rounded-lg border border-slate-200 bg-white text-[12px] px-2.5 placeholder:text-slate-400"
       />
 
       <MultiSelectDropdown
-        label="Seniority"
+        label={AJ.f_seniority}
         options={options?.seniority_levels ?? []}
         selected={inputs.seniority_level}
         onChange={(v) => onMultiChange('seniority_level', v)}
       />
       <MultiSelectDropdown
-        label="Employment type"
+        label={AJ.f_employment}
         options={options?.employment_types ?? []}
         selected={inputs.employment_type}
         onChange={(v) => onMultiChange('employment_type', v)}
       />
       <MultiSelectDropdown
-        label="Function"
+        label={AJ.f_function}
         options={options?.job_functions ?? []}
         selected={inputs.job_function}
         onChange={(v) => onMultiChange('job_function', v)}
       />
       <MultiSelectDropdown
-        label="Industry"
+        label={AJ.f_industry}
         options={options?.industries ?? []}
         selected={inputs.industry}
         onChange={(v) => onMultiChange('industry', v)}
@@ -411,7 +424,7 @@ function FilterBar({
         onChange={(e) => onChange('posted_within_hours', e.target.value)}
         className={selectClass(!!inputs.posted_within_hours)}
       >
-        {POSTED_WITHIN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {POSTED_WITHIN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{AJ[o.labelKey]}</option>)}
       </select>
 
       <div className="flex items-center gap-1">
@@ -420,7 +433,7 @@ function FilterBar({
           min={0}
           value={inputs.min_applicants}
           onChange={(e) => onChange('min_applicants', e.target.value)}
-          placeholder="Min applicants"
+          placeholder={AJ.ph_min_app}
           className="h-8 w-[92px] rounded-lg border border-slate-200 bg-white text-[12px] px-2 placeholder:text-slate-400"
         />
         <span className="text-[11px] text-slate-400">–</span>
@@ -429,7 +442,7 @@ function FilterBar({
           min={0}
           value={inputs.max_applicants}
           onChange={(e) => onChange('max_applicants', e.target.value)}
-          placeholder="Max"
+          placeholder={AJ.ph_max}
           className="h-8 w-16 rounded-lg border border-slate-200 bg-white text-[12px] px-2 placeholder:text-slate-400"
         />
       </div>
@@ -441,7 +454,7 @@ function FilterBar({
           onChange={(e) => onSortChange(e.target.value as AllJobsSortBy)}
           className="h-8 rounded-lg border border-slate-200 bg-white text-[12px] text-slate-700 px-2"
         >
-          {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{AJ[o.labelKey]}</option>)}
         </select>
       </label>
 
@@ -450,7 +463,7 @@ function FilterBar({
           onClick={onClear}
           className="h-8 px-3 rounded-lg text-[12px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition"
         >
-          Clear filters
+          {AJ.clear}
         </button>
       )}
     </div>
@@ -464,11 +477,11 @@ function FilterBar({
 // border). One glance here + a click to drop a single field beats re-opening
 // each control to check its state.
 
-const MULTI_FILTER_LABELS: Record<'seniority_level' | 'employment_type' | 'job_function' | 'industry', string> = {
-  seniority_level: 'Seniority',
-  employment_type: 'Employment type',
-  job_function:    'Function',
-  industry:        'Industry',
+const MULTI_FILTER_LABELS: Record<'seniority_level' | 'employment_type' | 'job_function' | 'industry', keyof Dict['all_jobs']> = {
+  seniority_level: 'f_seniority',
+  employment_type: 'f_employment',
+  job_function:    'f_function',
+  industry:        'f_industry',
 }
 
 function ActiveFilterChips({
@@ -478,17 +491,18 @@ function ActiveFilterChips({
   onChange: (field: 'company' | 'title' | 'min_applicants' | 'max_applicants' | 'posted_within_hours', value: string) => void
   onMultiChange: (field: 'seniority_level' | 'employment_type' | 'job_function' | 'industry', value: string[]) => void
 }) {
+  const AJ = useI18n().t.all_jobs
   const chips: { key: string; label: string; onRemove: () => void }[] = []
 
-  if (inputs.company) chips.push({ key: 'company', label: `Company: ${inputs.company}`, onRemove: () => onChange('company', '') })
-  if (inputs.title) chips.push({ key: 'title', label: `Title: ${inputs.title}`, onRemove: () => onChange('title', '') })
+  if (inputs.company) chips.push({ key: 'company', label: AJ.chip_company.replace('{v}', inputs.company), onRemove: () => onChange('company', '') })
+  if (inputs.title) chips.push({ key: 'title', label: AJ.chip_title.replace('{v}', inputs.title), onRemove: () => onChange('title', '') })
 
   ;(['seniority_level', 'employment_type', 'job_function', 'industry'] as const).forEach((field) => {
     const values = inputs[field]
     if (values.length > 0) {
       chips.push({
         key: field,
-        label: `${MULTI_FILTER_LABELS[field]}: ${values.join(', ')}`,
+        label: `${AJ[MULTI_FILTER_LABELS[field]]}: ${values.join(', ')}`,
         onRemove: () => onMultiChange(field, []),
       })
     }
@@ -496,15 +510,15 @@ function ActiveFilterChips({
 
   if (inputs.posted_within_hours) {
     const opt = POSTED_WITHIN_OPTIONS.find((o) => o.value === inputs.posted_within_hours)
-    chips.push({ key: 'posted', label: opt?.label ?? 'Posted within', onRemove: () => onChange('posted_within_hours', '') })
+    chips.push({ key: 'posted', label: opt ? AJ[opt.labelKey] : AJ.posted_within, onRemove: () => onChange('posted_within_hours', '') })
   }
 
   if (inputs.min_applicants || inputs.max_applicants) {
     const label = inputs.min_applicants && inputs.max_applicants
-      ? `Applicants: ${inputs.min_applicants}–${inputs.max_applicants}`
+      ? AJ.chip_applicants.replace('{v}', `${inputs.min_applicants}–${inputs.max_applicants}`)
       : inputs.min_applicants
-      ? `Applicants: ≥ ${inputs.min_applicants}`
-      : `Applicants: ≤ ${inputs.max_applicants}`
+      ? AJ.chip_applicants.replace('{v}', `≥ ${inputs.min_applicants}`)
+      : AJ.chip_applicants.replace('{v}', `≤ ${inputs.max_applicants}`)
     chips.push({
       key: 'applicants',
       label,
@@ -524,7 +538,7 @@ function ActiveFilterChips({
           <span className="truncate">{chip.label}</span>
           <button
             onClick={chip.onRemove}
-            aria-label={`Remove filter: ${chip.label}`}
+            aria-label={AJ.remove_filter.replace('{v}', chip.label)}
             className="shrink-0 h-4 w-4 flex items-center justify-center rounded-full text-teal-600 hover:bg-teal-100 hover:text-teal-900 transition"
           >
             ×
@@ -564,6 +578,7 @@ function PaginationControls({
   onPageChange: (p: number) => void
   onPageSizeChange: (s: number) => void
 }) {
+  const AJ = useI18n().t.all_jobs
   const rangeStart = totalItems === 0 ? 0 : (page - 1) * pageSize + 1
   const rangeEnd = Math.min(page * pageSize, totalItems)
   const pageList = buildPageList(page, totalPages)
@@ -571,13 +586,12 @@ function PaginationControls({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
       <p className="text-[12px] text-slate-500">
-        Showing <span className="font-medium text-slate-700">{rangeStart}–{rangeEnd}</span> of{' '}
-        <span className="font-medium text-slate-700">{totalItems}</span> result{totalItems === 1 ? '' : 's'}
+        {AJ.showing.replace('{start}', String(rangeStart)).replace('{end}', String(rangeEnd)).replace('{total}', String(totalItems))}
       </p>
 
       <div className="flex items-center gap-3">
         <label className="flex items-center gap-1.5 text-[12px] text-slate-500">
-          Per page
+          {AJ.per_page}
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
@@ -593,7 +607,7 @@ function PaginationControls({
           <button
             onClick={() => onPageChange(page - 1)}
             disabled={!hasPrevious}
-            aria-label="Previous page"
+            aria-label={AJ.prev_page}
             className="h-7 w-7 flex items-center justify-center rounded-lg text-[12px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition disabled:opacity-40 disabled:hover:bg-white disabled:hover:border-slate-200"
           >
             ‹
@@ -621,7 +635,7 @@ function PaginationControls({
           <button
             onClick={() => onPageChange(page + 1)}
             disabled={!hasNext}
-            aria-label="Next page"
+            aria-label={AJ.next_page}
             className="h-7 w-7 flex items-center justify-center rounded-lg text-[12px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition disabled:opacity-40 disabled:hover:bg-white disabled:hover:border-slate-200"
           >
             ›
@@ -635,6 +649,7 @@ function PaginationControls({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function AllJobsTab() {
+  const AJ = useI18n().t.all_jobs
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -758,9 +773,9 @@ export function AllJobsTab() {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-[15px] font-semibold text-slate-900">All Jobs</h2>
+        <h2 className="text-[15px] font-semibold text-slate-900">{AJ.title}</h2>
         <p className="text-[12px] text-slate-500 mt-0.5">
-          {loading && jobs.length === 0 ? '—' : `${totalItems} job${totalItems === 1 ? '' : 's'} across all sources`}
+          {loading && jobs.length === 0 ? '—' : totalItems === 1 ? AJ.count_one : AJ.count_many.replace('{n}', String(totalItems))}
         </p>
       </div>
 
