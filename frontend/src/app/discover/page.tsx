@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link        from 'next/link'
 import AuthGuard   from '@/components/AuthGuard'
 import { useI18n } from '@/contexts/I18nContext'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { fetchAllJobs } from '@/lib/api'
 import type { AllJobItem } from '@/lib/api'
 
@@ -227,8 +228,11 @@ function DiscoverContent() {
       {/* Single primary CTA policy: the "Complete profile" banner below is the
           one and only profile CTA on this page — no duplicate header button. */}
       <header className="bg-white border-b border-slate-100 sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center">
+        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="text-base font-extrabold tracking-tight text-slate-900">JobApply</span>
+          {/* The first screen after sign-up had no way to change language: a
+              Hebrew speaker whose browser is set to English was stuck in it. */}
+          <LanguageSwitcher />
         </div>
       </header>
 

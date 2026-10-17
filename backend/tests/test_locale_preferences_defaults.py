@@ -85,3 +85,55 @@ def test_value_outside_supported_locales_is_not_served(monkeypatch):
     got = pr.get_locales(str(uuid.uuid4()))
     assert got["ui_locale"] is None      # unsupported → unknown, not 'en'
     assert got["cv_locale"] == "he"      # the valid half still comes through
+
+
+# ── Against the real schema (migration 7d3e1a9b4c62) ─────────────────────────
+# The tests above stub the DB. These pin what the column itself does, which is
+# where the bug actually lived: ui_locale was NOT NULL DEFAULT 'en', so every
+# account read back as "chose English" and the UI flipped Hebrew visitors back
+# to English the moment they signed in.
+
+import uuid as _uuid
+
+import pytest as _pytest
+
+
+@_pytest.fixture()
+def fresh_uid(db_available):
+    from sqlalchemy import text
+    from backend.core.database import ENGINE
+    u = str(_uuid.uuid4())
+    with ENGINE.begin() as c:   # user_preferences has an FK to profiles
+        c.execute(text("INSERT INTO public.profiles (id, onboarding_status) VALUES (CAST(:u AS uuid), 'incomplete')"), {"u": u})
+    yield u
+    with ENGINE.begin() as c:
+        c.execute(text("DELETE FROM public.user_preferences WHERE user_id = CAST(:u AS uuid)"), {"u": u})
+        c.execute(text("DELETE FROM public.profiles WHERE id = CAST(:u AS uuid)"), {"u": u})
+
+
+def test_new_account_has_not_chosen_a_ui_language(fresh_uid):
+    from datetime import datetime, timezone
+    from sqlalchemy.orm import Session
+    from backend.core.database import ENGINE
+    from backend.repositories import profile_repository
+
+    # The ordinary write path every new account goes through creates the
+    # user_preferences row without mentioning a locale.
+    with Session(ENGINE) as s:
+        row, _ = profile_repository.get_or_create(s, fresh_uid, now=datetime.now(timezone.utc).isoformat())
+        profile_repository.save(s, row)
+        s.commit()
+    assert profile_repository.get_locales(fresh_uid)["ui_locale"] is None
+
+
+def test_choosing_only_the_cv_language_does_not_choose_the_ui_language(fresh_uid):
+    from backend.repositories import profile_repository
+    profile_repository.set_locales(fresh_uid, cv_locale="he")
+    got = profile_repository.get_locales(fresh_uid)
+    assert got["ui_locale"] is None and got["cv_locale"] == "he"
+
+
+def test_an_explicit_choice_is_stored(fresh_uid):
+    from backend.repositories import profile_repository
+    profile_repository.set_locales(fresh_uid, ui_locale="he")
+    assert profile_repository.get_locales(fresh_uid)["ui_locale"] == "he"

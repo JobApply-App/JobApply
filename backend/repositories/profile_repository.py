@@ -756,7 +756,10 @@ def set_locales(
             """),
             {
                 "uid": user_id,
-                "ui_insert": ui_locale or DEFAULT_LOCALE,
+                # NULL, not the default: an unset ui_locale means "never
+                # chosen", which lets the visitor's own browser choice stand
+                # (migration 7d3e1a9b4c62).
+                "ui_insert": ui_locale,
                 "cv_insert": cv_locale or DEFAULT_LOCALE,
                 "ui_update": ui_locale,
                 "cv_update": cv_locale,
