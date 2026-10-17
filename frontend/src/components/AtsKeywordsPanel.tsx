@@ -1,4 +1,5 @@
 'use client'
+import { useI18n } from '@/contexts/I18nContext'
 import { useState, useEffect } from 'react'
 import { fetchAtsKeywords, ensureFreshToken, getAuthHeaders } from '@/lib/api'
 import { getScoreBand } from '@/lib/scoreBand'
@@ -73,10 +74,11 @@ function confidenceDot(score: number): string {
 }
 
 function ConfidenceSnapshot({ entities }: { entities: TrustEntity[] }) {
+  const J = useI18n().t.job_card
   if (entities.length === 0) return null
   return (
     <div>
-      <SectionLabel>Confidence Snapshot</SectionLabel>
+      <SectionLabel>{J.confidence_snapshot}</SectionLabel>
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {entities.map(e => (
           <span key={e.entity_id} className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 tabular-nums">
@@ -109,7 +111,12 @@ interface Props {
   userId?: string           // enables the Confidence Snapshot section
 }
 
+// Sentinel set by the fetch effect; translated at render time so the effect
+// doesn't depend on (and refetch when) the interface language changes.
+const NEEDS_JD = '__needs_jd__'
+
 export function AtsKeywordsPanel({ jobId, hasJd, userId }: Props) {
+  const J = useI18n().t.job_card
   const [data,     setData]     = useState<AtsKeywordsResponse | null>(null)
   const [entities, setEntities] = useState<TrustEntity[]>([])
   const [loading,  setLoading]  = useState(false)
@@ -146,7 +153,7 @@ export function AtsKeywordsPanel({ jobId, hasJd, userId }: Props) {
       } catch (e) {
         if (cancelled) return
         const msg = e instanceof Error ? e.message : String(e)
-        setError(msg.includes('400') ? 'Fetch the full JD first (click "View Job Description").' : msg)
+        setError(msg.includes('400') ? NEEDS_JD : msg)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -158,7 +165,7 @@ export function AtsKeywordsPanel({ jobId, hasJd, userId }: Props) {
   if (!hasJd) {
     return (
       <p className="text-[12px] text-slate-400 italic">
-        Fetch the full job description first to run the ATS breakdown.
+        {J.ats_needs_jd}
       </p>
     )
   }
@@ -166,14 +173,14 @@ export function AtsKeywordsPanel({ jobId, hasJd, userId }: Props) {
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-2 text-[12px] text-slate-400">
-        <SpinnerIcon /> Analysing keywords…
+        <SpinnerIcon /> {J.analysing_kw}
       </div>
     )
   }
 
   if (error) {
     return (
-      <p className="text-[12px] text-rose-600 py-1">{error}</p>
+      <p className="text-[12px] text-rose-600 py-1">{error === NEEDS_JD ? J.jd_first_short : error}</p>
     )
   }
 
@@ -188,7 +195,7 @@ export function AtsKeywordsPanel({ jobId, hasJd, userId }: Props) {
       {/* ✓ KEYWORDS INJECTED */}
       {injected.length > 0 && (
         <div>
-          <SectionLabel tone="emerald">✓ Keywords Injected</SectionLabel>
+          <SectionLabel tone="emerald">{J.kw_injected}</SectionLabel>
           <div className="flex flex-wrap gap-1">
             {injected.map(kw => <MicroChip key={kw} label={kw} tone="injected" />)}
           </div>
@@ -198,7 +205,7 @@ export function AtsKeywordsPanel({ jobId, hasJd, userId }: Props) {
       {/* SKILLS EXCLUDED (REQUIRES EXPERIENCE) */}
       {excluded.length > 0 && (
         <div>
-          <SectionLabel>Skills Excluded (Requires Experience)</SectionLabel>
+          <SectionLabel>{J.kw_excluded}</SectionLabel>
           <div className="flex flex-wrap gap-1">
             {excluded.map(kw => <MicroChip key={kw} label={kw} tone="excluded" />)}
           </div>
@@ -209,7 +216,7 @@ export function AtsKeywordsPanel({ jobId, hasJd, userId }: Props) {
       <ConfidenceSnapshot entities={snapshot} />
 
       {injected.length === 0 && excluded.length === 0 && (
-        <p className="text-[12px] text-slate-400 italic">No ATS keywords extracted for this posting.</p>
+        <p className="text-[12px] text-slate-400 italic">{J.no_kw}</p>
       )}
     </div>
   )

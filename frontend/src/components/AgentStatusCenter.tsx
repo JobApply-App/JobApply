@@ -401,7 +401,7 @@ export function AgentStatusCenter({ agents, loading, error, onRetry, onJobAnalyz
         setSyncing(false)
       }
     } catch (err) {
-      setSyncErr(err instanceof Error ? err.message : 'Failed to start pipeline')
+      setSyncErr(err instanceof Error ? err.message : G.start_failed)
       setSyncing(false)
     }
   }

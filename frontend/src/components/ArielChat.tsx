@@ -16,24 +16,8 @@ import { useChat }        from '@/contexts/ChatContext'
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const STAGE_LABELS: Record<string, string> = {
-  student:    'Student',
-  junior:     'Junior',
-  mid:        'Mid-Level',
-  senior:     'Senior',
-  management: 'Management',
-}
+// Stage and seniority labels come from the dictionary (ariel.stages / ariel.seniority).
 
-// Per-role seniority levels from the onboarding preferences step.
-const SENIORITY_LABELS: Record<string, string> = {
-  junior:    'Junior',
-  entry:     'Entry-Level',
-  mid:       'Mid-Level',
-  senior:    'Senior',
-  lead:      'Lead',
-  director:  'Director',
-  executive: 'Executive',
-}
 
 const LINE_HEIGHT_PX    = 20   // matches leading-5 / text-[13px] in the widget
 const MAX_LINES         = 4
@@ -526,7 +510,7 @@ function HistoryPanel({
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 flex-shrink-0">
           <div className="flex items-center gap-2 text-slate-700">
             <HistoryIcon />
-            <span className="text-[13px] font-semibold">History</span>
+            <span className="text-[13px] font-semibold">{A.history}</span>
           </div>
           <button
             onClick={onClose}
@@ -555,7 +539,7 @@ function HistoryPanel({
           ) : sessions.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 gap-2 text-center px-6">
               <HistoryIcon s={20} />
-              <p className="text-[12px] text-slate-400">No previous conversations yet.</p>
+              <p className="text-[12px] text-slate-400">{A.no_history}</p>
             </div>
           ) : (
             <ul className="p-2 space-y-1">
@@ -575,11 +559,11 @@ function HistoryPanel({
                     >
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="text-[10.5px] text-slate-400">{fmtDate(s.updated_at)}</span>
-                        <span className="text-[10px] text-slate-300">{s.message_count} msg{s.message_count !== 1 ? 's' : ''}</span>
+                        <span className="text-[10px] text-slate-300">{s.message_count === 1 ? A.msgs_one : A.msgs_many.replace('{n}', String(s.message_count))}</span>
                       </div>
-                      <p dir="auto" className="text-[12px] text-slate-600 leading-snug line-clamp-2 [unicode-bidi:plaintext] text-start">{s.preview || 'Empty conversation'}</p>
+                      <p dir="auto" className="text-[12px] text-slate-600 leading-snug line-clamp-2 [unicode-bidi:plaintext] text-start">{s.preview || A.empty_convo}</p>
                       {isActive && (
-                        <span className="mt-1 inline-block text-[10px] font-semibold text-violet-600">Active</span>
+                        <span className="mt-1 inline-block text-[10px] font-semibold text-violet-600">{A.active}</span>
                       )}
                     </button>
                   </li>
@@ -808,24 +792,26 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
     let context = ''
     if (roles.length > 0) {
       const parts = roles.slice(0, 3).map(r => {
-        const level = SENIORITY_LABELS[r.seniority] ?? ''
-        return level ? `**${level} ${r.role}**` : `**${r.role}**`
+        const level = (A.seniority as Record<string, string>)[r.seniority] ?? ''
+        return level
+          ? `**${A.role_with_level.replace('{level}', level).replace('{role}', r.role)}**`
+          : `**${r.role}**`
       })
       const list = parts.length > 1
-        ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+        ? `${parts.slice(0, -1).join(', ')}${A.list_and}${parts[parts.length - 1]}`
         : parts[0]
-      context = ` I see you're targeting ${list} roles — great, that gives me a clear direction.`
+      context = A.greet_roles.replace('{list}', list)
     } else {
       const stage = onboardingData.careerStage
-        ? (STAGE_LABELS[onboardingData.careerStage] ?? onboardingData.careerStage)
+        ? ((A.stages as Record<string, string>)[onboardingData.careerStage] ?? onboardingData.careerStage)
         : ''
-      if (stage) context = ` I see you're at the **${stage}** stage.`
+      if (stage) context = A.greet_stage.replace('{stage}', stage)
     }
 
     setMessages([{
       id:      makeId(),
       role:    'assistant',
-      content: `Hi ${first}! Great to have you here.${context} Let's refine your Master Profile together — what would you like to tackle first?`,
+      content: A.greet.replace('{first}', first).replace('{context}', context),
     }])
     clearOnboarding()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1075,7 +1061,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
     const replySnippet  = replyingTo
       ? replyingTo.content.slice(0, REPLY_SNIPPET_LEN) + (replyingTo.content.length > REPLY_SNIPPET_LEN ? '…' : '')
       : null
-    const fullText = replySnippet ? `Replying to: "${replySnippet}"\n\n${rawText}` : rawText
+    const fullText = replySnippet ? `${A.replying_to} "${replySnippet}"\n\n${rawText}` : rawText
 
     setInput('')
     resetHeight(textRef.current)
@@ -1137,7 +1123,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
         setTimeout(triggerProfileRefresh, 5000)
       }
     }
-  }, [input, messages, streaming, replyingTo, attachments, forceBottom, triggerProfileRefresh, A.attached_files, A.generic_error])
+  }, [input, messages, streaming, replyingTo, attachments, forceBottom, triggerProfileRefresh, A.attached_files, A.generic_error, A.replying_to])
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
@@ -1169,9 +1155,9 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       {replyingTo && (
         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-violet-50 border border-violet-200 text-[11.5px]">
           <ReplyIcon />
-          <span className="text-violet-700 font-medium shrink-0">Replying to:</span>
+          <span className="text-violet-700 font-medium shrink-0">{A.replying_to}</span>
           <span className="text-slate-500 flex-1 truncate">{replyingTo.content.slice(0, REPLY_SNIPPET_LEN)}</span>
-          <button onClick={() => setReplyingTo(null)} className="ml-auto text-slate-400 hover:text-slate-700 focus-visible:text-slate-700 transition text-[15px] leading-none" title="Cancel reply" aria-label="Cancel reply">×</button>
+          <button onClick={() => setReplyingTo(null)} className="ml-auto text-slate-400 hover:text-slate-700 focus-visible:text-slate-700 transition text-[15px] leading-none" title={A.cancel_reply} aria-label={A.cancel_reply}>×</button>
         </div>
       )}
 
@@ -1221,8 +1207,8 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
                   type="button"
                   onClick={openPreview}
                   className="flex items-center gap-1.5 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                  title={`Preview: ${a.name}`}
-                  aria-label={`Preview attachment ${a.name}`}
+                  title={A.preview_named.replace('{name}', a.name)}
+                  aria-label={A.preview_attachment.replace('{name}', a.name)}
                 >
                   {a.mediaType.startsWith('image/') ? (
                     // eslint-disable-next-line @next/next/no-img-element

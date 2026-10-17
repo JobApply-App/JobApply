@@ -203,7 +203,7 @@ function ActionCard({ toolName, toolArgs, onConfirm, onDismiss }: ActionCardProp
         )}
         {skills.length > 0 && (
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Focus skills</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">{S.focus_skills}</p>
             <div className="flex flex-wrap gap-1.5">
               {skills.map((s, i) => (
                 <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-[11px] font-medium text-slate-700">
@@ -538,7 +538,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
 
       if (!streamStarted) {
         setMessages(prev => [...prev, {
-          role: 'assistant', content: '_(No response received.)_', ts: assistantTs,
+          role: 'assistant', content: S.no_response, ts: assistantTs,
         }])
       }
 
@@ -549,7 +549,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
     } finally {
       setThinking(false)
     }
-  }, [draft, thinking, sessionId, messages, attachments, S.attached_files, S.generic_error])
+  }, [draft, thinking, sessionId, messages, attachments, S.attached_files, S.generic_error, S.no_response])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
@@ -710,7 +710,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            title={`Attach images or PDFs (screenshots help!) — max ${MAX_ATTACHMENTS} files, up to ${MAX_FILE_SIZE_MB}MB each, ${MAX_TOTAL_SIZE_MB}MB total`}
+            title={S.attach_title.replace('{max}', String(MAX_ATTACHMENTS)).replace('{size}', String(MAX_FILE_SIZE_MB)).replace('{total}', String(MAX_TOTAL_SIZE_MB))}
             aria-label={S.attach}
             disabled={thinking || attachments.length >= MAX_ATTACHMENTS}
             className="shrink-0 w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 focus-visible:text-slate-700 focus-visible:bg-slate-100 transition disabled:opacity-40"

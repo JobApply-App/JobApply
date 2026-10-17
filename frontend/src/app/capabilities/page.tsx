@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useI18n } from '@/contexts/I18nContext'
 import { useChat } from '@/contexts/ChatContext'
 import { Header } from '@/components/Header'
 import { CapabilitiesList } from '@/components/TrustDashboard'
@@ -48,6 +49,7 @@ function CapabilitiesFooter() {
 }
 
 export default function CapabilitiesPage() {
+  const T = useI18n().t.trust
   const { user, loading } = useAuth()
   const router = useRouter()
 
@@ -70,10 +72,10 @@ export default function CapabilitiesPage() {
           <div className="flex items-end justify-between gap-4">
             <div>
               <h1 className="text-[24px] font-bold text-slate-900 tracking-tight leading-none">
-                Capabilities
+                {T.caps_title}
               </h1>
               <p className="text-[13px] text-slate-500 mt-1.5">
-                Every verified and unverified skill, trait, and domain in your profile
+                {T.caps_subtitle}
               </p>
             </div>
           </div>

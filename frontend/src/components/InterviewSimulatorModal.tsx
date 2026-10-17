@@ -1,4 +1,5 @@
 'use client'
+import { useI18n } from '@/contexts/I18nContext'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import { evaluateInterviewAnswer, generateInterviewQuestion } from '@/lib/api'
@@ -54,11 +55,12 @@ function LoadingBlock({ label }: { label: string }) {
 }
 
 function ErrorBlock({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const M = useI18n().t.modals
   return (
     <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 flex items-center justify-between gap-3">
       <p className="text-[12.5px] text-rose-700">{message}</p>
       <button onClick={onRetry} className="shrink-0 text-[11.5px] font-medium text-rose-700 underline underline-offset-2">
-        Retry
+        {M.retry}
       </button>
     </div>
   )
@@ -70,6 +72,11 @@ interface InterviewSimulatorModalProps {
 }
 
 export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModalProps) {
+  const M = useI18n().t.modals
+  // Callbacks read the dictionary through a ref: depending on it directly
+  // would re-create them on a language switch and re-run the auto-fetch.
+  const MRef = useRef(M)
+  MRef.current = M
   const [question,     setQuestion]     = useState('')
   const [answer,       setAnswer]       = useState('')
   const [feedback,     setFeedback]     = useState('')
@@ -90,7 +97,7 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
       setQuestion(res.question)
       setRounds(r => r + 1)
     } catch (e) {
-      setQuestionErr(e instanceof Error ? e.message : 'Could not generate a question.')
+      setQuestionErr(e instanceof Error ? e.message : MRef.current.q_failed)
     } finally {
       setLoadingQ(false)
     }
@@ -111,7 +118,7 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
       const res = await evaluateInterviewAnswer(job.job_id, question, trimmed)
       setFeedback(res.feedback)
     } catch (e) {
-      setEvalErr(e instanceof Error ? e.message : 'Evaluation failed. Please try again.')
+      setEvalErr(e instanceof Error ? e.message : MRef.current.eval_failed)
     } finally {
       setEvaluating(false)
     }
@@ -146,7 +153,7 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
               <div className="flex items-center gap-1.5 mb-1">
                 <span aria-hidden="true" className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
                 <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                  Ariel · Mock Interview
+                  {M.mock_title}
                 </p>
                 {rounds > 0 && (
                   <span className="text-[10px] font-semibold text-slate-300 tabular-nums ml-1">
@@ -161,7 +168,7 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
             </div>
             <button
               onClick={onClose}
-              aria-label="Close"
+              aria-label={M.close}
               className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
             >
               <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -175,9 +182,9 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
 
             {/* ── Question ─────────────────────────────────────────────────── */}
             <div>
-              <SectionLabel>Question</SectionLabel>
+              <SectionLabel>{M.question}</SectionLabel>
               {loadingQ ? (
-                <LoadingBlock label="Ariel is preparing a targeted question…" />
+                <LoadingBlock label={M.preparing_q} />
               ) : questionErr ? (
                 <ErrorBlock message={questionErr} onRetry={fetchQuestion} />
               ) : (
@@ -192,11 +199,11 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
             {/* ── Answer ───────────────────────────────────────────────────── */}
             {!loadingQ && !questionErr && (
               <div>
-                <SectionLabel>Your Answer</SectionLabel>
+                <SectionLabel>{M.your_answer}</SectionLabel>
                 <textarea
                   value={answer}
                   onChange={e => setAnswer(e.target.value)}
-                  placeholder="Answer as you would in the real interview — concrete situation, action, outcome…"
+                  placeholder={M.answer_ph}
                   rows={5}
                   disabled={evaluating || hasFeedback}
                   dir="auto"
@@ -205,14 +212,14 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
                 {!hasFeedback && (
                   <div className="flex items-center justify-between mt-1.5">
                     <span className="text-[11px] text-slate-400 tabular-nums">
-                      {answer.trim() ? `${answer.trim().split(/\s+/).filter(Boolean).length} words` : ''}
+                      {answer.trim() ? M.words.replace('{n}', String(answer.trim().split(/\s+/).filter(Boolean).length)) : ''}
                     </span>
                     <button
                       onClick={submitAnswer}
                       disabled={evaluating || !answer.trim()}
                       className="inline-flex items-center gap-1.5 h-8 px-4 rounded-lg text-[12.5px] font-semibold text-white bg-ja-primary hover:bg-ja-primaryHover transition active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none"
                     >
-                      {evaluating ? <><SpinnerIcon s={12} /> Evaluating…</> : 'Submit Answer'}
+                      {evaluating ? <><SpinnerIcon s={12} /> {M.evaluating}</> : M.submit_answer}
                     </button>
                   </div>
                 )}
@@ -220,11 +227,11 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
             )}
 
             {/* ── Evaluation ───────────────────────────────────────────────── */}
-            {evaluating && <LoadingBlock label="Ariel is evaluating your answer…" />}
+            {evaluating && <LoadingBlock label={M.evaluating_long} />}
             {evalErr && <ErrorBlock message={evalErr} onRetry={submitAnswer} />}
             {hasFeedback && (
               <div>
-                <SectionLabel>Ariel&apos;s Feedback</SectionLabel>
+                <SectionLabel>{M.feedback}</SectionLabel>
                 <ArielBlock>
                   <p dir="auto" className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap [unicode-bidi:plaintext] text-start">
                     {feedback}
@@ -240,7 +247,7 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
               onClick={onClose}
               className="h-8 px-4 rounded-lg text-[12.5px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
             >
-              End Session
+              {M.end_session}
             </button>
             {hasFeedback && (
               <div className="flex items-center gap-2">
@@ -248,13 +255,13 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
                   onClick={reviseAnswer}
                   className="h-8 px-3.5 rounded-lg text-[12.5px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
                 >
-                  Revise Answer
+                  {M.revise}
                 </button>
                 <button
                   onClick={fetchQuestion}
                   className="inline-flex items-center gap-1.5 h-8 px-4 rounded-lg text-[12.5px] font-semibold text-white bg-ja-primary hover:bg-ja-primaryHover transition active:scale-[0.97]"
                 >
-                  Next Question →
+                  {M.next_q}
                 </button>
               </div>
             )}

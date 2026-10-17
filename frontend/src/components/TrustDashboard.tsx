@@ -29,6 +29,7 @@
 import {
   useState, useEffect, useCallback, useRef, lazy, Suspense,
 } from 'react'
+import type { Dict } from '@/locales'
 import { useI18n } from '@/contexts/I18nContext'
 import Link from 'next/link'
 import { TOKENS } from '@/lib/tokens'
@@ -373,15 +374,7 @@ function ProgressBar({ score, verificationLevel }: {
 
 // ── Source labels ─────────────────────────────────────────────────────────────
 
-const SOURCE_LABELS: Record<string, string> = {
-  cv_parse:                 'CV Parse',
-  self_assertion:           'Self-Assertion',
-  contextual_reinforcement: 'Contextual Mention',
-  certification:            'Certification',
-  portfolio:                'Portfolio',
-  conversation_star:        'STAR Behavioral Probe',
-  negative_flag:            'Negative Flag',
-}
+// Source labels come from the dictionary (trust.sources).
 
 function formatDate(iso: string): string {
   try {
@@ -394,6 +387,7 @@ function formatDate(iso: string): string {
 // ── EvidenceAccordion ─────────────────────────────────────────────────────────
 
 function EvidenceAccordion({ entries, open }: { entries: TrustEvidenceEntry[]; open: boolean }) {
+  const T = useI18n().t.trust
   return (
     <div style={{
       display: 'grid',
@@ -403,7 +397,7 @@ function EvidenceAccordion({ entries, open }: { entries: TrustEvidenceEntry[]; o
       <div style={{ overflow: 'hidden' }}>
         <div className="pt-3 pb-1 space-y-2">
           {entries.length === 0 ? (
-            <p className="text-[11.5px] text-slate-400 italic px-1">No evidence records yet.</p>
+            <p className="text-[11.5px] text-slate-400 italic px-1">{T.no_evidence_yet}</p>
           ) : entries.map(entry => <EvidenceRow key={entry.evidence_id} entry={entry} />)}
         </div>
       </div>
@@ -414,7 +408,7 @@ function EvidenceAccordion({ entries, open }: { entries: TrustEvidenceEntry[]; o
 function EvidenceRow({ entry }: { entry: TrustEvidenceEntry }) {
   const T = useI18n().t.trust
   const isNeg       = entry.base_weight < 0
-  const sourceLabel = SOURCE_LABELS[entry.source_type] ?? entry.source_type
+  const sourceLabel = (T.sources as Record<string, string>)[entry.source_type] ?? entry.source_type
   return (
     <div
       className="flex items-start gap-3 rounded-lg px-3 py-2.5"
@@ -444,7 +438,7 @@ function EvidenceRow({ entry }: { entry: TrustEvidenceEntry }) {
               style={{ background: 'oklch(0.94 0.07 290)', color: 'oklch(0.35 0.18 290)' }}
               title={T.tips.ai_assisted}
             >
-              AI-Aug ×0.6
+              {T.ai_aug}
             </span>
           )}
         </div>
@@ -468,13 +462,14 @@ const ENTITY_TYPE_CONFIG: Record<EntityType, { label: string; bg: string; fg: st
 }
 
 function EntityTypeChip({ type }: { type: EntityType }) {
+  const T = useI18n().t.trust
   const cfg = ENTITY_TYPE_CONFIG[type] ?? ENTITY_TYPE_CONFIG.skill
   return (
     <span
       className="shrink-0 inline-flex items-center h-[18px] px-1.5 rounded text-[9.5px] font-bold tracking-wide uppercase"
       style={{ background: cfg.bg, color: cfg.fg }}
     >
-      {cfg.label}
+      {T.entity[type] ?? cfg.label}
     </span>
   )
 }
@@ -483,37 +478,39 @@ function EntityTypeChip({ type }: { type: EntityType }) {
 
 const VL_CONFIG: Record<
   VerificationLevel,
-  { label: string; bg: string; fg: string; title: string }
+  // label/title are keys into trust.vl
+  { label: keyof Dict['trust']['vl']; bg: string; fg: string; title: keyof Dict['trust']['vl'] }
 > = {
   VERIFIED_MANUAL: {
-    label: 'Manual ✓',
+    label: 'manual',
     bg:    'oklch(0.93 0.07 155)',
     fg:    'oklch(0.28 0.14 155)',
-    title: 'Verified: passed a manual (no-AI) assessment',
+    title: 'manual_title',
   },
   ORCHESTRATION_ONLY: {
-    label: 'Arch only',
+    label: 'arch',
     bg:    'oklch(0.95 0.05 50)',
     fg:    'oklch(0.48 0.14 50)',
-    title: 'Architecture evidence present — no manual syntax verification yet',
+    title: 'arch_title',
   },
   UNVERIFIED: {
-    label: 'No evidence',
+    label: 'none',
     bg:    'oklch(0.94 0.00 0)',
     fg:    'oklch(0.48 0.00 0)',
-    title: 'No meaningful evidence on record',
+    title: 'none_title',
   },
 }
 
 function VerificationLevelBadge({ level }: { level: VerificationLevel }) {
+  const T = useI18n().t.trust
   const cfg = VL_CONFIG[level] ?? VL_CONFIG.UNVERIFIED
   return (
     <span
       className="shrink-0 inline-flex items-center h-[18px] px-1.5 rounded text-[9.5px] font-bold tracking-wide"
       style={{ background: cfg.bg, color: cfg.fg }}
-      title={cfg.title}
+      title={T.vl[cfg.title]}
     >
-      {cfg.label}
+      {T.vl[cfg.label]}
     </span>
   )
 }
@@ -522,32 +519,34 @@ function VerificationLevelBadge({ level }: { level: VerificationLevel }) {
 
 const SKILL_TIER_CONFIG: Record<
   'Core_Mastery' | 'System_Orchestration',
-  { label: string; bg: string; fg: string; title: string }
+  // label/title are keys into trust.tier
+  { label: keyof Dict['trust']['tier']; bg: string; fg: string; title: keyof Dict['trust']['tier'] }
 > = {
   Core_Mastery: {
-    label: 'Core',
+    label: 'core',
     bg:    'oklch(0.94 0.08 170)',
     fg:    'oklch(0.32 0.14 170)',
-    title: 'Core Mastery — direct hands-on proficiency',
+    title: 'core_title',
   },
   System_Orchestration: {
-    label: 'Orchestration',
+    label: 'orch',
     bg:    'oklch(0.94 0.07 290)',
     fg:    'oklch(0.35 0.18 290)',
-    title: 'System Orchestration — understands architecture, uses AI for boilerplate',
+    title: 'orch_title',
   },
 }
 
 function SkillTierChip({ tier }: { tier: SkillTier }) {
+  const T = useI18n().t.trust
   if (!tier) return null
   const cfg = SKILL_TIER_CONFIG[tier]
   return (
     <span
       className="shrink-0 inline-flex items-center h-[18px] px-1.5 rounded text-[9.5px] font-bold tracking-wide uppercase"
       style={{ background: cfg.bg, color: cfg.fg }}
-      title={cfg.title}
+      title={T.tier[cfg.title]}
     >
-      {cfg.label}
+      {T.tier[cfg.label]}
     </span>
   )
 }
@@ -774,7 +773,7 @@ function FlagNoteCard({ note }: { note: string }) {
           className="inline-flex items-center h-[18px] px-2 rounded-md text-[10px] font-bold tracking-wide ml-auto"
           style={{ background: cfg.border, color: cfg.fg }}
         >
-          {cfg.badge}
+          {(T.flags as Record<string, string>)[flagType] ?? T.flags.flag}
         </span>
       </div>
       {/* Verbatim evaluator reason — contains the specific quote / contrast */}
@@ -878,11 +877,11 @@ function ManualReviewModal({ entity, onClose, onDone }: ManualReviewModalProps) 
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-amber-500"><WarnTriangle s={15} /></span>
-              <h3 className="text-[14px] font-bold text-slate-800">Manual Review Required</h3>
+              <h3 className="text-[14px] font-bold text-slate-800">{T.manual_review}</h3>
             </div>
             <p className="text-[12px] text-slate-500">
               <span className="font-semibold text-slate-700">{entity.name}</span>
-              {' '}— confidence {entity.confidence_score.toFixed(1)}
+              {' '}{T.confidence_of.replace('{score}', entity.confidence_score.toFixed(1))}
             </p>
           </div>
           <button
@@ -948,13 +947,13 @@ function ManualReviewModal({ entity, onClose, onDone }: ManualReviewModalProps) 
                 {T.resubmit}
               </p>
               <p className="text-[11.5px] text-slate-400 mt-0.5">
-                Upload a certificate, portfolio, or CV to add positive evidence.
+                {T.upload_evidence_hint}
               </p>
             </div>
 
             {uploadDone ? (
               <div className="flex items-center gap-1.5 text-[12px] font-semibold text-teal-700">
-                <CheckCircle s={13} />Uploaded — refreshing dashboard…
+                <CheckCircle s={13} />{T.uploaded_refreshing}
               </div>
             ) : (
               <button
@@ -967,7 +966,7 @@ function ManualReviewModal({ entity, onClose, onDone }: ManualReviewModalProps) 
                 }}
               >
                 {uploading ? <SpinnerIcon s={12} /> : <UploadIcon s={12} />}
-                {uploading ? 'Uploading…' : 'Choose file'}
+                {uploading ? T.uploading : T.choose_file}
               </button>
             )}
 
@@ -1096,7 +1095,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
       if (data.retry_suggested) {
         setRetryMessage(
           data.retry_message ??
-          "I couldn't fully evaluate your answer. Let's try one more specific example."
+          T.retry_answer
         )
         setAnswer('')   // clear so the user types a fresh attempt
         return
@@ -1154,7 +1153,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <span style={{ color: TOKENS.color.primary }}><ZapIcon s={14} /></span>
-              <h3 className="text-[14px] font-bold text-slate-800">Strengthen Trust</h3>
+              <h3 className="text-[14px] font-bold text-slate-800">{T.strengthen_trust}</h3>
               <span
                 className="inline-flex items-center h-[18px] px-2 rounded-full text-[9.5px] font-bold tracking-wide"
                 style={{ background: TOKENS.color.primarySoft, color: TOKENS.color.primary }}
@@ -1243,12 +1242,12 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className={`text-[13px] font-bold mb-1 ${flagPositive ? 'text-teal-800' : 'text-slate-700'}`}>
-                    {flagPositive ? 'Evidence recorded' : 'Shallow response detected'}
+                    {flagPositive ? T.evidence_recorded : T.shallow_detected}
                   </p>
                   <p className="text-[12px] leading-relaxed text-slate-500">
                     {flagPositive
-                      ? `Confidence updated to ${probe.new_confidence?.toFixed(1) ?? '—'}. The dashboard will reflect this shortly.`
-                      : `This response was flagged as ${probe.flag_type?.replace('_', ' ')}. A negative signal has been recorded. Try again with more specific examples.`
+                      ? T.confidence_updated.replace('{score}', probe.new_confidence?.toFixed(1) ?? '—')
+                      : T.flagged_as.replace('{type}', (T.flags as Record<string, string>)[probe.flag_type ?? ''] ?? (probe.flag_type ?? '').replace('_', ' '))
                     }
                   </p>
                   {probe.new_confidence !== null && (
@@ -1353,7 +1352,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                   </div>
                   <button
                     onClick={() => setAttachment(null)}
-                    aria-label={`Remove attachment ${attachment.name}`}
+                    aria-label={T.remove_attachment_named.replace('{name}', attachment.name)}
                     title={T.remove_attachment}
                     className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-white/60 focus-visible:text-slate-700 transition text-[13px]"
                   >×</button>
@@ -1367,7 +1366,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
               {sending && thinkingLong && (
                 <div className="flex items-center gap-2 text-[12px] text-slate-400 animate-pulse">
                   <SpinnerIcon s={12} />
-                  <span>Ariel is analysing your STAR logic…</span>
+                  <span>{T.analysing_star}</span>
                 </div>
               )}
 
@@ -1384,7 +1383,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                       <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                     </svg>
                   </button>
-                  <span className="text-[11px] text-slate-400">⌘↵ to submit</span>
+                  <span className="text-[11px] text-slate-400">{T.cmd_submit}</span>
                 </div>
                 <button
                   onClick={submitAnswer}
@@ -1409,6 +1408,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
 function ManualReviewCallout({
   entities, onReview,
 }: { entities: TrustProfileEntity[]; onReview: (e: TrustProfileEntity) => void }) {
+  const T = useI18n().t.trust
   const flagged = entities.filter(e => e.manual_review_required)
   if (flagged.length === 0) return null
   return (
@@ -1420,12 +1420,11 @@ function ManualReviewCallout({
       <div className="flex-1 min-w-0">
         <p className="text-[12.5px] font-semibold text-slate-700 mb-0.5">
           {flagged.length === 1
-            ? '1 skill requires manual review'
-            : `${flagged.length} skills require manual review`}
+            ? T.review_one
+            : T.review_many.replace('{n}', String(flagged.length))}
         </p>
         <p className="text-[12px] text-slate-500 leading-relaxed">
-          A contradiction or shallow STAR response was detected. Click a skill below
-          to see the flag reason and re-submit evidence.
+          {T.review_body}
         </p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {flagged.map(e => (
@@ -1440,7 +1439,7 @@ function ManualReviewCallout({
               }}
             >
               {e.name}
-              <span className="opacity-60 text-[9px] ml-0.5">→ Review</span>
+              <span className="opacity-60 text-[9px] ml-0.5">{T.review_link}</span>
             </button>
           ))}
         </div>
@@ -1674,15 +1673,15 @@ function UploadZone({ userId, onUploaded }: UploadZoneProps) {
         <span className="text-[36px]" aria-hidden="true">✅</span>
         <div>
           <p className="text-[14px] font-bold text-teal-800">
-            CV uploaded — building your Confidence Matrix
+            {T.cv_uploaded}
           </p>
           <p className="text-[12.5px] text-teal-700 mt-1">
-            {stats.entities_ingested} entities extracted · overall score {stats.overall_trust_score.toFixed(1)}
+            {T.cv_uploaded_stats.replace('{n}', String(stats.entities_ingested)).replace('{score}', stats.overall_trust_score.toFixed(1))}
           </p>
         </div>
         <div className="flex items-center gap-2 text-[12px] text-teal-700 animate-pulse">
           <SpinnerIcon s={13} />
-          Loading your matrix…
+          {T.loading_matrix}
         </div>
       </div>
     )
@@ -1738,15 +1737,14 @@ function UploadZone({ userId, onUploaded }: UploadZoneProps) {
         <div>
           <p className="text-[15px] font-bold text-slate-800">
             {uploading
-              ? 'Uploading and extracting entities…'
-              : 'Upload your CV to start building your Confidence Matrix'
+              ? T.uploading_extracting
+              : T.upload_to_start
             }
           </p>
           {!uploading && (
             <p className="text-[12.5px] text-slate-400 mt-1.5 leading-relaxed max-w-sm">
-              {T.drop_file}
-              Ariel will extract your skills, experience, and domain knowledge
-              and score each entity based on the evidence in your CV.
+              {T.drop_file}{' '}
+              {T.extract_explainer}
             </p>
           )}
         </div>
@@ -1779,17 +1777,18 @@ function UploadZone({ userId, onUploaded }: UploadZoneProps) {
 // ORCHESTRATION_ONLY is intentionally silent — no pill, no noise.
 // Only the two ends of the spectrum get a visible signal.
 
-const STATUS_PILL: Record<string, { label: string | null; bg: string; text: string; hint?: string } | null> = {
-  VERIFIED_MANUAL:    { label: 'Verified',   bg: '#ECFDF5', text: '#065F46' },
+// label/hint are keys into trust.pill
+const STATUS_PILL: Record<string, { label: keyof Dict['trust']['pill'] | null; bg: string; text: string; hint?: keyof Dict['trust']['pill'] } | null> = {
+  VERIFIED_MANUAL:    { label: 'verified',   bg: '#ECFDF5', text: '#065F46' },
   ORCHESTRATION_ONLY: null,
-  UNVERIFIED:         { label: null,         bg: '#FFFBEB', text: '#92400E', hint: 'Syntax mastery unverified' },
+  UNVERIFIED:         { label: null,         bg: '#FFFBEB', text: '#92400E', hint: 'unverified_hint' },
 }
 
-function validatePillLabel(entityType: EntityType | string | undefined): string {
-  if (entityType === 'domain')     return 'Validate Domain'
-  if (entityType === 'experience') return 'Validate Experience'
-  if (entityType === 'trait')      return 'Validate Trait'
-  return 'Validate Skill'
+function validatePillLabel(entityType: EntityType | string | undefined, P: Dict['trust']['pill']): string {
+  if (entityType === 'domain')     return P.validate_domain
+  if (entityType === 'experience') return P.validate_experience
+  if (entityType === 'trait')      return P.validate_trait
+  return P.validate_skill
 }
 
 // ── CapabilityRow ─────────────────────────────────────────────────────────────
@@ -1807,6 +1806,7 @@ interface CapabilityRowProps {
 }
 
 function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: CapabilityRowProps) {
+  const T = useI18n().t.trust
   const vl   = entity.verification_level ?? 'UNVERIFIED'
   const pill = STATUS_PILL[vl]
   const pct  = Math.min(100, Math.max(0, entity.confidence_score))
@@ -1885,7 +1885,7 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: C
         <span
           tabIndex={0}
           className="relative group/tip inline-flex items-center justify-center w-[15px] h-[15px] rounded-full border border-slate-200 text-[9px] font-bold text-slate-400 cursor-default select-none hover:border-teal-400 hover:text-teal-500 focus-visible:border-teal-400 focus-visible:text-teal-500 transition-colors"
-          aria-label={`Confidence Weight: x${(entity.evidence_multiplier ?? 0.5).toFixed(1)} — Based on ${entity.evidence_count ?? 0} Ariel-verified challenges`}
+          aria-label={T.weight_aria.replace('{mult}', (entity.evidence_multiplier ?? 0.5).toFixed(1)).replace('{count}', String(entity.evidence_count ?? 0))}
         >
           i
           <span
@@ -1910,10 +1910,10 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: C
               className="inline-flex items-center h-[22px] px-3 rounded-full text-[11px] font-semibold"
               style={{ background: pill.bg, color: pill.text }}
             >
-              {pill.label ?? validatePillLabel(entity.entity_type)}
+              {pill.label ? T.pill[pill.label] : validatePillLabel(entity.entity_type, T.pill)}
             </span>
             {pill.hint && (
-              <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{pill.hint}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{T.pill[pill.hint]}</p>
             )}
           </div>
         ) : statusLabel ? (
@@ -1962,53 +1962,47 @@ interface CapabilityInsights {
   tips:      string[]
 }
 
-function buildCapabilityInsights(entity: TrustProfileEntity): CapabilityInsights {
+function buildCapabilityInsights(entity: TrustProfileEntity, I: Dict['trust']['insights']): CapabilityInsights {
   const vl     = entity.verification_level ?? 'UNVERIFIED'
   const arch   = entity.architecture_confidence ?? 0
   const syntax = entity.syntax_confidence ?? 0
   const score  = entity.confidence_score
 
   const reasoning: string[] = [
-    `${entity.name} is currently scored at ${score.toFixed(1)}/100, blending two independent signals: how well your portfolio, STAR stories, and CV evidence support it (${arch.toFixed(1)}/100 architecture confidence), and how well you've demonstrated it directly to Ariel in a manual assessment (${syntax.toFixed(1)}/100 syntax confidence).`,
+    I.score
+      .replace('{name}', entity.name)
+      .replace('{score}', score.toFixed(1))
+      .replace('{arch}', arch.toFixed(1))
+      .replace('{syntax}', syntax.toFixed(1)),
   ]
 
   if (entity.evidence_multiplier !== undefined) {
-    const mult  = entity.evidence_multiplier
+    const mult  = entity.evidence_multiplier.toFixed(1)
     const count = entity.evidence_count ?? 0
     reasoning.push(
-      `A confidence weight of ×${mult.toFixed(1)} is applied based on ${count} Ariel-verified challenge${count === 1 ? '' : 's'} — the more you engage with verification, the closer this weight moves to ×1.0.`,
+      (count === 1 ? I.weight_one : I.weight_many).replace('{mult}', mult).replace('{count}', String(count)),
     )
   }
 
   if (vl === 'VERIFIED_MANUAL') {
-    reasoning.push('This capability has been manually verified — the highest trust tier available.')
+    reasoning.push(I.verified)
   } else if (vl === 'ORCHESTRATION_ONLY') {
-    reasoning.push('This score currently reflects AI-orchestrated evidence only; it has not yet been confirmed through a manual review.')
+    reasoning.push(I.orch_only)
   } else {
-    reasoning.push('No verification evidence has been submitted for this capability yet, so it is scored on unverified signals alone.')
+    reasoning.push(I.unverified)
   }
 
   if (entity.manual_review_required) {
-    reasoning.push('A manual review has been flagged for this capability — see the review banner above for details.')
+    reasoning.push(I.review_flagged)
   }
 
   const tips: string[] = []
 
-  if (vl === 'UNVERIFIED') {
-    tips.push('Complete a Verify Mastery challenge with Ariel to establish an initial trust baseline.')
-  }
-  if (vl === 'ORCHESTRATION_ONLY' && score < 70) {
-    tips.push('Use "Strengthen" to submit further evidence — additional AI-verified challenges raise your confidence weight toward ×1.0.')
-  }
-  if (arch < 70) {
-    tips.push('Add portfolio links, STAR stories, or CV detail that showcase this capability in action — this directly raises architecture confidence.')
-  }
-  if (syntax < 70 && vl !== 'VERIFIED_MANUAL') {
-    tips.push('Request a manual assessment to validate hands-on mastery — this raises syntax confidence beyond what AI orchestration alone can prove.')
-  }
-  if (tips.length === 0) {
-    tips.push('This capability is in strong shape — keep its evidence current as your experience grows.')
-  }
+  if (vl === 'UNVERIFIED') tips.push(I.tip_baseline)
+  if (vl === 'ORCHESTRATION_ONLY' && score < 70) tips.push(I.tip_strengthen)
+  if (arch < 70) tips.push(I.tip_arch)
+  if (syntax < 70 && vl !== 'VERIFIED_MANUAL') tips.push(I.tip_syntax)
+  if (tips.length === 0) tips.push(I.tip_strong)
 
   return { reasoning, tips }
 }
@@ -2021,7 +2015,7 @@ interface CapabilityDetailDrawerProps {
 function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps) {
   const T = useI18n().t.trust
   const isOpen    = !!entity
-  const insights  = entity ? buildCapabilityInsights(entity) : null
+  const insights  = entity ? buildCapabilityInsights(entity, T.insights) : null
   const band      = entity ? getScoreBand(entity.confidence_score) : null
   const { openChat } = useChat()
 
@@ -2038,13 +2032,16 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
   // closes this drawer so only one altitude-2 surface is ever visible at once.
   const handleImproveWithAriel = useCallback(() => {
     if (!entity) return
-    const label = (entity.entity_type ?? 'skill').replace(/_/g, ' ')
+    const type  = entity.entity_type ?? 'skill'
+    const label = (T.entity as Record<string, string>)[type] ?? type.replace(/_/g, ' ')
     openChat({
-      topic: `Help me improve my "${entity.name}" ${label} score `
-        + `(currently ${entity.confidence_score.toFixed(1)}/100).`,
+      topic: T.improve_topic
+        .replace('{name}', entity.name)
+        .replace('{type}', label)
+        .replace('{score}', entity.confidence_score.toFixed(1)),
     })
     onClose()
-  }, [entity, openChat, onClose])
+  }, [entity, openChat, onClose, T])
 
   return (
     <>
@@ -2064,7 +2061,7 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={entity ? `Score breakdown: ${entity.name}` : 'Score breakdown'}
+        aria-label={entity ? T.score_breakdown_named.replace('{name}', entity.name) : T.score_breakdown}
         className="fixed top-0 right-0 bottom-0 z-50 flex flex-col bg-white"
         style={{
           width:      'min(480px, 100vw)',
@@ -2095,7 +2092,7 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
             <button
               onClick={onClose}
               className="h-8 w-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition"
-              aria-label="Close"
+              aria-label={T.close}
             >
               <XIcon s={16} />
             </button>
@@ -2235,13 +2232,13 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
             </div>
             <h3 className="text-[16px] font-bold text-white leading-tight">{entity.name}</h3>
             <p className="text-[11.5px]" style={{ color: 'oklch(0.60 0.04 250)' }}>
-              No AI assistance · Score submitted to Ariel
+              {T.no_ai_assist}
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label={T.close_challenge}
-            title="Close"
+            title={T.close}
             className="h-7 w-7 flex items-center justify-center rounded-lg text-[16px] transition hover:bg-white/10 focus-visible:bg-white/10"
             style={{ color: 'oklch(0.55 0.04 250)' }}
           >×</button>
@@ -2251,17 +2248,17 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
         <div className="bg-white px-6 py-5 space-y-4">
           {loading ? (
             <div className="flex items-center gap-2.5 text-[13px] text-slate-400 py-8 justify-center">
-              <SpinnerIcon s={14} /> Preparing your challenge…
+              <SpinnerIcon s={14} /> {T.preparing}
             </div>
           ) : !session ? (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
               <span className="text-[28px]" aria-hidden="true">⚡</span>
-              <p className="text-[13px] font-semibold text-slate-700">Ready to verify {entity.name}</p>
+              <p className="text-[13px] font-semibold text-slate-700">{T.ready_verify.replace('{name}', entity.name)}</p>
               <p className="text-[12px] text-slate-400 max-w-[280px] leading-relaxed">
-                Ariel will ask you a hands-on challenge. Demonstrate your mastery without AI assistance.
+                {T.challenge_intro}
               </p>
               <div className="flex items-center gap-2 text-[12px] text-slate-400 animate-pulse mt-1">
-                <SpinnerIcon s={12} /> Initialising session…
+                <SpinnerIcon s={12} /> {T.initialising}
               </div>
             </div>
           ) : session ? (
@@ -2305,14 +2302,14 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
                       // eslint-disable-next-line @next/next/no-img-element -- a data: URI (see the guard above), which next/image cannot optimise: it would need `unoptimized`, adding the component's overhead for none of its benefit.
                       <img
                         src={attachment.dataUrl}
-                        alt="attachment preview"
+                        alt={T.attachment_preview}
                         className="w-7 h-7 rounded object-cover border border-slate-200 shrink-0"
                       />
                     )}
                     <span className="text-[11px] text-slate-600 truncate">{attachment.name}</span>
                     <button
                       onClick={() => setAttachment(null)}
-                      aria-label={`Remove attachment ${attachment.name}`}
+                      aria-label={T.remove_attachment_named.replace('{name}', attachment.name)}
                       title={T.remove_attachment}
                       className="shrink-0 text-[13px] text-slate-400 hover:text-slate-700 focus-visible:text-slate-700 transition"
                     >×</button>
@@ -2336,7 +2333,7 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
                   boxShadow:   '0 4px 14px oklch(0.45 0.18 170 / 0.35)',
                 }}
               >
-                Accept the Challenge →
+                {T.accept_challenge}
               </button>
             </>
           ) : null /* session loaded but falsy — shouldn't occur */}
@@ -2383,9 +2380,9 @@ export function CapabilitiesList({ userId, className = '' }: { userId: string; c
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setData((await res.json()) as TrustScoreResponse)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load capabilities')
+      setError(err instanceof Error ? err.message : T.load_caps_failed)
     } finally { setLoading(false) }
-  }, [userId])
+  }, [userId, T.load_caps_failed])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -2746,12 +2743,12 @@ export function TrustDashboard({
         // Radar fetch failure is non-fatal; chart falls back to empty state
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load trust scores')
+      setError(err instanceof Error ? err.message : T.load_failed)
     } finally {
       setLoading(false)
       hasLoadedOnceRef.current = true
     }
-  }, [userId])
+  }, [userId, T.load_failed])
 
   // Re-fires whenever profileVersion is bumped (Ariel chat updated the
   // profile) in addition to the initial mount-time fetch — see fetchData's
@@ -2804,11 +2801,11 @@ export function TrustDashboard({
         new_confidence: null,
       })
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Could not start probe. Please try again.')
+      alert(err instanceof Error ? err.message : T.probe_start_failed)
     } finally {
       setProbingId(null)
     }
-  }, [])
+  }, [T.probe_start_failed])
 
   // ── Probe done → refresh dashboard ──────────────────────────────────────
 
@@ -2881,7 +2878,7 @@ export function TrustDashboard({
         <div>
           <h2 className="text-[15px] font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <span className="text-teal-600"><ShieldCheck s={16} /></span>
-            Confidence Matrix
+            {T.confidence_matrix}
           </h2>
           <p className="text-[12px] text-slate-400 mt-0.5">
             {T.subtitle}
@@ -2918,7 +2915,7 @@ export function TrustDashboard({
         >
           <span className="text-[15px] mt-0.5" aria-hidden="true">⚠️</span>
           <div className="flex-1 min-w-0">
-            <p className="text-[12.5px] font-semibold text-slate-700 mb-0.5">Failed to load trust scores</p>
+            <p className="text-[12.5px] font-semibold text-slate-700 mb-0.5">{T.load_failed}</p>
             <p className="text-[12px] text-slate-500">{error}</p>
           </div>
           <button

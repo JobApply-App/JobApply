@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useI18n } from '@/contexts/I18nContext'
 
 export default function CapabilitiesError({
   error,
@@ -9,6 +10,7 @@ export default function CapabilitiesError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const T = useI18n().t.trust
   useEffect(() => {
     console.error('[capabilities] Page error:', error)
   }, [error])
@@ -21,14 +23,16 @@ export default function CapabilitiesError({
       >
         <div className="text-[36px] mb-4" aria-hidden="true">⚠️</div>
         <h1 className="text-[18px] font-bold text-slate-800 mb-2">
-          Capabilities failed to load
+          {T.caps_failed}
         </h1>
         <p className="text-[13px] text-slate-500 leading-relaxed mb-1">
-          {error.message || 'An unexpected error occurred while rendering this page.'}
+          {/* error.message is a raw JS exception (English, technical); it is
+              logged above, and the user gets a sentence they can act on. */}
+          {T.caps_failed_body}
         </p>
         {error.digest && (
           <p className="text-[11px] font-mono text-slate-400 mt-1 mb-6">
-            Error ID: {error.digest}
+            {T.error_id.replace('{id}', error.digest)}
           </p>
         )}
         {!error.digest && <div className="mb-6" />}
@@ -37,10 +41,10 @@ export default function CapabilitiesError({
           className="inline-flex items-center justify-center h-10 px-6 rounded-xl text-[13px] font-semibold text-white transition active:scale-[0.97]"
           style={{ background: '#0D9488' }}
         >
-          Try again
+          {T.try_again}
         </button>
         <p className="text-[11px] text-slate-400 mt-4">
-          If this persists, check the browser console for the full stack trace.
+          {T.persist_hint}
         </p>
       </div>
     </div>

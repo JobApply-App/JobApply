@@ -216,7 +216,7 @@ export function PhoneInput({
       {/* Validation message */}
       {invalid && (
         <p className="mt-1.5 text-xs text-rose-600" role="alert">
-          Please enter a valid phone number for the selected country.
+          {t.auth_layout.phone_invalid}
         </p>
       )}
 
@@ -248,7 +248,7 @@ export function PhoneInput({
           {/* List */}
           <ul className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <li className="px-4 py-3 text-sm text-slate-400 text-center">No results</li>
+              <li className="px-4 py-3 text-sm text-slate-400 text-center">{t.auth_layout.no_results}</li>
             ) : (
               filtered.map(c => (
                 <li key={c.code}>

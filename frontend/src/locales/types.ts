@@ -320,6 +320,11 @@ export interface Dict {
       weekly_label:    string; weekly_sub:    string
       off_label:       string; off_sub:       string
     }
+    title: string
+    score_off: string
+    score_all: string
+    score_hiding: string
+    radius: string
   }
   outreach: {
     title:            string
@@ -352,6 +357,17 @@ export interface Dict {
       step2_label:      string; step2_sub:      string; step2_badge:      string
       headhunter_label: string; headhunter_sub: string; headhunter_badge: string
     }
+    generating: string
+    loading: string
+    regenerate: string
+    generate: string
+    hm_saved: string
+    differs_title: string
+    differs_1a: string
+    differs_1b: string
+    differs_1c: string
+    differs_2: string
+    differs_3: string
   }
   trust: {
     confidence_matrix:   string
@@ -396,6 +412,106 @@ export interface Dict {
     }
     bands:   { high: string; medium: string; low: string; unverified: string }
     entity:  { skill: string; trait: string; domain: string; experience: string }
+    sources: {
+      cv_parse: string
+      self_assertion: string
+      contextual_reinforcement: string
+      certification: string
+      portfolio: string
+      conversation_star: string
+      negative_flag: string
+    }
+    vl: {
+      manual: string
+      manual_title: string
+      arch: string
+      arch_title: string
+      none: string
+      none_title: string
+    }
+    tier: {
+      core: string
+      core_title: string
+      orch: string
+      orch_title: string
+    }
+    flags: {
+      contradiction: string
+      shallow_star: string
+      inconsistency: string
+      flag: string
+    }
+    pill: {
+      verified: string
+      unverified_hint: string
+      validate_domain: string
+      validate_experience: string
+      validate_trait: string
+      validate_skill: string
+    }
+    insights: {
+      score: string
+      weight_one: string
+      weight_many: string
+      verified: string
+      orch_only: string
+      unverified: string
+      review_flagged: string
+      tip_baseline: string
+      tip_strengthen: string
+      tip_arch: string
+      tip_syntax: string
+      tip_strong: string
+    }
+    no_evidence_yet: string
+    ai_aug: string
+    manual_review: string
+    confidence_of: string
+    upload_evidence_hint: string
+    uploaded_refreshing: string
+    uploading: string
+    choose_file: string
+    retry_answer: string
+    strengthen_trust: string
+    evidence_recorded: string
+    shallow_detected: string
+    confidence_updated: string
+    flagged_as: string
+    remove_attachment_named: string
+    analysing_star: string
+    cmd_submit: string
+    review_one: string
+    review_many: string
+    review_body: string
+    review_link: string
+    cv_uploaded: string
+    cv_uploaded_stats: string
+    loading_matrix: string
+    uploading_extracting: string
+    upload_to_start: string
+    extract_explainer: string
+    weight_aria: string
+    improve_topic: string
+    score_breakdown: string
+    score_breakdown_named: string
+    no_ai_assist: string
+    close: string
+    preparing: string
+    ready_verify: string
+    challenge_intro: string
+    initialising: string
+    attachment_preview: string
+    accept_challenge: string
+    load_failed: string
+    load_caps_failed: string
+    probe_start_failed: string
+    caps_title: string
+    caps_subtitle: string
+    caps_failed: string
+    caps_failed_body: string
+    try_again: string
+    error_id: string
+    persist_hint: string
   }
   score_bands: {
     exceptional: string
@@ -461,6 +577,16 @@ export interface Dict {
     view_original: string
     ats_breakdown: string
     fetch_jd_first: string
+    jd_first_short: string
+    ats_needs_jd: string
+    analysing_kw: string
+    kw_injected: string
+    kw_excluded: string
+    confidence_snapshot: string
+    no_kw: string
+    gap_needs_jd: string
+    gap_failed: string
+    analysing_gaps: string
   }
   ariel: {
     name:            string
@@ -495,6 +621,37 @@ export interface Dict {
     send:            string
     generic_error:   string
     attached_files:  string
+    no_history: string
+    msgs_one: string
+    msgs_many: string
+    empty_convo: string
+    active: string
+    greet: string
+    greet_roles: string
+    greet_stage: string
+    list_and: string
+    role_with_level: string
+    replying_to: string
+    cancel_reply: string
+    preview_named: string
+    preview_attachment: string
+    seniority: {
+      junior: string
+      entry: string
+      mid: string
+      senior: string
+      lead: string
+      director: string
+      executive: string
+    }
+    stages: {
+      student: string
+      junior: string
+      mid: string
+      senior: string
+      management: string
+    }
+    history: string
   }
   support_chat: {
     name:            string
@@ -518,6 +675,9 @@ export interface Dict {
     tailoring_started: string
     confirm_generate:  string
     cancel:            string
+    focus_skills: string
+    no_response: string
+    attach_title: string
   }
   discover: {
     banner_title:    string
@@ -781,6 +941,8 @@ export interface Dict {
     creating_ws_named: string
     setting_up: string
     language: string
+    phone_invalid: string
+    no_results: string
   }
   settings: {
     language: {
@@ -862,6 +1024,23 @@ export interface Dict {
       offer: string
       rejected: string
     }
+    close: string
+    deleting: string
+    move_to_stage: string
+    move_to: string
+    current: string
+    updated: string
+    column_empty: string
+    drop_here: string
+    moved_to: string
+    move_undone: string
+    move_failed: string
+    delete_failed_reload: string
+    loading_board: string
+    board_failed: string
+    board_count_one: string
+    board_count_many: string
+    board_hint: string
   }
   agents: {
     running: string
@@ -889,5 +1068,100 @@ export interface Dict {
     failed_title: string
     failed_body: string
     dismiss: string
+    start_failed: string
+  }
+  all_jobs: {
+    title: string
+    count_one: string
+    count_many: string
+    applicants_exact: string
+    applicants_fewer: string
+    applicants_one: string
+    posted: string
+    first_seen: string
+    last_seen: string
+    show_details: string
+    hide_details: string
+    logo_alt: string
+    company_fallback: string
+    load_failed: string
+    retry: string
+    empty: string
+    no_options: string
+    ph_company: string
+    ph_title: string
+    f_seniority: string
+    f_employment: string
+    f_function: string
+    f_industry: string
+    ph_min_app: string
+    ph_max: string
+    sort: string
+    clear: string
+    posted_any: string
+    posted_24: string
+    posted_72: string
+    posted_168: string
+    posted_720: string
+    posted_within: string
+    sort_recent: string
+    sort_posted: string
+    sort_app_desc: string
+    sort_app_asc: string
+    sort_company: string
+    chip_company: string
+    chip_title: string
+    chip_applicants: string
+    remove_filter: string
+    showing: string
+    per_page: string
+    prev_page: string
+    next_page: string
+  }
+  modals: {
+    close: string
+    retry: string
+    words: string
+    edited: string
+    pitch_title: string
+    pitch_intro: string
+    pitch_writing: string
+    pitch_failed: string
+    regenerate: string
+    copied: string
+    copy: string
+    mock_title: string
+    question: string
+    your_answer: string
+    answer_ph: string
+    evaluating: string
+    submit_answer: string
+    preparing_q: string
+    evaluating_long: string
+    feedback: string
+    end_session: string
+    revise: string
+    next_q: string
+    q_failed: string
+    eval_failed: string
+  }
+  analytics: {
+    empty_title: string
+    empty_body: string
+    browse: string
+    load_failed: string
+    title: string
+    subtitle: string
+    kpi_total: string
+    kpi_total_sub: string
+    kpi_active: string
+    kpi_active_sub: string
+    kpi_rate: string
+    kpi_rate_sub: string
+    funnel: string
+    companies: string
+    companies_empty: string
+    skills: string
+    skills_empty: string
   }
 }

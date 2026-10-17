@@ -1,4 +1,5 @@
 'use client'
+import { useI18n } from '@/contexts/I18nContext'
 import { useEffect, useState } from 'react'
 import { fetchSkillsGap } from '@/lib/api'
 
@@ -51,7 +52,13 @@ interface Props {
   hasJd: boolean   // whether JD text is available — show hint if not
 }
 
+// Sentinels set by the fetch effect; translated at render time so the effect
+// doesn't depend on (and refetch when) the interface language changes.
+const NEEDS_JD = '__needs_jd__'
+const GAP_FAILED = '__gap_failed__'
+
 export function SkillsGapPanel({ jobId, hasJd }: Props) {
+  const J = useI18n().t.job_card
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState<string | null>(null)
@@ -69,7 +76,7 @@ export function SkillsGapPanel({ jobId, hasJd }: Props) {
       .catch(e => {
         if (cancelled) return
         const msg = e instanceof Error ? e.message : String(e)
-        setError(msg.includes('400') ? 'Fetch the full JD first (click "View Job Description").' : 'Skills gap analysis failed.')
+        setError(msg.includes('400') ? NEEDS_JD : GAP_FAILED)
       })
       .finally(() => { if (!cancelled) setLoading(false) })
 
@@ -79,7 +86,7 @@ export function SkillsGapPanel({ jobId, hasJd }: Props) {
   if (!hasJd) {
     return (
       <p className="text-[12px] text-slate-400 italic">
-        Fetch the full job description first to run the skills gap analysis.
+        {J.gap_needs_jd}
       </p>
     )
   }
@@ -87,13 +94,17 @@ export function SkillsGapPanel({ jobId, hasJd }: Props) {
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-2 text-[12px] text-slate-400">
-        <SpinnerIcon /> Analysing gaps…
+        <SpinnerIcon /> {J.analysing_gaps}
       </div>
     )
   }
 
   if (error) {
-    return <p className="text-[12px] text-rose-600 py-1">{error}</p>
+    return (
+      <p className="text-[12px] text-rose-600 py-1">
+        {error === NEEDS_JD ? J.jd_first_short : error === GAP_FAILED ? J.gap_failed : error}
+      </p>
+    )
   }
 
   if (!analysis || !analysis.trim()) return null
