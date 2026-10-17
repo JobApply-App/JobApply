@@ -214,7 +214,13 @@ async def _all_jobs_matching_loop() -> None:
     while True:
         try:
             for uid in list_pipeline_user_ids():
-                run_all_jobs_matching_cycle(user_id=uid, terms=await _title_terms_for(uid))
+                # In a worker thread: the cycle is synchronous DB work, and run
+                # on the event loop it froze every request for its whole
+                # duration — ~3 minutes across all users, at every startup and
+                # every 30 minutes, which surfaced as 502s at the gateway.
+                await asyncio.to_thread(
+                    run_all_jobs_matching_cycle, user_id=uid, terms=await _title_terms_for(uid),
+                )
             consecutive_failures = 0
         except Exception as exc:
             consecutive_failures += 1

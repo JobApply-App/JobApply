@@ -138,6 +138,52 @@ def _existing_job_ids(user_id: str) -> set[str]:
     return {r[0] for r in rows}
 
 
+# The catalog title index (id, title, url, company, location) is the same for
+# every user in a cycle, so it is loaded once and reused for a few minutes
+# instead of re-read from Postgres per user. Re-reading it per user — ~8.6k
+# rows over a cross-region connection — was most of a ~23s per-user cycle.
+_INDEX_TTL_S = 600.0
+_INDEX_CACHE: dict = {"at": 0.0, "rows": None}
+
+
+def _catalog_index():
+    import time
+    from backend.core.postgres import get_pg_session
+    from backend.models.all_jobs import AllJobRow
+
+    now = time.monotonic()
+    if _INDEX_CACHE["rows"] is not None and now - _INDEX_CACHE["at"] < _INDEX_TTL_S:
+        return _INDEX_CACHE["rows"]
+    with get_pg_session() as session:
+        rows = (
+            session.query(
+                AllJobRow.id, AllJobRow.job_title, AllJobRow.job_url,
+                AllJobRow.company_name, AllJobRow.location,
+            )
+            .order_by(AllJobRow.last_seen_at.desc())
+            .limit(_CANDIDATE_POOL_SIZE)
+            .all()
+        )
+    _INDEX_CACHE.update(at=now, rows=rows)
+    return rows
+
+
+def _existing_posting_keys(user_id: str) -> set[str]:
+    """canonical_job_key of every posting this user already has a match for."""
+    from backend.core.database import ENGINE
+
+    with ENGINE.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT jp.canonical_job_key FROM public.user_job_matches ujm "
+                "JOIN public.job_postings jp ON jp.id = ujm.job_posting_id "
+                "WHERE ujm.user_id = CAST(:uid AS uuid)"
+            ),
+            {"uid": user_id},
+        ).fetchall()
+    return {r[0] for r in rows if r[0]}
+
+
 def _candidate_all_jobs_rows(matcher, existing: set[str], user_id: str, limit: int):
     """
     Up to *limit* all_jobs rows whose title passes *matcher* and that the user
@@ -146,43 +192,44 @@ def _candidate_all_jobs_rows(matcher, existing: set[str], user_id: str, limit: i
     primary app engine — see all_jobs_repository.py's module docstring for
     why these are separate connections.
 
-    Scans titles across the whole catalog (a light id/title/url query)
-    rather than the 300 most recent rows it used to inspect. With a per-user
-    title filter a niche role can be a handful of rows in 8,000+, and a
-    fixed recency window would almost never contain one — the cycle would
-    report zero new matches for a user who has plenty waiting.
+    Scans titles across the whole catalog rather than the 300 most recent
+    rows: with a per-user title filter a niche role can be a handful of rows
+    in 8,000+.
+
+    "Already has" is checked two ways, because the save path dedups two ways:
+    by salted job_id, and by the posting's canonical (title, company,
+    location) key. Checking only the job_id let the same role re-posted under
+    another URL through as "new" every cycle; save then matched the existing
+    posting and inserted nothing, so the same ~20 duplicates filled every
+    cycle's limit and the user never received a genuinely new job.
     """
     from backend.core.postgres import get_pg_session
     from backend.models.all_jobs import AllJobRow
+    from backend.repositories.job_repository import canonical_dedup_key
     from backend.scrapers.base_scraper import make_job_id, make_tenant_job_id
 
+    have_keys = _existing_posting_keys(user_id)
+    chosen: list = []
+    for row_id, title, url, company, location in _catalog_index():
+        apply_url = (url or "").strip()
+        clean_title = (title or "").strip()
+        if not apply_url or not matcher(clean_title):
+            continue
+        if make_tenant_job_id(make_job_id(apply_url, prefix=_JOB_ID_PREFIX), user_id) in existing:
+            continue
+        key = canonical_dedup_key(clean_title, (company or "").strip(), _location_to_string(location))
+        if key in have_keys:
+            continue
+        have_keys.add(key)   # also dedups within this batch
+        chosen.append(row_id)
+        if len(chosen) >= limit:
+            break
+    if not chosen:
+        return []
     with get_pg_session() as session:
-        light = (
-            session.query(AllJobRow.id, AllJobRow.job_title, AllJobRow.job_url)
-            .order_by(AllJobRow.last_seen_at.desc())
-            .limit(_CANDIDATE_POOL_SIZE)
-            .all()
-        )
-        chosen = []
-        for row_id, title, url in light:
-            apply_url = (url or "").strip()
-            if not apply_url or not matcher((title or "").strip()):
-                continue
-            # Predict the salted id _save_new will produce (it re-salts
-            # job_id internally when user_id is passed) so this check and
-            # what actually gets saved agree — without pre-salting the
-            # JobMatch we hand to _save_new ourselves, which would
-            # double-salt it.
-            if make_tenant_job_id(make_job_id(apply_url, prefix=_JOB_ID_PREFIX), user_id) in existing:
-                continue
-            chosen.append(row_id)
-            if len(chosen) >= limit:
-                break
-        if not chosen:
-            return []
         rows = session.query(AllJobRow).filter(AllJobRow.id.in_(chosen)).all()
-        order = {rid: i for i, rid in enumerate(chosen)}
-        return sorted(rows, key=lambda r: order[r.id])
+    order = {rid: i for i, rid in enumerate(chosen)}
+    return sorted(rows, key=lambda r: order[r.id])
 
 
 def run_all_jobs_matching_cycle(

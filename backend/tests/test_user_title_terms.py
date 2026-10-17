@@ -145,6 +145,14 @@ async def test_user_with_no_titles_gets_none(uid):
 
 # ── The all_jobs bridge uses the user's matcher ──────────────────────────────
 
+@pytest.fixture(autouse=True)
+def _fresh_catalog_index():
+    from backend.services import all_jobs_match_service as svc
+    svc._INDEX_CACHE.update(at=0.0, rows=None)
+    yield
+    svc._INDEX_CACHE.update(at=0.0, rows=None)
+
+
 @pytest.fixture()
 def catalog(db_available):
     """Two all_jobs rows: one marketing, one product."""
@@ -229,3 +237,23 @@ def test_roles_save_without_a_level_and_read_back_from_postgres(uid, monkeypatch
     assert saved.status_code == 200, saved.text
     assert read.json()["target_titles"] == ["Campaign Manager"]
     assert read.json()["roles"] == [{"role": "Campaign Manager", "seniority": ""}]
+
+
+def test_bridge_skips_a_role_the_user_already_has_under_another_url(catalog, monkeypatch):
+    """
+    The same role (title, company, location) re-posted under a new URL must not
+    count as new. It used to: save then deduped it onto the existing posting
+    and inserted nothing, so the same duplicates filled every cycle's limit and
+    real new jobs were never reached.
+    """
+    from backend.services import all_jobs_match_service as svc
+    from backend.repositories.job_repository import canonical_dedup_key
+
+    monkeypatch.setattr(svc, "_existing_job_ids", lambda user_id: set())
+    monkeypatch.setattr(
+        svc, "_existing_posting_keys",
+        lambda user_id: {canonical_dedup_key("Digital Marketing Manager", "Acme", "Unknown")},
+    )
+    captured = _capture_saves(monkeypatch)
+    svc.run_all_jobs_matching_cycle(str(uuid.uuid4()), limit=500, terms=["Digital Marketing"])
+    assert catalog["marketing"] not in captured.get("urls", [])

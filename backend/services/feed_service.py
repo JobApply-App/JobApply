@@ -424,7 +424,9 @@ async def refresh_user_scores(user_id: str, only_job_id: Optional[str] = None) -
     from backend.services.master_profile_service import get_skill_proficiencies
 
     # ── Pass A: Identify candidates ───────────────────────────────────────────
-    all_feed = job_store.get_feed(user_id)
+    # Off the event loop: a few hundred rows per user, every sweep, for every
+    # user — read inline it stalled all request handling while it ran.
+    all_feed = await asyncio.to_thread(job_store.get_feed, user_id)
     pending  = [j for j in all_feed if _needs_enrichment(j)]
     if only_job_id is not None:
         pending = [j for j in pending if j.job_id == only_job_id]
