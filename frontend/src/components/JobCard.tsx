@@ -1,7 +1,7 @@
 'use client'
 import { useState, useCallback, useEffect, useRef, memo } from 'react'
 import type { ApiFeedJob, JobSourceType, ReasonKind } from '@/lib/apiTypes'
-import { markJobApplied, refreshFeedScores, fetchJobJd, ensureFreshToken, getAuthHeaders } from '@/lib/api'
+import { analyzeJobNow, markJobApplied, refreshFeedScores, fetchJobJd, ensureFreshToken, getAuthHeaders } from '@/lib/api'
 import { getScoreBand as scoreBand } from '@/lib/scoreBand'
 import { useI18n } from '@/contexts/I18nContext'
 import { ProbeModal, type ProbeState } from './TrustDashboard'
@@ -726,11 +726,26 @@ function ArielInsightButton({
   )
 }
 
-function AgentAnalysisBox({ job, userId }: { job: ApiFeedJob; userId?: string }) {
+function AgentAnalysisBox({ job, userId, active }: { job: ApiFeedJob; userId?: string; active: boolean }) {
   const J = useI18n().t.job_card
-  const raw           = (job.fit_brief ?? '').trim()
-  const analysisReady = _isSubstantiveText(raw) && !job.score_is_proxy
-  const hardFailed    = (job.enrichment_failures ?? 0) >= ENRICHMENT_MAX_FAILURES
+  // Analysis fetched on demand when the card is opened (see analyzeJobNow).
+  const [fetched, setFetched] = useState<{ fit_brief: string | null; score_is_proxy: boolean; enrichment_failures: number } | null>(null)
+  const [requested, setRequested] = useState(false)
+  const source        = fetched ?? job
+  const raw           = (source.fit_brief ?? '').trim()
+  const analysisReady = _isSubstantiveText(raw) && !source.score_is_proxy
+  const hardFailed    = (source.enrichment_failures ?? 0) >= ENRICHMENT_MAX_FAILURES
+
+  // Background scoring is budgeted per user per day, so an opened job may
+  // have no analysis yet. Ask for it once, only when the card is actually
+  // open — this box is mounted for every card, expanded or not.
+  useEffect(() => {
+    if (!active || requested || analysisReady || hardFailed || job.status === 'auth_wall') return
+    setRequested(true)
+    analyzeJobNow(job.job_id)
+      .then(res => setFetched(res))
+      .catch(() => { /* leave the skeleton; the background sweep may still reach it */ })
+  }, [active, requested, analysisReady, hardFailed, job.status, job.job_id])
   const isAuthWall    = job.status === 'auth_wall'
 
   // Detect skill gaps from structured reason tags (kind === 'neg')
@@ -1025,7 +1040,7 @@ export const JobCard = memo(function JobCard({
             </div>
 
             {/* ② Agent Analysis */}
-            <AgentAnalysisBox job={job} userId={userId} />
+            <AgentAnalysisBox job={job} userId={userId} active={showDetails} />
 
             {/* ③ Primary action row */}
             <div className="flex items-center gap-3 flex-wrap">

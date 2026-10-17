@@ -105,6 +105,11 @@ flexibility needed to support our clients.
 # show a hard-failure state instead of an infinite skeleton.
 ENRICHMENT_MAX_FAILURES = 3
 
+# Jobs per user per enrichment sweep, on top of the daily budget
+# (config.ENRICH_DAILY_BUDGET_PER_USER) — spreads a user's budget across the
+# day instead of spending it in one burst.
+_ENRICH_PER_SWEEP = 3
+
 # Backoff delays (seconds) between successive enrichment attempts.
 # Index = failures already recorded.  Once failures >= len, the job is retired.
 _ENRICHMENT_BACKOFF_SECS = [0, 30, 120]
@@ -372,7 +377,7 @@ async def hydrate_job(job: JobMatch) -> str | None:
 
 # ── s2: Validation-based LLM enrichment ──────────────────────────────────────
 
-async def refresh_user_scores(user_id: str) -> int:
+async def refresh_user_scores(user_id: str, only_job_id: Optional[str] = None) -> int:
     """
     s2 — Idempotent LLM enrichment pass.
 
@@ -409,6 +414,11 @@ async def refresh_user_scores(user_id: str) -> int:
     Anthropic API calls only.
 
     Returns the number of jobs successfully LLM-enriched this cycle.
+
+    only_job_id: enrich just that job, now, outside the daily background
+    budget — the path for a user who opened a job the background budget
+    did not reach (POST /api/jobs/{job_id}/analyze-now). User-initiated, so
+    it is rate-limited at the route instead of budgeted here.
     """
     from backend.services.user_profile import get_profile  # lazy import avoids circular deps
     from backend.services.master_profile_service import get_skill_proficiencies
@@ -416,6 +426,8 @@ async def refresh_user_scores(user_id: str) -> int:
     # ── Pass A: Identify candidates ───────────────────────────────────────────
     all_feed = job_store.get_feed(user_id)
     pending  = [j for j in all_feed if _needs_enrichment(j)]
+    if only_job_id is not None:
+        pending = [j for j in pending if j.job_id == only_job_id]
     retired  = [j for j in all_feed if j.enrichment_failures >= ENRICHMENT_MAX_FAILURES]
 
     if retired:
@@ -441,6 +453,28 @@ async def refresh_user_scores(user_id: str) -> int:
         "[feed_service] s2: %d/%d jobs need enrichment for user=%s (retired=%d)",
         len(pending), len(all_feed), user_id, len(retired),
     )
+
+    # ── Cost brake (services/llm_budget.py) ──────────────────────────────────
+    # Without this, every pending job went to the LLM every 30s sweep — the
+    # day ten users entered the pipeline that was ~2,400 jobs × ~4 calls, and
+    # it exhausted both providers. Now: nothing while providers are down, and
+    # at most the user's remaining daily budget, best-scoring jobs first, a
+    # few per sweep. The rest keep their free local score until the user
+    # opens them or tomorrow's budget arrives.
+    from backend.services import llm_budget
+    from backend.services.llm_client import providers_unavailable
+    if providers_unavailable():
+        logger.info("[feed_service] s2: providers unavailable — skipping LLM enrichment for user=%s", user_id)
+        return 0
+    allowance = 1 if only_job_id is not None else min(llm_budget.remaining(user_id), _ENRICH_PER_SWEEP)
+    if allowance <= 0:
+        logger.info(
+            "[feed_service] s2: daily LLM budget spent for user=%s — %d job(s) wait for tomorrow",
+            user_id, len(pending),
+        )
+        return 0
+    pending.sort(key=lambda j: (j.match_score or j.score or 0.0, j.posted_at or ""), reverse=True)
+    pending = pending[:allowance]
 
     cv_proxy      = _build_profile_cv_proxy(get_profile(user_id), user_id=user_id)
     proficiencies = get_skill_proficiencies(user_id)
@@ -470,6 +504,11 @@ async def refresh_user_scores(user_id: str) -> int:
     async def _enrich_one(job: JobMatch) -> None:
         nonlocal enriched
         _why = ""   # always defined so log/except paths can reference it safely
+
+        # The attempt is what costs money, so it is charged up front.
+        # (A user-requested single job is not charged to the background budget.)
+        if only_job_id is None and not llm_budget.consume(user_id):
+            return
 
         try:
             logger.info(
@@ -631,7 +670,9 @@ async def refresh_user_scores(user_id: str) -> int:
                     culture_alignment = result.culture_alignment,
                     culture_category  = result.culture_category,
                     culture_note      = result.culture_note,
-                    increment_failure = not has_analysis,
+                    # A provider outage is not this job's fault: counting it
+                    # would retire every pending job after 3 outage sweeps.
+                    increment_failure = not has_analysis and not providers_unavailable(),
                 )
 
                 if not has_analysis:
@@ -654,6 +695,12 @@ async def refresh_user_scores(user_id: str) -> int:
                 )
 
         except Exception as exc:
+            if providers_unavailable():
+                logger.warning(
+                    "[feed_service] s2: job %s not enriched — AI providers unavailable "
+                    "(not counted as a job failure): %s", job.job_id, type(exc).__name__,
+                )
+                return
             fail_count = job_store.increment_enrichment_failures(job.job_id)
             # logger.exception prints the full stack trace — critical audit trail
             # for diagnosing timeout / JSON parse / API-key-rejection failures.

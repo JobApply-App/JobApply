@@ -387,6 +387,21 @@ MAX_RELEVANT_JOBS: int = 50
 # indefinitely — no LinkedIn searches, no DB writes, no LLM calls.
 AUTO_DISCOVERY: bool = True
 
+# ── Background AI budget ──────────────────────────────────────────────────────
+# Maximum number of jobs the BACKGROUND loops (enrichment sweep + discovery)
+# may send to the LLM per user per UTC day. Each enriched job costs ~4 LLM
+# calls (JD structuring, JD parsing, match scoring, company culture).
+#
+# Introduced 2026-10-17 after the first day with real users in the matching
+# pipeline: the bridge added ~2,400 matches in one day and the enrichment
+# loop tried to LLM-score every one of them, exhausting the Gemini quota and
+# the Anthropic credit balance within hours — after which every AI feature
+# (Ariel, CV upload, scoring) failed for everyone. Jobs over budget keep their
+# free local score and are scored by the LLM when the user opens them, or on
+# a later day. User-initiated calls (chat, CV upload, tailoring, analyzing a
+# pasted link) are NOT counted here.
+ENRICH_DAILY_BUDGET_PER_USER: int = int(os.getenv("ENRICH_DAILY_BUDGET_PER_USER", "10"))
+
 # ── Credit conservation ───────────────────────────────────────────────────────
 # When True, all automatic JD-text scraping is suppressed.
 # The discovery loop will still run and ingest job metadata (title, company,
