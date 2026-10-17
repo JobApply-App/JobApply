@@ -41,7 +41,8 @@ const content = {
     ],
     limitationsHeading: 'What is still not right',
     limitations: [
-      'Most of the signed-in product (the dashboard, the job feed, the CV editor) is in English no matter which language you picked. Hebrew coverage there is not finished.',
+      'The interface is now available in Hebrew throughout, but content written by the AI or taken from job postings (job descriptions, generated CVs, some assistant replies) can still appear in English.',
+      'Some older pop-up windows that are no longer part of the main flow have not been translated or re-checked.',
     ],
     testingHeading: 'How we checked this',
     testingBody:
@@ -84,7 +85,8 @@ const content = {
     ],
     limitationsHeading: 'מה עדיין לא תקין',
     limitations: [
-      'רוב המוצר המאומת (לוח הבקרה, פיד המשרות, עורך קורות החיים) מוצג באנגלית בלי קשר לשפה שבחרתם. הכיסוי בעברית שם עוד לא גמור.',
+      'הממשק זמין עכשיו בעברית לכל אורכו, אבל תוכן שנכתב על ידי ה-AI או שנלקח ממודעות דרושים (תיאורי משרות, קורות חיים שנוצרו, חלק מתשובות העוזרת) עלול עדיין להופיע באנגלית.',
+      'חלק מהחלונות הקופצים הישנים שכבר אינם חלק מהתהליך המרכזי עוד לא תורגמו ולא נבדקו מחדש.',
     ],
     testingHeading: 'איך בדקנו את זה',
     testingBody:
