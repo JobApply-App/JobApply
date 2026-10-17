@@ -66,6 +66,17 @@ async def _enrich_job(match: JobMatch, user_id: str) -> None:
         )
         return
 
+    # Same cost brake as the enrichment sweep (services/llm_budget.py). A
+    # deferred job is picked up by that sweep later, within budget.
+    from backend.services import llm_budget
+    from backend.services.llm_client import providers_unavailable
+    if providers_unavailable() or not llm_budget.consume(user_id):
+        logger.info(
+            "[discovery] enrich DEFERRED — job_id=%s (AI budget spent or providers down)",
+            match.job_id,
+        )
+        return
+
     structured_ok = False
     scored_ok     = False
 
@@ -124,7 +135,7 @@ async def _enrich_job(match: JobMatch, user_id: str) -> None:
         if analysis_ok:
             job_store.update_fit_brief(match.job_id, user_id, result.fit_brief)
             scored_ok = True
-        else:
+        elif not providers_unavailable():
             job_store.increment_enrichment_failures(match.job_id)
             logger.warning(
                 "[discovery] ENRICHMENT_FAILURE step=analysis job_id=%s "

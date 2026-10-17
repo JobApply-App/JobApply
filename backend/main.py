@@ -67,7 +67,9 @@ async def _enrichment_loop() -> None:
     from backend.services.feed_service import refresh_user_scores
     from backend.services.tenant_registry import list_pipeline_user_ids
 
-    _INTERVAL              = 30      # seconds between enrichment sweeps
+    # 2 min, was 30s. With a daily per-user budget a faster sweep buys nothing
+    # but more DB polling of every user's whole feed.
+    _INTERVAL              = 120     # seconds between enrichment sweeps
     _LONG_BACKOFF          = 1800    # 30-min pause after repeated failures
     _CONSEC_FAIL_THRESHOLD = 5       # failures before entering long-backoff
 
