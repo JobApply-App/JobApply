@@ -58,6 +58,7 @@ import { TOKENS }               from '@/lib/tokens'
 type MigrationPhase = 'idle' | 'in_flight' | 'done'
 
 function MigrationGate({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n()
   const { user, session, updateUserMeta } = useAuth()
   const [phase, setPhase] = useState<MigrationPhase>('idle')
   const firedRef = useRef(false)   // guards against React StrictMode double-invoke
@@ -140,9 +141,9 @@ function MigrationGate({ children }: { children: React.ReactNode }) {
 
         {phase === 'in_flight' && (
           <p className="text-sm text-center leading-relaxed text-ja-subtle" style={{ maxWidth: 300 }}>
-            Securing your workspace and activating agents…
+            {t.app_shell.securing}
             <br />
-            <span>Please wait.</span>
+            <span>{t.app_shell.please_wait}</span>
           </p>
         )}
       </div>
@@ -188,6 +189,7 @@ function loadSavedTab(): Tab {
 // already committed to the database under the correct user_id.
 
 function HomePageContent() {
+  const { t } = useI18n()
   const { user } = useAuth()
   const router    = useRouter()
   const displayName = resolveDisplayName(
@@ -330,8 +332,8 @@ function HomePageContent() {
         {/* Overview/JobFeed render their own visible <h1> internally; ApplicationsTab
             and AllJobsTab don't, so this covers those two tabs without duplicating
             a heading on the tabs that already have one. */}
-        {tab === 'apps' && <h1 className="sr-only">Applications</h1>}
-        {tab === 'all-jobs' && <h1 className="sr-only">All Jobs</h1>}
+        {tab === 'apps' && <h1 className="sr-only">{t.header.nav.apps}</h1>}
+        {tab === 'all-jobs' && <h1 className="sr-only">{t.header.nav.all_jobs}</h1>}
 
         {tab === 'overview' && (
           <div className="space-y-10">
@@ -403,9 +405,9 @@ function ATSMockup() {
       {/* KPI strip — no boxes, no borders, pure typography from Overview.tsx */}
       <div className="grid grid-cols-3 gap-8 px-2">
         {[
-          { label: 'Jobs scanned today', value: '47',  sub: 'New roles discovered by agents', accent: TOKENS.color.primary },
-          { label: 'High matches',       value: '12',  sub: 'ATS score above 85',              accent: TOKENS.color.success },
-          { label: 'CVs tailored',       value: '3',   sub: 'Analyses run this week',          accent: TOKENS.color.violet  },
+          { label: t.mockup.kpi_scanned,  value: '47', sub: t.mockup.kpi_scanned_sub,  accent: TOKENS.color.primary },
+          { label: t.mockup.kpi_high,     value: '12', sub: t.mockup.kpi_high_sub,     accent: TOKENS.color.success },
+          { label: t.mockup.kpi_tailored, value: '3',  sub: t.mockup.kpi_tailored_sub, accent: TOKENS.color.violet  },
         ].map(stat => (
           <div key={stat.label} className="flex flex-col min-w-0">
             <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-slate-400 mb-1">
@@ -431,13 +433,13 @@ function ATSMockup() {
               <span
                 className="inline-block h-1.5 w-1.5 rounded-full align-middle mr-2 -translate-y-[2px] bg-ja-primary"
               />
-              Senior Product Manager
+              {t.mockup.sample_title}
             </h2>
             <span className="bg-teal-50 text-teal-700 text-[11px] font-semibold px-2 py-0.5 rounded-lg ring-1 ring-inset ring-teal-600/20 shrink-0">
               {t.mockup.strong_match}
             </span>
           </div>
-          <p className="text-[12.5px] text-slate-400 mt-1">Wix · Tel Aviv · 2d ago</p>
+          <p className="text-[12.5px] text-slate-400 mt-1">{t.mockup.sample_meta}</p>
         </div>
         <div className="flex items-baseline gap-0.5 shrink-0">
           <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">88.0</span>
@@ -459,9 +461,9 @@ function ATSMockup() {
 function FeedMockup() {
   const { t } = useI18n()
   const items = [
-    { title: 'Head of Product',    co: 'Monday.com', loc: 'Tel Aviv', score: 91.2, isNew: true,  strong: true  },
-    { title: 'Senior PM — Growth', co: 'Fiverr',     loc: 'Remote',   score: 84.0, isNew: true,  strong: true  },
-    { title: 'Product Lead',       co: 'Wix',        loc: 'Tel Aviv', score: 76.5, isNew: false, strong: false },
+    { title: t.mockup.feed_head,   co: 'Monday.com', loc: t.mockup.sample_loc, score: 91.2, isNew: true,  strong: true  },
+    { title: t.mockup.feed_growth, co: 'Fiverr',     loc: t.mockup.remote,     score: 84.0, isNew: true,  strong: true  },
+    { title: t.mockup.feed_lead,   co: 'Wix',        loc: t.mockup.sample_loc, score: 76.5, isNew: false, strong: false },
   ]
   return (
     <div className="space-y-2">
@@ -613,17 +615,17 @@ function BeforeAfterMockup() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[12px] font-semibold text-slate-900 leading-snug truncate">
-              Senior Product Manager
+              {t.mockup.sample_title}
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5 truncate">
               <span className="font-medium text-slate-700">Wix</span>
               <span className="mx-1 text-slate-300">·</span>
-              Tel Aviv
+              {t.mockup.sample_loc}
             </p>
             <span
               className="inline-block mt-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-ja-primarySubtle text-teal-700"
             >
-              88% match
+              {t.mockup.match_pct.replace('{n}', '88')}
             </span>
           </div>
         </div>
@@ -673,9 +675,9 @@ function BeforeAfterMockup() {
       <div className="flex-1 flex flex-col bg-slate-50 p-4 overflow-hidden">
         {/* Template selector buttons at top */}
         <div className="flex items-center gap-1.5 mb-3">
-          {['Classic', 'Modern', 'Compact'].map((t, i) => (
+          {[t.mockup.tpl_classic, t.mockup.tpl_modern, t.mockup.tpl_compact].map((label, i) => (
             <button
-              key={t}
+              key={label}
               tabIndex={-1}
               className={`h-6 px-2.5 rounded-md text-[10.5px] font-medium border transition-colors ${
                 i === 0
@@ -683,7 +685,7 @@ function BeforeAfterMockup() {
                   : 'bg-transparent border-slate-200 text-slate-400'
               }`}
             >
-              {t}
+              {label}
             </button>
           ))}
         </div>

@@ -76,7 +76,16 @@ def get_scraper_status(user: CurrentUser = Depends(get_current_user)) -> Scraper
 
     Priority: BLOCKED > PAUSED > suspicious > ok.
     Returns status='ok' when no errors have been recorded.
+
+    Admins only see the real state. The Overview banners this drives are
+    operator instructions ("update LINKEDIN_LI_AT in backend/.env, run
+    reset_linkedin_scraper --resume") — shown to every signed-in user, they
+    told a job seeker to edit a server config file they cannot see, in
+    English, on a Hebrew page. The scraper is shared infrastructure; a regular
+    user can do nothing about its state, so for them it is always 'ok'.
     """
+    if not user.is_admin:
+        return ScraperStatusResponse(status="ok", blocked_at=None, cookie_status="ok")
     entries = kv_repository.get_many(SCRAPER_STATUS_KEYS)
     return build_scraper_status(entries)
 

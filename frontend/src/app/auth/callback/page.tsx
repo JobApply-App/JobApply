@@ -21,12 +21,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter }           from 'next/navigation'
 import { supabase }            from '@/lib/supabase'
+import { useI18n }             from '@/contexts/I18nContext'
 
 const LOG = '[JobApply-Auth-Callback]'
 
 type Status = 'loading' | 'error'
 
 export default function AuthCallbackPage() {
+  const L = useI18n().t.auth_layout
   const router           = useRouter()
   const [status, setStatus] = useState<Status>('loading')
   const [errMsg, setErrMsg] = useState('')
@@ -110,7 +112,7 @@ export default function AuthCallbackPage() {
       >
         <div className="w-10 h-10 rounded-full border-[3px] border-slate-700 border-t-teal-400 animate-spin" />
         <p className="text-[15px] font-medium text-ja-subtle">
-          Verifying your account…
+          {L.verifying}
         </p>
       </div>
     )
@@ -132,12 +134,12 @@ export default function AuthCallbackPage() {
         </svg>
       </div>
       <div className="text-center space-y-1">
-        <p className="text-white font-semibold">Link invalid or expired</p>
-        <p className="text-sm text-ja-subtle">
-          {errMsg || 'Please request a new confirmation email.'}
-        </p>
+        <p className="text-white font-semibold">{L.link_invalid_title}</p>
+        {/* errMsg is a raw Supabase/JS error string — logged above, never
+            shown: it is English and technical, and says nothing actionable. */}
+        <p className="text-sm text-ja-subtle">{L.link_invalid_body}</p>
       </div>
-      <p className="text-xs text-ja-subtle">Redirecting to login…</p>
+      <p className="text-xs text-ja-subtle">{L.redirecting}</p>
     </div>
   )
 }

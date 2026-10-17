@@ -194,7 +194,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                 showPreferences ? '' : 'invisible pointer-events-none'
               }`}
             >
-              <SlidersIcon s={14} /> <span className="hidden sm:inline">Preferences</span>
+              <SlidersIcon s={14} /> <span className="hidden sm:inline">{H.preferences}</span>
             </button>
           )
         })()}
@@ -245,7 +245,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
               className="absolute end-0 top-12 sm:top-11 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-floating overflow-hidden z-50"
             >
               <div className="px-3 py-2.5 border-b border-slate-50 flex items-center justify-between">
-                <span className="text-[12px] font-semibold text-slate-700">High-match alerts</span>
+                <span className="text-[12px] font-semibold text-slate-700">{H.alerts_title}</span>
                 {highMatchJobs.length > 0 && (
                   <span className="text-[10.5px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md">
                     {highMatchJobs.length}
@@ -254,7 +254,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
               </div>
               {highMatchJobs.length === 0 ? (
                 <p className="px-3 py-4 text-[12.5px] text-slate-400 text-center">
-                  No high-match jobs yet (≥ 85).
+                  {H.alerts_empty}
                 </p>
               ) : (
                 <ul className="max-h-72 overflow-y-auto divide-y divide-slate-50">
@@ -302,7 +302,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                 className="w-full text-left px-3 py-2.5 text-[13px] font-semibold flex items-center gap-2 active:bg-violet-100 sm:hover:bg-violet-50 text-violet-700 border-b border-slate-50 transition-colors"
               >
                 <span className="text-base leading-none">✦</span>
-                AI Profile Builder
+                {H.profile_builder}
               </button>
               <button className="w-full text-left px-3 py-2 text-[13px] text-slate-700 active:bg-slate-100 sm:hover:bg-slate-50 transition-colors">
                 {H.profile_prefs}

@@ -94,6 +94,7 @@ function inputCls(hasError = false) {
 // ── Workspace animation overlay ───────────────────────────────────────────────
 
 function WorkspaceAnimation({ name }: { name: string }) {
+  const L = useI18n().t.auth_layout
   return (
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-6"
       style={{ background: 'linear-gradient(145deg, var(--ja-ink) 0%, var(--ja-ink-deep) 60%, var(--ja-ink) 100%)' }}>
@@ -107,10 +108,10 @@ function WorkspaceAnimation({ name }: { name: string }) {
       </div>
       <div className="text-center space-y-1.5">
         <p className="text-white text-xl font-bold tracking-tight">
-          Creating your workspace{name ? `, ${name}` : ''}…
+          {name ? L.creating_ws_named.replace('{name}', name) : L.creating_ws}
         </p>
         <p className="text-sm" style={{ color: TOKENS.color.primary }}>
-          Setting up your career profile
+          {L.setting_up}
         </p>
       </div>
       <div className="w-52 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>

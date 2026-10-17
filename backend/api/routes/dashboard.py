@@ -53,7 +53,7 @@ from sqlalchemy.orm import Session
 
 from backend.api.deps import CurrentUser, get_current_user, standard_rate_limit
 from backend.api.routes.profile import build_trust_score_response
-from backend.api.routes.settings import SCRAPER_STATUS_KEYS, build_scraper_status
+from backend.api.routes.settings import SCRAPER_STATUS_KEYS, ScraperStatusResponse, build_scraper_status
 from backend.core.database import ENGINE
 from backend.repositories import kv_repository, profile_entity_repository
 from backend.services.analytics_service import compute_overview
@@ -87,7 +87,7 @@ def _line(section: str, data: Optional[dict] = None, error: Optional[str] = None
     return (json.dumps(payload) + "\n").encode("utf-8")
 
 
-def _stream_dashboard_overview(user_id: str) -> Iterator[bytes]:
+def _stream_dashboard_overview(user_id: str, is_admin: bool = False) -> Iterator[bytes]:
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # ── One shared connection for the fast, independent sections ──────────
@@ -110,8 +110,14 @@ def _stream_dashboard_overview(user_id: str) -> Iterator[bytes]:
             yield _line(SECTION_OVERVIEW, error=str(exc) or "Failed to load KPIs.")
 
         try:
-            scraper_entries = kv_repository.get_many(SCRAPER_STATUS_KEYS, session=db)
-            scraper_status = build_scraper_status(scraper_entries)
+            # Operator-only, like GET /api/settings/scraper-status: the
+            # banners it drives are server-maintenance instructions a regular
+            # user can neither read in context nor act on.
+            if is_admin:
+                scraper_entries = kv_repository.get_many(SCRAPER_STATUS_KEYS, session=db)
+                scraper_status = build_scraper_status(scraper_entries)
+            else:
+                scraper_status = ScraperStatusResponse(status="ok", blocked_at=None, cookie_status="ok")
             yield _line(SECTION_SCRAPER_STATUS, data=scraper_status.model_dump())
         except Exception as exc:
             logger.exception("[dashboard/overview-stream] scraper-status section failed for user=%s", user_id)
@@ -177,7 +183,7 @@ def get_dashboard_overview(user: CurrentUser = Depends(get_current_user)) -> Str
     already-fresh section reaches the client, never what data it contains.
     """
     return StreamingResponse(
-        _stream_dashboard_overview(user.user_id),
+        _stream_dashboard_overview(user.user_id, is_admin=user.is_admin),
         media_type="application/x-ndjson",
         headers={
             "Cache-Control": "no-store",

@@ -222,29 +222,29 @@ function QuickActions({ newCount, savedCount, onGo }: {
   const items = [
     {
       id: 'review', tab: 'feed',
-      label: `Review ${newCount} new matches`,
-      sub: 'Top matches this morning',
+      label: O.qa_review.replace('{n}', String(newCount)),
+      sub: O.qa_review_sub,
       accent: TOKENS.color.primary,
       Icon: SparkIcon,
     },
     {
       id: 'profile', tab: 'profile-builder:optimize_gaps',
-      label: 'Strengthen your profile',
-      sub: 'Targets low-confidence claims first',
+      label: O.qa_profile,
+      sub: O.qa_profile_sub,
       accent: TOKENS.color.success,
       Icon: UserBadgeIcon,
     },
     {
       id: 'cv', tab: 'profile-builder',
-      label: 'Update your CV',
-      sub: 'Open the AI Profile Builder',
+      label: O.qa_cv,
+      sub: O.qa_cv_sub,
       accent: TOKENS.color.primaryHover,
       Icon: FileIcon,
     },
     {
       id: 'prefs', tab: 'prefs',
-      label: 'Tune your preferences',
-      sub: 'Match score, work mode, location',
+      label: O.qa_prefs,
+      sub: O.qa_prefs_sub,
       accent: TOKENS.color.success,
       Icon: SlidersIcon,
     },
@@ -643,10 +643,9 @@ export function Overview({
 
   const handleImproveScore = useCallback(() => {
     openChat({
-      topic: 'I want to improve my System Confidence Score by sharing more details '
-        + 'about my experience so my job matches and CV tailoring get more accurate.',
+      topic: O.improve_score_topic,
     })
-  }, [openChat])
+  }, [openChat, O.improve_score_topic])
 
   // ── Server-side analytics — progressive streaming ───────────────────────────
   // GET /api/dashboard/overview streams 4 independent sections as NDJSON —

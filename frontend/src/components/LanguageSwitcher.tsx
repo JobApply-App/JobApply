@@ -17,13 +17,13 @@ import { LOCALES } from '@/locales'
 // accent; no shadows, no rounded-full.
 
 export function LanguageSwitcher({ className = '' }: { className?: string }) {
-  const { locale, setLocale } = useI18n()
+  const { t, locale, setLocale } = useI18n()
 
   return (
     <div
       className={`inline-flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden ${className}`}
       role="group"
-      aria-label="Language"
+      aria-label={t.auth_layout.language}
     >
       {LOCALES.map(({ code, short, native }, i) => (
         <button

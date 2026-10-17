@@ -158,6 +158,10 @@ export interface Dict {
     force_reset:  string
     force_reset_title: string
     sign_out:     string
+    preferences: string
+    alerts_title: string
+    alerts_empty: string
+    profile_builder: string
   }
   footer: {
     coming_soon:  string
@@ -210,6 +214,15 @@ export interface Dict {
     linkedin_blocked:      string
     linkedin_maintenance:  string
     linkedin_maintenance_body: string
+    qa_review: string
+    qa_review_sub: string
+    qa_profile: string
+    qa_profile_sub: string
+    qa_cv: string
+    qa_cv_sub: string
+    qa_prefs: string
+    qa_prefs_sub: string
+    improve_score_topic: string
   }
   live_editor: {
     title:            string
@@ -436,6 +449,18 @@ export interface Dict {
     jd_heading:        string
     no_description:    string
     skills_gap:        string
+    auth_wall_title: string
+    auth_wall_body: string
+    analyze_failed: string
+    analyze_job: string
+    insight_no_entity: string
+    insight_high: string
+    insight_title: string
+    insight_label: string
+    ariel_analysis: string
+    view_original: string
+    ats_breakdown: string
+    fetch_jd_first: string
   }
   ariel: {
     name:            string
@@ -556,6 +581,13 @@ export interface Dict {
       update_failed:  string
       still_loading:  string
     }
+    toast_synced_one: string
+    toast_synced_many: string
+    toast_rescored: string
+    toast_added: string
+    toast_applied: string
+    load_feed_failed: string
+    retry: string
   }
   match_score: {
     band_suffix:      string   // "{band} match"
@@ -741,6 +773,14 @@ export interface Dict {
     default_eyebrow:     string
     default_headline:    string
     default_subline:     string
+    verifying: string
+    link_invalid_title: string
+    link_invalid_body: string
+    redirecting: string
+    creating_ws: string
+    creating_ws_named: string
+    setting_up: string
+    language: string
   }
   settings: {
     language: {
@@ -766,6 +806,23 @@ export interface Dict {
     cv_copilot:      string
     auto_refreshes:  string
     coverage_label:  string   // role · company label inside keyword panel
+    kpi_scanned: string
+    kpi_scanned_sub: string
+    kpi_high: string
+    kpi_high_sub: string
+    kpi_tailored: string
+    kpi_tailored_sub: string
+    sample_title: string
+    sample_meta: string
+    sample_loc: string
+    feed_head: string
+    feed_growth: string
+    feed_lead: string
+    remote: string
+    match_pct: string
+    tpl_classic: string
+    tpl_modern: string
+    tpl_compact: string
   }
   // Why a CV upload failed, keyed by the backend's stable error code
   // (backend/api/routes/profile.py _cv_error). Shared by every upload surface.
@@ -780,5 +837,57 @@ export interface Dict {
     timeout:            string
     network:            string
     failed:             string
+  }
+  app_shell: {
+    securing: string
+    please_wait: string
+  }
+  applications: {
+    title: string
+    summary: string
+    view_list: string
+    view_board: string
+    empty_title: string
+    empty_body: string
+    load_failed: string
+    delete: string
+    delete_title: string
+    delete_confirm: string
+    delete_failed: string
+    stages: {
+      submitted: string
+      phone_screen: string
+      technical: string
+      interview: string
+      offer: string
+      rejected: string
+    }
+  }
+  agents: {
+    running: string
+    idle: string
+    queued: string
+    paused: string
+    unavailable: string
+    retry: string
+    analyze_title: string
+    analyze_sub: string
+    url_placeholder: string
+    analysing: string
+    run: string
+    added: string
+    analysis_failed: string
+    result: string
+    live_status: string
+    hero_title: string
+    hero_body: string
+    section_title: string
+    section_sub: string
+    run_pipeline: string
+    done_title: string
+    done_body: string
+    failed_title: string
+    failed_body: string
+    dismiss: string
   }
 }

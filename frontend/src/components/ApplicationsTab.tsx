@@ -5,12 +5,15 @@ import { fetchApplicationsList, deleteApplication } from '@/lib/api'
 import type { AppListItem } from '@/lib/api'
 import { ApplicationsKanban } from './ApplicationsKanban'
 import { TOKENS } from '@/lib/tokens'
+import { useI18n } from '@/contexts/I18nContext'
+import type { Dict } from '@/locales'
 
 // ── View toggle ───────────────────────────────────────────────────────────────
 
 type View = 'list' | 'board'
 
 function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => void }) {
+  const A = useI18n().t.applications
   return (
     <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
       {(['list', 'board'] as View[]).map(v => (
@@ -24,7 +27,7 @@ function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => voi
           }`}
         >
           {v === 'list' ? <ListIcon /> : <BoardIcon />}
-          {v === 'list' ? 'List' : 'Board'}
+          {v === 'list' ? A.view_list : A.view_board}
         </button>
       ))}
     </div>
@@ -67,11 +70,18 @@ const STAGE_COLORS: Record<string, string> = {
   rejected:     'bg-rose-100 text-rose-600',
 }
 
+/** Localised label for a stage key ("phone screen" -> stages.phone_screen). */
+export function stageLabel(stage: string, stages: Dict['applications']['stages']): string {
+  const key = stage.toLowerCase().replace(/\s+/g, '_') as keyof typeof stages
+  return stages[key] ?? stage.charAt(0).toUpperCase() + stage.slice(1)
+}
+
 function StageBadge({ stage }: { stage: string }) {
+  const A = useI18n().t.applications
   const cls = STAGE_COLORS[stage.toLowerCase()] ?? 'bg-slate-100 text-slate-600'
   return (
     <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>
-      {stage.charAt(0).toUpperCase() + stage.slice(1)}
+      {stageLabel(stage, A.stages)}
     </span>
   )
 }
@@ -79,19 +89,20 @@ function StageBadge({ stage }: { stage: string }) {
 // ── List view ─────────────────────────────────────────────────────────────────
 
 function RowDeleteButton({ title, onConfirm, deleting }: { title: string; onConfirm: () => void; deleting: boolean }) {
+  const A = useI18n().t.applications
   return (
     <button
       onClick={e => {
         e.stopPropagation()
-        if (window.confirm(`Delete the application for "${title}"? This cannot be undone.`)) {
+        if (window.confirm(A.delete_confirm.replace('{title}', title))) {
           onConfirm()
         }
       }}
       disabled={deleting}
-      title="Delete application"
+      title={A.delete_title}
       className="shrink-0 h-7 px-2.5 rounded-lg text-[11px] font-medium border border-transparent text-rose-500 hover:bg-rose-50 hover:border-rose-100 transition disabled:opacity-50"
     >
-      {deleting ? '…' : 'Delete'}
+      {deleting ? '…' : A.delete}
     </button>
   )
 }
@@ -103,6 +114,7 @@ function ApplicationListView({ items, loading, error, onDelete, deletingId }: {
   onDelete:   (id: string) => void
   deletingId: string | null
 }) {
+  const A = useI18n().t.applications
   if (loading) {
     return (
       <div className="space-y-2 mt-4">
@@ -116,7 +128,7 @@ function ApplicationListView({ items, loading, error, onDelete, deletingId }: {
   if (error) {
     return (
       <div className="flex items-center justify-center h-40 text-sm" style={{ color: TOKENS.color.danger }}>
-        Failed to load applications. {error}
+        {A.load_failed} {error}
       </div>
     )
   }
@@ -133,10 +145,8 @@ function ApplicationListView({ items, loading, error, onDelete, deletingId }: {
           <line x1="16" y1="17" x2="8" y2="17" />
           <polyline points="10 9 9 9 8 9" />
         </svg>
-        <p className="text-[13px] font-medium text-slate-500">No applications yet</p>
-        <p className="text-[12px] text-slate-400 mt-1">
-          Tailor a CV and click &quot;Mark as Applied&quot; to track it here
-        </p>
+        <p className="text-[13px] font-medium text-slate-500">{A.empty_title}</p>
+        <p className="text-[12px] text-slate-400 mt-1">{A.empty_body}</p>
       </div>
     )
   }
@@ -183,6 +193,7 @@ function ApplicationListView({ items, loading, error, onDelete, deletingId }: {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ApplicationsTab() {
+  const A = useI18n().t.applications
   const [view,       setView]       = useState<View>('board')
   const [items,      setItems]      = useState<AppListItem[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -250,9 +261,9 @@ export function ApplicationsTab() {
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-[15px] font-semibold text-slate-900">Applications</h2>
+          <h2 className="text-[15px] font-semibold text-slate-900">{A.title}</h2>
           <p className="text-[12px] text-slate-500 mt-0.5">
-            {loading ? '—' : `${totalApps} total · ${activeApps} active in pipeline`}
+            {loading ? '—' : A.summary.replace('{total}', String(totalApps)).replace('{active}', String(activeApps))}
           </p>
         </div>
         <ViewToggle view={view} onChange={setView} />
@@ -260,7 +271,7 @@ export function ApplicationsTab() {
 
       {deleteError && (
         <div className="text-[12px] px-3 py-2 rounded-lg" style={{ color: TOKENS.color.danger, background: '#FEF2F2' }}>
-          Delete failed: {deleteError}
+          {A.delete_failed} {deleteError}
         </div>
       )}
 

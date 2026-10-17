@@ -1,4 +1,5 @@
 'use client'
+import { useI18n } from '@/contexts/I18nContext'
 import { useState, useEffect, useRef } from 'react'
 import { TOKENS } from '@/lib/tokens'
 import type { ApiAgentStatus, AgentState, AgentName, ApiFeedJob } from '@/lib/apiTypes'
@@ -38,6 +39,7 @@ const STATE_META: Record<AgentState, { tone: Tone; label: string; pulse: boolean
 // button in the section header. No per-card action buttons or developer metrics.
 
 function AgentCard({ agent }: { agent: ApiAgentStatus }) {
+  const G = useI18n().t.agents
   const accent = AGENT_ACCENT[agent.name]
   const s      = STATE_META[agent.state]
 
@@ -90,16 +92,16 @@ function AgentCard({ agent }: { agent: ApiAgentStatus }) {
           </span>
         )}
         {agent.state === 'active' && !agent.current_task && (
-          <span className="text-slate-500">Running…</span>
+          <span className="text-slate-500">{G.running}</span>
         )}
-        {agent.state === 'idle'   && <span className="text-slate-400">Idle. Waiting for the next pipeline run.</span>}
+        {agent.state === 'idle'   && <span className="text-slate-400">{G.idle}</span>}
         {agent.state === 'queued' && (
           <span className="text-slate-600">
-            {agent.queue_msg || 'Queued. Starting shortly…'}
+            {agent.queue_msg || G.queued}
           </span>
         )}
         {agent.state === 'error'  && <span className="text-rose-600">{agent.error_msg}</span>}
-        {agent.state === 'paused' && <span className="text-slate-400">Paused.</span>}
+        {agent.state === 'paused' && <span className="text-slate-400">{G.paused}</span>}
       </div>
     </div>
   )
@@ -155,17 +157,18 @@ function AgentPipeline({ agents }: { agents: ApiAgentStatus[] }) {
 // ── Error banner ──────────────────────────────────────────────────────────────
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const G = useI18n().t.agents
   return (
     <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 flex items-center justify-between gap-4">
       <p className="text-[13px] text-rose-700">
-        <span className="font-medium">Agent status unavailable.</span>
+        <span className="font-medium">{G.unavailable}</span>
         <span className="text-rose-500"> {message}</span>
       </p>
       <button
         onClick={onRetry}
         className="text-[12px] font-medium text-rose-700 underline underline-offset-2 hover:text-rose-900 shrink-0"
       >
-        Retry
+        {G.retry}
       </button>
     </div>
   )
@@ -184,6 +187,7 @@ function AnalyzeTrigger({
   onJobAnalyzed?: (job: ApiFeedJob) => void
   onTailorCV?:    (job: ApiFeedJob) => void
 }) {
+  const G = useI18n().t.agents
   const [url,         setUrl]         = useState('')
   const [status,      setStatus]      = useState<TriggerState>('idle')
   const [message,     setMessage]     = useState('')
@@ -201,13 +205,13 @@ function AnalyzeTrigger({
       // Blocking call — returns the complete JobMatch when done, or throws on failure.
       const res = await startAnalysis(url.trim())
       setStatus('success')
-      setMessage(`"${res.title}" added. ATS score ${res.match_score.toFixed(1)}.`)
+      setMessage(G.added.replace('{title}', res.title).replace('{score}', res.match_score.toFixed(1)))
       setAnalyzedJob(res)
       setUrl('')
       onJobAnalyzed?.(res)
     } catch (err) {
       setStatus('error')
-      setMessage(err instanceof Error ? err.message : 'Analysis failed')
+      setMessage(err instanceof Error ? err.message : G.analysis_failed)
     }
   }
 
@@ -226,8 +230,8 @@ function AnalyzeTrigger({
           <SparkIcon s={15} />
         </span>
         <div className="min-w-0">
-          <span className="block text-[13.5px] font-semibold text-slate-900 leading-tight">Analyze a job URL</span>
-          <span className="block text-[12px] text-slate-400">Scrape · structure · score in one shot</span>
+          <span className="block text-[13.5px] font-semibold text-slate-900 leading-tight">{G.analyze_title}</span>
+          <span className="block text-[12px] text-slate-400">{G.analyze_sub}</span>
         </div>
       </div>
 
@@ -247,7 +251,7 @@ function AnalyzeTrigger({
           type="url"
           value={url}
           onChange={e => setUrl(e.target.value)}
-          placeholder="Paste a job URL, e.g. https://jobs.lever.co/company/job-id"
+          placeholder={G.url_placeholder}
           className="flex-1 h-9 bg-transparent text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none min-w-0"
           disabled={loading}
         />
@@ -263,10 +267,10 @@ function AnalyzeTrigger({
                 className="inline-block h-3 w-3 rounded-full border-[1.5px] animate-spin"
                 style={{ borderColor: 'rgba(255,255,255,.4)', borderTopColor: '#fff' }}
               />
-              Analysing…
+              {G.analysing}
             </>
           ) : (
-            <><ArrowIcon s={13} /> Run</>
+            <><ArrowIcon s={13} /> {G.run}</>
           )}
         </button>
       </form>
@@ -280,7 +284,7 @@ function AnalyzeTrigger({
       {analyzedJob && (
         <div className="mt-4">
           <p className="text-[11.5px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
-            ✦ Analysis Result
+            {G.result}
           </p>
           <JobCard
             job={analyzedJob}
@@ -307,6 +311,7 @@ interface AgentStatusCenterProps {
 }
 
 export function AgentStatusCenter({ agents, loading, error, onRetry, onJobAnalyzed, onTailorCV }: AgentStatusCenterProps) {
+  const G = useI18n().t.agents
   const [syncing,        setSyncing]        = useState(false)
   const [syncErr,        setSyncErr]        = useState<string | null>(null)
   const [pipelineDone,   setPipelineDone]   = useState(false)
@@ -442,14 +447,14 @@ export function AgentStatusCenter({ agents, loading, error, onRetry, onJobAnalyz
               className="text-[11px] uppercase tracking-[0.16em] font-semibold"
               style={{ color: '#99F6E4' }}
             >
-              Live Pipeline Status
+              {G.live_status}
             </span>
           </div>
           <h3 className="text-[18px] font-semibold text-white tracking-tight leading-snug">
-            Job Apply is searching while you focus on what matters.
+            {G.hero_title}
           </h3>
           <p className="text-[13px] mt-1.5 max-w-[60ch] leading-relaxed" style={{ color: 'rgba(204,251,241,0.75)' }}>
-            Four agents work quietly in the background. They scan, analyze, rank, and apply to roles that fit your profile.
+            {G.hero_body}
           </p>
         </div>
       </div>
@@ -458,10 +463,10 @@ export function AgentStatusCenter({ agents, loading, error, onRetry, onJobAnalyz
       <div className="mb-3 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-[15px] font-semibold text-slate-900 tracking-tight">
-            Agent Status
+            {G.section_title}
           </h2>
           <p className="text-[12.5px] text-slate-500 mt-0.5">
-            Live state of the 4-stage analysis pipeline
+            {G.section_sub}
           </p>
         </div>
 
@@ -481,12 +486,12 @@ export function AgentStatusCenter({ agents, loading, error, onRetry, onJobAnalyz
                 className="inline-block h-3 w-3 rounded-full border-[1.5px] animate-spin shrink-0"
                 style={{ borderColor: 'rgba(255,255,255,.35)', borderTopColor: '#fff' }}
               />
-              Running…
+              {G.running}
             </>
           ) : (
             <>
               <ArrowIcon s={12} />
-              Run Pipeline
+              {G.run_pipeline}
             </>
           )}
         </button>
@@ -506,14 +511,14 @@ export function AgentStatusCenter({ agents, loading, error, onRetry, onJobAnalyz
               <path d="M5 8l2 2 4-4" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <p className="text-[13px] text-emerald-800">
-              <span className="font-semibold">Pipeline complete.</span>
-              <span className="text-emerald-600"> Job feed refreshed with the latest matches.</span>
+              <span className="font-semibold">{G.done_title}</span>
+              <span className="text-emerald-600"> {G.done_body}</span>
             </p>
           </div>
           <button
             onClick={() => setPipelineDone(false)}
             className="text-emerald-500 hover:text-emerald-700 shrink-0 transition-colors"
-            aria-label="Dismiss"
+            aria-label={G.dismiss}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -532,14 +537,14 @@ export function AgentStatusCenter({ agents, loading, error, onRetry, onJobAnalyz
               <path d="M8 5v3M8 10.5v.5" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
             <p className="text-[13px] text-rose-800">
-              <span className="font-semibold">Pipeline stopped.</span>
-              <span className="text-rose-600"> One or more agents hit an error. Check the cards below for details.</span>
+              <span className="font-semibold">{G.failed_title}</span>
+              <span className="text-rose-600"> {G.failed_body}</span>
             </p>
           </div>
           <button
             onClick={() => setPipelineFailed(false)}
             className="text-rose-400 hover:text-rose-600 shrink-0 transition-colors"
-            aria-label="Dismiss"
+            aria-label={G.dismiss}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
