@@ -503,6 +503,13 @@ function OnboardingContent() {
           <p className="text-[12px] text-red-600 mt-2" role="alert">{cvError}</p>
         )}
 
+        {/* Testers uploaded other documents here (e.g. a regulations PDF) and
+            got nothing back. Say up front what belongs here and where the
+            rest goes, rather than only after a failed upload. */}
+        <p className="text-[12px] text-slate-500 mt-4 leading-relaxed rounded-xl bg-slate-50 px-3.5 py-3">
+          {O.intake.cv_only_note}
+        </p>
+
         {/* Skip — straight to the dashboard (profile stays incomplete) */}
         <button
           onClick={() => router.push('/?tab=overview')}
