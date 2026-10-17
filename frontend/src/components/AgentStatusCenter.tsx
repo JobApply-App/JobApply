@@ -180,7 +180,7 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
 
 type TriggerState = 'idle' | 'loading' | 'success' | 'error'
 
-function AnalyzeTrigger({
+export function AnalyzeTrigger({
   onJobAnalyzed,
   onTailorCV,
 }: {

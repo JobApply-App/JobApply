@@ -35,7 +35,14 @@ _SPARK_MAX = 10
 # ── Default agent templates ────────────────────────────────────────────────────
 
 def _build_defaults() -> dict[str, AgentStatus]:
-    """Return a fresh set of four agents in their initial idle state."""
+    """
+    Return a fresh set of four agents in their initial idle state.
+
+    The role strings are user-facing (GET /api/agents). They used to read
+    "Generates 'Why Ron?' recruiter brief grounded in USER_PROFILE evidence"
+    — copy from the single-user days, shown to every user, which a tester
+    reasonably took for someone else's data leaking into their account.
+    """
     return {
         "s1": AgentStatus(
             id="s1",
@@ -47,21 +54,21 @@ def _build_defaults() -> dict[str, AgentStatus]:
         "s2": AgentStatus(
             id="s2",
             name="Sourcing Specialist",
-            role="Performs deep gap analysis: maps job requirements to USER_PROFILE facts",
+            role="Performs deep gap analysis: maps job requirements to your profile",
             state="idle",
             stats=AgentStats(today=0, queue=0, spark=[1, 2, 3, 2, 4, 3, 5]),
         ),
         "s3": AgentStatus(
             id="s3",
             name="Content Strategist",
-            role="Generates 'Why Ron?' recruiter brief grounded in USER_PROFILE evidence",
+            role="Writes the recruiter brief for each job, grounded in your profile",
             state="idle",
             stats=AgentStats(today=0, queue=0, spark=[1, 1, 2, 2, 3, 2, 3]),
         ),
         "s4": AgentStatus(
             id="s4",
             name="Quality Guard",
-            role="Truth Guard: verifies every claim is grounded in USER_PROFILE — no invented facts",
+            role="Verifies every claim is grounded in your profile — no invented facts",
             state="idle",
             stats=AgentStats(today=0, queue=0, spark=[1, 1, 1, 2, 2, 1, 2]),
         ),
