@@ -119,6 +119,46 @@ _RETRYABLE_EXCEPTIONS = (
 )
 
 
+# ── Provider-outage gate ──────────────────────────────────────────────────────
+# Set when the fallback provider fails for a reason no retry will fix soon:
+# exhausted credit (400 "credit balance is too low"), bad key (401/403), or a
+# rate limit that survived every retry. Background loops consult
+# providers_unavailable() and stop calling the LLM until it clears, instead of
+# re-attempting every pending job every cycle (which also burned each job's
+# enrichment_failures until it was retired for good). User-initiated calls are
+# not blocked by it — they fail fast on their own and the user sees why.
+_PROVIDERS_DOWN_UNTIL: float = 0.0
+_BILLING_OUTAGE_S = 1800.0
+_RATE_LIMIT_OUTAGE_S = 600.0
+
+
+def _mark_outage(seconds: float, reason: str) -> None:
+    global _PROVIDERS_DOWN_UNTIL
+    until = time.monotonic() + seconds
+    if until > _PROVIDERS_DOWN_UNTIL:
+        _PROVIDERS_DOWN_UNTIL = until
+        logger.error(
+            "[llm_client] PROVIDER OUTAGE (%s) — background LLM work paused for %ds",
+            reason, int(seconds),
+        )
+
+
+def providers_unavailable() -> bool:
+    """True while background LLM work should not be attempted."""
+    return time.monotonic() < _PROVIDERS_DOWN_UNTIL
+
+
+def _classify_anthropic_failure(exc: Exception) -> None:
+    status = getattr(exc, "status_code", None)
+    text = str(exc).lower()
+    if status == 400 and ("credit balance" in text or "billing" in text):
+        _mark_outage(_BILLING_OUTAGE_S, "anthropic credit exhausted")
+    elif status in (401, 403):
+        _mark_outage(_BILLING_OUTAGE_S, f"anthropic auth ({status})")
+    elif status == 429:
+        _mark_outage(_RATE_LIMIT_OUTAGE_S, "anthropic rate limit")
+
+
 class LLMCallError(RuntimeError):
     """
     Safe, generic error raised for any LLM call failure (after retries are
@@ -517,6 +557,7 @@ async def _call_anthropic(
                     "FAILED after %d attempt(s): %s (status=%s)",
                     purpose, model, user_id, job_id, attempt, type(exc).__name__, status_code,
                 )
+                _classify_anthropic_failure(exc)
                 raise LLMCallError(
                     "The AI service is temporarily unavailable. Please try again shortly."
                 ) from exc
@@ -536,6 +577,7 @@ async def _call_anthropic(
                 purpose, model, user_id, job_id, type(exc).__name__,
                 getattr(exc, "status_code", None),
             )
+            _classify_anthropic_failure(exc)
             raise LLMCallError(
                 "The AI request could not be completed. Please try again or contact support."
             ) from exc

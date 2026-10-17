@@ -1190,6 +1190,40 @@ class JobAnalysisState(BaseModel):
     enrichment_failures:  int
 
 
+@router.post(
+    "/{job_id}/analyze-now",
+    response_model=JobAnalysisState,
+    dependencies=[Depends(llm_rate_limit)],
+)
+async def analyze_job_now(job_id: str, user: CurrentUser = Depends(get_current_user)):
+    """
+    Run the LLM analysis for one job the user just opened.
+
+    Background enrichment is capped per user per day (services/llm_budget.py),
+    so most feed jobs keep only their free local score until someone looks at
+    them. This is the "someone looked" path: one job, on demand, charged to
+    the per-route LLM rate limit rather than the background budget. A job that
+    is already analyzed returns immediately without an LLM call.
+    """
+    from backend.services.feed_service import refresh_user_scores
+    from backend.services.llm_client import providers_unavailable
+
+    job = job_store.get_by_id(job_id, user.user_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.score_is_proxy or not (job.fit_brief or "").strip():
+        if providers_unavailable():
+            raise HTTPException(status_code=503, detail="AI analysis is temporarily unavailable.")
+        await refresh_user_scores(user.user_id, only_job_id=job_id)
+        job = job_store.get_by_id(job_id, user.user_id) or job
+    return JobAnalysisState(
+        job_id=job.job_id,
+        fit_brief=job.fit_brief,
+        score_is_proxy=job.score_is_proxy,
+        enrichment_failures=job.enrichment_failures,
+    )
+
+
 @router.get("/{job_id}/analysis", response_model=JobAnalysisState)
 async def get_job_analysis(
     job_id: str,

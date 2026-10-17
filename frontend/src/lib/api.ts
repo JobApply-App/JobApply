@@ -447,6 +447,15 @@ export async function fetchJobAnalysis(jobId: string): Promise<JobAnalysisState>
   return get<JobAnalysisState>(`/api/jobs/${encodeURIComponent(jobId)}/analysis`)
 }
 
+/**
+ * Analyze one job now. Background scoring is capped per user per day, so a
+ * job the user opens may not have an analysis yet; this produces it on
+ * demand (and returns at once, without an AI call, if it already exists).
+ */
+export async function analyzeJobNow(jobId: string): Promise<JobAnalysisState> {
+  return postEmpty<JobAnalysisState>(`/api/jobs/${encodeURIComponent(jobId)}/analyze-now`)
+}
+
 export async function updateJobStatus(jobId: string, status: JobStatus): Promise<void> {
   await patch<{ status: JobStatus }, unknown>(`/api/jobs/${jobId}/status`, { status })
 }
