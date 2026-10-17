@@ -2,6 +2,7 @@
 
 import { Logo }    from './ui/Logo'
 import { useAuth } from '@/contexts/AuthContext'
+import { useI18n } from '@/contexts/I18nContext'
 
 /**
  * Minimal header for the onboarding flow.
@@ -12,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext'
  */
 export function OnboardingHeader() {
   const { signOut } = useAuth()
+  const H = useI18n().t.header
 
   return (
     <header className="w-full bg-white border-b border-slate-100 sticky top-0 z-40">
@@ -21,7 +23,7 @@ export function OnboardingHeader() {
           onClick={() => void signOut()}
           className="text-[13px] font-medium text-slate-400 hover:text-slate-700 transition-colors"
         >
-          Sign out
+          {H.sign_out}
         </button>
       </div>
     </header>

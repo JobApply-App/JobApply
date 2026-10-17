@@ -151,7 +151,7 @@ def test_stream_one_section_failure_does_not_abort_others(db_available):
 
     dashboard_module.build_scraper_status = _boom
     try:
-        sections = _collect(dashboard_module._stream_dashboard_overview(_QA_USER_A))
+        sections = _collect(dashboard_module._stream_dashboard_overview(_QA_USER_A, is_admin=True))
     finally:
         dashboard_module.build_scraper_status = original
 
@@ -350,3 +350,42 @@ def test_stream_query_count_bound(db_available):
         event.remove(ENGINE, "before_cursor_execute", _count)
 
     assert query_count <= 8, f"expected <=8 total queries, got {query_count}"
+
+
+def test_scraper_status_is_hidden_from_non_admins(db_available, monkeypatch):
+    """
+    The Overview banners driven by this section are operator instructions
+    ("update LINKEDIN_LI_AT in backend/.env"). A regular user must always get
+    'ok', even while the shared scraper is BLOCKED; an admin still sees it.
+    """
+    from backend.api.routes import dashboard as dashboard_module
+    from backend.api.routes.settings import ScraperStatusResponse
+
+    monkeypatch.setattr(
+        dashboard_module, "build_scraper_status",
+        lambda entries: ScraperStatusResponse(status="BLOCKED", blocked_at="2026-10-16T00:00:00Z", cookie_status="suspicious"),
+    )
+    user_view  = _collect(dashboard_module._stream_dashboard_overview(_QA_USER_A))
+    admin_view = _collect(dashboard_module._stream_dashboard_overview(_QA_USER_A, is_admin=True))
+    assert user_view["scraper_status"]["data"]["status"] == "ok"
+    assert admin_view["scraper_status"]["data"]["status"] == "BLOCKED"
+
+
+def test_settings_scraper_status_is_hidden_from_non_admins(monkeypatch):
+    """Same rule on the standalone endpoint the Overview polls every 30s."""
+    from fastapi.testclient import TestClient
+    from backend.api.deps import CurrentUser, get_current_user
+    from backend.api.routes import settings as settings_module
+    from backend.main import app
+
+    def _must_not_read(*a, **k):
+        raise AssertionError("a non-admin request must not read scraper state")
+    monkeypatch.setattr(settings_module.kv_repository, "get_many", _must_not_read)
+
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(user_id=_QA_USER_A, is_admin=False)
+    try:
+        res = TestClient(app).get("/api/settings/scraper-status")
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"

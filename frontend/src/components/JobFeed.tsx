@@ -440,8 +440,8 @@ export function JobFeed({
       onFeedRefreshed?.()
       setToast({
         message: n > 0
-          ? `Synced ${n} job description${n !== 1 ? 's' : ''} and re-scored all jobs.`
-          : 'Re-scored all jobs against your latest profile.',
+          ? (n === 1 ? F.toast_synced_one : F.toast_synced_many.replace('{n}', String(n)))
+          : F.toast_rescored,
         tone: 'success',
       })
     } catch {
@@ -449,7 +449,7 @@ export function JobFeed({
     } finally {
       setSyncing(false)
     }
-  }, [loadJobs, onFeedRefreshed, F.errors.sync_failed])
+  }, [loadJobs, onFeedRefreshed, F.errors.sync_failed, F.toast_rescored, F.toast_synced_many, F.toast_synced_one])
 
   /**
    * Submit a single job URL for the Zero-Click blocking pipeline.
@@ -475,14 +475,17 @@ export function JobFeed({
       })
       // Auto-expand the new card so the user sees the analysis immediately.
       setFreshExpandId(newJob.job_id)
-      setToast({ message: `"${newJob.title}" added to your feed (ATS ${newJob.match_score.toFixed(1)})`, tone: 'success' })
+      setToast({
+        message: F.toast_added.replace('{title}', newJob.title).replace('{score}', newJob.match_score.toFixed(1)),
+        tone: 'success',
+      })
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : F.errors.analysis_failed
       setToast({ message: msg, tone: 'error' })
     } finally {
       setIsAnalyzing(false)
     }
-  }, [jobUrl, F.errors.analysis_failed])
+  }, [jobUrl, F.errors.analysis_failed, F.toast_added])
 
   const handleSkip = useCallback(async (id: string) => {
     setJobs(prev => prev.map(j => j.job_id === id ? { ...j, status: 'ignored' } : j))
@@ -555,8 +558,8 @@ export function JobFeed({
     setJobs(prev => prev.map(j =>
       j.job_id === jobId ? { ...j, status: 'applied' as const } : j
     ))
-    setToast({ message: '✓ Marked as Applied. Visible in Applications board', tone: 'success' })
-  }, [])
+    setToast({ message: F.toast_applied, tone: 'success' })
+  }, [F.toast_applied])
 
   // ── Local filtering + sorting (no extra API calls) ────────────────────────
 
@@ -708,11 +711,11 @@ export function JobFeed({
         {error && (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 flex items-center justify-between">
             <p className="text-[13px] text-rose-700">
-              <span className="font-medium">Could not load feed</span>
+              <span className="font-medium">{F.load_feed_failed}</span>
               <span className="text-rose-500">: {error}</span>
             </p>
             <button onClick={loadJobs} className="text-[12px] font-medium text-rose-700 underline underline-offset-2">
-              Retry
+              {F.retry}
             </button>
           </div>
         )}

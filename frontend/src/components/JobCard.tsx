@@ -68,19 +68,23 @@ function deriveWorkplaceType(location: string | null | undefined): string | null
 // < 7 days old → relative ("2d ago"); ≥ 7 days → exact date ("Jul 4").
 // Falls back to the backend-provided string; never fabricates "just now".
 
-function formatPostedAt(createdAt: string | null, postedAt: string): string | null {
+function formatPostedAt(createdAt: string | null, postedAt: string, locale: string): string | null {
   if (createdAt) {
     const d = new Date(createdAt)
     if (!isNaN(d.getTime())) {
+      // Relative times follow the interface language ("לפני 3 ימים", not
+      // "3d ago" on a Hebrew page).
+      const tag    = locale === 'he' ? 'he-IL' : 'en-US'
+      const rtf    = new Intl.RelativeTimeFormat(tag, { numeric: 'always', style: 'short' })
       const diffMs = Math.max(0, Date.now() - d.getTime())
       const diffH  = Math.floor(diffMs / 3_600_000)
       const diffD  = Math.floor(diffMs / 86_400_000)
       if (diffD >= 7) {
-        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return d.toLocaleDateString(tag, { month: 'short', day: 'numeric' })
       }
-      if (diffD >= 1) return `${diffD}d ago`
-      if (diffH >= 1) return `${diffH}h ago`
-      return `${Math.max(1, Math.floor(diffMs / 60_000))}m ago`
+      if (diffD >= 1) return rtf.format(-diffD, 'day')
+      if (diffH >= 1) return rtf.format(-diffH, 'hour')
+      return rtf.format(-Math.max(1, Math.floor(diffMs / 60_000)), 'minute')
     }
   }
   const p = (postedAt ?? '').trim()
@@ -545,25 +549,22 @@ function AnalysisUnavailable() {
 }
 
 function AnalysisAuthWall() {
+  // This used to tell the user to refresh a cookie in backend/.env and restart
+  // the server — operator instructions, in English, shown to job seekers. The
+  // job is retried automatically; the user only needs to know that.
+  const J = useI18n().t.job_card
   return (
     <div
       className="rounded-lg px-4 py-3 flex items-start gap-3 bg-ja-primarySubtle border border-teal-200"
     >
-      <span className="text-[15px] mt-0.5" aria-hidden="true">🔒</span>
+      <span className="text-[15px] mt-0.5" aria-hidden="true">⏳</span>
       <div className="flex-1 min-w-0">
-        <p className="text-[12.5px] font-semibold text-slate-700 mb-0.5">LinkedIn session expired</p>
-        <p className="text-[12px] text-slate-500 leading-relaxed">
-          The scraper hit a LinkedIn login wall. The <code className="font-mono text-[11px]">li_at</code> cookie
-          needs refreshing. Update <code className="font-mono text-[11px]">LINKEDIN_LI_AT</code> in{' '}
-          <code className="font-mono text-[11px]">backend/.env</code>, delete the browser profile, and restart
-          the server. This job will be retried automatically.
-        </p>
+        <p className="text-[12.5px] font-semibold text-slate-700 mb-0.5">{J.auth_wall_title}</p>
+        <p className="text-[12px] text-slate-500 leading-relaxed">{J.auth_wall_body}</p>
       </div>
     </div>
   )
 }
-
-// ── Shared tiny spinner (used by both AnalyzeJobButton and ArielInsightButton) ─
 
 function SpinnerTiny({ s = 13 }: { s?: number }) {
   return (
@@ -616,9 +617,9 @@ function AnalyzeJobButton({ jobId }: { jobId: string }) {
       {state === 'loading' ? (
         <><SpinnerTiny s={11} /> {J.analyzing}</>
       ) : state === 'error' ? (
-        <span className="text-red-500">Failed</span>
+        <span className="text-red-500">{J.analyze_failed}</span>
       ) : (
-        <>⚡ Analyze Job</>
+        <>{J.analyze_job}</>
       )}
     </button>
   )
@@ -654,7 +655,7 @@ function ArielInsightButton({
         headers: getAuthHeaders(),
         cache:   'no-store',
       })
-      if (!trustRes.ok) throw new Error(`Trust API: HTTP ${trustRes.status}`)
+      if (!trustRes.ok) throw new Error(J.probe_failed)
       const trust = await trustRes.json()
       const entities: Array<{ entity_id: string; name: string; confidence_score: number }> =
         trust.entities ?? []
@@ -664,8 +665,10 @@ function ArielInsightButton({
       const match  = entities.find(e =>
         e.name.toLowerCase().includes(needle) || needle.includes(e.name.toLowerCase())
       )
-      if (!match) throw new Error(`No entity found for "${skillName}". Upload CV to add it.`)
-      if (match.confidence_score >= 70) throw new Error(`"${match.name}" already has high confidence (${match.confidence_score.toFixed(0)}).`)
+      if (!match) throw new Error(J.insight_no_entity.replace('{skill}', skillName))
+      if (match.confidence_score >= 70) {
+        throw new Error(J.insight_high.replace('{skill}', match.name).replace('{score}', match.confidence_score.toFixed(1)))
+      }
 
       // 2. Start the probe
       const probeRes = await fetch('/api/ariel/probe/start', {
@@ -703,10 +706,10 @@ function ArielInsightButton({
           onClick={handleClick}
           disabled={loading}
           className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-[11.5px] font-semibold bg-ja-primarySubtle text-teal-700 border border-teal-200 hover:bg-teal-100 transition active:scale-[0.97] disabled:opacity-50"
-          title={`Strengthen your "${skillName}" evidence with Ariel`}
+          title={J.insight_title.replace('{skill}', skillName)}
         >
           {loading ? <SpinnerTiny s={11} /> : <span aria-hidden="true">⚡</span>}
-          Ariel Insight: {skillName}
+          {J.insight_label} {skillName}
         </button>
         {error && (
           <span className="text-[11px] text-amber-600">{error}</span>
@@ -724,6 +727,7 @@ function ArielInsightButton({
 }
 
 function AgentAnalysisBox({ job, userId }: { job: ApiFeedJob; userId?: string }) {
+  const J = useI18n().t.job_card
   const raw           = (job.fit_brief ?? '').trim()
   const analysisReady = _isSubstantiveText(raw) && !job.score_is_proxy
   const hardFailed    = (job.enrichment_failures ?? 0) >= ENRICHMENT_MAX_FAILURES
@@ -737,7 +741,7 @@ function AgentAnalysisBox({ job, userId }: { job: ApiFeedJob; userId?: string })
       <div className="flex items-center gap-1.5 mb-2">
         <span aria-hidden="true" className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
         <span className="text-[10.5px] font-bold uppercase tracking-widest text-slate-400">
-          Ariel&apos;s Analysis
+          {J.ariel_analysis}
         </span>
         {IS_DEV && !analysisReady && !hardFailed && !isAuthWall && (
           <span className="ml-auto text-[10px] text-amber-600 font-medium">
@@ -822,7 +826,8 @@ export const JobCard = memo(function JobCard({
   job, userId, isTopFit = false, belowThreshold = false, initialExpanded = false,
   onSkip, onSave, onTailorCV, onInteractionChange, onMarkApplied,
 }: JobCardProps) {
-  const J = useI18n().t.job_card
+  const { t: _t, locale: uiLocale } = useI18n()
+  const J = _t.job_card
   const [showDetails,      setShowDetails]      = useState(initialExpanded)
   const [jdExpanded,       setJdExpanded]       = useState(false)
   const [showOutreach,     setShowOutreach]     = useState(false)
@@ -852,7 +857,7 @@ export const JobCard = memo(function JobCard({
 
   const isDirect           = job.is_direct_application === true || job.source_type === 'company_site'
   const workplaceType      = deriveWorkplaceType(job.location)
-  const postedLabel        = formatPostedAt(job.created_at, job.posted_at)
+  const postedLabel        = formatPostedAt(job.created_at, job.posted_at, uiLocale)
   // Top strengths for this role: source advantage first, then positive
   // skill/experience reason tags (never the negative "neg" kind).
   const strengths: string[] = [
@@ -1149,7 +1154,7 @@ export const JobCard = memo(function JobCard({
                       {J.no_description}
                       {job.apply_url && (
                         <> <a href={job.apply_url} target="_blank" rel="noopener noreferrer"
-                          className="underline text-teal-700 hover:text-teal-800">View original posting.</a></>
+                          className="underline text-teal-700 hover:text-teal-800">{J.view_original}</a></>
                       )}
                     </p>
                   )}
@@ -1161,8 +1166,8 @@ export const JobCard = memo(function JobCard({
                       className="flex items-center gap-1.5 text-[12px] font-medium text-slate-500 hover:text-slate-800 transition"
                     >
                       <span className="text-[10px]">{showAtsPanel ? '▼' : '▶'}</span>
-                      ATS Breakdown
-                      {!hasJD && <span className="text-[10px] text-amber-500 ml-0.5">(fetch JD first)</span>}
+                      {J.ats_breakdown}
+                      {!hasJD && <span className="text-[10px] text-amber-500 ms-0.5">{J.fetch_jd_first}</span>}
                     </button>
                     {showAtsPanel && (
                       <div className="mt-2">
@@ -1179,7 +1184,7 @@ export const JobCard = memo(function JobCard({
                     >
                       <span className="text-[10px]">{showSkillsGap ? '▼' : '▶'}</span>
                       {J.skills_gap}
-                      {!hasJD && <span className="text-[10px] text-amber-500 ml-0.5">(fetch JD first)</span>}
+                      {!hasJD && <span className="text-[10px] text-amber-500 ms-0.5">{J.fetch_jd_first}</span>}
                     </button>
                     {showSkillsGap && (
                       <div className="mt-2">
