@@ -549,6 +549,12 @@ export const en = {
     error_id: 'Error ID: {id}',
     persist_hint: 'If this keeps happening, refresh the page or contact support.',
     improve_hint: "Ariel is JobApply's AI career assistant. She'll ask you a few short questions about this capability, so the system can confirm it and match you to jobs more accurately.",
+    explainer: {
+      title: 'Why does this exist?',
+      body: "Anyone can write a skill on a CV, so we don't take it at face value. Every skill starts with a low score until there's evidence for it. The more we can confirm, the more accurately we match you to jobs you'll actually get.",
+      start: "A skill that only appears on your CV starts at 12.5/100. That's expected, not a mistake.",
+      raise: "To raise a score: open a skill and choose \"Improve with Ariel\" — a few short questions about how you've used it — or attach a certificate, portfolio or project.",
+    },
   },
   score_bands: {
     exceptional: 'Exceptional',

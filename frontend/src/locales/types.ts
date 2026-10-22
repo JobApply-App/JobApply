@@ -513,6 +513,12 @@ export interface Dict {
     error_id: string
     persist_hint: string
     improve_hint: string
+    explainer: {
+      title: string
+      body: string
+      start: string
+      raise: string
+    }
   }
   score_bands: {
     exceptional: string
