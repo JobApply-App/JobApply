@@ -8,6 +8,7 @@ import type { ApiFeedJob, ScoreBreakdown, ConfidenceMatrixResponse, TrustScoreRe
 import { Skeleton } from './ui/Skeleton'
 import { SparkIcon, UserBadgeIcon, FileIcon, SlidersIcon, ArrowIcon, SearchIcon, BoltIcon, CheckIcon } from './icons'
 import { TrustDashboard } from './TrustDashboard'
+import { ProductTour } from './ProductTour'
 import { useChat } from '@/contexts/ChatContext'
 import {
   streamDashboardOverview, fetchScraperStatus, RateLimitError,
@@ -385,6 +386,7 @@ function ArielStrip() {
   return (
     <section
       aria-label={A.capabilities_title}
+      data-tour="ariel"
       className="rounded-2xl border border-violet-100 bg-gradient-to-l from-violet-50/70 to-white px-4 py-3.5 sm:px-5"
     >
       <p className="text-[13px] text-slate-700 leading-snug">
@@ -920,15 +922,19 @@ export function Overview({
         </span>
       </div>
 
+      <ProductTour ready={!jobsLoading} />
+
       {/* ── Ariel, in one line — what she is for, and a way straight in ── */}
       <ArielStrip />
 
       {/* ── System Confidence Score — gamified Ariel engagement CTA ──────── */}
-      <ConfidenceScoreCard
-        score={confidenceScore}
-        breakdown={scoreBreakdown}
-        onImprove={handleImproveScore}
-      />
+      <div data-tour="confidence">
+        <ConfidenceScoreCard
+          score={confidenceScore}
+          breakdown={scoreBreakdown}
+          onImprove={handleImproveScore}
+        />
+      </div>
 
       {/* ── KPI strip — server analytics with local fallback ─────────────── */}
       <section className="space-y-4">
@@ -990,7 +996,7 @@ export function Overview({
         </section>
 
         {/* Top matches — first on phones: it is what people come to see. */}
-        <section className="order-first lg:order-none">
+        <section className="order-first lg:order-none" data-tour="top-matches">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-400">
               {O.top_matches}

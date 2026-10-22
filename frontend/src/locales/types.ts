@@ -146,6 +146,15 @@ export interface Dict {
   }
   // Score-band labels, keyed by ScoreBandKey (see lib/scoreBand.ts). The
   // keys and thresholds stay in code; only the display labels translate.
+  tour: {
+    step_of: string
+    next: string
+    back: string
+    skip: string
+    done: string
+    replay: string
+    steps: ReadonlyArray<{ title: string; body: string }>
+  }
   header: {
     nav: { overview: string; feed: string; apps: string; all_jobs: string
            capabilities: string; analytics: string }

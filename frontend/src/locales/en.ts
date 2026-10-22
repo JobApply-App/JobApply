@@ -168,6 +168,20 @@ export const en = {
     },
   },
 
+  tour: {
+    step_of: "{n} of {total}",
+    next: "Next",
+    back: "Back",
+    skip: "Skip",
+    done: "Let's start",
+    replay: "Product tour",
+    steps: [
+      { title: "Welcome to JobApply", body: "We find jobs for you, score each one against your profile, and tailor your CV for it. Three things worth knowing:" },
+      { title: "Today's top matches", body: "The jobs that fit you best, with a match score. Start here: open a job and tap “Tailor CV”." },
+      { title: "Your confidence score", body: "How well the system knows you. It starts low on purpose and rises as you confirm skills — which makes matches more accurate." },
+      { title: "Ariel, your career agent", body: "She strengthens your profile, sharpens your CV for a job and preps you for interviews. Just pick one of the buttons." },
+    ],
+  },
   header: {
     nav: { overview: 'Overview', feed: 'Matches', apps: 'Applications',
            all_jobs: 'All Jobs', capabilities: 'Capabilities', analytics: 'Analytics' },

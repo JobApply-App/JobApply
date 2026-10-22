@@ -6,6 +6,7 @@ import { useChat } from '@/contexts/ChatContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS }  from '@/lib/tokens'
+import { isTourPending } from './ProductTour'
 
 const ONBOARDING_ROUTES = ['/onboarding', '/profile-builder']
 
@@ -50,7 +51,8 @@ export function ChatLauncher() {
   // during server render, and showing it first would flash for returning users.
   const [showIntro, setShowIntro] = useState(false)
   useEffect(() => {
-    if (readIntroSeen()) return
+    // The first-visit tour already introduces Ariel; don't stack two popups.
+    if (readIntroSeen() || isTourPending()) return
     const id = setTimeout(() => setShowIntro(true), 1500)
     return () => clearTimeout(id)
   }, [])
