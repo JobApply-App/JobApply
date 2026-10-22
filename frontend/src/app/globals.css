@@ -141,6 +141,33 @@ input[type='range'] {
   }
 }
 
+/* ── iOS focus zoom ──────────────────────────────────────────────────────────
+   iOS Safari zooms the whole page in when a focused field's font is under
+   16px, and leaves it zoomed — the page jumps sideways on every tap into a
+   search box or the chat. Almost every field here is 12-14px. On phones,
+   fields get 16px; !important because the sizes are Tailwind utilities on
+   each element. Blocking zoom in the viewport meta instead would also stop
+   people who need to pinch-zoom. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* ── Mobile tab bar ─────────────────────────────────────────────────────────
+   MobileTabBar is fixed to the bottom on small screens; keep the page's last
+   content and the Ariel launcher clear of it. */
+@media (max-width: 767px) {
+  body.has-tabbar {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+  body.has-tabbar .ja-launcher {
+    bottom: calc(4rem + 1rem + env(safe-area-inset-bottom));
+  }
+}
+
 /* ── Scrollbars ────────────────────────────────────────────────────────────── */
 
 *::-webkit-scrollbar {

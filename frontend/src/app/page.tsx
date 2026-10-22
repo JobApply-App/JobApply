@@ -326,7 +326,7 @@ function HomePageContent() {
     <div className="min-h-screen flex flex-col bg-ja-bg">
       <Header tab={tab} setTab={setTab} onOpenControls={() => setControlsOpen(true)} jobs={jobs} />
 
-      <main className="flex-grow max-w-content mx-auto w-full px-6 py-8">
+      <main className="flex-grow max-w-content mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
         {/* Overview/JobFeed render their own visible <h1> internally; ApplicationsTab
             and AllJobsTab don't, so this covers those two tabs without duplicating
             a heading on the tabs that already have one. */}

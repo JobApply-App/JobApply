@@ -8,6 +8,7 @@ import { Logo } from './ui/Logo'
 import { StatusDot } from './ui/StatusDot'
 import { BellIcon, SlidersIcon, ChevIcon, MenuIcon, XIcon } from './icons'
 import { LanguageSwitcher } from './LanguageSwitcher'
+import { MobileTabBar } from './MobileTabBar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useChat } from '@/contexts/ChatContext'
 import { resolveDisplayName, getInitials } from '@/lib/nameUtils'
@@ -376,6 +377,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
         </nav>
       )}
     </header>
+    <MobileTabBar tab={activeTab} onTab={t => setTab?.(t)} />
     </>
   )
 }

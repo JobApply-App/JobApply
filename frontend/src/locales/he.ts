@@ -184,6 +184,7 @@ export const he = {
     alerts_title: 'התראות על התאמות גבוהות',
     alerts_empty: 'עדיין אין משרות עם התאמה גבוהה (85 ומעלה).',
     profile_builder: 'בניית פרופיל עם AI',
+    mobile_tabs_label: 'אזורים ראשיים',
   },
   footer: {
     coming_soon:   'הפיצ׳ר הזה בפיתוח ויהיה זמין בקרוב.',
@@ -245,6 +246,7 @@ export const he = {
     qa_prefs: 'לכוונן את ההעדפות',
     qa_prefs_sub: 'ציון התאמה, סוג עבודה, מיקום',
     improve_score_topic: 'אני רוצה לשפר את ציון הביטחון שלי במערכת ולשתף עוד פרטים על הניסיון שלי, כדי שההתאמות למשרות והתאמת קורות החיים יהיו מדויקות יותר.',
+    see_all: 'לכל ההתאמות',
   },
 
   live_editor: {
@@ -629,6 +631,10 @@ export const he = {
     gap_needs_jd: 'כדי לנתח פערי מיומנויות צריך קודם לטעון את תיאור המשרה המלא.',
     gap_failed: 'ניתוח פערי המיומנויות נכשל.',
     analysing_gaps: 'מנתחים פערים…',
+    save: 'שמירה',
+    saved: '✓ נשמרה',
+    skip: 'דילוג',
+    below_threshold: '↓ מתחת לסף',
   },
 
   ariel: {
@@ -1126,6 +1132,7 @@ export const he = {
     board_count_one: 'מועמדות אחת בתהליך',
     board_count_many: '{n} מועמדויות בתהליך',
     board_hint: '· גררו כרטיסים בין העמודות או לחצו כדי לעדכן סטטוס',
+    refresh: 'רענון',
   },
   agents: {
     running: 'פועל…',
