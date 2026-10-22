@@ -1080,6 +1080,32 @@ _LLM_SYSTEM_SCORER = (
     "Keep the 'fit_brief' field under 250 characters to avoid truncation."
 )
 
+def _output_language_note(user_id: Optional[str]) -> str:
+    """
+    Ask for fit_brief and the gap list in the user's interface language.
+
+    Both are shown verbatim on the job card ("Ariel's analysis"). Without
+    this they came back in English for Hebrew users — testers read it as the
+    app not being translated. Scores and JSON keys are unaffected. An
+    unreadable or unset preference keeps English, the previous behaviour.
+    """
+    if not user_id:
+        return ""
+    from backend.repositories import profile_repository
+    try:
+        ui_locale = profile_repository.get_locales(user_id).get("ui_locale")
+    except profile_repository.LocalesUnavailable:
+        logger.warning("match_score LLM: ui_locale unreadable for user=%s — English output", user_id)
+        return ""
+    if ui_locale == "he":
+        return (
+            "\nOUTPUT LANGUAGE: write the VALUES of fit_brief and of each "
+            "missing_critical_capabilities item in Hebrew. Keep product names, "
+            "technologies and acronyms (SQL, SaaS, B2B) in English. Keys stay English.\n"
+        )
+    return ""
+
+
 _LLM_SCORER_TEMPLATE = """\
 Score this JOB vs. CANDIDATE across two independent capability dimensions.
 Return ONLY valid JSON — no markdown, no extra text.
@@ -1104,7 +1130,7 @@ CANDIDATE SKILLS:
 
 CANDIDATE EXPERIENCE (most recent first):
 {cv_experience}
-{company_legacy_note}
+{company_legacy_note}{output_language_note}
 Return this exact JSON object:
 {{
   "semantic_score": <integer 0-100>,
@@ -1375,6 +1401,7 @@ async def _llm_dual_score(
         company_legacy_note = ""
 
     prompt = _LLM_SCORER_TEMPLATE.format(
+        output_language_note = _output_language_note(user_id),
         job_title           = job_title or "Unknown Role",
         company_name        = company_name or "Unknown",
         jd_excerpt          = jd_text[:800].strip(),
@@ -1392,7 +1419,7 @@ async def _llm_dual_score(
     try:
         result_llm = await call_llm(
             model       = "claude-haiku-4-5-20251001",
-            max_tokens  = 450,   # headroom for fit_brief + missing_critical_capabilities list
+            max_tokens  = 600,   # headroom for fit_brief + gaps; Hebrew costs ~2x the tokens
             temperature = 0.0,   # deterministic — same input → same output every time
             system      = _LLM_SYSTEM_SCORER,
             messages    = [{"role": "user", "content": prompt}],
