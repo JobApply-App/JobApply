@@ -9,6 +9,7 @@ import { StatusDot } from './ui/StatusDot'
 import { BellIcon, SlidersIcon, ChevIcon, MenuIcon, XIcon } from './icons'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { MobileTabBar } from './MobileTabBar'
+import { TOUR_DONE_KEY, TOUR_REPLAY_EVENT } from './ProductTour'
 import { useAuth } from '@/contexts/AuthContext'
 import { useChat } from '@/contexts/ChatContext'
 import { resolveDisplayName, getInitials } from '@/lib/nameUtils'
@@ -43,7 +44,9 @@ interface HeaderProps {
 }
 
 export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) {
-  const H = useI18n().t.header
+  const { t: _t } = useI18n()
+  const H = _t.header
+  const TR = _t.tour
   const [menuOpen,       setMenuOpen]       = useState(false)
   const [bellOpen,       setBellOpen]       = useState(false)
   const [mobileNavOpen,  setMobileNavOpen]  = useState(false)
@@ -305,8 +308,28 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                 <span className="text-base leading-none">✦</span>
                 {H.profile_builder}
               </button>
-              <button className="w-full text-left px-3 py-2 text-[13px] text-slate-700 active:bg-slate-100 sm:hover:bg-slate-50 transition-colors">
+              {/* Had no onClick — tapping it did nothing. Preferences live in
+                  the controls sheet on the matches tab. */}
+              <button
+                onClick={() => {
+                  setMenuOpen(false)
+                  if (onOpenControls && pathname === '/') { goToTab('feed'); onOpenControls() }
+                  else router.push('/?tab=feed')
+                }}
+                className="w-full text-start px-3 py-2 text-[13px] text-slate-700 active:bg-slate-100 sm:hover:bg-slate-50 transition-colors"
+              >
                 {H.profile_prefs}
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false)
+                  try { window.localStorage.removeItem(TOUR_DONE_KEY) } catch { /* private mode */ }
+                  window.dispatchEvent(new Event(TOUR_REPLAY_EVENT))
+                  goToTab('overview')
+                }}
+                className="w-full text-start px-3 py-2 text-[13px] text-slate-700 active:bg-slate-100 sm:hover:bg-slate-50 transition-colors"
+              >
+                {TR.replay}
               </button>
               <div className="border-t border-slate-200" />
               {process.env.NODE_ENV === 'development' && (
