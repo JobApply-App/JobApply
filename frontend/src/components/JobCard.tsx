@@ -1,5 +1,6 @@
 'use client'
 import { useState, useCallback, useEffect, useRef, memo } from 'react'
+import { formatRelativeTime } from '@/lib/relativeTime'
 import type { ApiFeedJob, JobSourceType, ReasonKind } from '@/lib/apiTypes'
 import { analyzeJobNow, markJobApplied, refreshFeedScores, fetchJobJd, ensureFreshToken, getAuthHeaders } from '@/lib/api'
 import { getScoreBand as scoreBand } from '@/lib/scoreBand'
@@ -52,41 +53,15 @@ function LinkedInIcon({ s = 13 }: { s?: number }) {
 
 // RTL detection no longer needed due to dir="auto"
 
-// ── Workplace type from the unstructured location string ─────────────────────
-// Returns null when the type is already spelled out inside the location text
-// (avoids "Tel Aviv · Hybrid · Hybrid") or when no location exists at all.
-
-function deriveWorkplaceType(location: string | null | undefined): string | null {
-  const loc = (location ?? '').toLowerCase()
-  if (!loc.trim()) return null
-  if (/(remote|wfh|work from home)/.test(loc)) return null   // already visible in location
-  if (loc.includes('hybrid')) return null                    // already visible in location
-  return 'On-site'
-}
-
 // ── Posted-at formatting ──────────────────────────────────────────────────────
 // < 7 days old → relative ("2d ago"); ≥ 7 days → exact date ("Jul 4").
 // Falls back to the backend-provided string; never fabricates "just now".
 
 function formatPostedAt(createdAt: string | null, postedAt: string, locale: string): string | null {
-  if (createdAt) {
-    const d = new Date(createdAt)
-    if (!isNaN(d.getTime())) {
-      // Relative times follow the interface language ("לפני 3 ימים", not
-      // "3d ago" on a Hebrew page).
-      const tag    = locale === 'he' ? 'he-IL' : 'en-US'
-      const rtf    = new Intl.RelativeTimeFormat(tag, { numeric: 'always', style: 'short' })
-      const diffMs = Math.max(0, Date.now() - d.getTime())
-      const diffH  = Math.floor(diffMs / 3_600_000)
-      const diffD  = Math.floor(diffMs / 86_400_000)
-      if (diffD >= 7) {
-        return d.toLocaleDateString(tag, { month: 'short', day: 'numeric' })
-      }
-      if (diffD >= 1) return rtf.format(-diffD, 'day')
-      if (diffH >= 1) return rtf.format(-diffH, 'hour')
-      return rtf.format(-Math.max(1, Math.floor(diffMs / 60_000)), 'minute')
-    }
-  }
+  // Relative times follow the interface language ("לפני 3 ימים", not
+  // "3d ago" on a Hebrew page).
+  const rel = formatRelativeTime(createdAt, locale)
+  if (rel) return rel
   const p = (postedAt ?? '').trim()
   if (!p || /just now/i.test(p)) return null
   return p
@@ -871,12 +846,14 @@ export const JobCard = memo(function JobCard({
   }, [initialExpanded])
 
   const isDirect           = job.is_direct_application === true || job.source_type === 'company_site'
-  const workplaceType      = deriveWorkplaceType(job.location)
+  // There is no workplace-type field: a "· On-site" label used to be shown
+  // for every location that didn't mention remote/hybrid — a guess
+  // presented as fact. Remote/hybrid still show inside the location itself.
   const postedLabel        = formatPostedAt(job.created_at, job.posted_at, uiLocale)
   // Top strengths for this role: source advantage first, then positive
   // skill/experience reason tags (never the negative "neg" kind).
   const strengths: string[] = [
-    ...(isDirect ? ['Company Site'] : []),
+    ...(isDirect ? [J.sources.company_site] : []),
     ...job.reasons.filter(r => r.kind === 'skill' || r.kind === 'exp').map(r => r.label),
   ].slice(0, 4)
   const isSaved            = job.status === 'saved'
@@ -972,7 +949,6 @@ export const JobCard = memo(function JobCard({
           <p className="text-[12.5px] text-slate-400 mt-1" dir="auto" style={{ textAlign: 'start', unicodeBidi: 'plaintext' }}>
             {job.company || J.unknown_company}
             {job.location && <> · {job.location}</>}
-            {workplaceType && <> · {workplaceType}</>}
             {postedLabel && <> · <span className="tabular-nums">{postedLabel}</span></>}
           </p>
           {/* Strength badges — top strengths for this role, subtle by design */}

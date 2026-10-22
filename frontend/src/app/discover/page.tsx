@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { formatRelativeTime } from '@/lib/relativeTime'
 import Link        from 'next/link'
 import AuthGuard   from '@/components/AuthGuard'
 import { useI18n } from '@/contexts/I18nContext'
@@ -129,14 +130,21 @@ function MatchScoreTeaser() {
 }
 
 function JobCard({ job }: { job: AllJobItem }) {
-  const D = useI18n().t.discover
+  const { t, locale } = useI18n()
+  const D = t.discover
+  // LinkedIn's posted_text ("2 hours ago") is always English; posted_at is
+  // the same moment as a date, which can be phrased in the UI language.
+  const posted = formatRelativeTime(job.posted_at, locale) ?? (locale === 'en' ? job.posted_text : null)
   const company  = job.company_name?.trim() || D.unknown_company
   const location = formatLocation(job.location)
   // job_function is the discipline (Engineering, Marketing…); seniority sits
   // beside it so the range across the grid is legible at a glance.
   const tags = [job.seniority_level, ...(job.job_function ?? [])]
-    .filter((t): t is string => !!t && t.trim() !== '')
+    // "Not Applicable" is LinkedIn's placeholder for no seniority — a tag
+    // that says nothing.
+    .filter((t): t is string => !!t && t.trim() !== '' && t !== 'Not Applicable')
     .slice(0, 3)
+    .map(tag => D.linkedin_terms[tag] ?? tag)
 
   return (
     <a
@@ -157,8 +165,8 @@ function JobCard({ job }: { job: AllJobItem }) {
             {company}{location ? ` · ${location}` : ''}
           </p>
         </div>
-        {job.posted_text && (
-          <span className="text-[11px] text-slate-400 flex-shrink-0 mt-0.5">{job.posted_text}</span>
+        {posted && (
+          <span className="text-[11px] text-slate-400 flex-shrink-0 mt-0.5">{posted}</span>
         )}
       </div>
 

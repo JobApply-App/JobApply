@@ -800,6 +800,7 @@ export const en = {
   },
 
   discover: {
+    linkedin_terms: {},
     banner_title:    'Your match scores are waiting',
     banner_body:     'Complete your profile to unlock personalised match scores for every job below.',
     complete_cta:    'Complete profile',
