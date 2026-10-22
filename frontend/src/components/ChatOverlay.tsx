@@ -1006,7 +1006,13 @@ export function ChatOverlay() {
   const profileCompleted =
     (user?.user_metadata as Record<string, unknown> | undefined)?.profile_completed === true
   const onOnboardingRoute = isOnOnboardingRoute(pathname)
-  const arielAvailable    = Boolean(user) && profileCompleted && !onOnboardingRoute
+  // Ariel used to require profileCompleted, which only the onboarding
+  // wizard's last step sets. A user who uploaded their CV elsewhere (or
+  // skipped the wizard) never got the flag, so every "Improve with Ariel"
+  // button called openChat() and nothing rendered: the button looked dead.
+  // Any signed-in user outside onboarding gets Ariel. The automatic welcome
+  // below still waits for a completed profile.
+  const arielAvailable    = Boolean(user) && !onOnboardingRoute
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -1014,9 +1020,9 @@ export function ChatOverlay() {
   // /?tab=overview arms the flag; consume it here and open Ariel, whose
   // greeting (seeded via OnboardingContext) welcomes the user by name.
   useEffect(() => {
-    if (!mounted || !arielAvailable) return
+    if (!mounted || !arielAvailable || !profileCompleted) return
     if (consumeArielWelcome()) openChat()
-  }, [mounted, arielAvailable, openChat])
+  }, [mounted, arielAvailable, profileCompleted, openChat])
 
   if (!mounted || loading) return null
 

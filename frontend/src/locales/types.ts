@@ -512,6 +512,7 @@ export interface Dict {
     try_again: string
     error_id: string
     persist_hint: string
+    improve_hint: string
   }
   score_bands: {
     exceptional: string
