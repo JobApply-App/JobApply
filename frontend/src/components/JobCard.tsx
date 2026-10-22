@@ -351,7 +351,7 @@ function ActionBtn({ onClick, className = '', style, children, title, disabled }
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className={`inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-medium transition active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 h-11 sm:h-8 px-3 rounded-lg text-[13px] sm:text-[12px] font-medium transition active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none ${className}`}
       style={style}
     >
       {children}
@@ -932,7 +932,7 @@ export const JobCard = memo(function JobCard({
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggleDetails() }
         }}
-        className={`group px-6 py-5 flex items-center gap-4 cursor-pointer select-none transition-colors rounded-t-2xl ${
+        className={`group px-4 py-4 sm:px-6 sm:py-5 flex items-center gap-3 sm:gap-4 cursor-pointer select-none transition-colors rounded-t-2xl ${
           showDetails ? 'bg-slate-50/50' : 'hover:bg-slate-50/60'
         }`}
       >
@@ -964,7 +964,7 @@ export const JobCard = memo(function JobCard({
               <span
                 className="inline-flex items-center px-1.5 py-0.5 rounded-lg text-[10px] font-semibold shrink-0 bg-ja-warnSubtle text-amber-700"
               >
-                ↓ Below threshold
+                {J.below_threshold}
               </span>
             )}
           </div>
@@ -995,10 +995,10 @@ export const JobCard = memo(function JobCard({
             const isProvisional = job.score_is_proxy && job.match_score > 0 && job.match_score < 30
             return (
               <div className="flex flex-col items-end gap-1 shrink-0">
-                <div className={`inline-flex items-baseline gap-0.5 px-2.5 py-1 rounded-lg ${
+                <div className={`inline-flex items-baseline gap-0.5 px-2 sm:px-2.5 py-1 rounded-lg ${
                   job.match_score > 0 ? band.bg : 'bg-slate-100'
                 }`}>
-                  <span className={`text-2xl font-bold tracking-tight tabular-nums ${
+                  <span className={`text-xl sm:text-2xl font-bold tracking-tight tabular-nums ${
                     job.match_score > 0 ? band.text : 'text-slate-400'
                   }`}>
                     {job.match_score > 0 ? job.match_score.toFixed(1) : '—'}
@@ -1024,7 +1024,11 @@ export const JobCard = memo(function JobCard({
       </div>
 
       {/* ── Accordion: snippet + gaps + actions + JD ─────────────────────── */}
+      {/* inert while collapsed: the 0fr row hides the actions visually,
+          but without it every card's buttons stayed in the tab order and
+          the screen-reader tree. */}
       <div
+        ref={el => { if (el) el.inert = !showDetails }}
         style={{
           display: 'grid',
           gridTemplateRows: showDetails ? '1fr' : '0fr',
@@ -1032,7 +1036,7 @@ export const JobCard = memo(function JobCard({
         }}
       >
         <div style={{ overflow: 'hidden' }}>
-          <div className="border-t border-slate-100 px-6 pt-6 pb-7 space-y-6">
+          <div className="border-t border-slate-100 px-4 pt-5 pb-6 sm:px-6 sm:pt-6 sm:pb-7 space-y-6">
 
             {/* ① Source badge row */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -1042,11 +1046,12 @@ export const JobCard = memo(function JobCard({
             {/* ② Agent Analysis */}
             <AgentAnalysisBox job={job} userId={userId} active={showDetails} />
 
-            {/* ③ Primary action row */}
-            <div className="flex items-center gap-3 flex-wrap">
+            {/* ③ Primary action row — a two-column grid of full-width,
+                thumb-sized buttons on phones; a wrapping row on wider screens. */}
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3 sm:flex-wrap">
               <button
                 onClick={e => { e.stopPropagation(); onTailorCV(job) }}
-                className="bg-ja-primary text-white text-xs font-semibold tracking-wide uppercase px-6 py-3 rounded-lg hover:bg-ja-primaryHover transition-colors shadow-sm active:scale-[0.97]"
+                className="col-span-2 sm:col-span-1 bg-ja-primary text-white text-xs font-semibold tracking-wide uppercase px-6 py-3 rounded-lg hover:bg-ja-primaryHover transition-colors shadow-sm active:scale-[0.97]"
               >
                 {J.tailor_cv}
               </button>
@@ -1084,14 +1089,14 @@ export const JobCard = memo(function JobCard({
               </ActionBtn>
 
               {/* Secondary: source, save, skip */}
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="col-span-2 grid grid-cols-2 gap-2 sm:flex sm:items-center sm:ms-auto">
                 {job.apply_url && (
                   <a
                     href={job.apply_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
-                    className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11.5px] font-semibold transition ${
+                    className={`inline-flex items-center justify-center gap-1.5 h-11 sm:h-8 px-3 rounded-lg text-[12px] sm:text-[11.5px] font-semibold transition ${
                       job.source_type === 'linkedin'
                         ? 'border border-ja-linkedin/25 bg-ja-linkedin/5 text-ja-linkedin hover:border-ja-linkedin/50'
                         : 'border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100'
@@ -1109,14 +1114,14 @@ export const JobCard = memo(function JobCard({
                     : 'border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                   }
                 >
-                  {isSaved ? '✓ Saved' : 'Save'}
+                  {isSaved ? J.saved : J.save}
                 </ActionBtn>
 
                 <ActionBtn
                   onClick={e => { (e as React.MouseEvent).stopPropagation(); onSkip(job.job_id) }}
                   className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200"
                 >
-                  Skip
+                  {J.skip}
                 </ActionBtn>
 
                 {/*
@@ -1178,7 +1183,7 @@ export const JobCard = memo(function JobCard({
                   <div className="pt-3 border-t border-slate-100">
                     <button
                       onClick={e => { e.stopPropagation(); setShowAtsPanel(p => !p) }}
-                      className="flex items-center gap-1.5 text-[12px] font-medium text-slate-500 hover:text-slate-800 transition"
+                      className="flex items-center gap-1.5 min-h-[44px] sm:min-h-0 text-[12.5px] sm:text-[12px] font-medium text-slate-500 hover:text-slate-800 transition"
                     >
                       <span className="text-[10px]">{showAtsPanel ? '▼' : '▶'}</span>
                       {J.ats_breakdown}
@@ -1195,7 +1200,7 @@ export const JobCard = memo(function JobCard({
                   <div className="pt-3 border-t border-slate-100">
                     <button
                       onClick={e => { e.stopPropagation(); setShowSkillsGap(p => !p) }}
-                      className="flex items-center gap-1.5 text-[12px] font-medium text-slate-500 hover:text-slate-800 transition"
+                      className="flex items-center gap-1.5 min-h-[44px] sm:min-h-0 text-[12.5px] sm:text-[12px] font-medium text-slate-500 hover:text-slate-800 transition"
                     >
                       <span className="text-[10px]">{showSkillsGap ? '▼' : '▶'}</span>
                       {J.skills_gap}

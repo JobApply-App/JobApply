@@ -50,7 +50,7 @@ export function ChatLauncher() {
       onClick={() => openChat()}
       title={A.launcher_title}
       aria-label={A.launcher_label}
-      className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 h-12 px-4 rounded-full text-white transition-all duration-200 active:scale-95 hover:opacity-90"
+      className="ja-launcher fixed bottom-6 end-4 sm:end-6 z-50 flex items-center justify-center gap-2.5 h-14 w-14 sm:h-12 sm:w-auto sm:px-4 rounded-full text-white transition-[transform,opacity] duration-200 active:scale-95 hover:opacity-90"
       style={{
         background: TOKENS.color.primary,
         boxShadow:  '0 4px 20px rgba(13,148,136,0.40)',
@@ -65,7 +65,9 @@ export function ChatLauncher() {
         />
       )}
       <span className="flex-shrink-0"><ChatIcon /></span>
-      <span className="text-[13px] font-semibold tracking-tight">{A.launcher_cta}</span>
+      {/* Icon-only on phones: the labelled pill covered the start of every
+          line of text it floated over. aria-label carries the name. */}
+      <span className="hidden sm:inline text-[13px] font-semibold tracking-tight">{A.launcher_cta}</span>
     </button>
   )
 }

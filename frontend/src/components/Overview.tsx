@@ -90,7 +90,7 @@ function KPIStat({ label, value, sub, accent, Icon }: {
 }) {
   return (
     <div
-      className="group relative overflow-hidden rounded-2xl bg-white border border-slate-100 px-5 pt-5 pb-6 transition-all duration-300 ease-out hover:-translate-y-0.5"
+      className="group relative overflow-hidden rounded-2xl bg-white border border-slate-100 px-3 py-3.5 sm:px-5 sm:pt-5 sm:pb-6 transition-all duration-300 ease-out hover:-translate-y-0.5"
       style={{ boxShadow: TOKENS.shadow.card }}
     >
       {/* Soft accent glow, top-right — brightens on hover for a tactile feel */}
@@ -101,23 +101,23 @@ function KPIStat({ label, value, sub, accent, Icon }: {
       />
       {/* Icon chip */}
       <span
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl mb-4 transition-transform duration-300 group-hover:scale-105"
+        className="relative hidden sm:inline-flex h-9 w-9 items-center justify-center rounded-xl mb-4 transition-transform duration-300 group-hover:scale-105"
         style={{ background: `color-mix(in oklab, ${accent} 12%, white)`, color: accent }}
       >
         <Icon s={17} />
       </span>
       {/* Big accent-coloured value */}
       <span
-        className="relative block text-[36px] font-bold leading-none tracking-tight"
+        className="relative block text-[24px] sm:text-[36px] font-bold leading-none tracking-tight"
         style={{ color: accent, fontVariantNumeric: 'tabular-nums' }}
       >
         {value}
       </span>
       {/* Label + sub */}
-      <span className="relative mt-3 block text-[11px] font-semibold uppercase tracking-[0.11em] text-slate-500">
+      <span className="relative mt-2 sm:mt-3 block text-[11.5px] sm:text-[11px] font-semibold sm:uppercase sm:tracking-[0.11em] text-slate-600 sm:text-slate-500 leading-snug">
         {label}
       </span>
-      <span className="relative mt-1 block text-[12px] text-slate-400 leading-snug">
+      <span className="relative mt-1 hidden sm:block text-[12px] text-slate-400 leading-snug">
         {sub}
       </span>
     </div>
@@ -136,14 +136,14 @@ function KPIRow({ jobsScannedToday, actionsTakenToday, averageMatchScore, loadin
   const O = useI18n().t.overview
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div className="grid grid-cols-3 gap-2 sm:gap-5">
         {[0, 1, 2].map(i => (
           <div
             key={i}
-            className="rounded-2xl bg-white border border-slate-100 px-5 pt-5 pb-6"
+            className="rounded-2xl bg-white border border-slate-100 px-3 py-3.5 sm:px-5 sm:pt-5 sm:pb-6"
             style={{ boxShadow: TOKENS.shadow.card }}
           >
-            <Skeleton className="h-9 w-9 rounded-xl mb-4" />
+            <Skeleton className="hidden sm:block h-9 w-9 rounded-xl mb-4" />
             <Skeleton className="h-9 w-20" />
             <Skeleton className="h-2.5 w-24 mt-3" />
             <Skeleton className="h-2.5 w-32 mt-2" />
@@ -152,8 +152,10 @@ function KPIRow({ jobsScannedToday, actionsTakenToday, averageMatchScore, loadin
       </div>
     )
   }
+  // Three across on every width: stacked on a phone, the three cards took a
+  // full screen of scrolling before anything actionable.
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+    <div className="grid grid-cols-3 gap-2 sm:gap-5">
       <KPIStat
         label={O.kpi.scanned.label}
         value={jobsScannedToday}
@@ -939,7 +941,7 @@ export function Overview({
       </section>
 
       {/* ── Quick actions + Top matches, side by side on wide screens ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-12 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-10 lg:gap-12 items-stretch">
 
         {/* Quick actions — h-full so its inner flex column can stretch to
             match the Top Matches list height in the adjacent grid cell. */}
@@ -951,17 +953,17 @@ export function Overview({
           />
         </section>
 
-        {/* Top matches */}
-        <section>
+        {/* Top matches — first on phones: it is what people come to see. */}
+        <section className="order-first lg:order-none">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-400">
               {O.top_matches}
             </h2>
             <button
               onClick={handleMatchClick}
-              className="inline-flex items-center gap-1 text-[12px] text-slate-400 hover:text-slate-700 transition-colors"
+              className="inline-flex items-center gap-1 min-h-[44px] sm:min-h-0 text-[12.5px] sm:text-[12px] text-teal-700 sm:text-slate-400 hover:text-slate-700 transition-colors"
             >
-              See all <ArrowIcon s={11} />
+              {O.see_all} <ArrowIcon s={11} />
             </button>
           </div>
 

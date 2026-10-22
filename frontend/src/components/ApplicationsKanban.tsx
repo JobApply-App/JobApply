@@ -611,18 +611,18 @@ export function ApplicationsKanban({ onRefresh }: { onRefresh?: () => void }) {
       <div className="flex items-center justify-between mb-4">
         <p className="text-[12px] text-slate-500">
           {totalCards === 1 ? A.board_count_one : A.board_count_many.replace('{n}', String(totalCards))}
-          <span className="ms-2 text-slate-400">{A.board_hint}</span>
+          <span className="ms-2 text-slate-400 hidden md:inline">{A.board_hint}</span>
         </p>
         <button
           onClick={load}
-          className="text-[12px] text-slate-500 hover:text-slate-800 transition flex items-center gap-1.5"
+          className="text-[12px] text-slate-500 hover:text-slate-800 transition flex items-center gap-1.5 min-h-[44px] sm:min-h-0 shrink-0"
         >
           <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="23 4 23 10 17 10" />
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
           </svg>
-          Refresh
+          {A.refresh}
         </button>
       </div>
 

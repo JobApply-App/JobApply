@@ -192,7 +192,7 @@ function SourceChips({
         <button
           key={id}
           onClick={() => setActive(id)}
-          className={`h-7 px-2.5 rounded-full text-[11.5px] font-medium transition ${
+          className={`h-9 sm:h-7 px-3 sm:px-2.5 rounded-full text-[12.5px] sm:text-[11.5px] font-medium transition ${
             active === id
               ? 'bg-slate-900 text-white'
               : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
@@ -225,7 +225,7 @@ function SortToggle({ value, onChange }: { value: SortBy; onChange: (v: SortBy) 
         <button
           key={v}
           onClick={() => onChange(v)}
-          className={`h-6 px-2.5 rounded-full font-medium transition ${
+          className={`h-9 sm:h-6 px-3 sm:px-2.5 rounded-full font-medium transition ${
             value === v
               ? 'bg-slate-900 text-white'
               : 'text-slate-500 hover:text-slate-800'
@@ -248,7 +248,7 @@ function TopFitsToggle({ active, onToggle }: { active: boolean; onToggle: () => 
     <button
       onClick={onToggle}
       title={active ? F.top_fits_on.replace('{threshold}', String(TOP_FITS_THRESHOLD)) : F.top_fits_off}
-      className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[11.5px] font-semibold transition ${
+      className={`inline-flex items-center gap-1.5 h-9 sm:h-7 px-3 rounded-full text-[12.5px] sm:text-[11.5px] font-semibold transition ${
         active
           ? 'bg-emerald-600 text-white shadow-sm'
           : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
@@ -727,7 +727,7 @@ export function JobFeed({
               <button
                 key={id}
                 onClick={() => setStatus(id)}
-                className={`pb-1 transition-colors ${
+                className={`py-2.5 sm:py-0 sm:pb-1 transition-colors ${
                   status === id
                     ? 'text-slate-900 border-b-2 border-slate-900'
                     : 'hover:text-slate-900'

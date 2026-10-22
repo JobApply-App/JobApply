@@ -31,7 +31,7 @@ export function Footer() {
       {/* Full-bleed divider; inner container aligns to the same content
           boundary as <main> (max-w-content mx-auto w-full px-6). */}
       <footer className="border-t border-slate-100 mt-10">
-        <div className="max-w-content mx-auto w-full px-6 py-6 flex items-center justify-between text-[11.5px] text-slate-400">
+        <div className="max-w-content mx-auto w-full px-4 sm:px-6 py-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between text-[12.5px] sm:text-[11.5px] text-slate-400">
           <div className="inline-flex items-center gap-2">
             <span>v1.3.0</span>
             <span className="text-slate-300">·</span>
@@ -39,9 +39,9 @@ export function Footer() {
               <StatusDot tone="success" pulse size={5} /> {F.operational}
             </span>
           </div>
-          <div className="inline-flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 [&>a]:py-2 sm:[&>a]:py-0 [&>a]:whitespace-nowrap">
             <a href="#" onClick={showComingSoon} className="hover:text-slate-700">{F.help}</a>
-            <a href="#" onClick={showComingSoon} className="hover:text-slate-700">{F.privacy}</a>
+            <a href="/privacy" className="hover:text-slate-700">{F.privacy}</a>
             <a href="#" onClick={showComingSoon} className="hover:text-slate-700">{F.contact}</a>
             <a href="/accessibility" className="hover:text-slate-700">{F.accessibility}</a>
           </div>

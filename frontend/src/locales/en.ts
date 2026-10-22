@@ -184,6 +184,7 @@ export const en = {
     alerts_title: 'High-match alerts',
     alerts_empty: 'No high-match jobs yet (≥ 85).',
     profile_builder: 'AI Profile Builder',
+    mobile_tabs_label: 'Main sections',
   },
   footer: {
     coming_soon:   'This feature is currently in development and will be available soon.',
@@ -245,6 +246,7 @@ export const en = {
     qa_prefs: 'Tune your preferences',
     qa_prefs_sub: 'Match score, work mode, location',
     improve_score_topic: 'I want to improve my System Confidence Score by sharing more details about my experience so my job matches and CV tailoring get more accurate.',
+    see_all: 'See all',
   },
 
   live_editor: {
@@ -629,6 +631,10 @@ export const en = {
     gap_needs_jd: 'Fetch the full job description first to run the skills gap analysis.',
     gap_failed: 'Skills gap analysis failed.',
     analysing_gaps: 'Analysing gaps…',
+    save: 'Save',
+    saved: '✓ Saved',
+    skip: 'Skip',
+    below_threshold: '↓ Below threshold',
   },
 
   ariel: {
@@ -1126,6 +1132,7 @@ export const en = {
     board_count_one: '1 application in pipeline',
     board_count_many: '{n} applications in pipeline',
     board_hint: '· drag cards between columns or click to update status',
+    refresh: 'Refresh',
   },
   agents: {
     running: 'Running…',

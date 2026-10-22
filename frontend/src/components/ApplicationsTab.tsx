@@ -94,7 +94,7 @@ function RowDeleteButton({ title, onConfirm, deleting }: { title: string; onConf
       }}
       disabled={deleting}
       title={A.delete_title}
-      className="shrink-0 h-7 px-2.5 rounded-lg text-[11px] font-medium border border-transparent text-rose-500 hover:bg-rose-50 hover:border-rose-100 transition disabled:opacity-50"
+      className="shrink-0 h-11 sm:h-7 px-2.5 rounded-lg text-[12px] sm:text-[11px] font-medium border border-transparent text-rose-500 hover:bg-rose-50 hover:border-rose-100 transition disabled:opacity-50"
     >
       {deleting ? '…' : A.delete}
     </button>
@@ -150,12 +150,14 @@ function ApplicationListView({ items, loading, error, onDelete, deletingId }: {
       {items.map(item => (
         <div
           key={item.application_id}
-          className="flex items-center gap-4 bg-white rounded-2xl border border-slate-100 px-4 py-3 hover:border-slate-200 hover:shadow-sm transition-all duration-150"
+          className="flex items-center gap-2 sm:gap-4 bg-white rounded-2xl border border-slate-100 px-4 py-3 hover:border-slate-200 hover:shadow-sm transition-all duration-150"
         >
           {/* Company + title */}
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-slate-900 truncate">{item.title}</p>
-            <p className="text-[12px] text-slate-500 truncate mt-0.5">{item.company}</p>
+            {/* dir="auto": an English title in the Hebrew UI was truncated
+                from its start ("…anager- For Mint"), hiding the role. */}
+            <p dir="auto" className="text-[13px] font-semibold text-slate-900 truncate text-start">{item.title}</p>
+            <p dir="auto" className="text-[12px] text-slate-500 truncate mt-0.5 text-start">{item.company}</p>
           </div>
 
           {/* Stage badge */}
@@ -164,7 +166,7 @@ function ApplicationListView({ items, loading, error, onDelete, deletingId }: {
           {/* Score */}
           {item.score > 0 && (
             <span className="text-[11px] font-semibold text-slate-400 shrink-0">
-              {Math.round(item.score)}%
+              {item.score.toFixed(1)}%
             </span>
           )}
 
@@ -188,7 +190,12 @@ function ApplicationListView({ items, loading, error, onDelete, deletingId }: {
 
 export function ApplicationsTab() {
   const A = useI18n().t.applications
-  const [view,       setView]       = useState<View>('board')
+  // The board needs sideways scrolling through columns that a phone shows one
+  // at a time (and drag-and-drop does not work by touch), so phones open on
+  // the list. Decided once on mount; the toggle still switches freely.
+  const [view,       setView]       = useState<View>(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'list' : 'board',
+  )
   const [items,      setItems]      = useState<AppListItem[]>([])
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState<string | null>(null)

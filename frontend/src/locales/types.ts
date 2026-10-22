@@ -162,6 +162,7 @@ export interface Dict {
     alerts_title: string
     alerts_empty: string
     profile_builder: string
+    mobile_tabs_label: string
   }
   footer: {
     coming_soon:  string
@@ -223,6 +224,7 @@ export interface Dict {
     qa_prefs: string
     qa_prefs_sub: string
     improve_score_topic: string
+    see_all: string
   }
   live_editor: {
     title:            string
@@ -594,6 +596,10 @@ export interface Dict {
     gap_needs_jd: string
     gap_failed: string
     analysing_gaps: string
+    save: string
+    saved: string
+    skip: string
+    below_threshold: string
   }
   ariel: {
     name:            string
@@ -1052,6 +1058,7 @@ export interface Dict {
     board_count_one: string
     board_count_many: string
     board_hint: string
+    refresh: string
   }
   agents: {
     running: string
