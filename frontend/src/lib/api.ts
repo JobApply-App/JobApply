@@ -752,7 +752,13 @@ export function cvUploadErrorMessage(err: unknown, messages: Record<CvUploadErro
  * once (an unreadable file still fails immediately); the result is polled.
  * Throws CvUploadError.
  */
-export async function uploadCvFiles(files: File[]): Promise<CvUploadResponse> {
+export type CvUploadStage = 'uploading' | 'reading' | 'analyzing'
+
+export async function uploadCvFiles(
+  files: File[],
+  onStage?: (stage: CvUploadStage) => void,
+): Promise<CvUploadResponse> {
+  onStage?.('uploading')
   await _ensureFreshToken()
   const fd = new FormData()
   for (const file of files) {
@@ -774,6 +780,7 @@ export async function uploadCvFiles(files: File[]): Promise<CvUploadResponse> {
     throw cvUploadErrorFromDetail((body as { detail?: unknown }).detail, res.status)
   }
   const { task_id: taskId } = await res.json() as { task_id: string }
+  onStage?.('reading')
 
   // Deadline, not attempt count. Generous because the LLM can fall back to a
   // second provider; the limit only stops an abandoned task polling forever.
@@ -783,7 +790,7 @@ export async function uploadCvFiles(files: File[]): Promise<CvUploadResponse> {
     if (Date.now() > deadline) throw new CvUploadError('timeout')
     await new Promise(r => setTimeout(r, POLL_MS))
 
-    let poll: { status?: string; result?: CvUploadResponse; detail?: unknown; status_code?: number }
+    let poll: { status?: string; stage?: CvUploadStage; result?: CvUploadResponse; detail?: unknown; status_code?: number }
     try {
       await _ensureFreshToken()
       const pollRes = await fetch(`${BASE}/api/profile/cv-upload/status/${taskId}`, {
@@ -801,6 +808,7 @@ export async function uploadCvFiles(files: File[]): Promise<CvUploadResponse> {
       continue   // network blip — keep polling until the deadline
     }
 
+    if (poll.status === 'pending' && poll.stage) onStage?.(poll.stage)
     if (poll.status === 'error') throw cvUploadErrorFromDetail(poll.detail, poll.status_code)
     if (poll.status === 'done' && poll.result) return poll.result
   }

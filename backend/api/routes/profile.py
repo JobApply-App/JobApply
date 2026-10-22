@@ -884,6 +884,9 @@ async def start_cv_upload(
     task_id = str(uuid.uuid4())
     _CV_TASKS[task_id] = {
         "status":     "pending",
+        # Reported to the client so the upload screen can say what is
+        # happening rather than spin silently for up to a minute.
+        "stage":      "reading" if needs_ocr else "analyzing",
         "user_id":    user.user_id,
         "result":     None,
         "detail":     None,
@@ -904,6 +907,7 @@ async def start_cv_upload(
                         errors.append(f"{fname}: could not extract text")
                 if not texts:
                     _cv_error(422, "no_text", "No readable text could be extracted. " + " | ".join(errors))
+                _CV_TASKS[task_id]["stage"] = "analyzing"
             result = await _ingest_cv_full(texts, processed, errors, user.user_id)
             _CV_TASKS[task_id].update(status="done", result=result)
         except HTTPException as exc:
@@ -937,7 +941,11 @@ async def get_cv_upload_status(task_id: str, user: CurrentUser = Depends(get_cur
         return {"status": "done", "result": task["result"]}
     if task["status"] == "error":
         return {"status": "error", "detail": task["detail"], "status_code": task.get("status_code", 500)}
-    return {"status": "pending", "elapsed_s": round(time.time() - task["created_at"], 1)}
+    return {
+        "status":    "pending",
+        "stage":     task.get("stage", "analyzing"),
+        "elapsed_s": round(time.time() - task["created_at"], 1),
+    }
 
 
 # ── GET /api/profile/{user_id}/trust-score ────────────────────────────────────
