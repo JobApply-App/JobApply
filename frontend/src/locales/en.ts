@@ -548,6 +548,7 @@ export const en = {
     try_again: 'Try again',
     error_id: 'Error ID: {id}',
     persist_hint: 'If this keeps happening, refresh the page or contact support.',
+    improve_hint: "Ariel is JobApply's AI career assistant. She'll ask you a few short questions about this capability, so the system can confirm it and match you to jobs more accurately.",
   },
   score_bands: {
     exceptional: 'Exceptional',

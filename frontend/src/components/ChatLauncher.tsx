@@ -35,13 +35,13 @@ export function ChatLauncher() {
   const { user } = useAuth()
   const pathname = usePathname()
 
-  // Ariel only exists for completed profiles, and never during onboarding.
-  const profileCompleted =
-    (user?.user_metadata as Record<string, unknown> | undefined)?.profile_completed === true
+  // Ariel is available to every signed-in user outside onboarding — the same
+  // rule as ChatOverlay. Gating on the wizard's profile_completed flag hid her
+  // from anyone who uploaded a CV elsewhere or skipped the wizard.
   const onOnboardingRoute = isOnOnboardingRoute(pathname)
 
-  // Only show for authenticated, onboarded users; hide if any chat panel is open
-  if (!user || !profileCompleted || onOnboardingRoute || isOpen || isEliyaOpen) return null
+  // Hide while signed out, during onboarding, or while a chat panel is open
+  if (!user || onOnboardingRoute || isOpen || isEliyaOpen) return null
 
   const hasContext = Boolean(jobContext)
 

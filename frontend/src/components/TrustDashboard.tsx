@@ -2111,6 +2111,8 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
                 <SparkIcon s={13} />
                 {T.improve_with_ariel}
               </button>
+              {/* Testers didn't know who Ariel was or what the button would do. */}
+              <p className="text-[11.5px] text-slate-500 leading-relaxed -mt-3">{T.improve_hint}</p>
 
               <section>
                 <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-2.5">
