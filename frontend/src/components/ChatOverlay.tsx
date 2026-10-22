@@ -1,5 +1,6 @@
 'use client'
 
+import { ChatStreamError, chatErrorText } from '@/lib/chatError'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { useChat }   from '@/contexts/ChatContext'
@@ -488,7 +489,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
       if (!res.ok || !res.body) {
         // Non-streaming error response (FastAPI uses `detail`, Next uses `error`)
         const errData = await res.json().catch(() => ({})) as { error?: string; detail?: string }
-        throw new Error(errData.error ?? errData.detail ?? `HTTP ${res.status}`)
+        throw new ChatStreamError(errData.error ?? errData.detail ?? `HTTP ${res.status}`, res.status)
       }
 
       const reader     = res.body.getReader()
@@ -513,7 +514,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
             try { parsed = JSON.parse(payload) as typeof parsed }
             catch { continue }
 
-            if (parsed.error) throw new Error(parsed.error)
+            if (parsed.error) throw new ChatStreamError(parsed.error)
             if (!parsed.chunk) continue
 
             accumulated += parsed.chunk
@@ -544,12 +545,12 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
 
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
-      const msg = err instanceof Error ? err.message : S.generic_error
+      const msg = chatErrorText(err, { generic: S.generic_error, rateLimited: S.err_rate_limited })
       setMessages(prev => [...prev, { role: 'assistant', content: msg, ts: Date.now() }])
     } finally {
       setThinking(false)
     }
-  }, [draft, thinking, sessionId, messages, attachments, S.attached_files, S.generic_error, S.no_response])
+  }, [draft, thinking, sessionId, messages, attachments, S.attached_files, S.generic_error, S.no_response, S.err_rate_limited])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
