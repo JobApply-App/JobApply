@@ -108,9 +108,75 @@ def _extract_pdf(content: bytes) -> str:
                     fixed_lines = [fix_rtl_visual(line) for line in text.split('\n')]
                     pages_text.append('\n'.join(fixed_lines))
 
-        return "\n".join(pages_text).strip()
+        text = "\n".join(pages_text).strip()
     except Exception as exc:
-        logger.warning("[cv_aggregator] PDF extraction failed: %s", exc)
+        # Not "no text" — the parser failed. Logged as such, and the second
+        # extractor below gets its chance.
+        logger.warning("[cv_aggregator] pdfplumber failed (%s): %s", type(exc).__name__, exc)
+        text = ""
+    if text:
+        return text
+    return _extract_pdf_pymupdf(content)
+
+
+def _extract_pdf_pymupdf(content: bytes) -> str:
+    """
+    Second PDF extractor. pdfplumber returns nothing on some perfectly valid
+    PDFs (certain embedded/CID fonts, some design-tool exports), and every such
+    CV was rejected as "a scanned image". PyMuPDF reads many of those.
+    """
+    try:
+        import fitz  # PyMuPDF
+        with fitz.open(stream=content, filetype="pdf") as doc:
+            text = "\n".join(page.get_text() for page in doc).strip()
+        if text:
+            logger.info("[cv_aggregator] pdfplumber found no text; PyMuPDF recovered %d chars", len(text))
+        return text
+    except Exception as exc:
+        logger.warning("[cv_aggregator] PyMuPDF failed (%s): %s", type(exc).__name__, exc)
+        return ""
+
+
+_OCR_PROMPT = (
+    "This PDF is a CV (résumé). Transcribe all of its text exactly as written, "
+    "in reading order, in its original language. Keep section headings, job "
+    "titles, company names, dates and bullet points. Do not summarise, translate, "
+    "correct or add anything. If there is no readable text at all, reply with an "
+    "empty response."
+)
+
+
+async def ocr_pdf(content: bytes, filename: str, user_id: str) -> str:
+    """
+    Last resort for a PDF with no text layer — a scan, or a design-tool export
+    where the text was turned into shapes. Both LLM providers read PDFs
+    directly, so the file is passed as a document block and transcribed.
+    User-initiated (a CV upload), so not charged to the background budget.
+    Returns "" on any failure, logged.
+    """
+    import base64
+    try:
+        result = await call_llm(
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "document", "source": {
+                        "type": "base64", "media_type": "application/pdf",
+                        "data": base64.b64encode(content).decode("ascii"),
+                    }},
+                    {"type": "text", "text": _OCR_PROMPT},
+                ],
+            }],
+            model      = _MODEL,
+            max_tokens = _MAX_TOKENS,
+            purpose    = "cv_ocr",
+            user_id    = user_id,
+        )
+        text = (result.text or "").strip()
+        logger.info("[cv_aggregator] OCR of %s produced %d chars", filename, len(text))
+        return text
+    except Exception as exc:
+        logger.warning("[cv_aggregator] OCR failed for %s (%s): %s", filename, type(exc).__name__, exc)
         return ""
 
 

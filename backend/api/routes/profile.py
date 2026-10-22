@@ -413,7 +413,7 @@ _CV_MAX_FILES = 10
 # malformed content, this just avoids handing obviously-mismatched content to
 # them at all.
 _FILE_SIGNATURES: dict[str, tuple[bytes, ...]] = {
-    "pdf":  (b"%PDF-",),
+    "pdf":  (b"%PDF-",),   # searched in the first 1 KB — see _content_matches_extension
     "docx": (b"PK\x03\x04",),   # OOXML files are ZIP containers
     "png":  (b"\x89PNG\r\n\x1a\n",),
     "jpg":  (b"\xff\xd8\xff",),
@@ -431,6 +431,11 @@ def _content_matches_extension(content: bytes, ext: str) -> bool:
     signatures = _FILE_SIGNATURES.get(ext.lower())
     if not signatures:
         return True
+    if ext.lower() == "pdf":
+        # The PDF spec allows the header anywhere in the first 1024 bytes, and
+        # some generators (and email/Drive downloads) put bytes before it.
+        # Requiring it at offset 0 rejected valid CVs as "not a PDF".
+        return b"%PDF-" in content[:1024]
     return any(content.startswith(sig) for sig in signatures)
 
 
@@ -518,9 +523,19 @@ def _cv_error(status_code: int, code: str, message: str) -> None:
     raise HTTPException(status_code=status_code, detail={"code": code, "message": message})
 
 
-async def _extract_cv_texts(files: List[UploadFile]) -> tuple[list[str], list[str], list[str]]:
-    """Validate the uploads and extract their text. Raises a coded 422 if none is usable."""
-    from backend.services.cv_aggregator_service import extract_text
+async def _extract_cv_texts(
+    files: List[UploadFile], *, user_id: str, defer_ocr: bool = False,
+) -> tuple[list[str], list[str], list[str], list[tuple[str, bytes]]]:
+    """
+    Validate the uploads and extract their text. Raises a coded 422 if none is usable.
+
+    A PDF with no extractable text (a scan, or a design-tool export with text
+    as shapes) goes to LLM OCR. With defer_ocr it is returned in the 4th
+    element for the caller's background task to transcribe — OCR takes 10-30s,
+    too long to hold the request open behind the Vercel proxy. Without it, OCR
+    runs inline.
+    """
+    from backend.services.cv_aggregator_service import extract_text, ocr_pdf
 
     if not files:
         _cv_error(422, "no_files", "At least one file is required.")
@@ -531,6 +546,7 @@ async def _extract_cv_texts(files: List[UploadFile]) -> tuple[list[str], list[st
     processed: list[str] = []
     errors: list[str]    = []
     reasons: list[str]   = []
+    needs_ocr: list[tuple[str, bytes]] = []
 
     for upload in files:
         fname = upload.filename or "upload"
@@ -551,6 +567,11 @@ async def _extract_cv_texts(files: List[UploadFile]) -> tuple[list[str], list[st
             continue
 
         text = extract_text(content, fname)
+        if not text.strip() and ext == "pdf":
+            if defer_ocr:
+                needs_ocr.append((fname, content))
+                continue
+            text = await ocr_pdf(content, fname, user_id)
         if not text.strip():
             errors.append(f"{fname}: could not extract text")
             reasons.append("no_text")
@@ -559,7 +580,7 @@ async def _extract_cv_texts(files: List[UploadFile]) -> tuple[list[str], list[st
         texts.append(text)
         processed.append(fname)
 
-    if not texts:
+    if not texts and not needs_ocr:
         # One code for the whole request. With a single file — the normal
         # case — it is exactly that file's reason. "no_text" almost always
         # means a scanned PDF (an image of a page, no text layer).
@@ -567,7 +588,7 @@ async def _extract_cv_texts(files: List[UploadFile]) -> tuple[list[str], list[st
         logger.warning("[profile/cv-upload] no usable text: code=%s errors=%s", code, errors)
         _cv_error(422, code, "No readable text could be extracted. " + " | ".join(errors))
 
-    return texts, processed, errors
+    return texts, processed, errors, needs_ocr
 
 
 async def _ingest_cv_full(
@@ -744,7 +765,7 @@ async def upload_cv_files(
       3. Recompute the entity's confidence score.
       Returns the updated confidence score.
     """
-    texts, processed, errors = await _extract_cv_texts(files)
+    texts, processed, errors, _ = await _extract_cv_texts(files, user_id=user.user_id)
 
     # ── Mode B: Targeted evidence re-upload for a specific entity ─────────────
     if entity_id:
@@ -854,8 +875,10 @@ async def start_cv_upload(
     files: List[UploadFile] = File(..., description="One or more CV files (PDF or DOCX)"),
     user:  CurrentUser      = Depends(get_current_user),
 ):
-    """Validate + extract now; run full ingestion in the background. Returns a task id."""
-    texts, processed, errors = await _extract_cv_texts(files)
+    """Validate + extract now; run OCR (if needed) and full ingestion in the background."""
+    texts, processed, errors, needs_ocr = await _extract_cv_texts(
+        files, user_id=user.user_id, defer_ocr=True,
+    )
 
     _reap_cv_tasks()
     task_id = str(uuid.uuid4())
@@ -870,6 +893,17 @@ async def start_cv_upload(
 
     async def _run() -> None:
         try:
+            if needs_ocr:
+                from backend.services.cv_aggregator_service import ocr_pdf
+                for fname, content in needs_ocr:
+                    text = await ocr_pdf(content, fname, user.user_id)
+                    if text:
+                        texts.append(text)
+                        processed.append(fname)
+                    else:
+                        errors.append(f"{fname}: could not extract text")
+                if not texts:
+                    _cv_error(422, "no_text", "No readable text could be extracted. " + " | ".join(errors))
             result = await _ingest_cv_full(texts, processed, errors, user.user_id)
             _CV_TASKS[task_id].update(status="done", result=result)
         except HTTPException as exc:
