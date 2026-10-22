@@ -913,6 +913,17 @@ function OverlayShell({
   // inline-style/state-driven path — otherwise the drag math would start
   // from the stale `_DEFAULT_SIZE.height` (520px) and the panel would jump
   // to that height the instant the user starts dragging.
+  // A closed panel stays mounted (opacity 0, pointer-events none) so it can
+  // animate open — but it was still in the accessibility tree as an
+  // aria-modal dialog with a focusable textarea. Keyboard users could Tab
+  // into an input they couldn't see, and screen readers announced a dialog
+  // that wasn't there. `inert` takes the whole closed panel out of focus
+  // order and the accessibility tree. Set on the DOM node because React 18's
+  // types don't know the attribute.
+  useEffect(() => {
+    if (panelRef.current) panelRef.current.inert = !isOpen
+  }, [isOpen])
+
   const handleResizeStart = useCallback(() => {
     const rect = panelRef.current?.getBoundingClientRect()
     if (rect) setSize(prev => ({ ...prev, height: rect.height }))
