@@ -117,17 +117,28 @@ input[type='range'] {
 }
 
 @keyframes ja-fade-in-up {
-  from { opacity: 0; transform: translateY(28px); }
+  from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0);    }
 }
 
+/* Hidden until the IntersectionObserver in the landing page marks the
+   section visible, then animated once. The animation used to be on the base
+   class, so it ran for every section at page load (off-screen), and the
+   scroll trigger did nothing. */
 .ja-animate-section {
   opacity: 0;
-  animation: ja-fade-in-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .ja-animate-section.ja-visible {
-  opacity: 1;
+  animation: ja-fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ja-animate-section,
+  .ja-animate-section.ja-visible {
+    opacity: 1;
+    animation: none;
+  }
 }
 
 /* ── Scrollbars ────────────────────────────────────────────────────────────── */

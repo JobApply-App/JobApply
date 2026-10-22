@@ -807,10 +807,12 @@ function LandingPage() {
         className="pointer-events-none fixed inset-0 z-0"
         style={{ backgroundImage: gridBg, backgroundSize: '40px 40px' }}
       />
-      {/* Soft teal orb — top-left */}
+      {/* Soft teal orb — top-left. The orbs are large fixed layers with a
+          CSS blur filter; on phones that is repainted on every scroll frame
+          and made scrolling stutter, so they are desktop-only. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed z-0"
+        className="pointer-events-none fixed z-0 hidden sm:block"
         style={{
           top: '-160px', left: '-120px',
           width: 520, height: 520,
@@ -822,7 +824,7 @@ function LandingPage() {
       {/* Soft slate orb — bottom-right */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed z-0"
+        className="pointer-events-none fixed z-0 hidden sm:block"
         style={{
           bottom: '-180px', right: '-100px',
           width: 600, height: 600,
@@ -837,19 +839,23 @@ function LandingPage() {
 
       {/* ── Sticky header ─────────────────────────────────────────────────── */}
       <header className="w-full bg-white/90 backdrop-blur border-b border-slate-100 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 sm:px-12 h-[60px] flex items-center justify-between">
-          <span className="text-xl font-bold tracking-tight text-slate-900">JobApply</span>
-          <div className="flex items-center gap-3">
-            <LanguageSwitcher />
+        {/* At 375px the logo, language toggle and both buttons did not fit:
+            the toggle was squeezed until "עב" vanished and the buttons
+            wrapped to two lines. On phones the header keeps Sign in only —
+            the hero's primary CTA sits right below it. */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-12 h-[60px] flex items-center justify-between gap-3">
+          <span className="text-xl font-bold tracking-tight text-slate-900 shrink-0">JobApply</span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <LanguageSwitcher className="shrink-0" />
             <button
               onClick={() => router.push('/login')}
-              className="h-9 px-4 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 transition-colors"
+              className="h-9 px-4 rounded-lg text-sm font-medium whitespace-nowrap text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 transition-colors"
             >
               {l.nav.sign_in}
             </button>
             <button
               onClick={() => router.push('/login')}
-              className="h-9 px-5 rounded-lg text-sm font-semibold text-white bg-ja-primary hover:bg-ja-primaryHover transition-colors"
+              className="hidden sm:inline-flex items-center h-9 px-5 rounded-lg text-sm font-semibold whitespace-nowrap text-white bg-ja-primary hover:bg-ja-primaryHover transition-colors"
             >
               {l.nav.get_started}
             </button>
