@@ -7,6 +7,7 @@ Nothing may be asserted about the candidate that is not present here.
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -731,6 +732,102 @@ def _metrics_doc_personal(user_id: str) -> dict:
         return {}
 
 
+# ── Uploaded-CV data in the profile ──────────────────────────────────────────
+# get_profile() used to read only the sections Ariel writes during a
+# conversation (experience / education / skills on the profile document)
+# and ignored `cv_data` — what POST /api/profile/cv-upload extracts from the
+# user's CV. For a user who uploaded a CV and had no long chat with Ariel,
+# every consumer of this function (Ariel's own context, job scoring via
+# feed_service, CV tailoring) saw an empty or near-empty profile: in
+# production three testers had 5-7 CV roles each and 0-1 in the profile.
+# Ariel asked them for facts their CV already stated, and scoring ran
+# without their history, violating the "full experience timeline" rule.
+#
+# Ariel-written entries win (the user confirmed them in conversation); CV
+# entries fill in everything else. A CV role is a duplicate of a profile role
+# when it is at the same company over an overlapping period — titles alone
+# differ too often ("FP&A Analyst" vs "Senior FP&A Analyst") to match on.
+
+def _norm_company(name: str) -> str:
+    return " ".join(str(name or "").lower().replace(".", " ").replace(",", " ").split())
+
+
+def _year(value) -> Optional[int]:
+    import re as _re
+    m = _re.search(r"(19|20)\d{2}", str(value or ""))
+    return int(m.group(0)) if m else None
+
+
+def _span(start, end) -> tuple[int, int]:
+    from datetime import datetime as _dt
+    s = _year(start) or 0
+    e_raw = str(end or "").strip().lower()
+    e = _dt.now().year if e_raw in ("", "present", "current", "now", "today") else (_year(end) or s)
+    return s, max(s, e)
+
+
+def _overlaps(a: tuple[int, int], b: tuple[int, int]) -> bool:
+    if not a[0] or not b[0]:
+        return True          # unknown dates: same company is enough
+    return a[0] <= b[1] and b[0] <= a[1]
+
+
+def _merged_experience(onboarding: dict) -> list[dict]:
+    """Profile (Ariel) experience plus CV experience, deduped, most recent first."""
+    own = [e for e in (onboarding.get("experience") or []) if isinstance(e, dict)]
+    cv = onboarding.get("cv_data") if isinstance(onboarding.get("cv_data"), dict) else {}
+    merged = list(own)
+    for c in cv.get("experiences") or []:
+        if not isinstance(c, dict):
+            continue
+        company, span = _norm_company(c.get("company")), _span(c.get("start"), c.get("end"))
+        if company and any(
+            _norm_company(o.get("company")) == company and _overlaps(span, _span(o.get("start"), o.get("end")))
+            for o in merged
+        ):
+            continue
+        summary = str(c.get("summary") or "").strip()
+        merged.append({
+            "company": c.get("company", ""),
+            "role":    c.get("role") or c.get("title") or "",
+            "start":   c.get("start", ""),
+            "end":     c.get("end", ""),
+            "bullets": [summary] if summary else [],
+        })
+    merged.sort(key=lambda e: _span(e.get("start"), e.get("end")), reverse=True)
+    return merged
+
+
+def _cv_education(cv: dict) -> list[dict]:
+    """CV education mapped to the profile's education shape."""
+    out = []
+    for e in cv.get("education") or []:
+        if isinstance(e, dict):
+            out.append({
+                "degree": e.get("degree", ""),
+                "school": e.get("institution") or e.get("school") or "",
+                "period": e.get("years") or e.get("period") or "",
+                "status": "",
+            })
+        elif str(e).strip():
+            out.append({"degree": str(e).strip(), "school": "", "period": "", "status": ""})
+    return out
+
+
+def _merged_skills(own: list, cv_skills: list) -> list:
+    """Profile skills plus CV skills not already present (case-insensitive)."""
+    def _name(s):
+        return (s.get("name") if isinstance(s, dict) else s) or ""
+    seen = {str(_name(s)).strip().lower() for s in own}
+    out = list(own)
+    for s in cv_skills:
+        n = str(_name(s)).strip()
+        if n and n.lower() not in seen:
+            seen.add(n.lower())
+            out.append(s)
+    return out
+
+
 def get_profile(user_id: str) -> dict:
     """
     Per-user profile in the legacy USER_PROFILE shape (personal / education /
@@ -743,7 +840,7 @@ def get_profile(user_id: str) -> dict:
     """
     onboarding = _onboarding_row_profile(user_id)
     experience = []
-    for e in onboarding.get("experience", []):
+    for e in _merged_experience(onboarding):
         experience.append({
             "company": e.get("company", ""),
             "role":    e.get("role", ""),
@@ -791,12 +888,13 @@ def get_profile(user_id: str) -> dict:
             user_id, missing,
         )
 
+    cv = onboarding.get("cv_data") if isinstance(onboarding.get("cv_data"), dict) else {}
     return {
         "personal":       personal,
-        "summary":        onboarding.get("professional_summary", ""),
-        "education":      onboarding.get("education", []),
+        "summary":        onboarding.get("professional_summary", "") or str(cv.get("summary") or ""),
+        "education":      onboarding.get("education") or _cv_education(cv),
         "experience":     experience,
-        "skills":         onboarding.get("skills", []),
+        "skills":         _merged_skills(onboarding.get("skills") or [], cv.get("skills") or []),
         "career_goals":   onboarding.get("career_goals", {}),
         "key_narratives": {},
         "volunteering":   "",
