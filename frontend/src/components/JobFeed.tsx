@@ -454,18 +454,18 @@ export function JobFeed({
   /**
    * Submit a single job URL for the Zero-Click blocking pipeline.
    *
-   * POST /api/jobs/analyze blocks until scrape → structure → score completes,
-   * then returns the fully-processed JobMatch.  The job is prepended directly
-   * into local state — no loadJobs() call, no polling.
+   * startAnalysis() runs scrape → structure → score as a server-side task
+   * and resolves with the fully-processed JobMatch.  The job is prepended
+   * directly into local state — no loadJobs() call.
    */
   const handleAnalyze = useCallback(async () => {
     const url = jobUrl.trim()
     if (!url) return
     setIsAnalyzing(true)
     try {
-      // POST /api/jobs/analyze blocks until fully processed and returns the
-      // complete JobMatch (same shape as ApiFeedJob).  Prepend it directly
-      // into local state — no re-fetch of the entire feed needed.
+      // Resolves with the complete JobMatch (same shape as ApiFeedJob) once
+      // the server-side task finishes.  Prepend it directly into local state
+      // — no re-fetch of the entire feed needed.
       const newJob = await startAnalysis(url)
       setJobUrl('')
       setJobs(prev => {

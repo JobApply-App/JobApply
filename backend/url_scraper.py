@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 
-from backend.scrapers.ats_api_scraper import try_greenhouse_api, try_lever_api
+from backend.scrapers.ats_api_scraper import try_greenhouse_api, try_lever_api, try_workday_api
 
 _UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -129,7 +129,7 @@ def scrape_job_post(url: str) -> ScrapedJob:
     # pages — prefer these over generic HTML scraping when the URL matches.
     # Any failure (unrecognized path, network error, thin content) falls
     # through to the generic scraper below.
-    for api_fn in (try_greenhouse_api, try_lever_api):
+    for api_fn in (try_greenhouse_api, try_lever_api, try_workday_api):
         api_result = api_fn(url)
         if api_result is not None:
             return ScrapedJob(

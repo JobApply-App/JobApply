@@ -175,8 +175,8 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
 }
 
 // ── Analyze trigger panel ─────────────────────────────────────────────────────
-// Zero-Click: startAnalysis() blocks until fully processed and returns the
-// complete JobMatch directly — no polling, no setInterval.
+// startAnalysis() starts a server-side task and polls it, resolving with the
+// complete JobMatch once it is fully processed.
 
 type TriggerState = 'idle' | 'loading' | 'success' | 'error'
 
@@ -202,7 +202,6 @@ export function AnalyzeTrigger({
     setAnalyzedJob(null)
 
     try {
-      // Blocking call — returns the complete JobMatch when done, or throws on failure.
       const res = await startAnalysis(url.trim())
       setStatus('success')
       setMessage(G.added.replace('{title}', res.title).replace('{score}', res.match_score.toFixed(1)))

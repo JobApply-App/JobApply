@@ -156,3 +156,56 @@ def try_lever_api(url: str) -> Optional[dict]:
     company = _humanize_slug(company_slug)
     logger.info("[ats_api_scraper] Lever ✓ company=%s posting_id=%s chars=%d", company_slug, posting_id, len(raw_text))
     return {"title": title, "company": company, "raw_text": raw_text}
+
+
+# ── Workday ───────────────────────────────────────────────────────────────────
+# Workday career sites ({tenant}.wd{N}.myworkdayjobs.com — Intel, Nvidia and
+# many other large employers) render the job description client-side, so the
+# generic HTML scraper sees an empty shell: a tester's Intel link came back
+# "not found". Every posting page has a public JSON twin under /wday/cxs/.
+#
+#   page: https://intel.wd1.myworkdayjobs.com/[en-US/]External/job/Israel-Haifa/Title_JR0287702
+#   api:  https://intel.wd1.myworkdayjobs.com/wday/cxs/intel/External/job/Israel-Haifa/Title_JR0287702
+
+_WORKDAY_HOST_RE = re.compile(r"^([a-z0-9-]+)\.wd\d+\.myworkdayjobs\.com$")
+_WORKDAY_LOCALE_RE = re.compile(r"^[a-z]{2}-[A-Z]{2}$")
+
+
+def try_workday_api(url: str) -> Optional[dict]:
+    """Fetch a Workday job posting via its public JSON endpoint. None on any failure."""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    m = _WORKDAY_HOST_RE.match(host)
+    if not m:
+        return None
+    tenant = m.group(1)
+
+    parts = [p for p in parsed.path.split("/") if p]
+    if parts and _WORKDAY_LOCALE_RE.match(parts[0]):
+        parts = parts[1:]
+    # {site}/job/... or {site}/details/...
+    if len(parts) < 3 or parts[1] not in ("job", "details"):
+        logger.debug("[ats_api_scraper] Workday URL path unrecognized: %s", url)
+        return None
+
+    api_url = f"https://{host}/wday/cxs/{tenant}/{'/'.join(parts)}"
+    try:
+        resp = requests.get(api_url, headers={"User-Agent": _UA, "Accept": "application/json"}, timeout=_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("[ats_api_scraper] Workday API failed for %s: %r", url, exc)
+        return None
+
+    info = data.get("jobPostingInfo") or {}
+    title = (info.get("title") or "").strip()
+    description = _html_to_text(info.get("jobDescription") or "")
+    if not title or len(description) < 50:
+        logger.debug("[ats_api_scraper] Workday API returned thin content for %s", url)
+        return None
+
+    location = (info.get("location") or "").strip()
+    raw_text = f"Location: {location}\n\n{description}" if location else description
+    company = _humanize_slug(tenant)
+    logger.info("[ats_api_scraper] Workday ✓ tenant=%s chars=%d", tenant, len(raw_text))
+    return {"title": title, "company": company, "raw_text": raw_text}

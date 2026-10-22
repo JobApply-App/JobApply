@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import traceback
 import uuid
 from datetime import datetime, timezone
@@ -970,6 +971,83 @@ async def analyze_job(
         "after successful structure step — check _to_row and model_copy chain"
     )
     return match
+
+
+# ── Analyze a link in the background ─────────────────────────────────────────
+#
+# /analyze runs scrape + three LLM steps and routinely takes 30-90s. The
+# Vercel proxy in front of the API gives up long before that, and a tester
+# who switched screens mid-analysis lost the result entirely. /analyze/start
+# runs the same pipeline as a task and returns at once; the client polls
+# /analyze/status/{id}. The finished job is persisted by the pipeline itself,
+# so even a client that never polls again finds it in the feed.
+#
+# In-memory, like the tailor and CV-upload tasks: a deploy loses pending
+# tasks, and the client's fallback is simply to resubmit (the cache check
+# makes that free if the first run had already finished).
+
+_ANALYZE_TASK_TTL_S = 1800
+_ANALYZE_TASKS: dict[str, dict] = {}
+
+
+def _reap_analyze_tasks() -> None:
+    now = time.time()
+    for tid in [t for t, v in _ANALYZE_TASKS.items() if now - v["updated_at"] > _ANALYZE_TASK_TTL_S]:
+        _ANALYZE_TASKS.pop(tid, None)
+
+
+@router.post("/analyze/start")
+async def start_analyze_job(
+    request: AnalyzeRequest,
+    user:    CurrentUser = Depends(get_current_user),
+):
+    """Begin analysing a job URL and return a task id immediately."""
+    _reap_analyze_tasks()
+    task_id = str(uuid.uuid4())
+    _ANALYZE_TASKS[task_id] = {
+        "status":     "pending",
+        "user_id":    user.user_id,
+        "result":     None,
+        "detail":     None,
+        "created_at": time.time(),
+        "updated_at": time.time(),
+    }
+
+    async def _run() -> None:
+        try:
+            result = await analyze_job(request, user)
+            _ANALYZE_TASKS[task_id].update(status="done", result=result)
+        except HTTPException as exc:
+            # Keep the synchronous path's status and detail; the client maps
+            # the LinkedIn auth-wall / bot-check details to specific messages.
+            _ANALYZE_TASKS[task_id].update(
+                status="error", detail=exc.detail, status_code=exc.status_code
+            )
+        except Exception as exc:
+            logger.exception("[analyze/start] task %s failed", task_id)
+            _ANALYZE_TASKS[task_id].update(status="error", detail=str(exc), status_code=500)
+        finally:
+            _ANALYZE_TASKS[task_id]["updated_at"] = time.time()
+            _ANALYZE_TASKS[task_id].pop("_task", None)
+
+    # Strong reference: asyncio holds tasks weakly, and a collected task
+    # would sit at "pending" forever.
+    _ANALYZE_TASKS[task_id]["_task"] = asyncio.create_task(_run())
+    logger.info("[analyze/start] task=%s user=%s url=%s", task_id, user.user_id, request.url.strip())
+    return {"task_id": task_id, "status": "pending"}
+
+
+@router.get("/analyze/status/{task_id}")
+async def get_analyze_status(task_id: str, user: CurrentUser = Depends(get_current_user)):
+    """Report a task's progress; readable only by the user who started it."""
+    task = _ANALYZE_TASKS.get(task_id)
+    if task is None or task["user_id"] != user.user_id:
+        raise HTTPException(status_code=404, detail="Unknown or expired task.")
+    if task["status"] == "done":
+        return {"status": "done", "result": task["result"]}
+    if task["status"] == "error":
+        return {"status": "error", "detail": task["detail"], "status_code": task.get("status_code", 500)}
+    return {"status": "pending", "elapsed_s": round(time.time() - task["created_at"], 1)}
 
 
 # ── Company-site scraping ─────────────────────────────────────────────────────
