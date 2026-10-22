@@ -693,6 +693,7 @@ export const he = {
       management: 'ניהול',
     },
     history: 'היסטוריה',
+    err_rate_limited: 'הגעתם למגבלת השיחה לעכשיו. נסו שוב בעוד קצת זמן.',
   },
   support_chat: {
     name:           'אליה',
@@ -724,6 +725,7 @@ export const he = {
     focus_skills: 'מיומנויות במיקוד',
     no_response: '_(לא התקבלה תשובה.)_',
     attach_title: 'צירוף תמונות או קובצי PDF (צילומי מסך עוזרים!) — עד {max} קבצים, עד {size}MB לקובץ, {total}MB בסך הכול',
+    err_rate_limited: 'יותר מדי הודעות כרגע. נסו שוב בעוד דקה.',
   },
 
   discover: {

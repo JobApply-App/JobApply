@@ -652,6 +652,7 @@ export interface Dict {
       management: string
     }
     history: string
+    err_rate_limited: string
   }
   support_chat: {
     name:            string
@@ -678,6 +679,7 @@ export interface Dict {
     focus_skills: string
     no_response: string
     attach_title: string
+    err_rate_limited: string
   }
   discover: {
     banner_title:    string
