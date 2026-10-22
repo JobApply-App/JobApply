@@ -374,6 +374,39 @@ function TopMatchSkeleton({ opacity }: { opacity: number }) {
   )
 }
 
+// ── Ariel strip ───────────────────────────────────────────────────────────────
+// Testers did not know what Ariel was for — the only cue was an "Ask Ariel"
+// button. One quiet line names her role, and three chips name concrete jobs
+// she does; each opens her with that request already sent.
+
+function ArielStrip() {
+  const A = useI18n().t.ariel
+  const { openChat } = useChat()
+  return (
+    <section
+      aria-label={A.capabilities_title}
+      className="rounded-2xl border border-violet-100 bg-gradient-to-l from-violet-50/70 to-white px-4 py-3.5 sm:px-5"
+    >
+      <p className="text-[13px] text-slate-700 leading-snug">
+        <span className="font-semibold text-slate-900">{A.name}</span>
+        <span className="text-slate-400"> · </span>
+        {A.tagline}
+      </p>
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        {A.quick_actions.slice(0, 3).map(a => (
+          <button
+            key={a.label}
+            onClick={() => openChat({ topic: a.prompt })}
+            className="inline-flex items-center h-9 sm:h-8 px-3 rounded-full border border-violet-200 bg-white text-[12.5px] sm:text-[12px] font-medium text-violet-700 hover:bg-violet-50 active:bg-violet-100 transition"
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 // ── System Confidence Score — gamified Ariel engagement hook ────────────────
 // Score is the backend's overall_trust_score (ProfileUpdateService.compute_
 // profile_trust_score), mirrored down from <TrustDashboard onScoreChange>
@@ -886,6 +919,9 @@ export function Overview({
           )}
         </span>
       </div>
+
+      {/* ── Ariel, in one line — what she is for, and a way straight in ── */}
+      <ArielStrip />
 
       {/* ── System Confidence Score — gamified Ariel engagement CTA ──────── */}
       <ConfidenceScoreCard

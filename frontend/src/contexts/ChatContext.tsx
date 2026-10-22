@@ -35,6 +35,12 @@ interface ChatState {
   messages:      ChatMessage[]
   thinking:      boolean
   openChat:      (ctx?: ChatJobContext) => void
+  // The request a caller opened Ariel with (ctx.topic), waiting for ArielChat
+  // to send it. A fresh id per openChat call, so asking the same thing twice
+  // sends twice. Without this, ArielChat — which keeps its own conversation —
+  // never saw the topic: "Improve with Ariel" opened an empty chat.
+  pendingPrompt:  { id: number; text: string } | null
+  consumePrompt:  (id: number) => void
   closeChat:     () => void
   sendMessage:   (text: string) => void
   clearMessages: () => void
@@ -64,6 +70,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isOpen,       setIsOpen]       = useState(false)
   const [isEliyaOpen,  setIsEliyaOpen]  = useState(false)
   const [jobContext,   setJobContext]    = useState<ChatJobContext | null>(null)
+  const [pendingPrompt, setPendingPrompt] = useState<{ id: number; text: string } | null>(null)
+  const consumePrompt = useCallback((id: number) => {
+    setPendingPrompt(p => (p && p.id === id ? null : p))
+  }, [])
   const [messages,     setMessages]     = useState<ChatMessage[]>([])
   const [thinking,     setThinking]     = useState(false)
   const [profileVersion, setProfileVersion] = useState(0)
@@ -94,6 +104,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const openChat = useCallback((ctx?: ChatJobContext) => {
     setIsEliyaOpen(false)   // mutual exclusion: close Eliya when opening Ariel
+    if (ctx?.topic) setPendingPrompt({ id: Date.now(), text: ctx.topic })
     if (ctx) {
       const ctxChanged =
         ctx.topic    !== jobContext?.topic ||
@@ -275,11 +286,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     openChat, closeChat, sendMessage, clearMessages,
     isEliyaOpen, openEliya, closeEliya,
     profileVersion, triggerProfileRefresh,
+    pendingPrompt, consumePrompt,
   }), [
     isOpen, jobContext, messages, thinking,
     openChat, closeChat, sendMessage, clearMessages,
     isEliyaOpen, openEliya, closeEliya,
     profileVersion, triggerProfileRefresh,
+    pendingPrompt, consumePrompt,
   ])
 
   return (
