@@ -494,8 +494,8 @@ function PillarRail({ label, value, max, color, Icon, caption, hint, loading }: 
         ) : value === null ? (
           <span className="text-[11px] font-medium text-slate-300">—</span>
         ) : (
-          <span className="text-[11px] font-bold tabular-nums text-slate-900">
-            {Math.round(value)}
+          <span dir="ltr" className="text-[11px] font-bold tabular-nums text-slate-900">
+            {value.toFixed(1)}
             <span className="text-slate-400 font-medium">/{max}</span>
           </span>
         )}

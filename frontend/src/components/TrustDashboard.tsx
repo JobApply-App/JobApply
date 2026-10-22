@@ -1890,8 +1890,10 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: C
 
       {/* ③ Numeric score + confidence weight tooltip ───────────────── */}
       <div className="flex items-center gap-1.5 sm:justify-end">
-        <span className="text-[13px] font-bold tabular-nums text-slate-700">{score}</span>
-        <span className="text-[10.5px] text-slate-400">/100</span>
+        <span dir="ltr" className="inline-flex items-baseline gap-1.5">
+          <span className="text-[13px] font-bold tabular-nums text-slate-700">{score}</span>
+          <span className="text-[10.5px] text-slate-400">/100</span>
+        </span>
         <span
           tabIndex={0}
           className="relative group/tip inline-flex items-center justify-center w-[15px] h-[15px] rounded-full border border-slate-200 text-[9px] font-bold text-slate-400 cursor-default select-none hover:border-teal-400 hover:text-teal-500 focus-visible:border-teal-400 focus-visible:text-teal-500 transition-colors"

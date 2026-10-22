@@ -971,7 +971,9 @@ export const JobCard = memo(function JobCard({
             const isProvisional = job.score_is_proxy && job.match_score > 0 && job.match_score < 30
             return (
               <div className="flex flex-col items-end gap-1 shrink-0">
-                <div className={`inline-flex items-baseline gap-0.5 px-2 sm:px-2.5 py-1 rounded-lg ${
+                {/* dir="ltr": the number and "/100" are separate flex items, which an
+                    RTL page lays out right-to-left — "100/64.0". */}
+                <div dir="ltr" className={`inline-flex items-baseline gap-0.5 px-2 sm:px-2.5 py-1 rounded-lg ${
                   job.match_score > 0 ? band.bg : 'bg-slate-100'
                 }`}>
                   <span className={`text-xl sm:text-2xl font-bold tracking-tight tabular-nums ${

@@ -123,7 +123,7 @@ function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete
                 </span>
                 {card.score > 0 && (
                   <span className="text-[11px] text-slate-400 font-medium">
-                    {Math.round(card.score)}% ATS
+                    {card.score.toFixed(1)}% ATS
                   </span>
                 )}
               </div>
@@ -335,7 +335,7 @@ const KanbanCard = memo(function KanbanCard({
         </span>
         {card.score > 0 && (
           <span className="text-[10px] font-semibold text-slate-500 shrink-0">
-            {Math.round(card.score)}%
+            {card.score.toFixed(1)}%
           </span>
         )}
       </div>
