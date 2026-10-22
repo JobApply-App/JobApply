@@ -2906,6 +2906,18 @@ export function TrustDashboard({
         </button>
       </div>
 
+      {/* Testers read 31 identical 12.5 scores as a bug and didn't know what
+          this screen was for. It is the product's anti-inflation layer: say
+          so, say why a CV-only skill starts low, and say how to raise it. */}
+      <div className="rounded-2xl border border-teal-100 bg-teal-50/60 px-4 py-3.5">
+        <p className="text-[12.5px] font-semibold text-teal-900 mb-1">{T.explainer.title}</p>
+        <p className="text-[12px] text-teal-900/80 leading-relaxed">{T.explainer.body}</p>
+        <ul className="mt-2 space-y-1 text-[12px] text-teal-900/80 leading-relaxed list-disc ps-4">
+          <li>{T.explainer.start}</li>
+          <li>{T.explainer.raise}</li>
+        </ul>
+      </div>
+
       {/* ── Auth-wall callout ─────────────────────────────────────────────── */}
       {showAuthWall && <AuthWallCallout />}
 
