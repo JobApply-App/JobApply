@@ -753,6 +753,9 @@ export interface Dict {
     err_rate_limited: string
   }
   discover: {
+    // LinkedIn's fixed English seniority / job-function values → UI language.
+    // Unknown values are shown as-is.
+    linkedin_terms: Record<string, string>
     banner_title:    string
     banner_body:     string
     complete_cta:    string
