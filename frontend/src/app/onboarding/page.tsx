@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
-import { useRouter }        from 'next/navigation'
+import { Suspense, useCallback, useMemo, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/contexts/I18nContext'
 import AuthGuard            from '@/components/AuthGuard'
 import { OnboardingHeader } from '@/components/OnboardingHeader'
@@ -222,6 +222,12 @@ function RolePicker({ selected, setSelected }: {
                   className="text-slate-300 hover:text-slate-600 text-[13px] transition"
                 >✕</button>
               </div>
+              {/* Testers didn't realise the chips were "your level in this
+                  role", or how Senior differed from Lead. A labelled heading
+                  and a one-line meaning for the chosen level fix both. */}
+              <p className="text-[11.5px] font-semibold text-slate-600 mb-1.5">
+                {P.level_heading.replace('{role}', item.role)}
+              </p>
               <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={P.level_for_role.replace('{role}', item.role)}>
                 {SENIORITY_VALUES.map((value, i) => {
                   const on = item.seniority === value
@@ -230,6 +236,7 @@ function RolePicker({ selected, setSelected }: {
                       key={value}
                       role="radio"
                       aria-checked={on}
+                      title={P.seniority_hint[i]}
                       onClick={() =>
                         setSelected(prev => prev.map(r =>
                           r.role === item.role ? { ...r, seniority: on ? null : value } : r
@@ -246,9 +253,11 @@ function RolePicker({ selected, setSelected }: {
                   )
                 })}
               </div>
-              {item.seniority === null && (
-                <p className="mt-1.5 text-[11px] text-slate-400">{P.pick_level}</p>
-              )}
+              <p className="mt-1.5 text-[11px] text-slate-500" aria-live="polite">
+                {item.seniority === null
+                  ? P.pick_level
+                  : P.seniority_hint[SENIORITY_VALUES.indexOf(item.seniority)]}
+              </p>
             </li>
           ))}
         </ul>
@@ -268,7 +277,16 @@ function OnboardingContent() {
   const { t } = useI18n()
   const O = t.onboarding
 
-  const [phase,  setPhase]  = useState<Phase>('showcase')
+  // The step lives in the URL (?step=preferences|intake), not only in state.
+  // With state alone the browser's Back button left /onboarding entirely,
+  // and coming back started the flow over from the first screen; now Back
+  // and Forward move between steps, and a refresh stays on the current one.
+  const searchParams = useSearchParams()
+  const stepParam = searchParams.get('step')
+  const phase: Phase = stepParam === 'preferences' || stepParam === 'intake' ? stepParam : 'showcase'
+  const setPhase = useCallback((next: Phase) => {
+    router.push(next === 'showcase' ? '/onboarding' : `/onboarding?step=${next}`)
+  }, [router])
   const [active, setActive] = useState(0)
 
   // Role & seniority step state
@@ -526,7 +544,10 @@ function OnboardingContent() {
 export default function OnboardingPage() {
   return (
     <AuthGuard>
-      <OnboardingContent />
+      {/* useSearchParams needs a Suspense boundary under the app router. */}
+      <Suspense fallback={null}>
+        <OnboardingContent />
+      </Suspense>
     </AuthGuard>
   )
 }

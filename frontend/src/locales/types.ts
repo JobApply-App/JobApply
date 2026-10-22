@@ -868,6 +868,8 @@ export interface Dict {
       // Seniority VALUES stay English in the database; only these labels
       // are translated. Indexed positionally against SENIORITY_OPTIONS.
       seniority: readonly [string, string, string, string, string, string]
+      seniority_hint: readonly [string, string, string, string, string, string]
+      level_heading: string
     }
     intake: {
       title:          string
