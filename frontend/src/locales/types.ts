@@ -1175,4 +1175,11 @@ export interface Dict {
     skills: string
     skills_empty: string
   }
+  cv_progress: {
+    title: string
+    step_uploading: string
+    step_reading: string
+    step_analyzing: string
+    hint: string
+  }
 }

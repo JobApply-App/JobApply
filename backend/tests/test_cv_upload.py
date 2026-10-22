@@ -264,6 +264,33 @@ async def test_scanned_pdf_is_ocrd_in_the_background_and_imported(uid, monkeypat
     assert _cv_data(uid)["skills"] == ["SQL"]
 
 
+async def test_pending_task_reports_its_stage(uid, monkeypatch):
+    """The upload screen shows what is happening: OCR first, then analysis."""
+    monkeypatch.setattr(agg, "extract_text", lambda content, name: "")
+    ocr_gate, llm_gate = asyncio.Event(), asyncio.Event()
+
+    async def _ocr(content, fname, user_id):
+        await ocr_gate.wait()
+        return "Analyst at Acme, SQL"
+
+    async def _llm(**_kw):
+        await llm_gate.wait()
+        return SimpleNamespace(text=json.dumps(_GOOD_CLAIMS))
+    monkeypatch.setattr(agg, "ocr_pdf", _ocr)
+    monkeypatch.setattr(agg, "call_llm", _llm)
+    user = CurrentUser(user_id=uid, email="t@example.com")
+
+    started = await profile_routes.start_cv_upload(files=[_upload()], user=user)
+    tid = started["task_id"]
+    await asyncio.sleep(0.01)
+    assert (await profile_routes.get_cv_upload_status(tid, user=user))["stage"] == "reading"
+    ocr_gate.set()
+    await asyncio.sleep(0.05)
+    assert (await profile_routes.get_cv_upload_status(tid, user=user))["stage"] == "analyzing"
+    llm_gate.set()
+    assert (await _poll(tid, user))["status"] == "done"
+
+
 async def test_failed_task_reports_its_code(uid, monkeypatch):
     monkeypatch.setattr(agg, "extract_text", lambda content, name: "regulations")
     monkeypatch.setattr(agg, "call_llm", _llm_returning(json.dumps(_EMPTY_CLAIMS)))

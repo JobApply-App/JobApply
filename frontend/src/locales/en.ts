@@ -944,7 +944,7 @@ export const en = {
       title:          'Import your existing profile',
       intro:          'Skip the blank slate — upload your current CV and we’ll build your Master Profile in seconds.',
       upload_cta:     'Upload existing CV',
-      upload_hint:    'PDF or DOCX — CVs only (several versions are fine)',
+      upload_hint:    'Drag a file here or click — PDF or DOCX, CVs only (several versions are fine)',
       cv_only_note:   'Only upload your CV here. Have other documents — certificates, recommendation letters, a portfolio? After setup you can send them to Ariel in the chat, so the system gets to know you better.',
       uploading_one:  'Uploading {n} file…',
       uploading_many: 'Uploading {n} files…',
@@ -1248,5 +1248,12 @@ export const en = {
     companies_empty: "Submit applications and they'll appear here, grouped by company.",
     skills: 'Top Skills in Tailored CVs',
     skills_empty: 'Generate tailored CVs and apply to see your most-used skills here.',
+  },
+  cv_progress: {
+    title: 'Processing your CV',
+    step_uploading: 'Uploading the file',
+    step_reading: 'Reading the text',
+    step_analyzing: 'Extracting experience and skills',
+    hint: 'This usually takes 20–60 seconds. Keep this page open.',
   },
 } satisfies Dict

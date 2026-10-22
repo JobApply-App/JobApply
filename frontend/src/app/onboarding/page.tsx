@@ -13,9 +13,11 @@ import {
   saveRolePreferences, markOnboardingComplete,
   uploadCvFiles,
   cvUploadErrorMessage,
+  type CvUploadStage,
   type RoleSeniorityItem,
   type SeniorityLevel,
 } from '@/lib/api'
+import { CvUploadProgress } from '@/components/CvUploadProgress'
 import { armArielWelcome } from '@/lib/onboardingFlags'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -298,6 +300,8 @@ function OnboardingContent() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [cvBusy,      setCvBusy]      = useState(false)
   const [cvFileCount, setCvFileCount] = useState(0)
+  const [cvStage,     setCvStage]     = useState<CvUploadStage>('uploading')
+  const [cvDragOver,  setCvDragOver]  = useState(false)
   const [cvError,     setCvError]     = useState('')
 
   // One role is enough to continue; the level is optional. Requiring a level
@@ -355,7 +359,7 @@ function OnboardingContent() {
     setCvFileCount(files.length)
     setCvError('')
     try {
-      await uploadCvFiles(files)   // all files go up together under the `files` key
+      await uploadCvFiles(files, setCvStage)   // all files go up together under the `files` key
       await completeOnboarding()
     } catch (err) {
       console.error('[onboarding] CV upload failed:', err)
@@ -491,7 +495,17 @@ function OnboardingContent() {
         <button
           onClick={() => fileRef.current?.click()}
           disabled={cvBusy}
-          className="w-full flex items-center gap-4 rounded-2xl border-2 border-dashed border-slate-200 p-5 hover:border-teal-400 hover:bg-teal-50 transition text-start group disabled:opacity-60 disabled:pointer-events-none"
+          onDragOver={e => { e.preventDefault(); if (!cvBusy) setCvDragOver(true) }}
+          onDragLeave={() => setCvDragOver(false)}
+          onDrop={e => {
+            e.preventDefault()
+            setCvDragOver(false)
+            if (cvBusy) return
+            void handleCvFiles(Array.from(e.dataTransfer.files).filter(f => /\.(pdf|docx)$/i.test(f.name)))
+          }}
+          className={`w-full flex items-center gap-4 rounded-2xl border-2 border-dashed p-5 hover:border-teal-400 hover:bg-teal-50 transition text-start group disabled:opacity-60 disabled:pointer-events-none ${
+            cvDragOver ? 'border-teal-400 bg-teal-50' : 'border-slate-200'
+          }`}
         >
           <div className="w-11 h-11 rounded-xl bg-slate-100 group-hover:bg-teal-100 flex items-center justify-center text-slate-500 group-hover:text-teal-600 flex-shrink-0 transition">
             {cvBusy ? <SpinnerIcon s={20} /> : <UploadIcon s={20} />}
@@ -517,6 +531,7 @@ function OnboardingContent() {
             )}
           </div>
         </button>
+        {cvBusy && <CvUploadProgress stage={cvStage} />}
         {cvError && (
           <p className="text-[12px] text-red-600 mt-2" role="alert">{cvError}</p>
         )}

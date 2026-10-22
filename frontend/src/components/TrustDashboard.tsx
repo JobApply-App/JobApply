@@ -34,7 +34,8 @@ import { useI18n } from '@/contexts/I18nContext'
 import Link from 'next/link'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
-import { cvUploadErrorFromDetail, cvUploadErrorMessage, ensureFreshToken, getAuthHeaders, setAuthToken, uploadCvFiles } from '@/lib/api'
+import { cvUploadErrorFromDetail, cvUploadErrorMessage, ensureFreshToken, getAuthHeaders, setAuthToken, uploadCvFiles, type CvUploadStage } from '@/lib/api'
+import { CvUploadProgress } from './CvUploadProgress'
 import { supabase } from '@/lib/supabase'
 import { useChat } from '@/contexts/ChatContext'
 import { SparkIcon } from './icons'
@@ -1621,6 +1622,7 @@ function UploadZone({ userId, onUploaded }: UploadZoneProps) {
   const T = t.trust
   const [isDragging,  setIsDragging]  = useState(false)
   const [uploading,   setUploading]   = useState(false)
+  const [cvStage,     setCvStage]     = useState<CvUploadStage>('uploading')
   const [uploadDone,  setUploadDone]  = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [stats,       setStats]       = useState<{
@@ -1641,7 +1643,7 @@ function UploadZone({ userId, onUploaded }: UploadZoneProps) {
     setUploading(true)
     setUploadError(null)
     try {
-      const data = await uploadCvFiles(allowed)
+      const data = await uploadCvFiles(allowed, setCvStage)
       setStats({
         entities_ingested:   data.entities_ingested  ?? 0,
         overall_trust_score: data.overall_trust_score ?? 0,
@@ -1741,6 +1743,11 @@ function UploadZone({ userId, onUploaded }: UploadZoneProps) {
               : T.upload_to_start
             }
           </p>
+          {uploading && (
+            <div className="w-full max-w-sm mx-auto">
+              <CvUploadProgress stage={cvStage} />
+            </div>
+          )}
           {!uploading && (
             <p className="text-[12.5px] text-slate-400 mt-1.5 leading-relaxed max-w-sm">
               {T.drop_file}{' '}

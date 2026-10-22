@@ -7,7 +7,8 @@ import { OnboardingHeader } from '@/components/OnboardingHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOnboarding } from '@/contexts/OnboardingContext'
 import { resolveDisplayName } from '@/lib/nameUtils'
-import { cvUploadErrorMessage, fetchRolePreferences, uploadCvFiles } from '@/lib/api'
+import { cvUploadErrorMessage, fetchRolePreferences, uploadCvFiles, type CvUploadStage } from '@/lib/api'
+import { CvUploadProgress } from '@/components/CvUploadProgress'
 import { armArielWelcome } from '@/lib/onboardingFlags'
 import { TOKENS } from '@/lib/tokens'
 
@@ -96,7 +97,7 @@ function UploadZone({
 
 // ── Progress / result states ───────────────────────────────────────────────
 
-function UploadingState() {
+function UploadingState({ stage }: { stage: CvUploadStage }) {
   const B = useI18n().t.profile_builder
   return (
     <div className="flex flex-col items-center gap-5 py-10">
@@ -111,6 +112,9 @@ function UploadingState() {
         <p className="text-[13px] text-slate-400">
           {B.analyzing}
         </p>
+      </div>
+      <div className="w-full max-w-sm">
+        <CvUploadProgress stage={stage} />
       </div>
     </div>
   )
@@ -154,13 +158,14 @@ function ProfileBuilderContent() {
   const [state,      setState]      = useState<UploadState>('idle')
   const [errorMsg,   setErrorMsg]   = useState('')
   const [skillCount, setSkillCount] = useState(0)
+  const [stage,      setStage]      = useState<CvUploadStage>('uploading')
   const [expCount,   setExpCount]   = useState(0)
 
   const handleFiles = useCallback(async (files: File[]) => {
     setState('uploading')
     setErrorMsg('')
     try {
-      const result = await uploadCvFiles(files)
+      const result = await uploadCvFiles(files, setStage)
       const skills = result.cv_claims?.skills?.length ?? 0
       const exps   = result.cv_claims?.experiences?.length ?? 0
       setSkillCount(skills)
@@ -217,7 +222,7 @@ function ProfileBuilderContent() {
 
       {/* State machine */}
       {state === 'uploading' ? (
-        <UploadingState />
+        <UploadingState stage={stage} />
       ) : state === 'done' ? (
         <DoneState skillCount={skillCount} expCount={expCount} />
       ) : (
