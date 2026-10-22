@@ -703,7 +703,7 @@ async function consumeStream(
 export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
   const A = useI18n().t.ariel
   const { data: onboardingData, clear: clearOnboarding } = useOnboarding()
-  const { triggerProfileRefresh } = useChat()
+  const { triggerProfileRefresh, pendingPrompt, consumePrompt } = useChat()
 
   // ── Phase 1+2 state ────────────────────────────────────────────────────────
   const [messages,           setMessages]           = useState<ChatMessage[]>([])
@@ -1126,6 +1126,15 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
     }
   }, [input, messages, streaming, replyingTo, attachments, forceBottom, triggerProfileRefresh, A.attached_files, A.generic_error, A.replying_to, A.err_rate_limited])
 
+  // Send the request Ariel was opened with ("Improve with Ariel", the
+  // overview's capability chips). Waits out an in-flight reply or session
+  // load; consumed by id so it is sent exactly once.
+  useEffect(() => {
+    if (!pendingPrompt || streaming || loadingSession) return
+    consumePrompt(pendingPrompt.id)
+    void sendMessage(pendingPrompt.text)
+  }, [pendingPrompt, streaming, loadingSession, consumePrompt, sendMessage])
+
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
     if (e.key === 'Escape') setReplyingTo(null)
@@ -1393,10 +1402,11 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
 
     // Icons only — label and prompt come from ariel.quick_actions, indexed
     // positionally against this list.
-    const actionIcons = ['🗺️', '🎤', '🔍', '🛤️']
+    const actionIcons = ['🎯', '📄', '🎤', '🧭']
     const actions = actionIcons.map((icon, i) => ({
       icon,
       label:  A.quick_actions[i].label,
+      desc:   A.quick_actions[i].desc,
       prompt: A.quick_actions[i].prompt,
     }))
 
@@ -1413,7 +1423,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
               style={{ background: TOKENS.color.gradientIntelligence, boxShadow: TOKENS.shadow.glowAi }}>A</div>
             <div>
               <p className="text-[14px] font-bold text-slate-900 leading-tight">{A.name}</p>
-              <p className="text-[11.5px] text-slate-400 leading-tight">{A.role}</p>
+              <p className="text-[12px] text-slate-500 leading-snug mt-0.5">{A.tagline}</p>
             </div>
           </div>
 
@@ -1437,23 +1447,26 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
             </button>
           )}
 
-          {/* Divider label */}
-          <p className="text-[10.5px] font-semibold text-slate-400 uppercase tracking-wider px-0.5">
-            {latestSession ? A.start_new : A.what_work_on}
+          {/* What Ariel does — testers said "Ask Ariel" told them nothing
+              about why they would. Each row names a job she actually does
+              (backed by her tools: profile edits, tailored-CV review) and
+              what the user gets; tapping it starts that conversation. */}
+          <p className="text-[11px] font-semibold text-slate-400 tracking-wide px-0.5 pt-1">
+            {latestSession ? A.start_new : A.capabilities_title}
           </p>
-
-          {/* Compact suggestion pills — icon + title only, wrap to fill width.
-              Kept visually secondary to the auto-focused input below. */}
-          <div className="flex flex-wrap gap-1.5">
+          <div className="space-y-1.5">
             {actions.map(a => (
               <button
                 key={a.label}
                 onClick={() => sendMessage(a.prompt)}
                 disabled={streaming}
-                className="inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full border border-slate-200 bg-white text-[12px] font-medium text-slate-700 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 transition disabled:opacity-50"
+                className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl border border-slate-100 bg-white text-start hover:border-violet-200 hover:bg-violet-50/60 active:bg-violet-50 transition disabled:opacity-50"
               >
-                <span className="text-[14px] leading-none shrink-0">{a.icon}</span>
-                {a.label}
+                <span className="text-[16px] leading-none shrink-0 mt-0.5" aria-hidden="true">{a.icon}</span>
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-semibold text-slate-800 leading-tight">{a.label}</span>
+                  <span className="block text-[12px] text-slate-500 leading-snug mt-0.5">{a.desc}</span>
+                </span>
               </button>
             ))}
           </div>

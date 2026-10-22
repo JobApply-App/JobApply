@@ -166,6 +166,9 @@ input[type='range'] {
   body.has-tabbar .ja-launcher {
     bottom: calc(4rem + 1rem + env(safe-area-inset-bottom));
   }
+  body.has-tabbar .ja-launcher-intro {
+    bottom: calc(4rem + 5.5rem + env(safe-area-inset-bottom));
+  }
 }
 
 /* ── Scrollbars ────────────────────────────────────────────────────────────── */

@@ -666,7 +666,13 @@ export interface Dict {
     what_work_on:    string
     input_start:     string
     input_reply:     string
-    quick_actions: ReadonlyArray<{ label: string; prompt: string }>
+    quick_actions: ReadonlyArray<{ label: string; desc: string; prompt: string }>
+    tagline: string
+    capabilities_title: string
+    launcher_sub: string
+    intro: string
+    intro_dismiss: string
+    intro_open: string
     msg: {
       copy: string; copied: string; reply: string; translate: string
       regenerate: string; pin: string; unpin: string; report: string; delete: string

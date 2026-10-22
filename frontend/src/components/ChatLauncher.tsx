@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useChat } from '@/contexts/ChatContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -27,6 +28,17 @@ function ChatIcon() {
   )
 }
 
+// One-time introduction. Testers saw a chat button and never learned what
+// Ariel is for; the bubble says it once, then gets out of the way for good.
+const INTRO_SEEN_KEY = 'ja.ariel_intro_seen'
+
+function readIntroSeen(): boolean {
+  try { return window.localStorage.getItem(INTRO_SEEN_KEY) === '1' } catch { return true }
+}
+function markIntroSeen(): void {
+  try { window.localStorage.setItem(INTRO_SEEN_KEY, '1') } catch { /* private mode — show again next time */ }
+}
+
 // Floating launcher for Ariel (authenticated career agent).
 // Hidden when the panel is already open, or when the user is not signed in.
 export function ChatLauncher() {
@@ -34,6 +46,15 @@ export function ChatLauncher() {
   const { isOpen, isEliyaOpen, jobContext, openChat } = useChat()
   const { user } = useAuth()
   const pathname = usePathname()
+  // Starts hidden and is decided after mount: localStorage is not readable
+  // during server render, and showing it first would flash for returning users.
+  const [showIntro, setShowIntro] = useState(false)
+  useEffect(() => {
+    if (readIntroSeen()) return
+    const id = setTimeout(() => setShowIntro(true), 1500)
+    return () => clearTimeout(id)
+  }, [])
+  const dismissIntro = () => { markIntroSeen(); setShowIntro(false) }
 
   // Ariel is available to every signed-in user outside onboarding — the same
   // rule as ChatOverlay. Gating on the wizard's profile_completed flag hid her
@@ -46,8 +67,34 @@ export function ChatLauncher() {
   const hasContext = Boolean(jobContext)
 
   return (
+    <>
+    {showIntro && (
+      <div
+        role="dialog"
+        aria-label={A.name}
+        className="ja-launcher-intro fixed z-50 end-4 sm:end-6 bottom-[5.5rem] w-[min(18rem,calc(100vw-2rem))] rounded-2xl bg-white border border-slate-100 p-4 text-start"
+        style={{ boxShadow: '0 10px 30px rgba(15,23,42,0.14), 0 2px 6px rgba(15,23,42,0.06)' }}
+      >
+        <p className="text-[13px] text-slate-700 leading-relaxed">{A.intro}</p>
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            onClick={() => { dismissIntro(); openChat() }}
+            className="h-10 sm:h-8 px-3.5 rounded-lg text-[12.5px] font-semibold text-white"
+            style={{ background: TOKENS.color.primary }}
+          >
+            {A.intro_open}
+          </button>
+          <button
+            onClick={dismissIntro}
+            className="h-10 sm:h-8 px-3 rounded-lg text-[12.5px] font-medium text-slate-500 hover:bg-slate-50"
+          >
+            {A.intro_dismiss}
+          </button>
+        </div>
+      </div>
+    )}
     <button
-      onClick={() => openChat()}
+      onClick={() => { if (showIntro) dismissIntro(); openChat() }}
       title={A.launcher_title}
       aria-label={A.launcher_label}
       className="ja-launcher fixed bottom-6 end-4 sm:end-6 z-50 flex items-center justify-center gap-2.5 h-14 w-14 sm:h-12 sm:w-auto sm:px-4 rounded-full text-white transition-[transform,opacity] duration-200 active:scale-95 hover:opacity-90"
@@ -67,7 +114,11 @@ export function ChatLauncher() {
       <span className="flex-shrink-0"><ChatIcon /></span>
       {/* Icon-only on phones: the labelled pill covered the start of every
           line of text it floated over. aria-label carries the name. */}
-      <span className="hidden sm:inline text-[13px] font-semibold tracking-tight">{A.launcher_cta}</span>
+      <span className="hidden sm:flex flex-col items-start leading-tight">
+        <span className="text-[13px] font-semibold tracking-tight">{A.name}</span>
+        <span className="text-[10.5px] font-medium opacity-85">{A.launcher_sub}</span>
+      </span>
     </button>
+    </>
   )
 }
