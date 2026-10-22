@@ -693,6 +693,7 @@ export const en = {
       management: 'Management',
     },
     history: 'History',
+    err_rate_limited: "You've reached the chat limit for now. Please try again a little later.",
   },
   support_chat: {
     name:           'Eliya',
@@ -724,6 +725,7 @@ export const en = {
     focus_skills: 'Focus skills',
     no_response: '_(No response received.)_',
     attach_title: 'Attach images or PDFs (screenshots help!) — max {max} files, up to {size}MB each, {total}MB total',
+    err_rate_limited: 'Too many messages right now. Please try again in a minute.',
   },
 
   discover: {

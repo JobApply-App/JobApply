@@ -1,5 +1,6 @@
 'use client'
 
+import { ChatStreamError, chatErrorText } from '@/lib/chatError'
 import {
   useState, useRef, useEffect, useCallback, memo,
   type KeyboardEvent, type ReactNode, type ChangeEvent,
@@ -669,7 +670,7 @@ async function consumeStream(
     const text = await res.text().catch(() => '')
     let detail: string | undefined
     try { detail = (JSON.parse(text) as { detail?: string }).detail } catch { /* not JSON */ }
-    throw new Error(detail || res.statusText || `HTTP ${res.status}`)
+    throw new ChatStreamError(detail || res.statusText || `HTTP ${res.status}`, res.status)
   }
 
   const reader  = res.body.getReader()
@@ -688,7 +689,7 @@ async function consumeStream(
       if (!payload || payload === '[DONE]') continue
       try {
         const parsed = JSON.parse(payload) as { chunk?: string; error?: string }
-        if (parsed.error) throw new Error(parsed.error)
+        if (parsed.error) throw new ChatStreamError(parsed.error)
         if (parsed.chunk) onChunk(parsed.chunk)
       } catch (e) { if (e instanceof Error && e.message !== payload) throw e }
     }
@@ -1038,7 +1039,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       })
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return
-      const errMsg = err instanceof Error ? err.message : A.generic_error
+      const errMsg = chatErrorText(err, { generic: A.generic_error, rateLimited: A.err_rate_limited })
       setMessages(prev => {
         const next = [...prev]
         const i    = next.findIndex(m => m.id === newAsstId)
@@ -1051,7 +1052,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       setStreaming(false)
       triggerProfileRefresh()
     }
-  }, [messages, streaming, forceBottom, triggerProfileRefresh, A.generic_error])
+  }, [messages, streaming, forceBottom, triggerProfileRefresh, A.generic_error, A.err_rate_limited])
 
   // ── Send ───────────────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (override?: string) => {
@@ -1098,7 +1099,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       }, capturedAttachments.length ? capturedAttachments : undefined)
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return
-      const msg = err instanceof Error ? err.message : A.generic_error
+      const msg = chatErrorText(err, { generic: A.generic_error, rateLimited: A.err_rate_limited })
       setMessages(prev => {
         const next = [...prev]
         const idx  = next.findIndex(m => m.id === assistantId)
@@ -1123,7 +1124,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
         setTimeout(triggerProfileRefresh, 5000)
       }
     }
-  }, [input, messages, streaming, replyingTo, attachments, forceBottom, triggerProfileRefresh, A.attached_files, A.generic_error, A.replying_to])
+  }, [input, messages, streaming, replyingTo, attachments, forceBottom, triggerProfileRefresh, A.attached_files, A.generic_error, A.replying_to, A.err_rate_limited])
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
