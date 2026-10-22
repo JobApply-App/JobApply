@@ -521,6 +521,58 @@ export interface Dict {
       start: string
       raise: string
     }
+    radar: {
+      arch: string
+      syntax: string
+      blended: string
+      legend_arch: string
+      legend_syntax: string
+      loading: string
+      pending: string
+      categories: {
+        Technical: string
+        Product_Leadership: string
+        Data_Analysis: string
+        Customer_Success: string
+      }
+    }
+    verification: {
+      verified: string
+      orchestration: string
+      baseline: string
+    }
+    sort: {
+      label: string
+      score_desc: string
+      needs_verification: string
+      category: string
+    }
+    filter: {
+      all: string
+      skill: string
+      trait: string
+      domain: string
+      experience: string
+    }
+    verify_mastery: string
+    orch_score: string
+    weight_tip: string
+    weight_tip_basis: string
+    probe: {
+      interview_for: string
+      question: string
+      analysing: string
+      sending: string
+      finish: string
+      next: string
+      ariel_question: string
+      request_failed: string
+      steps: {
+        STAR: string
+        SCOPE: string
+        SIGNAL: string
+      }
+    }
   }
   score_bands: {
     exceptional: string

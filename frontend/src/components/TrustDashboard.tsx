@@ -61,7 +61,7 @@ interface RadarDatum {
 
 const RadarChartLazy = lazy(() =>
   import('recharts').then(m => ({
-    default: function RechartsRadar({ data }: { data: RadarDatum[] }) {
+    default: function RechartsRadar({ data, labels }: { data: RadarDatum[]; labels: Dict['trust']['radar'] }) {
       const { RadarChart, Radar, PolarGrid, PolarAngleAxis, Legend,
               ResponsiveContainer, Tooltip } = m
       const hasSyntax = data.some(d => d.syn_value > 0)
@@ -69,8 +69,8 @@ const RadarChartLazy = lazy(() =>
         <ResponsiveContainer width="100%" height={260}>
           <RadarChart
             data={data}
-            outerRadius={72}
-            margin={{ top: 10, right: 30, bottom: 10, left: 30 }}
+            outerRadius="70%"
+            margin={{ top: 10, right: 44, bottom: 10, left: 44 }}
           >
             <PolarGrid stroke="#E2E8F0" strokeDasharray="3 3" />
             <PolarAngleAxis
@@ -85,8 +85,8 @@ const RadarChartLazy = lazy(() =>
               }}
               formatter={(value: number, name: string) => [
                 `${(value as number).toFixed(1)}`,
-                name === 'arch'   ? 'Architecture' :
-                name === 'syntax' ? 'Syntax (Manual)' : 'Blended',
+                name === 'arch'   ? labels.arch :
+                name === 'syntax' ? labels.syntax : labels.blended,
               ]}
             />
             {/* Architecture — outer teal polygon */}
@@ -109,8 +109,8 @@ const RadarChartLazy = lazy(() =>
               iconType="circle" iconSize={8}
               wrapperStyle={{ fontSize: 10.5, paddingTop: 4 }}
               formatter={(v: string) =>
-                v === 'arch'   ? 'Architecture Confidence' :
-                v === 'syntax' ? 'Syntax Confidence (Manual)' : v
+                v === 'arch'   ? labels.legend_arch :
+                v === 'syntax' ? labels.legend_syntax : v
               }
             />
           </RadarChart>
@@ -153,12 +153,6 @@ export interface ProbeState {
   done:           boolean
   flag_type:      string | null
   new_confidence: number | null
-}
-
-const PROBE_STEP_LABELS: Record<string, [string, string, string, string]> = {
-  STAR:    ['Situation', 'Task',      'Action',     'Result'],
-  SCOPE:   ['Scale',     'Context',   'Trade-off',  'Result'],
-  SIGNAL:  ['Situation', 'Task',      'Action',     'Result'],
 }
 
 function probeMethodFromEntityType(type: EntityType | string | undefined): 'STAR' | 'SCOPE' | 'SIGNAL' {
@@ -324,6 +318,7 @@ function ProgressBar({ score, verificationLevel }: {
   score:              number
   verificationLevel?: string
 }) {
+  const T   = useI18n().t.trust
   const pct = Math.min(100, Math.max(0, score))
   const vl  = verificationLevel ?? 'UNVERIFIED'
 
@@ -334,6 +329,7 @@ function ProgressBar({ score, verificationLevel }: {
       : ['oklch(0.78 0.17 60)',  'oklch(0.65 0.20 40)']   // amber — baseline
 
   const label = VERIFICATION_LABELS[vl] ?? VERIFICATION_LABELS.UNVERIFIED
+  const labelText = T.verification[vl === 'VERIFIED_MANUAL' ? 'verified' : vl === 'ORCHESTRATION_ONLY' ? 'orchestration' : 'baseline']
 
   return (
     <div className="w-full flex items-center gap-2.5 min-w-0">
@@ -366,7 +362,7 @@ function ProgressBar({ score, verificationLevel }: {
           className="text-[10.5px] font-medium leading-tight"
           style={{ color: label.color }}
         >
-          {label.text}
+          {labelText}
         </span>
       </div>
     </div>
@@ -1123,7 +1119,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
       }))
       setAnswer('')
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : 'Request failed')
+      setSendError(err instanceof Error ? err.message : T.probe.request_failed)
     } finally {
       setSending(false)
     }
@@ -1163,7 +1159,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
               </span>
             </div>
             <p className="text-[12px] text-slate-500">
-              {probe.probe_method ?? 'STAR'} Interview for{' '}
+              {T.probe.interview_for.replace('{method}', probe.probe_method ?? 'STAR')}{' '}
               <span className="font-semibold text-slate-700">{probe.entity_name}</span>
             </p>
           </div>
@@ -1181,7 +1177,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
           {/* Progress stepper — 4 labeled steps matching STAR / SCOPE / SIGNAL */}
           {!probe.done && (() => {
             const method = probe.probe_method ?? 'STAR'
-            const stepLabels = PROBE_STEP_LABELS[method] ?? PROBE_STEP_LABELS.STAR
+            const stepLabels = (T.probe.steps[method] ?? T.probe.steps.STAR).split('|')
             return (
               <div className="flex items-start gap-0">
                 {stepLabels.map((label, idx) => {
@@ -1283,7 +1279,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                 style={{ background: 'oklch(0.975 0.00 0)', border: '1px solid oklch(0.93 0.00 0)' }}
               >
                 <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-1.5">
-                  {(PROBE_STEP_LABELS[probe.probe_method ?? 'STAR'] ?? PROBE_STEP_LABELS.STAR)[probe.turn - 1] ?? 'Question'}
+                  {(T.probe.steps[probe.probe_method ?? 'STAR'] ?? T.probe.steps.STAR).split('|')[probe.turn - 1] ?? T.probe.question}
                 </p>
                 <p className="text-[13px] text-slate-700 leading-relaxed">{probe.question}</p>
               </div>
@@ -1393,7 +1389,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                   style={{ background: TOKENS.color.primary, color: '#fff', minWidth: '110px' }}
                 >
                   {sending && !thinkingLong ? <SpinnerIcon s={12} /> : null}
-                  {sending ? (thinkingLong ? 'Analysing…' : 'Sending…') : isLastTurn ? 'Finish' : 'Next →'}
+                  {sending ? (thinkingLong ? T.probe.analysing : T.probe.sending) : isLastTurn ? T.probe.finish : T.probe.next}
                 </button>
               </div>
             </>
@@ -1552,8 +1548,12 @@ function StatRow({
 
 // ── TrustRadarChart ───────────────────────────────────────────────────────────
 
-function TrustRadarChart({ data }: { data: RadarDatum[] }) {
+function TrustRadarChart({ data: raw }: { data: RadarDatum[] }) {
   const T = useI18n().t.trust
+  // Category keys arrive as "Product Leadership" (underscores already
+  // replaced); show them in the UI language.
+  const cats = T.radar.categories as Record<string, string>
+  const data = raw.map(d => ({ ...d, category: cats[d.category.replace(/ /g, '_')] ?? d.category }))
   const hasSyntax = data.some(d => d.syn_value > 0)
   return (
     <div className="flex flex-col items-center">
@@ -1567,22 +1567,25 @@ function TrustRadarChart({ data }: { data: RadarDatum[] }) {
             style={{ background: 'oklch(0.96 0.05 50)', color: 'oklch(0.48 0.14 50)' }}
             title={T.tips.no_verified_yet}
           >
-            ⚠ Pending Ariel Verification
+            {T.radar.pending}
           </span>
         )}
       </div>
-      <div className="relative w-full" style={{ maxWidth: 340 }}>
+      {/* dir="ltr": recharts anchors the side labels with text-anchor
+          start/end, which an RTL page mirrors — in Hebrew both side labels
+          were drawn toward the centre, on top of each other. */}
+      <div className="relative w-full" style={{ maxWidth: 340 }} dir="ltr">
         <Suspense fallback={
           <div
             className="flex items-center justify-center rounded-xl"
             style={{ height: 240, background: 'oklch(0.975 0.00 0)', border: '1px solid oklch(0.93 0.00 0)' }}
           >
             <div className="flex items-center gap-2 text-[12px] text-slate-400">
-              <SpinnerIcon s={14} />Loading chart…
+              <SpinnerIcon s={14} />{T.radar.loading}
             </div>
           </div>
         }>
-          <RadarChartLazy data={data} />
+          <RadarChartLazy data={data} labels={T.radar} />
         </Suspense>
         <span className="absolute top-1 right-2 text-[9.5px] text-slate-300 font-medium">100</span>
       </div>
@@ -1831,13 +1834,13 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: C
                  : vl === 'ORCHESTRATION_ONLY' ? 'var(--ja-primary)'
                  :                               'var(--ja-warn)'
 
-  const categoryLabel = (entity.entity_type ?? 'skill').toUpperCase()
+  const categoryLabel = T.entity[(entity.entity_type ?? 'skill') as EntityType] ?? entity.entity_type
 
   // Dynamic status label with numeric score baked in
   const statusLabel = vl === 'VERIFIED_MANUAL'
     ? null  // pill handles it
     : vl === 'ORCHESTRATION_ONLY'
-      ? `${score} · Orchestration`
+      ? T.orch_score.replace('{score}', score)
       : null  // pill handles it
 
   return (
@@ -1857,10 +1860,10 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: C
           </span>
         )}
         <div className="overflow-hidden min-w-0">
-          <p className="text-[14px] font-semibold text-slate-900 leading-tight overflow-hidden text-ellipsis whitespace-nowrap" title={entity.name}>
+          <p dir="auto" className="text-[14px] font-semibold text-slate-900 leading-tight text-start line-clamp-2 sm:line-clamp-none sm:overflow-hidden sm:text-ellipsis sm:whitespace-nowrap" title={entity.name}>
             {entity.name}
           </p>
-          <p className="text-[10px] font-medium tracking-widest uppercase text-slate-400 mt-0.5">
+          <p className="text-[10.5px] font-medium tracking-wide uppercase text-slate-400 mt-0.5">
             {categoryLabel}
           </p>
         </div>
@@ -1899,9 +1902,9 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: C
             className="pointer-events-none absolute z-20 bottom-full right-0 mb-1.5 w-max max-w-[210px] rounded-lg px-2.5 py-2 text-[11px] leading-snug text-white opacity-0 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100 transition-opacity"
             style={{ background: 'oklch(0.20 0.03 250)', boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }}
           >
-            Confidence Weight: ×{(entity.evidence_multiplier ?? 0.5).toFixed(1)}
+            {T.weight_tip.replace('{mult}', (entity.evidence_multiplier ?? 0.5).toFixed(1))}
             <br />
-            Based on {entity.evidence_count ?? 0} Ariel-verified challenges
+            {T.weight_tip_basis.replace('{count}', String(entity.evidence_count ?? 0))}
           </span>
         </span>
       </div>
@@ -1939,7 +1942,7 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: C
             disabled={probing}
             className="h-11 sm:h-8 px-3.5 rounded-lg text-[12px] font-semibold text-white bg-ja-primary hover:bg-ja-primaryHover transition active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            {probing ? <SpinnerIcon s={12} /> : 'Verify Mastery'}
+            {probing ? <SpinnerIcon s={12} /> : T.verify_mastery}
           </button>
         )}
         {showStrengthen && (
@@ -1948,7 +1951,7 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: C
             disabled={probing}
             className="h-11 sm:h-8 px-3.5 rounded-lg text-[12px] font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 transition active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            {probing ? <SpinnerIcon s={12} /> : 'Strengthen'}
+            {probing ? <SpinnerIcon s={12} /> : T.strengthen}
           </button>
         )}
         {vl === 'VERIFIED_MANUAL' && (
@@ -2278,7 +2281,7 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
                 style={{ background: 'oklch(0.97 0.01 250)', border: '1px solid oklch(0.88 0.04 250)' }}
               >
                 <p className="text-[10px] font-bold tracking-widest uppercase mb-2" style={{ color: 'oklch(0.58 0.12 250)' }}>
-                  Ariel&apos;s question
+                  {T.probe.ariel_question}
                 </p>
                 <p className="text-[13.5px] text-slate-800 leading-relaxed font-medium">
                   {session.first_prompt}
@@ -2470,17 +2473,17 @@ export function CapabilitiesList({ userId, className = '' }: { userId: string; c
         {/* Sort group */}
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-bold tracking-widest uppercase text-slate-400 pr-1">
-            Sort
+            {T.sort.label}
           </span>
           {([
-            ['score_desc',        'Highest Score'],
-            ['needs_verification','Validate First'],
-            ['category',         'Category'],
+            ['score_desc',        T.sort.score_desc],
+            ['needs_verification', T.sort.needs_verification],
+            ['category',          T.sort.category],
           ] as [typeof sort, string][]).map(([val, label]) => (
             <button
               key={val}
               onClick={() => setSort(val)}
-              className="h-7 px-3 rounded-lg text-[11.5px] font-medium transition"
+              className="h-9 sm:h-7 px-3 rounded-lg text-[12.5px] sm:text-[11.5px] font-medium transition"
               style={
                 sort === val
                   ? { background: '#0D9488', color: '#fff' }
@@ -2504,14 +2507,14 @@ export function CapabilitiesList({ userId, className = '' }: { userId: string; c
               <button
                 key={tab.value}
                 onClick={() => setFilter(tab.value)}
-                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-[11.5px] font-medium transition"
+                className="inline-flex items-center gap-1.5 h-9 sm:h-7 px-3 rounded-lg text-[12.5px] sm:text-[11.5px] font-medium transition"
                 style={
                   active
                     ? { background: '#0D9488', color: '#fff' }
                     : { color: '#64748B' }
                 }
               >
-                {tab.label}
+                {T.filter[tab.value]}
                 <span
                   className="h-[16px] min-w-[16px] px-1 rounded-full text-[9px] font-bold tabular-nums inline-flex items-center justify-center"
                   style={
