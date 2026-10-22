@@ -275,8 +275,41 @@ export async function fetchJobs(
   return get<ApiJobMatch[]>(`/api/jobs/?filter=${filter}&sort=${sort}`)
 }
 
+type AnalyzeTaskStatus =
+  | { status: 'pending'; elapsed_s: number }
+  | { status: 'done'; result: ApiFeedJob }
+  | { status: 'error'; detail: unknown; status_code: number }
+
+const _ANALYZE_POLL_MS = 2500
+const _ANALYZE_MAX_MS  = 5 * 60_000
+
+/**
+ * Analyse a job URL and resolve with the finished JobMatch.
+ *
+ * The pipeline (scrape + three LLM steps) runs as a server-side task: the
+ * Vercel proxy cuts a single request off long before a slow analysis ends,
+ * and the job is persisted by the server whether or not anyone is still
+ * polling — leaving the screen no longer loses the result.
+ */
 export async function startAnalysis(url: string): Promise<ApiFeedJob> {
-  return post<AnalyzeRequest, ApiFeedJob>('/api/jobs/analyze', { url })
+  const { task_id } = await post<AnalyzeRequest, { task_id: string }>('/api/jobs/analyze/start', { url })
+  const deadline = Date.now() + _ANALYZE_MAX_MS
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, _ANALYZE_POLL_MS))
+    let s: AnalyzeTaskStatus
+    try {
+      s = await get<AnalyzeTaskStatus>(`/api/jobs/analyze/status/${task_id}`)
+    } catch (err) {
+      // A blip on one poll is not a failed analysis; the task keeps running.
+      if (err instanceof Error && /Unknown or expired task/.test(err.message)) throw err
+      continue
+    }
+    if (s.status === 'done') return s.result
+    if (s.status === 'error') {
+      throw new Error(typeof s.detail === 'string' && s.detail ? s.detail : `Analysis failed (${s.status_code})`)
+    }
+  }
+  throw new Error('Request timed out — the server is taking longer than expected. Please try again.')
 }
 
 export async function fetchTemplates(): Promise<import('./apiTypes').TemplateInfo[]> {
