@@ -94,3 +94,42 @@ def test_has_tailored_cv_without_reading_the_cv(db_available):
         assert job_store.get_by_id(jid, _QA_USER_A).has_tailored_cv is True
     finally:
         _cleanup([jid])
+
+
+def test_feed_ships_a_jd_preview_not_the_whole_text(db_available):
+    from backend.core.postgres import PG_ENGINE
+    from backend.repositories import job_repository as job_store
+
+    jid = f"prev-{_uid()[:8]}"
+    job = _make_job(jid, _QA_USER_A, match_score=77.0)
+    job_store.save_with_source_priority(job)
+    try:
+        with PG_ENGINE.begin() as conn:
+            conn.execute(text(
+                "UPDATE public.user_job_matches SET fit_brief = 'Strong fit', score_is_proxy = false "
+                "WHERE job_id = :j AND user_id = CAST(:u AS uuid)"
+            ), {"j": jid, "u": _QA_USER_A})
+            conn.execute(text(
+                "UPDATE public.job_postings SET jd_text = :jd, jd_structured = CAST(:js AS jsonb) WHERE id = "
+                "(SELECT job_posting_id FROM public.user_job_matches WHERE job_id = :j AND user_id = CAST(:u AS uuid))"
+            ), {"jd": "x" * 5000, "js": json.dumps({"summary": "s"}), "j": jid, "u": _QA_USER_A})
+
+        listed = next(j for j in job_store.get_ready_feed(_QA_USER_A, limit=200) if j.job_id == jid)
+        assert len(listed.jd_text) == 400 and listed.jd_structured
+        assert len(job_store.get_by_id(jid, _QA_USER_A).jd_text) == 5000   # full text on demand
+    finally:
+        _cleanup([jid])
+
+
+def test_contains_url_is_a_cheap_existence_check(db_available):
+    from backend.repositories import job_repository as job_store
+
+    jid = f"url-{_uid()[:8]}"
+    url = f"https://example.com/{jid}"
+    assert job_store.contains_url(url, _QA_USER_A) is False
+    job_store.save_with_source_priority(_make_job(jid, _QA_USER_A, match_score=10.0, apply_url=url))
+    try:
+        assert job_store.contains_url(url, _QA_USER_A) is True
+        assert job_store.contains_url(url, "00000000-0000-0000-0000-000000000000") is False
+    finally:
+        _cleanup([jid])

@@ -91,12 +91,23 @@ def sweep(uid, monkeypatch):
     calls, failures = [], []
 
     feed_reads = []
+
+    def _candidates(user_id, min_chars):
+        feed_reads.append(user_id)
+        return [SimpleNamespace(
+            job_id=j.job_id, title=j.title, company=j.company, apply_url=j.apply_url,
+            match_score=j.match_score, score=j.score, posted_at=j.posted_at,
+            score_is_proxy=j.score_is_proxy, enrichment_failures=j.enrichment_failures,
+            fit_brief_missing=True, jd_thin=False,
+        ) for j in jobs]
     monkeypatch.setattr(feed_service.job_store, "get_feed", lambda user_id: feed_reads.append(user_id) or jobs)
+    monkeypatch.setattr(feed_service.job_store, "get_enrichment_candidates", _candidates)
     monkeypatch.setattr(
         feed_service.job_store, "get_by_id",
         lambda job_id, user_id: next((j for j in jobs if j.job_id == job_id), None),
     )
     monkeypatch.setattr(feed_service, "_needs_enrichment", lambda j: True)
+    monkeypatch.setattr(feed_service, "_needs_enrichment_fields", lambda **k: True)
     monkeypatch.setattr(feed_service, "_build_profile_cv_proxy", lambda *a, **k: {})
     monkeypatch.setattr("backend.services.user_profile.get_profile", lambda user_id: {})
     monkeypatch.setattr("backend.services.master_profile_service.get_skill_proficiencies", lambda user_id: {})
