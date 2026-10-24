@@ -43,27 +43,25 @@ function KpiCard({
 }) {
   return (
     <div
-      className="flex-1 bg-white rounded-xl border border-slate-100 shadow-elevation-1 hover:shadow-elevation-2 transition-all duration-200"
-      style={{ minWidth: 180, padding: '20px 24px 18px' }}
+      className="flex-1 min-w-0 sm:min-w-[180px] bg-white rounded-xl border border-slate-100 shadow-elevation-1 hover:shadow-elevation-2 transition-all duration-200 px-3 py-3.5 sm:px-6 sm:pt-5 sm:pb-[18px]"
     >
       {/* Label row */}
-      <div style={{ marginBottom: 10 }}>
-        <p style={{
-          fontSize: 10.5, fontWeight: 700, letterSpacing: '0.9px',
-          textTransform: 'uppercase', color: TOKENS.color.muted,
-          margin: 0,
-        }}>
+      <div className="mb-2 sm:mb-2.5">
+        <p
+          className="text-[11.5px] sm:text-[10.5px] font-bold sm:uppercase sm:tracking-[0.9px] leading-snug m-0"
+          style={{ color: TOKENS.color.muted }}
+        >
           {label}
         </p>
       </div>
 
       {/* Value */}
-      <p style={{ fontSize: 32, fontWeight: 800, color: accentColor, lineHeight: 1, marginBottom: 6 }}>
+      <p className="text-[24px] sm:text-[32px] font-extrabold leading-none mb-1.5" style={{ color: accentColor }}>
         {value}
       </p>
 
-      {/* Sub-label */}
-      <p style={{ fontSize: 11.5, color: TOKENS.color.subtle, lineHeight: 1.45 }}>
+      {/* Sub-label — desktop only; on a phone three cards share one row */}
+      <p className="hidden sm:block text-[11.5px] leading-[1.45]" style={{ color: TOKENS.color.subtle }}>
         {sub}
       </p>
     </div>
@@ -175,8 +173,7 @@ function CompanyRow({
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div
-      className="flex-1 bg-white rounded-xl border border-slate-100 shadow-elevation-1"
-      style={{ minWidth: 300, padding: '22px 26px' }}
+      className="flex-1 basis-full md:basis-0 min-w-0 md:min-w-[300px] bg-white rounded-xl border border-slate-100 shadow-elevation-1 px-4 py-5 sm:px-[26px] sm:py-[22px]"
     >
       <p style={{
         fontSize: 10, fontWeight: 700, letterSpacing: '1.3px',
@@ -334,7 +331,9 @@ export function AnalyticsDashboard({ onGoToMatches }: { onGoToMatches?: () => vo
       </div>
 
       {/* ── KPI cards ── */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+      {/* Three across on every width — stacked on a phone they took a full
+          screen before anything else. */}
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-[14px]">
         <KpiCard
           label={N.kpi_total}
           value={data.total_applications}
@@ -349,7 +348,7 @@ export function AnalyticsDashboard({ onGoToMatches }: { onGoToMatches?: () => vo
         />
         <KpiCard
           label={N.kpi_rate}
-          value={`${data.interview_conversion_rate}%`}
+          value={`${Number(data.interview_conversion_rate ?? 0).toFixed(1)}%`}
           sub={N.kpi_rate_sub}
           accentColor={
             data.interview_conversion_rate >= 20
