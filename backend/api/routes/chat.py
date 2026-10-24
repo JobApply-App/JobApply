@@ -1028,10 +1028,12 @@ def _build_message_with_attachments(
 
     • Images  → vision content block (base64 source).
     • Docs    → extracted text appended to the message string.
+    • PDFs with no text layer (scans, flattened design exports) → the PDF
+      itself as a document block, which both providers read.
     • Others  → silently skipped.
 
-    Returns a plain string when no image blocks are present (cheaper), or a
-    list[dict] content block when at least one image is included.
+    Returns a plain string when no image/document blocks are present
+    (cheaper), or a list[dict] content block when at least one is included.
     """
     import base64
 
@@ -1055,6 +1057,16 @@ def _build_message_with_attachments(
                 doc_texts.append(
                     f"--- Attached file: {item.filename} ---\n{extracted}\n--- End of {item.filename} ---"
                 )
+            elif mime == "application/pdf":
+                # No text layer — a scan, or a design-tool export (Canva) that
+                # flattened the page into one image. It used to be dropped
+                # here, so Ariel was told to look at a file she never got and
+                # asked the user for what the CV already said. Both providers
+                # read PDFs directly; pass the file itself.
+                image_blocks.append({
+                    "type":   "document",
+                    "source": {"type": "base64", "media_type": "application/pdf", "data": item.base64},
+                })
 
     # Compose the final user text
     text_parts = [base_text]
@@ -1137,11 +1149,17 @@ def _ingest_cv_from_chat(user_id: str, item: AttachmentItem) -> None:
         # Step 1 — decode
         raw_bytes = base64.b64decode(item.base64)
 
-        # Step 2 — extract text
+        # Step 2 — extract text; OCR a PDF with no text layer, exactly as the
+        # profile upload route does. Without this, a CV exported as a single
+        # image (Canva's flattened PDFs, scans) was silently skipped here and
+        # never reached the profile.
         text = extract_text(raw_bytes, item.filename)
+        if not text.strip() and raw_bytes[:1024].lstrip().startswith(b"%PDF"):
+            from backend.services.cv_aggregator_service import ocr_pdf
+            text = asyncio.run(ocr_pdf(raw_bytes, item.filename, user_id))
         if not text.strip():
             logger.warning(
-                "[chat/cv-ingest] No text extracted from %s — skipping ingestion",
+                "[chat/cv-ingest] No text extracted from %s (OCR included) — skipping ingestion",
                 item.filename,
             )
             return
