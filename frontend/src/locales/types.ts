@@ -1046,9 +1046,11 @@ export interface Dict {
   mockup: {
     strong_match:    string
     ats_gap_title:   string
-    missing_prefix:  string   // "Missing from LinkedIn (3) —"
-    missing_suffix:  string   // "add to your Skills section"
-    present_prefix:  string   // "Already in your profile (5)"
+    missing_label:   string   // "{n}" = count of missing keywords
+    present_label:   string   // "{n}" = count already in the profile
+    coverage_hint:   string   // "{pct}" = share of the job's keywords already present
+    sample_caption:  string
+    score_hint:      string
     tailored_title:  string
     ai_written_sub:  string
     missing_kw:      string

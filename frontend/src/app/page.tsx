@@ -401,6 +401,10 @@ function ATSMockup() {
   const { t } = useI18n()
   return (
     <div className="mx-auto mt-14 max-w-[560px] space-y-8">
+      {/* A tester read the mockup below as real numbers and a real job she
+          was supposed to act on (and clicked its arrow, which did nothing).
+          Say what it is; the arrow is gone. */}
+      <p className="text-center text-[12px] font-medium text-slate-400">{t.mockup.sample_caption}</p>
 
       {/* KPI strip — no boxes, no borders, pure typography from Overview.tsx */}
       <div className="grid grid-cols-3 gap-8 px-2">
@@ -410,7 +414,8 @@ function ATSMockup() {
           { label: t.mockup.kpi_tailored, value: '3',  sub: t.mockup.kpi_tailored_sub, accent: TOKENS.color.violet  },
         ].map(stat => (
           <div key={stat.label} className="flex flex-col min-w-0">
-            <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-slate-400 mb-1">
+            {/* Two-line slot so the numbers line up even when one label wraps. */}
+            <span className="min-h-[2.6em] text-[11px] font-semibold sm:uppercase sm:tracking-[0.12em] leading-tight text-slate-400 mb-1">
               {stat.label}
             </span>
             <span className="text-[38px] font-semibold tabular-nums leading-none tracking-tight text-slate-900 mb-1">
@@ -445,12 +450,8 @@ function ATSMockup() {
           <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">88.0</span>
           <span className="text-[10px] font-semibold text-slate-400 ml-0.5">/100</span>
         </div>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-          className="shrink-0 text-slate-300">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
       </article>
+      <p className="-mt-5 text-center text-[11.5px] text-slate-400 leading-relaxed">{t.mockup.score_hint}</p>
 
     </div>
   )
@@ -497,11 +498,6 @@ function FeedMockup() {
             </span>
             <span className="text-[10px] font-semibold text-slate-400 ml-0.5">/100</span>
           </div>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-            className="shrink-0 text-slate-300">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
         </article>
       ))}
       <p className="text-[11px] text-center text-slate-400 pt-1">
@@ -542,10 +538,14 @@ function KeywordChipsMockup() {
         </span>
       </div>
       <div className="px-4 py-4 flex flex-col gap-4">
-        {/* Missing keywords */}
+        <p className="text-[11.5px] text-slate-500 -mb-1">
+          {t.mockup.coverage_hint.replace('{pct}', String(coverage))}
+        </p>
+        {/* Missing keywords — counts come from the lists (they were hardcoded
+            "(3)" and "(5)" next to four and six chips) */}
         <div>
           <p className="text-[11.5px] font-semibold text-amber-700 mb-2">
-            {t.mockup.missing_prefix} {t.mockup.missing_suffix}
+            {t.mockup.missing_label.replace('{n}', String(missing.length))}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {missing.map(kw => (
@@ -559,7 +559,7 @@ function KeywordChipsMockup() {
         {/* Present keywords */}
         <div>
           <p className="text-[11.5px] font-semibold text-emerald-700 mb-2">
-            {t.mockup.present_prefix}
+            {t.mockup.present_label.replace('{n}', String(present.length))}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {present.map(kw => (
@@ -1002,17 +1002,19 @@ function LandingPage() {
           <h2 className="text-3xl font-bold text-slate-900 tracking-tight text-center mb-12">
             {l.bento.h2_l1}<br />{l.bento.h2_l2}
           </h2>
-          <div className="ja-animate-section grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" data-delay="0ms">
+          {/* Phones: icon beside the title and tighter padding — six full
+              cards stacked were a long scroll for little text (tester note). */}
+          <div className="ja-animate-section grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5" data-delay="0ms">
             {l.bento.cards.map((card, i) => (
               <div
                 key={card.title}
-                className="bg-white rounded-2xl border border-slate-100 p-6"
+                className="bg-white rounded-2xl border border-slate-100 p-4 sm:p-6 grid grid-cols-[auto_1fr] sm:block gap-x-3 items-start"
                 style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.02), 0 20px 40px rgba(0,0,0,0.03)' }}
               >
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-4 bg-ja-primarySubtle text-teal-700">
+                <div className="row-span-2 w-9 h-9 rounded-xl flex items-center justify-center sm:mb-4 bg-ja-primarySubtle text-teal-700">
                   {bentoIcons[i]}
                 </div>
-                <h3 className="text-[15px] font-bold text-slate-900 tracking-tight mb-2">{card.title}</h3>
+                <h3 className="text-[15px] font-bold text-slate-900 tracking-tight mb-1 sm:mb-2">{card.title}</h3>
                 <p className="text-[13px] text-slate-500 leading-relaxed">{card.body}</p>
               </div>
             ))}

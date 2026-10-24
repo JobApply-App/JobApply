@@ -39,7 +39,7 @@ export const en = {
       step:  'Step 02: Analyse',
       h2_l1: 'See exactly what\'s missing',
       h2_l2: 'before you apply',
-      body:  'Our ATS engine dissects every job description and compares it against your profile. You get a 0-100 score and a clear breakdown: what\'s present, what\'s missing, and what matters most.',
+      body:  'We break down every job description and compare it with your profile — the way the automatic screening systems (ATS) companies use to filter CVs do. You get a 0-100 score and a clear breakdown: what\'s present, what\'s missing, and what matters most.',
       bullets: [
         'Semantic analysis, not just exact keyword matching',
         'Scores management depth and seniority trajectory',
@@ -50,7 +50,7 @@ export const en = {
       step:  'Step 03: Tailor',
       h2_l1: 'A role-specific resume',
       h2_l2: 'in one click',
-      body:  'AI bridges the gaps and rewrites your CV, preserving your voice, weaving in the missing keywords, and producing a perfectly formatted, ATS-safe PDF ready to submit.',
+      body:  'AI bridges the gaps and rewrites your CV, preserving your voice, weaving in the missing keywords, and producing a cleanly formatted PDF that automatic screening systems (ATS) read without trouble.',
       bullets: [
         'Three ATS-safe templates to choose from',
         'Live editor for manual tweaks before export',
@@ -1124,10 +1124,12 @@ export const en = {
 
   mockup: {
     strong_match:   'Strong Match',
-    ats_gap_title:  'ATS Keyword Gap',
-    missing_prefix: 'Missing from LinkedIn (3):',
-    missing_suffix: 'add to your Skills section',
-    present_prefix: 'Already in your profile (5) ✓',
+    ats_gap_title:  'Keyword match for this job',
+    missing_label:  'Missing from your CV ({n}) — worth adding',
+    present_label:  'Already in your profile ({n}) ✓',
+    coverage_hint:  '{pct}% of this job\'s keywords already appear in your profile',
+    sample_caption: 'A sample of what you\'ll see inside',
+    score_hint:     'The score (0–100) is how well the job fits your profile. The green dot marks a new job.',
     tailored_title: 'Tailored CV Preview',
     ai_written_sub: 'AI-written · single-page A4',
     missing_kw:     'Missing keywords',
