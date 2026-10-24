@@ -4,23 +4,23 @@ export const en = {
   landing: {
     nav: {
       sign_in:     'Sign in',
-      get_started: 'Get started free',
+      get_started: 'Get started',
     },
     hero: {
       eyebrow:        'AI-Powered Job Search · 24/7 Autonomous',
       h1_line1:       'Stop sending resumes into the void.',
       h1_line2:       'Get interviews.',
       sub:            'JobApply scans 24/7, pinpoints the exact gaps between your profile and every job, and generates a tailored, ATS-safe resume in one click. You land the interview, not the rejection.',
-      cta_primary:    'Start for free',
+      cta_primary:    'Get started',
       cta_secondary:  'See how it works',
-      no_credit_card: 'No credit card required · Cancel anytime',
+      no_credit_card: 'Built for the Israeli job market · Hebrew & English',
     },
     social_proof: {
       heading: 'By the numbers',
       stats: [
-        { num: '10,000+', label: 'CVs tailored'          },
+        { num: '8,000+',  label: 'Jobs in our scanned catalog' },
         { num: '95%',     label: 'Interview rate'        },
-        { num: '< 10s',   label: 'Average CV turnaround' },
+        { num: '< 1 min', label: 'To a CV tailored to the job' },
         { num: '24/7',    label: 'Autonomous scanning'   },
       ],
     },
@@ -28,11 +28,11 @@ export const en = {
       step:  'Step 01: Discover',
       h2_l1: 'Your agent works',
       h2_l2: 'while you sleep',
-      body:  'Our AI agent scans LinkedIn, Glassdoor, and company career pages every hour, returning only the roles that genuinely fit, ranked by your personal match score.',
+      body:  'Our AI agent scans LinkedIn, AllJobs, Drushim and company career pages, returning only the roles that genuinely fit, ranked by your personal match score.',
       bullets: [
         'Searches multiple sources simultaneously',
         'Filters duplicates and irrelevant postings',
-        'Refreshes your feed every hour automatically',
+        'Refreshes your feed automatically every few hours',
       ],
     },
     section_b: {
@@ -63,17 +63,17 @@ export const en = {
       h2_l2:   'job search',
       cards: [
         { title: 'Complete Privacy',      body: 'Your data is never sold or used for advertising. You own it, always.' },
-        { title: 'Lightning Fast',        body: 'Full job analysis in 3 seconds. Tailored CV generated in under 10 seconds.' },
-        { title: 'Multi-Platform',        body: 'LinkedIn, Glassdoor, company sites, and more. All in one feed.' },
-        { title: '1-Click Cover Letter',  body: 'AI drafts a role-specific cover letter in your voice, every time.' },
+        { title: 'Saves Hours',           body: 'A deep analysis of every job in about a minute, and a tailored CV in one click.' },
+        { title: 'Multi-Platform',        body: 'LinkedIn, AllJobs, Drushim, company sites and more. All in one feed.' },
+        { title: '1-Click Recruiter Outreach', body: 'AI drafts a personal message to the recruiter or hiring manager for every role, in your voice.' },
         { title: 'Application Tracker',  body: 'Track every submission, status, and follow-up in one clean view.' },
         { title: 'Master Profile',        body: 'Save your experience, skills, and achievements once. JobApply adapts them to every role automatically.' },
       ],
     },
     cta_final: {
       h2:     'Ready to stop guessing?',
-      body:   'Join thousands of candidates who land more interviews with less effort. Start free, no credit card required.',
-      button: 'Get started for free',
+      body:   'Accurate matches, a CV tailored to every job, and Ariel by your side the whole way. Less guessing, more interviews.',
+      button: 'Get started',
     },
     footer: {
       cols: [
@@ -1035,7 +1035,7 @@ export const en = {
 
   signup: {
     page: {
-      hero_eyebrow:          'Join thousands of professionals',
+      hero_eyebrow:          'Your next job search starts here',
       back_to_login:         'Back to login',
       back:                  'Back',
       log_in:                'Log in',
@@ -1134,7 +1134,7 @@ export const en = {
     ai_written_sub: 'AI-written · single-page A4',
     missing_kw:     'Missing keywords',
     cv_copilot:     'CV Copilot',
-    auto_refreshes: 'Auto-refreshes every hour · 3 new matches since yesterday',
+    auto_refreshes: 'Auto-refreshes every few hours · 3 new matches since yesterday',
     coverage_label: 'Senior PM · Fiverr',
     kpi_scanned: 'Jobs scanned today',
     kpi_scanned_sub: 'New roles discovered by agents',

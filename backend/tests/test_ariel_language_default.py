@@ -47,3 +47,10 @@ def test_an_unknown_client_value_falls_back_to_the_stored_one(monkeypatch):
     _locale(monkeypatch, "en")
     note = chat._ariel_language_note("00000000-0000-0000-0000-000000000001", "xx")
     assert "interface language is English" in note
+
+
+def test_eliya_never_calls_the_product_free():
+    """Pricing isn't published and the product won't be free — Eliya must not say it is."""
+    prompt = chat._ELIYA_SYSTEM_PROMPT
+    assert "free account" not in prompt
+    assert "Never say or imply that JobApply is free" in prompt
