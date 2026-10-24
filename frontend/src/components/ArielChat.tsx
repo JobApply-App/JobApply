@@ -648,7 +648,11 @@ async function consumeStream(
   onChunk:     (delta: string) => void,
   attachments?: FileAttachment[],
 ) {
-  const body: Record<string, unknown> = { message, chat_history: history }
+  // The UI language Ariel should default to (set on <html lang> by I18nContext).
+  // The stored preference exists only for users who once toggled language;
+  // this covers everyone else.
+  const uiLocale = typeof document !== 'undefined' ? document.documentElement.lang : ''
+  const body: Record<string, unknown> = { message, chat_history: history, ui_locale: uiLocale || undefined }
   if (attachments?.length) {
     body.attachments = attachments.map(a => ({
       base64:   a.base64,
