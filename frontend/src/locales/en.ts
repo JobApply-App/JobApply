@@ -1155,7 +1155,7 @@ export const en = {
     tpl_compact: 'Compact',
   },
   cv_upload_errors: {
-    no_text:            "We couldn't read any text in this file. It looks like a scanned image — please upload a PDF exported from Word or Google Docs, or a DOCX file.",
+    no_text:            "We couldn't read the text in this file, even after trying to read it as an image. Please try a PDF exported from Word or Google Docs, or a DOCX file.",
     unsupported_format: 'Only PDF or DOCX files are supported. If your CV is in another format (e.g. .doc or an image), save it as PDF or DOCX and try again.',
     too_large:          'The file is too large (max 10 MB).',
     too_many_files:     'Too many files — upload up to 10 at a time.',

@@ -1199,7 +1199,7 @@ export const he = {
     tpl_compact: 'דחוס',
   },
   cv_upload_errors: {
-    no_text:            'לא הצלחנו לקרוא טקסט מהקובץ. נראה שזו תמונה סרוקה — העלו PDF שיוצא מ-Word או Google Docs, או קובץ DOCX.',
+    no_text:            'לא הצלחנו לקרוא את הטקסט בקובץ, גם אחרי ניסיון לקרוא אותו כתמונה. נסו PDF שיוצא מ-Word או Google Docs, או קובץ DOCX.',
     unsupported_format: 'אפשר להעלות רק קובצי PDF או DOCX. אם קורות החיים בפורמט אחר (למשל ‎.doc או תמונה), שמרו אותם כ-PDF או DOCX ונסו שוב.',
     too_large:          'הקובץ גדול מדי (עד 10MB).',
     too_many_files:     'יותר מדי קבצים — אפשר להעלות עד 10 בבת אחת.',
