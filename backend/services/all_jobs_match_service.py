@@ -142,7 +142,9 @@ def _existing_job_ids(user_id: str) -> set[str]:
 # every user in a cycle, so it is loaded once and reused for a few minutes
 # instead of re-read from Postgres per user. Re-reading it per user — ~8.6k
 # rows over a cross-region connection — was most of a ~23s per-user cycle.
-_INDEX_TTL_S = 600.0
+# Kept for one loop interval: the loop is the main reader, and reloading the
+# index more often than the catalog changes was pure database egress.
+_INDEX_TTL_S = 21600.0
 _INDEX_CACHE: dict = {"at": 0.0, "rows": None}
 
 
@@ -294,7 +296,7 @@ def schedule_refresh_for_user(user_id: str) -> None:
     """
     Fire-and-forget: refresh this user's title terms and run one matching
     cycle now, instead of leaving them on the old filter until the next
-    30-minute loop tick. Called after a CV upload or a roles change.
+    6-hour loop tick. Called after a CV upload or a roles change.
 
     Only for users already in the pipeline (onboarding complete) — the same
     gate the background loop applies, so this never feeds anyone the loop

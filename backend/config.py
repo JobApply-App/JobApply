@@ -436,7 +436,14 @@ DISCOVERY_INTERVAL_SECONDS: int = 300  # 5 minutes — pre-launch value
 # copies metadata + relevancy-filters (no LLM calls of its own — the existing
 # enrichment loop scores whatever it inserts), so it can run far more often
 # than DISCOVERY_INTERVAL_SECONDS without adding to the LLM credit budget.
-ALL_JOBS_MATCHING_INTERVAL_SECONDS: int = 1800  # 30 minutes
+#
+# 6 hours, was 30 minutes (2026-10-24). It costs no LLM credit but it does
+# cost database egress: each cycle reloads the catalog index (~8.5k rows) and
+# every user's existing ids/keys, ~150 MB/day at 30 minutes against a free
+# plan budget of ~160 MB/day for everything. The catalog itself only changes
+# a few times a day, and a user who finishes onboarding or changes roles still
+# gets an immediate cycle (all_jobs_match_service.schedule_refresh_for_user).
+ALL_JOBS_MATCHING_INTERVAL_SECONDS: int = 21600  # 6 hours
 
 # ── Development mode ──────────────────────────────────────────────────────────
 # When DEV_MODE is True, each board scraper is capped at DEV_MAX_JOBS_PER_BOARD
