@@ -429,6 +429,7 @@ function KanbanColumn({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ApplicationsKanban({ onRefresh }: { onRefresh?: () => void }) {
+  const C = useI18n().t.common
   const { A, ALL_STAGES } = useStages()
   const { locale } = useI18n()
   const [board,    setBoard]    = useState<CrmBoard | null>(null)
@@ -669,7 +670,7 @@ export function ApplicationsKanban({ onRefresh }: { onRefresh?: () => void }) {
               }}
               className="shrink-0 h-6 px-2.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[11.5px] font-semibold transition active:scale-95"
             >
-              Undo
+              {C.undo}
             </button>
           )}
         </div>

@@ -4,6 +4,17 @@
 // TypeScript enforces this at compile time via the `satisfies Dict` check.
 
 export interface Dict {
+  common: {
+    undo: string
+    retry: string
+    sort: string
+    template: string
+    not_applied: string
+    cv_copilot: string
+    support: string
+    terms: string
+    privacy: string
+  }
   landing: {
     nav: {
       sign_in:     string

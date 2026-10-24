@@ -1,6 +1,17 @@
 import type { Dict } from './types'
 
 export const he = {
+  common: {
+    undo: 'ביטול',
+    retry: 'ניסיון חוזר',
+    sort: 'מיון',
+    template: 'תבנית',
+    not_applied: 'לא הוגש · ',
+    cv_copilot: 'עוזר קו״ח',
+    support: 'תמיכה',
+    terms: 'תנאי שימוש',
+    privacy: 'פרטיות',
+  },
   landing: {
     nav: {
       sign_in:     'כניסה',

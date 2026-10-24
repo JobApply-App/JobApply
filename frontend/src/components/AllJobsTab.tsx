@@ -376,6 +376,7 @@ function FilterBar({
   sortBy: AllJobsSortBy
   onSortChange: (value: AllJobsSortBy) => void
 }) {
+  const C = useI18n().t.common
   const AJ = useI18n().t.all_jobs
   return (
     <div className="flex flex-wrap items-center gap-2 pb-1">
@@ -448,7 +449,7 @@ function FilterBar({
       </div>
 
       <label className="flex items-center gap-1.5 text-[12px] text-slate-500 ml-auto">
-        Sort
+        {C.sort}
         <select
           value={sortBy}
           onChange={(e) => onSortChange(e.target.value as AllJobsSortBy)}

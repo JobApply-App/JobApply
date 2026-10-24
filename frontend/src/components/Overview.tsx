@@ -192,6 +192,7 @@ function AnalyticsErrorBanner({ rateLimited, onRetry }: {
   onRetry:     () => void
 }) {
   const O = useI18n().t.overview
+  const C = useI18n().t.common
   return (
     <div
       className="rounded-xl px-4 py-3 flex items-center gap-3"
@@ -208,7 +209,7 @@ function AnalyticsErrorBanner({ rateLimited, onRetry }: {
         onClick={onRetry}
         className="shrink-0 text-[12px] font-semibold text-slate-600 hover:text-slate-900 underline underline-offset-2 transition-colors"
       >
-        Retry
+        {C.retry}
       </button>
     </div>
   )

@@ -9,6 +9,7 @@ import { Header } from '@/components/Header'
 import { CapabilitiesList } from '@/components/TrustDashboard'
 
 function CapabilitiesFooter() {
+  const C = useI18n().t.common
   const { openEliya } = useChat()
 
   return (
@@ -22,19 +23,19 @@ function CapabilitiesFooter() {
             href="mailto:support@jobapply.ai"
             className="hover:text-slate-200 transition-colors"
           >
-            Support
+            {C.support}
           </a>
           <a
             href="/terms"
             className="hover:text-slate-200 transition-colors"
           >
-            Terms
+            {C.terms}
           </a>
           <a
             href="/privacy"
             className="hover:text-slate-200 transition-colors"
           >
-            Privacy
+            {C.privacy}
           </a>
           <button
             onClick={openEliya}

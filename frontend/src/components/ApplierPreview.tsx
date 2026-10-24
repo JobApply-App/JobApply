@@ -284,10 +284,11 @@ function MissingDataForm({
 // ── Banners ───────────────────────────────────────────────────────────────────
 
 function GatekeeperBanner({ message }: { message: string }) {
+  const C = useI18n().t.common
   return (
     <div className="rounded-xl px-3.5 py-3 mb-4 text-[12px] leading-relaxed"
       style={{ background: 'oklch(0.97 0.03 80)', border: '1px solid oklch(0.90 0.06 80)', color: 'oklch(0.40 0.12 60)' }}>
-      <span className="font-semibold">Not applied · </span>{message}
+      <span className="font-semibold">{C.not_applied}</span>{message}
     </div>
   )
 }
@@ -345,6 +346,7 @@ export interface ApplierPreviewProps {
 }
 
 export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPreviewProps) {
+  const C = useI18n().t.common
   const A = useI18n().t.applier
   const { locale } = useI18n()
 
@@ -1015,7 +1017,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
               marginBottom: 12,
             }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: TOKENS.color.primary, marginBottom: 7, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
-                CV Copilot
+                {C.cv_copilot}
               </p>
 
               {/* Agent feedback bubble (warning / rejected) */}
