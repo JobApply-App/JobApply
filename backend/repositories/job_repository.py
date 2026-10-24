@@ -133,7 +133,11 @@ _SELECT_JOINED = """
         ujm.culture_category, ujm.culture_note, ujm.trajectory_alignment,
         ujm.company_dna_inference, ujm.investigation_points, ujm.detailed_analysis,
         ujm.reasons, ujm.fit_brief, ujm.scoring_rationale, ujm.category,
-        ujm.tailored_cv, ujm.applied, ujm.applied_at, ujm.status, ujm.is_new,
+        -- Only whether a tailored CV exists (has_tailored_cv). Selecting the
+        -- document itself shipped a whole CV per row on every feed read;
+        -- get_tailored_cv() reads it when it is actually needed.
+        (ujm.tailored_cv IS NOT NULL AND ujm.tailored_cv NOT IN ('null'::jsonb, '{}'::jsonb)) AS tailored_cv,
+        ujm.applied, ujm.applied_at, ujm.status, ujm.is_new,
         ujm.score_is_proxy, ujm.enrichment_failures, ujm.outreach_text,
         ujm.created_at AS match_created_at,
         jp.id AS job_posting_id, jp.title, jp.company, jp.location, jp.jd_text,
@@ -629,6 +633,43 @@ def get_feed(user_id: str, status_filter: Optional[str] = None) -> List[JobMatch
             ),
             reverse=True,
         )
+        jobs = [_row_to_jobmatch(r) for r in rows]
+        for job in jobs:
+            job.is_direct_application = job.source_type == "company_site"
+            job.is_bulk_import = job.job_id.startswith("li-bulk-")
+        return jobs
+
+
+# The feed endpoint's "ready" gate, in SQL. The route used to read the whole
+# feed (every match with full JD text and structured JD) and drop incomplete
+# rows in Python — on every page view. Filtering, ordering and limiting in the
+# query reads only the rows that will be shown. Keep in step with the
+# is_complete check in api/routes/jobs.get_job_feed, which still runs as a guard.
+_READY_WHERE = (
+    "jp.jd_structured IS NOT NULL AND jp.jd_structured <> 'null'::jsonb"
+    " AND ujm.score_is_proxy = false"
+    " AND COALESCE(ujm.match_score, 0) > 0"
+    " AND COALESCE(ujm.match_score, 0) >= :min_score"
+    " AND btrim(COALESCE(jp.company, '')) <> ''"
+    " AND btrim(COALESCE(jp.title, '')) <> ''"
+    " AND btrim(COALESCE(ujm.fit_brief, '')) <> ''"
+)
+
+
+def get_ready_feed(user_id: str, *, status_filter: Optional[str] = None,
+                   min_score: float = 0.0, limit: int = 50) -> List[JobMatch]:
+    """Feed rows that pass the ready gate, best first, at most `limit`."""
+    params: dict = {"min_score": min_score, "limit": limit}
+    if status_filter:
+        where = "ujm.status = :status AND " + _READY_WHERE
+        params["status"] = status_filter
+    else:
+        where = "ujm.status != 'ignored' AND " + _READY_WHERE
+    order = " ORDER BY ujm.match_score DESC NULLS LAST, ujm.created_at DESC NULLS LAST LIMIT :limit"
+    with ENGINE.connect().execution_options(isolation_level="AUTOCOMMIT") as conn, \
+            Session(bind=conn) as session:
+        sql = _SELECT_JOINED + " WHERE ujm.user_id = CAST(:user_id AS uuid) AND " + where + order
+        rows = session.execute(text(sql), {**params, "user_id": user_id}).fetchall()
         jobs = [_row_to_jobmatch(r) for r in rows]
         for job in jobs:
             job.is_direct_application = job.source_type == "company_site"
