@@ -423,13 +423,34 @@ async def refresh_user_scores(user_id: str, only_job_id: Optional[str] = None) -
     from backend.services.user_profile import get_profile  # lazy import avoids circular deps
     from backend.services.master_profile_service import get_skill_proficiencies
 
+    # ── Cost brake first (services/llm_budget.py) ────────────────────────────
+    # Checked BEFORE reading the feed. It used to run after: every sweep, for
+    # every user, pulled the whole feed — hundreds of rows with full JD text
+    # and structured JD — only to learn the day's budget was already spent.
+    # That was ~2 GB/hour of database egress and got the Supabase project
+    # suspended on the free plan (exceed_egress_quota), which blocked every
+    # sign-in. A spent budget now costs one small kv_store read.
+    from backend.services import llm_budget
+    from backend.services.llm_client import providers_unavailable
+    if providers_unavailable():
+        logger.info("[feed_service] s2: providers unavailable — skipping LLM enrichment for user=%s", user_id)
+        return 0
+    allowance = 1 if only_job_id is not None else min(
+        await asyncio.to_thread(llm_budget.remaining, user_id), _ENRICH_PER_SWEEP,
+    )
+    if allowance <= 0:
+        logger.debug("[feed_service] s2: daily LLM budget spent for user=%s — feed not read", user_id)
+        return 0
+
     # ── Pass A: Identify candidates ───────────────────────────────────────────
-    # Off the event loop: a few hundred rows per user, every sweep, for every
-    # user — read inline it stalled all request handling while it ran.
-    all_feed = await asyncio.to_thread(job_store.get_feed, user_id)
-    pending  = [j for j in all_feed if _needs_enrichment(j)]
+    # Off the event loop: a few hundred rows per user — read inline it stalled
+    # all request handling while it ran. A single opened job reads one row.
     if only_job_id is not None:
-        pending = [j for j in pending if j.job_id == only_job_id]
+        one      = await asyncio.to_thread(job_store.get_by_id, only_job_id, user_id)
+        all_feed = [one] if one is not None else []
+    else:
+        all_feed = await asyncio.to_thread(job_store.get_feed, user_id)
+    pending  = [j for j in all_feed if _needs_enrichment(j)]
     retired  = [j for j in all_feed if j.enrichment_failures >= ENRICHMENT_MAX_FAILURES]
 
     if retired:
@@ -456,25 +477,10 @@ async def refresh_user_scores(user_id: str, only_job_id: Optional[str] = None) -
         len(pending), len(all_feed), user_id, len(retired),
     )
 
-    # ── Cost brake (services/llm_budget.py) ──────────────────────────────────
-    # Without this, every pending job went to the LLM every 30s sweep — the
-    # day ten users entered the pipeline that was ~2,400 jobs × ~4 calls, and
-    # it exhausted both providers. Now: nothing while providers are down, and
-    # at most the user's remaining daily budget, best-scoring jobs first, a
-    # few per sweep. The rest keep their free local score until the user
-    # opens them or tomorrow's budget arrives.
-    from backend.services import llm_budget
-    from backend.services.llm_client import providers_unavailable
-    if providers_unavailable():
-        logger.info("[feed_service] s2: providers unavailable — skipping LLM enrichment for user=%s", user_id)
-        return 0
-    allowance = 1 if only_job_id is not None else min(llm_budget.remaining(user_id), _ENRICH_PER_SWEEP)
-    if allowance <= 0:
-        logger.info(
-            "[feed_service] s2: daily LLM budget spent for user=%s — %d job(s) wait for tomorrow",
-            user_id, len(pending),
-        )
-        return 0
+    # Without the brake above, every pending job went to the LLM every sweep —
+    # the day ten users entered the pipeline that was ~2,400 jobs × ~4 calls,
+    # and it exhausted both providers. At most the remaining daily budget,
+    # best-scoring jobs first, a few per sweep.
     pending.sort(key=lambda j: (j.match_score or j.score or 0.0, j.posted_at or ""), reverse=True)
     pending = pending[:allowance]
 

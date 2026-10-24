@@ -210,7 +210,11 @@ def get_job_feed(
     The min_score threshold is applied ONLY to ready jobs; pending jobs are
     always returned (they have no real score to threshold yet).
     """
-    jobs = job_store.get_feed(user_id=user.user_id, status_filter=status)
+    # Gate, order and limit run in SQL (get_ready_feed) — reading the whole
+    # feed here on every page view was a large share of database egress.
+    jobs = job_store.get_ready_feed(
+        user.user_id, status_filter=status, min_score=min_score, limit=limit,
+    )
 
     presented: List[JobMatch] = []
     for j in jobs:
