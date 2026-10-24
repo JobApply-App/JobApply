@@ -90,7 +90,12 @@ def sweep(uid, monkeypatch):
     jobs = [_job(f"j{i}", float(i)) for i in range(10)]
     calls, failures = [], []
 
-    monkeypatch.setattr(feed_service.job_store, "get_feed", lambda user_id: jobs)
+    feed_reads = []
+    monkeypatch.setattr(feed_service.job_store, "get_feed", lambda user_id: feed_reads.append(user_id) or jobs)
+    monkeypatch.setattr(
+        feed_service.job_store, "get_by_id",
+        lambda job_id, user_id: next((j for j in jobs if j.job_id == job_id), None),
+    )
     monkeypatch.setattr(feed_service, "_needs_enrichment", lambda j: True)
     monkeypatch.setattr(feed_service, "_build_profile_cv_proxy", lambda *a, **k: {})
     monkeypatch.setattr("backend.services.user_profile.get_profile", lambda user_id: {})
@@ -107,7 +112,7 @@ def sweep(uid, monkeypatch):
         calls.append(kw["job_id"])
         raise llm_client.LLMCallError("down")
     monkeypatch.setattr(feed_service, "compute_match_score_async", _score)
-    return SimpleNamespace(uid=uid, calls=calls, failures=failures)
+    return SimpleNamespace(uid=uid, calls=calls, failures=failures, feed_reads=feed_reads)
 
 
 async def test_sweep_sends_at_most_a_few_jobs_best_first(sweep, monkeypatch):
@@ -146,3 +151,21 @@ async def test_a_user_opened_job_is_not_charged_to_the_budget(sweep, monkeypatch
     await feed_service.refresh_user_scores(sweep.uid, only_job_id="j0")
     assert sweep.calls == ["j0"]
     assert llm_budget.remaining(sweep.uid) == 2
+
+
+async def test_a_spent_budget_does_not_read_the_feed(sweep, monkeypatch):
+    """
+    The brake runs before the feed query. It used to run after, so every
+    sweep pulled every user's whole feed (full JD text) just to learn the
+    budget was gone — enough database egress to get the Supabase project
+    suspended on the free plan, which blocked all sign-ins.
+    """
+    monkeypatch.setattr("backend.config.ENRICH_DAILY_BUDGET_PER_USER", 0)
+    assert await feed_service.refresh_user_scores(sweep.uid) == 0
+    assert sweep.feed_reads == []
+
+
+async def test_an_opened_job_reads_one_row_not_the_feed(sweep, monkeypatch):
+    await feed_service.refresh_user_scores(sweep.uid, only_job_id="j4")
+    assert sweep.calls == ["j4"]
+    assert sweep.feed_reads == []
