@@ -1,5 +1,6 @@
 'use client'
 
+import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import type { TemplateInfo } from '@/lib/apiTypes'
 
@@ -146,13 +147,14 @@ export interface TemplateSelectorBarProps {
 export function TemplateSelectorBar({
   templates, selectedId, onSelect, isLoading,
 }: TemplateSelectorBarProps) {
+  const C = useI18n().t.common
   return (
     <div style={{ marginBottom: 14 }}>
       <p style={{
         fontSize: 10.5, fontWeight: 600, color: TOKENS.color.ink2,
         textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8,
       }}>
-        Template
+        {C.template}
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {templates.map(t => {

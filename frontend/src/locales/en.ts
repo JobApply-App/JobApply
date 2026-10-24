@@ -1,6 +1,17 @@
 import type { Dict } from './types'
 
 export const en = {
+  common: {
+    undo: 'Undo',
+    retry: 'Retry',
+    sort: 'Sort',
+    template: 'Template',
+    not_applied: 'Not applied · ',
+    cv_copilot: 'CV Copilot',
+    support: 'Support',
+    terms: 'Terms',
+    privacy: 'Privacy',
+  },
   landing: {
     nav: {
       sign_in:     'Sign in',
