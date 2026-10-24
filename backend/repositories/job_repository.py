@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from types import SimpleNamespace
 import logging
 import re
 import unicodedata
@@ -443,10 +444,20 @@ def is_empty(user_id: str) -> bool:
 
 
 def contains_url(url: str, user_id: str) -> bool:
-    """Return True if a job with this apply_url already exists for user_id."""
+    """Return True if a job with this apply_url already exists for user_id.
+
+    An existence check, so it reads one constant. It used to fetch the full
+    joined rows (JD text, structured JD, tailored CV) and count them — once
+    per discovered URL, every discovery cycle, for every user; most of those
+    URLs already exist, so nearly every call shipped a whole row for nothing.
+    """
     with Session(ENGINE) as session:
-        rows = _get_joined(session, user_id=user_id, apply_url=url)
-        return len(rows) > 0
+        row = session.execute(text(
+            "SELECT 1 FROM public.user_job_matches ujm "
+            "JOIN public.job_postings jp ON jp.id = ujm.job_posting_id "
+            "WHERE ujm.user_id = CAST(:user_id AS uuid) AND jp.apply_url = :apply_url LIMIT 1"
+        ), {"user_id": user_id, "apply_url": url}).first()
+        return row is not None
 
 
 def get_by_id(job_id: str, user_id: str) -> Optional[JobMatch]:
@@ -640,6 +651,50 @@ def get_feed(user_id: str, status_filter: Optional[str] = None) -> List[JobMatch
         return jobs
 
 
+# Enrichment candidates without the wide columns. The background sweep decides
+# which jobs to send for LLM scoring from a handful of fields; reading full
+# rows (JD text, structured JD) for every match to make that decision was the
+# bulk of the database egress that got the Supabase project suspended. The
+# thinness test mirrors feed_service._is_thin in SQL (Python str.strip() ↔
+# btrim over the same whitespace set; len ↔ char_length). Order matches
+# get_feed: match_score (NULL as 0) desc, then newest match first.
+_WS = "E' \\t\\n\\r\\f\\v'"
+_SELECT_CANDIDATES = f"""
+    SELECT
+        ujm.job_id, jp.title, jp.company, jp.apply_url,
+        ujm.match_score, ujm.score, jp.posted_at,
+        ujm.score_is_proxy, ujm.enrichment_failures,
+        (ujm.fit_brief IS NULL) AS fit_brief_missing,
+        CASE
+            WHEN btrim(COALESCE(jp.jd_text, ''), {_WS}) = '__hydrate_failed__' THEN false
+            ELSE char_length(btrim(COALESCE(jp.jd_text, ''), {_WS})) < :min_chars
+        END AS jd_thin
+    FROM public.user_job_matches ujm
+    JOIN public.job_postings jp ON jp.id = ujm.job_posting_id
+    WHERE ujm.user_id = CAST(:user_id AS uuid) AND ujm.status != 'ignored'
+    ORDER BY COALESCE(ujm.match_score, 0) DESC, ujm.created_at DESC NULLS LAST
+"""
+
+
+def get_enrichment_candidates(user_id: str, min_chars: int) -> list:
+    """Narrow rows for choosing what to enrich — no JD text or analysis payloads."""
+    with ENGINE.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        rows = conn.execute(text(_SELECT_CANDIDATES), {"user_id": user_id, "min_chars": min_chars}).fetchall()
+    return [
+        SimpleNamespace(
+            job_id=r.job_id, title=r.title, company=r.company, apply_url=r.apply_url,
+            match_score=float(r.match_score) if r.match_score is not None else 0.0,
+            score=float(r.score) if r.score is not None else 0.0,
+            posted_at=(r.posted_at.isoformat() if r.posted_at else ""),
+            score_is_proxy=bool(r.score_is_proxy) if r.score_is_proxy is not None else True,
+            enrichment_failures=int(r.enrichment_failures or 0),
+            fit_brief_missing=bool(r.fit_brief_missing),
+            jd_thin=bool(r.jd_thin),
+        )
+        for r in rows
+    ]
+
+
 # The feed endpoint's "ready" gate, in SQL. The route used to read the whole
 # feed (every match with full JD text and structured JD) and drop incomplete
 # rows in Python — on every page view. Filtering, ordering and limiting in the
@@ -656,6 +711,18 @@ _READY_WHERE = (
 )
 
 
+# Every ready row has a structured JD (it is part of the gate), and that is
+# what the job card renders; the raw jd_text is only a fallback when the
+# structured JSON fails to parse, and a presence check (>= 80 chars) in the
+# tailoring modal. So the list ships its first 400 characters, not the
+# whole text — a large share of each row. Full text: get_by_id / GET /api/jobs/{id}.
+_FEED_JD_PREVIEW_CHARS = 400
+_SELECT_READY = _SELECT_JOINED.replace(
+    "jp.jd_text,", f"left(jp.jd_text, {_FEED_JD_PREVIEW_CHARS}) AS jd_text,", 1,
+)
+assert _SELECT_READY != _SELECT_JOINED, "jd_text column not found in _SELECT_JOINED"
+
+
 def get_ready_feed(user_id: str, *, status_filter: Optional[str] = None,
                    min_score: float = 0.0, limit: int = 50) -> List[JobMatch]:
     """Feed rows that pass the ready gate, best first, at most `limit`."""
@@ -668,7 +735,7 @@ def get_ready_feed(user_id: str, *, status_filter: Optional[str] = None,
     order = " ORDER BY ujm.match_score DESC NULLS LAST, ujm.created_at DESC NULLS LAST LIMIT :limit"
     with ENGINE.connect().execution_options(isolation_level="AUTOCOMMIT") as conn, \
             Session(bind=conn) as session:
-        sql = _SELECT_JOINED + " WHERE ujm.user_id = CAST(:user_id AS uuid) AND " + where + order
+        sql = _SELECT_READY + " WHERE ujm.user_id = CAST(:user_id AS uuid) AND " + where + order
         rows = session.execute(text(sql), {**params, "user_id": user_id}).fetchall()
         jobs = [_row_to_jobmatch(r) for r in rows]
         for job in jobs:

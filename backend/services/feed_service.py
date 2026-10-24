@@ -177,14 +177,28 @@ def _needs_enrichment(job: JobMatch) -> bool:
 
     A job is permanently retired once enrichment_failures >= ENRICHMENT_MAX_FAILURES.
     """
-    if job.enrichment_failures >= ENRICHMENT_MAX_FAILURES:
+    return _needs_enrichment_fields(
+        enrichment_failures=job.enrichment_failures,
+        apply_url=job.apply_url,
+        jd_thin=_is_thin(job.jd_text),
+        fit_brief_missing=job.fit_brief is None,
+        score_is_proxy=job.score_is_proxy,
+    )
+
+
+def _needs_enrichment_fields(*, enrichment_failures: int, apply_url: str | None,
+                             jd_thin: bool, fit_brief_missing: bool, score_is_proxy: bool) -> bool:
+    """_needs_enrichment on the narrow fields it actually depends on, so the
+    sweep can decide from job_repository.get_enrichment_candidates() rows
+    without reading JD text. One rule, two input shapes."""
+    if enrichment_failures >= ENRICHMENT_MAX_FAILURES:
         return False   # hard stop — show "Manual analysis required" in UI
-    if _is_linkedin_url(job.apply_url) and _is_thin(job.jd_text):
+    if _is_linkedin_url(apply_url) and jd_thin:
         # LinkedIn JD cannot be hydrated — skip enrichment for thin rows.
         # If fit_brief or score_is_proxy need fixing, fall through to scoring
         # only when the JD text is already rich enough (i.e. not thin).
         return False
-    return _is_thin(job.jd_text) or job.fit_brief is None or job.score_is_proxy
+    return jd_thin or fit_brief_missing or score_is_proxy
 
 
 def _dev_jd_override(job: JobMatch) -> str | None:
@@ -445,12 +459,23 @@ async def refresh_user_scores(user_id: str, only_job_id: Optional[str] = None) -
     # ── Pass A: Identify candidates ───────────────────────────────────────────
     # Off the event loop: a few hundred rows per user — read inline it stalled
     # all request handling while it ran. A single opened job reads one row.
+    # The choice is made from narrow rows (get_enrichment_candidates: scores,
+    # status flags, JD length — no JD text); full rows are read afterwards
+    # only for the few jobs actually chosen. Same rule, same order as before.
     if only_job_id is not None:
         one      = await asyncio.to_thread(job_store.get_by_id, only_job_id, user_id)
         all_feed = [one] if one is not None else []
+        pending  = [j for j in all_feed if _needs_enrichment(j)]
     else:
-        all_feed = await asyncio.to_thread(job_store.get_feed, user_id)
-    pending  = [j for j in all_feed if _needs_enrichment(j)]
+        all_feed = await asyncio.to_thread(job_store.get_enrichment_candidates, user_id, _JD_MIN_CHARS)
+        pending  = [
+            c for c in all_feed
+            if _needs_enrichment_fields(
+                enrichment_failures=c.enrichment_failures, apply_url=c.apply_url,
+                jd_thin=c.jd_thin, fit_brief_missing=c.fit_brief_missing,
+                score_is_proxy=c.score_is_proxy,
+            )
+        ]
     retired  = [j for j in all_feed if j.enrichment_failures >= ENRICHMENT_MAX_FAILURES]
 
     if retired:
@@ -467,7 +492,10 @@ async def refresh_user_scores(user_id: str, only_job_id: Optional[str] = None) -
             "[feed_service] s2: nothing to enrich for user=%s "
             "(total=%d enriched=%d retired=%d)",
             user_id, len(all_feed),
-            len(all_feed) - len(retired) - sum(1 for j in all_feed if _is_thin(j.jd_text) or j.score_is_proxy),
+            len(all_feed) - len(retired) - sum(
+                1 for j in all_feed
+                if (j.jd_thin if hasattr(j, "jd_thin") else _is_thin(j.jd_text)) or j.score_is_proxy
+            ),
             len(retired),
         )
         return 0
@@ -483,6 +511,10 @@ async def refresh_user_scores(user_id: str, only_job_id: Optional[str] = None) -
     # best-scoring jobs first, a few per sweep.
     pending.sort(key=lambda j: (j.match_score or j.score or 0.0, j.posted_at or ""), reverse=True)
     pending = pending[:allowance]
+    if only_job_id is None:
+        # Now the full rows — only for the chosen few.
+        chosen  = [await asyncio.to_thread(job_store.get_by_id, c.job_id, user_id) for c in pending]
+        pending = [j for j in chosen if j is not None]
 
     cv_proxy      = _build_profile_cv_proxy(get_profile(user_id), user_id=user_id)
     proficiencies = get_skill_proficiencies(user_id)
