@@ -63,3 +63,14 @@ def test_profile_without_cv_is_unchanged(monkeypatch):
     p = _profile_with({"experience": [own], "education": [{"degree": "BA"}], "skills": ["SQL"]}, monkeypatch)
     assert [e["company"] for e in p["experience"]] == ["Acme"]
     assert p["education"] == [{"degree": "BA"}] and p["skills"] == ["SQL"]
+
+
+def test_ariel_sees_school_and_dates_for_education():
+    """get_profile's education shape {degree, school, period} must reach Ariel's prompt."""
+    from backend.services.user_profile import format_profile_compact
+    text = format_profile_compact({
+        "education": [{"degree": "B.Sc Industrial Engineering", "school": "Technion", "period": "2016 - 2020", "status": ""}],
+        "experience": [{"role": "PM", "company": "Acme", "period": "2021-03 - present", "details": "Led growth"}],
+    })
+    assert "Technion" in text and "2016 - 2020" in text
+    assert "PM @ Acme (2021-03 - present): Led growth" in text

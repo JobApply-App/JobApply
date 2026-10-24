@@ -467,7 +467,10 @@ memory of you," or "please remind me who you are." The Master Profile
 below IS your memory of this user — treat it as continuously available
 context, not as something you are seeing for the first time. Never ask
 the user to repeat facts (name, contact info, roles, skills) that already
-appear in <MasterProfile>.
+appear in <MasterProfile>. When one detail really is missing — a role with
+no dates, a degree with no school — say what you already know and ask only
+for that one missing piece ("I see you were a PM at X — when did you start?"),
+never a generic "tell me about your current job".
 
 If the user uploads a new CV or updates their profile mid-conversation,
 call the get_full_candidate_profile tool to re-fetch the current state
@@ -659,7 +662,8 @@ experience, titles, outcomes, or company names.
 """
 
 
-def _build_ariel_system(pinned_messages: list[ChatMessage], user_id: str) -> str:
+def _build_ariel_system(pinned_messages: list[ChatMessage], user_id: str,
+                        ui_locale: Optional[str] = None) -> str:
     """
     Compose the full Ariel system prompt for the /ariel/private endpoint.
 
@@ -761,7 +765,43 @@ def _build_ariel_system(pinned_messages: list[ChatMessage], user_id: str) -> str
     )
 
     parts.append(_ARIEL_STRATEGIST_CORE)
+    language_note = _ariel_language_note(user_id, ui_locale)
+    if language_note:
+        parts.append(language_note)
     return harden_system_prompt("\n\n".join(parts))
+
+
+def _ariel_language_note(user_id: str, ui_locale: Optional[str] = None) -> str:
+    """
+    Default reply language = the user's interface language.
+
+    The persona says "reply in whatever language the user writes in", which
+    leaves Ariel guessing when there is nothing to go on: a file upload, a
+    one-word or pre-filled first message, a turn right after onboarding. A
+    tester using the Hebrew UI got her first questions in English and then a
+    switch to Hebrew mid-conversation. The interface language settles those
+    turns; a full message in another language still switches her.
+    """
+    from backend.repositories import profile_repository
+    if ui_locale not in profile_repository.SUPPORTED_LOCALES:
+        try:
+            ui_locale = profile_repository.get_locales(user_id).get("ui_locale")
+        except profile_repository.LocalesUnavailable:
+            logger.warning("[_build_ariel_system] ui_locale unreadable user=%s — no language default", user_id)
+            return ""
+    language = {"he": "Hebrew", "en": "English"}.get(ui_locale or "")
+    if not language:
+        return ""
+    return (
+        "<LanguageDefault>\n"
+        f"The user's interface language is {language}. Reply in {language} by default — "
+        "including your first turn, replies to file uploads, and replies to short or "
+        "pre-filled messages. Switch to another language only when the user writes a "
+        "full message in it, and then stay in that language consistently; never change "
+        "language mid-reply. Product names, technologies and acronyms stay as written. "
+        "What you write into the profile still follows the English-storage rule above.\n"
+        "</LanguageDefault>"
+    )
 
 # ── Tool-loop + streaming pipeline ───────────────────────────────────────────
 
@@ -908,6 +948,9 @@ class ArielPrivateRequest(BaseModel):
     message:      str = Field(..., max_length=20_000)
     chat_history: List[ChatMessage] = []
     attachments:  List[AttachmentItem] = []
+    # The language the user's UI is showing right now. Preferred over the
+    # stored preference, which only exists for users who once toggled it.
+    ui_locale:    Optional[str] = Field(None, max_length=8)
 
 
 # ── Attachment text extraction ────────────────────────────────────────────────
@@ -1212,7 +1255,7 @@ async def ariel_private(
     # Extract pinned messages from history and inject them as CoreContext,
     # alongside the user's Master Profile (see _build_ariel_system).
     pinned = [m for m in body.chat_history if m.isPinned]
-    system = _build_ariel_system(pinned, user.user_id)
+    system = _build_ariel_system(pinned, user.user_id, ui_locale=body.ui_locale)
 
     # ── Build Anthropic messages array ────────────────────────────────────────
     # Slide the window before filtering: only the most recent

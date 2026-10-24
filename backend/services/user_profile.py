@@ -976,9 +976,19 @@ def format_profile_compact(profile: dict) -> str:
     lines.append("EDUCATION:")
     if education:
         for ed in education:
+            if not isinstance(ed, dict):
+                if str(ed).strip():
+                    lines.append(f"- {str(ed).strip()}")
+                continue
+            # get_profile() emits {degree, school, period, status}; older
+            # documents used {degree, field, institution, year}. Reading only
+            # the old keys dropped the school and the dates, so Ariel saw a
+            # bare degree name and asked users for what their CV already said.
             parts = [
                 str(ed.get("degree", "") or ""), str(ed.get("field", "") or ""),
-                str(ed.get("institution", "") or ""), str(ed.get("year", "") or ""),
+                str(ed.get("school") or ed.get("institution") or ""),
+                str(ed.get("period") or ed.get("year") or ""),
+                str(ed.get("status", "") or ""),
             ]
             lines.append("- " + ", ".join(p for p in parts if p))
     else:
