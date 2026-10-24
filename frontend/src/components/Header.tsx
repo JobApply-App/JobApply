@@ -273,7 +273,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                           <p className="text-[11.5px] text-slate-500 truncate">{job.company}</p>
                         </div>
                         <span className="shrink-0 text-[11.5px] font-bold tabular-nums px-2 py-0.5 rounded-lg bg-teal-50 text-teal-700">
-                          {Math.round(job.score)}%
+                          {job.score.toFixed(1)}%
                         </span>
                       </button>
                     </li>

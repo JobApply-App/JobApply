@@ -441,7 +441,7 @@ function ATSMockup() {
           </div>
           <p className="text-[12.5px] text-slate-400 mt-1">{t.mockup.sample_meta}</p>
         </div>
-        <div className="flex items-baseline gap-0.5 shrink-0">
+        <div dir="ltr" className="flex items-baseline gap-0.5 shrink-0">
           <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">88.0</span>
           <span className="text-[10px] font-semibold text-slate-400 ml-0.5">/100</span>
         </div>
@@ -491,7 +491,7 @@ function FeedMockup() {
             </div>
             <p className="text-[12.5px] text-slate-400 mt-1">{item.co} · {item.loc}</p>
           </div>
-          <div className="flex items-baseline gap-0.5 shrink-0">
+          <div dir="ltr" className="flex items-baseline gap-0.5 shrink-0">
             <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">
               {item.score.toFixed(1)}
             </span>
