@@ -41,6 +41,9 @@ function markIntroSeen(): void {
 }
 
 // Floating launcher for Ariel (authenticated career agent).
+// z-30: above page content, below every sheet and modal (z-40 and up). At
+// z-50 it was painted over the preferences sheet, the tailored-CV modal and
+// the report drawer on phones, covering their content.
 // Hidden when the panel is already open, or when the user is not signed in.
 export function ChatLauncher() {
   const A = useI18n().t.ariel
@@ -74,7 +77,7 @@ export function ChatLauncher() {
       <div
         role="dialog"
         aria-label={A.name}
-        className="ja-launcher-intro fixed z-50 end-4 sm:end-6 bottom-[5.5rem] w-[min(18rem,calc(100vw-2rem))] rounded-2xl bg-white border border-slate-100 p-4 text-start"
+        className="ja-launcher-intro fixed z-30 end-4 sm:end-6 bottom-[5.5rem] w-[min(18rem,calc(100vw-2rem))] rounded-2xl bg-white border border-slate-100 p-4 text-start"
         style={{ boxShadow: '0 10px 30px rgba(15,23,42,0.14), 0 2px 6px rgba(15,23,42,0.06)' }}
       >
         <p className="text-[13px] text-slate-700 leading-relaxed">{A.intro}</p>
@@ -99,7 +102,7 @@ export function ChatLauncher() {
       onClick={() => { if (showIntro) dismissIntro(); openChat() }}
       title={A.launcher_title}
       aria-label={A.launcher_label}
-      className="ja-launcher fixed bottom-6 end-4 sm:end-6 z-50 flex items-center justify-center gap-2.5 h-14 w-14 sm:h-12 sm:w-auto sm:px-4 rounded-full text-white transition-[transform,opacity] duration-200 active:scale-95 hover:opacity-90"
+      className="ja-launcher fixed bottom-6 end-4 sm:end-6 z-30 flex items-center justify-center gap-2.5 h-14 w-14 sm:h-12 sm:w-auto sm:px-4 rounded-full text-white transition-[transform,opacity] duration-200 active:scale-95 hover:opacity-90"
       style={{
         background: TOKENS.color.primary,
         boxShadow:  '0 4px 20px rgba(13,148,136,0.40)',
