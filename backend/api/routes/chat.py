@@ -1205,6 +1205,15 @@ def _ingest_cv_from_chat(user_id: str, item: AttachmentItem) -> None:
             profile_repository.save(sess, row)
             sess.commit()
 
+        # Step 4b — contact details into the profile document, as the upload
+        # route does (it was skipped here, so a CV sent through the chat never
+        # filled the user's phone/LinkedIn/location). Non-fatal.
+        try:
+            from backend.services.master_profile_service import merge_parsed_contact
+            merge_parsed_contact(cv_claims.get("personal") or {}, user_id)
+        except Exception as exc:
+            logger.warning("[chat/cv-ingest] contact merge failed (non-fatal): %s", exc)
+
         # Step 5 — ingest into Confidence Matrix
         parsed_entities = _cv_claims_to_parsed_entities(cv_claims)
         if parsed_entities:

@@ -704,6 +704,19 @@ def _master_profile_verified_email(user_id: str) -> str:
         return ""
 
 
+def _cv_personal(onboarding: dict) -> dict:
+    """Contact fields from the stored CV extraction, in the get_profile() key shape."""
+    cv = onboarding.get("cv_data") if isinstance(onboarding.get("cv_data"), dict) else {}
+    personal = cv.get("personal") if isinstance(cv.get("personal"), dict) else {}
+    return {
+        "name":     str(personal.get("full_name", "") or "").strip(),
+        "email":    str(personal.get("email", "") or "").strip(),
+        "phone":    str(personal.get("phone", "") or "").strip(),
+        "linkedin": str(personal.get("linkedin_url", "") or "").strip(),
+        "location": str(personal.get("location", "") or "").strip(),
+    }
+
+
 def _metrics_doc_personal(user_id: str) -> dict:
     """
     Contact fields from master_profiles.master_profile["metrics_doc"]["personal"]
@@ -865,15 +878,26 @@ def get_profile(user_id: str) -> dict:
     if not isinstance(onboarding_personal, dict):
         onboarding_personal = {}
     metrics_personal = _metrics_doc_personal(user_id)
+    #   4. The contact block extracted from the uploaded CV itself
+    #      (cv_data["personal"]). The upload route copies it into 1 and 2, but
+    #      a CV sent through the Ariel chat never was, nor was one uploaded
+    #      before that copy existed — production logs showed phone, LinkedIn,
+    #      location (and for one user the name) blank for almost every user,
+    #      so tailored CVs went out without a contact header.
+    cv_personal = _cv_personal(onboarding)
+
+    def _first(key: str) -> str:
+        return (onboarding_personal.get(key, "") or metrics_personal.get(key, "")
+                or cv_personal.get(key, ""))
 
     personal = {
-        "name":     onboarding_personal.get("name", "")     or metrics_personal.get("name", ""),
+        "name":     _first("name"),
         "title":    "",
-        "email":    onboarding_personal.get("email", "")    or metrics_personal.get("email", "")
-                    or _master_profile_verified_email(user_id),
-        "phone":    onboarding_personal.get("phone", "")    or metrics_personal.get("phone", ""),
-        "linkedin": onboarding_personal.get("linkedin", "") or metrics_personal.get("linkedin", ""),
-        "location": onboarding_personal.get("location", "") or metrics_personal.get("location", ""),
+        "email":    onboarding_personal.get("email", "") or metrics_personal.get("email", "")
+                    or _master_profile_verified_email(user_id) or cv_personal.get("email", ""),
+        "phone":    _first("phone"),
+        "linkedin": _first("linkedin"),
+        "location": _first("location"),
     }
 
     # Missing-data guard — never fail CV generation over this (a CV with a
@@ -883,7 +907,7 @@ def get_profile(user_id: str) -> dict:
     if missing:
         logger.warning(
             "[user_profile] get_profile(%s): contact field(s) %s are blank in every source "
-            "checked (onboarding.personal, metrics_doc.personal) — CV header will render "
+            "checked (onboarding.personal, metrics_doc.personal, cv_data.personal) — CV header will render "
             "without them.",
             user_id, missing,
         )
