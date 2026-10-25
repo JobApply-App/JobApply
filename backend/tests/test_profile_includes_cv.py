@@ -74,3 +74,40 @@ def test_ariel_sees_school_and_dates_for_education():
     })
     assert "Technion" in text and "2016 - 2020" in text
     assert "PM @ Acme (2021-03 - present): Led growth" in text
+
+
+def test_contact_details_fall_back_to_the_cv(monkeypatch):
+    """
+    A CV sent through the Ariel chat (or uploaded before the upload route
+    copied contacts) kept its contact block only in cv_data["personal"].
+    Production logs showed phone/LinkedIn/location — and one user's name —
+    blank for nearly everyone, so tailored CVs had no contact header.
+    """
+    from backend.services import user_profile as up
+    monkeypatch.setattr(up, "_onboarding_row_profile", lambda user_id: {
+        "personal": {"name": ""},
+        "cv_data": {"personal": {
+            "full_name": "Daniel Shahmoon", "phone": "050-0000000", "email": "d@example.com",
+            "linkedin_url": "linkedin.com/in/daniel", "location": "Tel Aviv",
+        }},
+    })
+    monkeypatch.setattr(up, "_metrics_doc_personal", lambda user_id: {})
+    monkeypatch.setattr(up, "_master_profile_verified_email", lambda user_id: "login@example.com")
+    personal = up.get_profile("00000000-0000-0000-0000-000000000001")["personal"]
+    assert personal["name"] == "Daniel Shahmoon"
+    assert personal["phone"] == "050-0000000"
+    assert personal["linkedin"] == "linkedin.com/in/daniel"
+    assert personal["location"] == "Tel Aviv"
+    assert personal["email"] == "login@example.com"   # the verified login email still wins
+
+
+def test_user_entered_contact_details_win_over_the_cv(monkeypatch):
+    from backend.services import user_profile as up
+    monkeypatch.setattr(up, "_onboarding_row_profile", lambda user_id: {
+        "personal": {"phone": "052-1111111"},
+        "cv_data": {"personal": {"phone": "050-0000000", "full_name": "From CV"}},
+    })
+    monkeypatch.setattr(up, "_metrics_doc_personal", lambda user_id: {"name": "Typed Name"})
+    monkeypatch.setattr(up, "_master_profile_verified_email", lambda user_id: "")
+    personal = up.get_profile("00000000-0000-0000-0000-000000000001")["personal"]
+    assert personal["phone"] == "052-1111111" and personal["name"] == "Typed Name"
