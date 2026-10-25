@@ -265,6 +265,10 @@ class RateLimiter:
 llm_rate_limit      = RateLimiter(max_requests=10, window_seconds=60, scope="llm")
 standard_rate_limit = RateLimiter(max_requests=60, window_seconds=60, scope="std")
 webhook_rate_limit  = RateLimiter(max_requests=30, window_seconds=60, scope="webhook")
+# The feed "sync" actions re-read and re-score the user's whole feed — heavy
+# on database egress (the Supabase free plan's binding limit), with no reason
+# to run more than occasionally.
+sync_rate_limit     = RateLimiter(max_requests=2, window_seconds=600, scope="sync")
 
 
 # ── Daily CV-generation cap ──────────────────────────────────────────────────

@@ -114,6 +114,14 @@ async function _handleHttpError(
   if (res.status === 401 && treat401AsAuthFailure) {
     _onAuthError?.()
   }
+  // The server's 429 detail is English; it reached toasts on Hebrew pages
+  // verbatim. The UI language is on <html lang> (set by I18nContext).
+  if (res.status === 429) {
+    const he = typeof document !== 'undefined' && document.documentElement.lang === 'he'
+    throw new Error(he
+      ? 'יותר מדי בקשות ברגע זה. נסו שוב בעוד דקה.'
+      : 'Too many requests right now. Please try again in a minute.')
+  }
   let detail: string | undefined
   try {
     const body = await res.json()

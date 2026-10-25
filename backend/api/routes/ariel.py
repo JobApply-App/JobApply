@@ -28,7 +28,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.api.deps import CurrentUser, get_current_user
+from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit
 from backend.core.database import ENGINE
 from backend.repositories import ariel_session_repository
 from backend.repositories import confidence_audit_log_repository
@@ -63,7 +63,7 @@ class ProbeStartResponse(BaseModel):
     confidence_score: float
 
 
-@router.post("/probe/start", response_model=ProbeStartResponse)
+@router.post("/probe/start", response_model=ProbeStartResponse, dependencies=[Depends(llm_rate_limit)])
 async def start_probe(
     req:  ProbeStartRequest,
     user: CurrentUser = Depends(get_current_user),
@@ -161,7 +161,7 @@ class ProbeRespondResponse(BaseModel):
     retry_message:          Optional[str]   = None
 
 
-@router.post("/probe/respond", response_model=ProbeRespondResponse)
+@router.post("/probe/respond", response_model=ProbeRespondResponse, dependencies=[Depends(llm_rate_limit)])
 async def respond_to_probe(
     req:  ProbeRespondRequest,
     user: CurrentUser = Depends(get_current_user),
