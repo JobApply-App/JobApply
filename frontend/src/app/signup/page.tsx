@@ -39,9 +39,10 @@ const LOG = '[JobApply-Debug][signup]'
 
 function ArrowLeftIcon() {
   return (
+    // Mirrored in RTL: "back" points toward the reading start (right in Hebrew).
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-      aria-hidden="true">
+      aria-hidden="true" className="rtl:-scale-x-100">
       <line x1="19" y1="12" x2="5" y2="12" />
       <polyline points="12 19 5 12 12 5" />
     </svg>
@@ -281,7 +282,7 @@ export default function SignupPage() {
       <header className="flex-shrink-0 w-full">
         <div className="h-16 flex items-center justify-between px-6 sm:px-10">
           <Link href="/login"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
+            className="inline-flex items-center gap-1.5 min-h-[44px] px-1 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
             aria-label={S.page.back_to_login}>
             <ArrowLeftIcon />
             {S.page.back}
@@ -289,7 +290,7 @@ export default function SignupPage() {
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
             <Link href="/login"
-              className="text-sm font-semibold text-teal-700 hover:text-teal-800 transition-colors">
+              className="inline-flex items-center min-h-[44px] px-1 text-sm font-semibold text-teal-700 hover:text-teal-800 transition-colors">
               {S.page.log_in}
             </Link>
           </div>

@@ -22,9 +22,10 @@ type LoginPhase =
 
 function ArrowLeftIcon() {
   return (
+    // Mirrored in RTL: "back" points toward the reading start (right in Hebrew).
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-      aria-hidden="true">
+      aria-hidden="true" className="rtl:-scale-x-100">
       <line x1="19" y1="12" x2="5" y2="12" />
       <polyline points="12 19 5 12 12 5" />
     </svg>
@@ -314,7 +315,7 @@ export default function LoginPage() {
           {busy ? L.reset.sending : L.reset.send_code}
         </button>
         <button type="button" onClick={resetToLogin}
-          className="w-full text-sm text-slate-400 hover:text-slate-700 transition-colors">
+          className="w-full min-h-[44px] text-sm text-slate-400 hover:text-slate-700 transition-colors">
           <BackArrow /> {L.page.back_to_sign_in}
         </button>
       </form>
@@ -363,7 +364,7 @@ export default function LoginPage() {
           {busy ? L.reset.verifying : L.reset.verify_code}
         </button>
         <div className="flex items-center justify-between text-xs text-slate-400">
-          <button type="button" onClick={resetToLogin} className="hover:text-slate-700 transition-colors">
+          <button type="button" onClick={resetToLogin} className="min-h-[44px] px-1 hover:text-slate-700 transition-colors">
             <BackArrow /> {L.page.back}
           </button>
           <button type="button" disabled={busy}
@@ -431,7 +432,7 @@ export default function LoginPage() {
       <header className="flex-shrink-0 w-full">
         <div className="h-16 flex items-center justify-between px-6 sm:px-10">
           <Link href="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
+            className="inline-flex items-center gap-1.5 min-h-[44px] px-1 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
             aria-label={L.page.back_to_home}>
             <ArrowLeftIcon />
             {L.page.back}
@@ -505,7 +506,7 @@ export default function LoginPage() {
                       </label>
                       <button type="button"
                         onClick={() => { setFpEmail(email); setPhase('forgot-email'); setError(null) }}
-                        className="text-xs text-teal-700 hover:text-teal-800 font-medium transition-colors">
+                        className="min-h-[44px] sm:min-h-0 px-1 text-xs text-teal-700 hover:text-teal-800 font-medium transition-colors">
                         {L.page.forgot_password}
                       </button>
                     </div>
@@ -537,7 +538,7 @@ export default function LoginPage() {
                 <p className="text-center text-xs text-slate-500">
                   {L.card.no_account}
                   <Link href="/signup"
-                    className="font-semibold text-teal-700 hover:text-teal-800 transition-colors">
+                    className="inline-block py-3 sm:py-0 px-1 font-semibold text-teal-700 hover:text-teal-800 transition-colors">
                     {L.card.sign_up_link}
                   </Link>
                 </p>
