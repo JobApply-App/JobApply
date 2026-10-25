@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
+import { pageTitle } from '@/lib/pageTitle'
 
-export const metadata: Metadata = { title: 'Analytics' }
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle('analytics') }
+}
 
 export default function AnalyticsLayout({ children }: { children: React.ReactNode }) {
   return children

@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
+import { pageTitle } from '@/lib/pageTitle'
 
-export const metadata: Metadata = { title: 'Accessibility Statement' }
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle('accessibility') }
+}
 
 export default function AccessibilityLayout({ children }: { children: React.ReactNode }) {
   return children
