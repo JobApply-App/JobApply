@@ -14,7 +14,8 @@ Verification outcomes
 
 Supported file types
 ---------------------
-  PDF    — text extracted with pypdf (pure-python, no native deps)
+  PDF    — text extracted with pymupdf; a scanned PDF (no text layer) is sent
+           to Claude as a document block, which reads it page by page
   Images — PNG, JPG, JPEG, WEBP — passed directly to Claude vision API
 """
 from __future__ import annotations
@@ -74,14 +75,11 @@ RULES:
 
 
 def _extract_pdf_text(content: bytes) -> str:
-    """Extract plain text from a PDF using pypdf."""
+    """Extract plain text from a PDF using pymupdf."""
     try:
-        import pypdf
-        reader = pypdf.PdfReader(io.BytesIO(content))
-        pages  = []
-        for page in reader.pages[:10]:  # cap at 10 pages
-            text = page.extract_text() or ""
-            pages.append(text)
+        import fitz
+        with fitz.open(stream=content, filetype="pdf") as doc:
+            pages = [page.get_text() for page in doc.pages(0, min(10, doc.page_count))]  # cap at 10 pages
         return "\n".join(pages).strip()
     except Exception as exc:
         logger.warning("[DocumentVerifier] PDF extraction failed: %s", exc)
@@ -122,24 +120,39 @@ async def verify_document(
         # Extract text, send as text content
         pdf_text = _extract_pdf_text(file_content)
         if not pdf_text or len(pdf_text) < 50:
-            logger.warning("[DocumentVerifier] PDF text too short to verify: %s", filename)
-            return {
-                "status":          "unreadable",
-                "confidence":      None,
-                "match_notes":     "Could not extract readable text from the PDF.",
-                "extracted_facts": {},
-            }
-        # Truncate to first 3000 chars to stay within token budget
-        user_content = [
-            {
-                "type": "text",
-                "text": (
-                    f"DOCUMENT TYPE: {document_type}\n"
-                    f"CLAIM TO VERIFY: {claim}\n\n"
-                    f"DOCUMENT TEXT:\n{pdf_text[:3000]}"
-                ),
-            }
-        ]
+            # A scanned diploma or certificate has no text layer. Claude reads
+            # PDFs natively, so hand it the file instead of giving up.
+            logger.info("[DocumentVerifier] no text layer, sending PDF as a document: %s", filename)
+            user_content = [
+                {
+                    "type": "text",
+                    "text": (
+                        f"DOCUMENT TYPE: {document_type}\n"
+                        f"CLAIM TO VERIFY: {claim}\n\n"
+                        f"Read the attached document and verify the claim."
+                    ),
+                },
+                {
+                    "type":   "document",
+                    "source": {
+                        "type":       "base64",
+                        "media_type": "application/pdf",
+                        "data":       base64.standard_b64encode(file_content).decode(),
+                    },
+                },
+            ]
+        else:
+            # Truncate to first 3000 chars to stay within token budget
+            user_content = [
+                {
+                    "type": "text",
+                    "text": (
+                        f"DOCUMENT TYPE: {document_type}\n"
+                        f"CLAIM TO VERIFY: {claim}\n\n"
+                        f"DOCUMENT TEXT:\n{pdf_text[:3000]}"
+                    ),
+                }
+            ]
 
     elif ext in {".png", ".jpg", ".jpeg", ".webp"}:
         # Use vision API

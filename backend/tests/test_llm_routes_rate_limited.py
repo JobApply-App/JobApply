@@ -20,6 +20,8 @@ LLM_ROUTES = {
     ("POST", "/api/jobs/{job_id}/ats-keywords"), ("POST", "/api/jobs/{job_id}/skills-gap"),
     ("POST", "/api/jobs/{job_id}/analyze-now"),
     ("POST", "/api/ariel/probe/start"), ("POST", "/api/ariel/probe/respond"),
+    ("POST", "/api/profile/research"), ("POST", "/api/profile/interview/message"),
+    ("POST", "/api/profile/interview/{session_id}/resume"), ("POST", "/api/profile/interview/{session_id}/upload"),
 }
 SYNC_ROUTES = {("POST", "/api/jobs/feed/refresh-all"), ("POST", "/api/jobs/feed/backfill-jd")}
 
