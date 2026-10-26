@@ -742,6 +742,27 @@ def save_user_personal_field(user_id: str, field: str, value: str) -> bool:
     return True
 
 
+def _auth_metadata_personal(user_id: str) -> dict:
+    """name/phone from the Supabase auth user's metadata (set at sign-up)."""
+    try:
+        from sqlalchemy import text as _sql
+        from backend.core.database import ENGINE
+        with ENGINE.connect() as conn:
+            row = conn.execute(_sql(
+                "SELECT raw_user_meta_data->>'phone', "
+                "COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name') "
+                "FROM auth.users WHERE id = CAST(:uid AS uuid)"
+            ), {"uid": user_id}).fetchone()
+    except Exception:
+        # Not fatal: a CV can still be built from the other sources. Logged so
+        # a broken lookup isn't mistaken for "the user never gave a phone".
+        logger.warning("[user_profile] auth metadata unreadable for user=%s", user_id, exc_info=True)
+        return {}
+    if not row:
+        return {}
+    return {"phone": str(row[0] or "").strip(), "name": str(row[1] or "").strip()}
+
+
 def _cv_personal(onboarding: dict) -> dict:
     """Contact fields from the stored CV extraction, in the get_profile() key shape."""
     cv = onboarding.get("cv_data") if isinstance(onboarding.get("cv_data"), dict) else {}
@@ -923,10 +944,14 @@ def get_profile(user_id: str) -> dict:
     #      location (and for one user the name) blank for almost every user,
     #      so tailored CVs went out without a contact header.
     cv_personal = _cv_personal(onboarding)
+    #   5. What the user typed at sign-up (Supabase auth user_metadata) — the
+    #      phone in particular, which sign-up requires and nothing copied into
+    #      the profile, so tailoring asked for it again. Typed beats extracted.
+    auth_personal = _auth_metadata_personal(user_id)
 
     def _first(key: str) -> str:
         return (onboarding_personal.get(key, "") or metrics_personal.get(key, "")
-                or cv_personal.get(key, ""))
+                or auth_personal.get(key, "") or cv_personal.get(key, ""))
 
     personal = {
         "name":     _first("name"),

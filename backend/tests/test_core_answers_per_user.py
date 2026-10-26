@@ -82,3 +82,28 @@ def test_gap_answers_are_kept_per_user_and_reach_the_next_cv(uid, monkeypatch):
         from backend.core.database import ENGINE
         with ENGINE.begin() as c:
             c.execute(text("DELETE FROM public.profiles WHERE id = CAST(:u AS uuid)"), {"u": other})
+
+
+def test_phone_typed_at_sign_up_reaches_the_profile(uid, monkeypatch):
+    """
+    Sign-up requires a phone number. It was dropped before reaching Supabase,
+    and nothing copied auth metadata into the profile, so tailoring asked for
+    the phone again. get_profile now reads the sign-up metadata.
+    """
+    import json
+    from backend.core.database import ENGINE
+    monkeypatch.setattr(up, "_metrics_doc_personal", lambda user_id: {})
+    with ENGINE.begin() as c:
+        c.execute(text(
+            "INSERT INTO auth.users (id, raw_user_meta_data) VALUES (CAST(:u AS uuid), CAST(:m AS jsonb)) "
+            "ON CONFLICT (id) DO UPDATE SET raw_user_meta_data = EXCLUDED.raw_user_meta_data"
+        ), {"u": uid, "m": json.dumps({"full_name": "Ben Cohen", "phone": "+972501234567"})})
+    try:
+        personal = up.get_profile(uid)["personal"]
+        assert personal["phone"] == "+972501234567" and personal["name"] == "Ben Cohen"
+        assert "core_phone" not in _gap_ids(uid)
+        up.save_user_personal_field(uid, "phone", "052-0000000")   # typed later wins
+        assert up.get_profile(uid)["personal"]["phone"] == "052-0000000"
+    finally:
+        with ENGINE.begin() as c:
+            c.execute(text("DELETE FROM auth.users WHERE id = CAST(:u AS uuid)"), {"u": uid})

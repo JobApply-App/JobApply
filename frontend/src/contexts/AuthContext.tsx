@@ -106,7 +106,7 @@ interface AuthContextValue {
   session: Session | null
   loading: boolean
   signIn:                 (email: string, password: string) => Promise<void>
-  signUp:                 (email: string, password: string, fullName?: string) => Promise<void>
+  signUp:                 (email: string, password: string, fullName?: string, phone?: string) => Promise<void>
   signInWithGoogle:       (redirectTo?: string)             => Promise<void>
   signOut:                ()                                => Promise<void>
   // ── Password reset (OTP flow) ─────────────────────────────────────────────
@@ -239,7 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.session) _applySession(data.session)
   }, [_applySession])
 
-  const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName?: string, phone?: string) => {
     if (!supabase) return
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -259,12 +259,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Persist full_name and name into user_metadata immediately so the
         // dashboard greeting and avatar initials are correct from the very
         // first session — no profile-builder step required.
-        ...(fullName?.trim() ? {
-          data: {
-            full_name: fullName.trim(),
-            name:      fullName.trim(),
-          },
-        } : {}),
+        // The sign-up form requires a phone number, which used to be dropped
+        // here; it is now kept with the name so the backend can put it in the
+        // CV header (backend/services/user_profile.py, _auth_metadata_personal).
+        data: {
+          ...(fullName?.trim() ? { full_name: fullName.trim(), name: fullName.trim() } : {}),
+          ...(phone?.trim() ? { phone: phone.trim() } : {}),
+        },
       },
     })
     if (error) throw error

@@ -21,10 +21,14 @@
 
 CREATE SCHEMA IF NOT EXISTS auth;
 
--- Only `id` is ever referenced, and only as a foreign-key target.
+-- Mostly referenced as a foreign-key target; see raw_user_meta_data below.
 CREATE TABLE IF NOT EXISTS auth.users (
     id uuid PRIMARY KEY
 );
+
+-- user_metadata as Supabase stores it. Read by backend/services/user_profile.py
+-- (_auth_metadata_personal) for the name and phone typed at sign-up.
+ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS raw_user_meta_data jsonb;
 
 -- Postgres resolves function references when CREATE POLICY runs, so
 -- auth.uid() has to exist before the RLS migrations apply.
