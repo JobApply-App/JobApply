@@ -14,6 +14,14 @@ export interface Dict {
     support: string
     terms: string
     privacy: string
+    auth_errors: {
+      unavailable: string
+      invalid_credentials: string
+      email_not_confirmed: string
+      weak_password: string
+      rate_limited: string
+      invalid_code: string
+    }
   }
   landing: {
     nav: {
