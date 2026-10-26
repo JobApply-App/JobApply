@@ -9,6 +9,7 @@ import { LanguageSwitcher }    from '@/components/LanguageSwitcher'
 import { AuthLayout }          from '@/components/auth/AuthLayout'
 import { PasswordMeter, evaluatePassword } from '@/components/auth/PasswordMeter'
 import { TOKENS }              from '@/lib/tokens'
+import { authErrorKind, authErrorMessage } from '@/lib/authErrors'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ export default function LoginPage() {
   const router = useRouter()
   const { t } = useI18n()
   const L = t.login
+  const AE = t.common.auth_errors
 
   // ── Login form state ───────────────────────────────────────────────────────
   const [email,         setEmail]         = useState('')
@@ -169,7 +171,7 @@ export default function LoginPage() {
       await signIn(email, password)
       router.replace('/')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : L.errors.sign_in_failed)
+      setError(authErrorMessage(err, AE, L.errors.sign_in_failed))
     } finally {
       setBusy(false)
     }
@@ -181,7 +183,7 @@ export default function LoginPage() {
     try {
       await signInWithGoogle(`${window.location.origin}/auth/callback`)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : L.errors.google_failed)
+      setError(authErrorMessage(err, AE, L.errors.google_failed))
       setGoogleBusy(false)
     }
   }
@@ -196,13 +198,10 @@ export default function LoginPage() {
       setSuccessMsg(L.reset.code_sent.replace('{n}', String(OTP_LENGTH)).replace('{email}', fpEmail))
       setPhase('forgot-otp')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : L.errors.send_code_failed
       // Supabase won't create a new user — surface a clear message
-      if (msg.toLowerCase().includes('signups not allowed') || msg.toLowerCase().includes('not found')) {
-        setError(L.errors.no_account)
-      } else {
-        setError(msg)
-      }
+      setError(authErrorKind(err) === 'no_account'
+        ? L.errors.no_account
+        : authErrorMessage(err, AE, L.errors.send_code_failed))
     } finally {
       setBusy(false)
     }
@@ -219,7 +218,7 @@ export default function LoginPage() {
       setSuccessMsg(null)
       setPhase('forgot-new-pw')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : L.errors.invalid_code)
+      setError(authErrorMessage(err, AE, L.errors.invalid_code))
     } finally {
       setBusy(false)
     }
@@ -237,7 +236,7 @@ export default function LoginPage() {
       await updatePassword(newPw)
       router.replace('/')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : L.errors.update_password_failed)
+      setError(authErrorMessage(err, AE, L.errors.update_password_failed))
     } finally {
       setBusy(false)
     }

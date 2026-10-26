@@ -11,6 +11,14 @@ export const en = {
     support: 'Support',
     terms: 'Terms',
     privacy: 'Privacy',
+    auth_errors: {
+      unavailable: "Sign-in isn't available right now. We're on it — please try again later.",
+      invalid_credentials: 'Incorrect email or password.',
+      email_not_confirmed: 'Please confirm your email address. Check your inbox (and spam).',
+      weak_password: 'That password is too weak. Try a longer one with letters and numbers.',
+      rate_limited: 'Too many attempts. Wait a few minutes and try again.',
+      invalid_code: 'That code is wrong or has expired. Request a new one.',
+    },
   },
   landing: {
     nav: {

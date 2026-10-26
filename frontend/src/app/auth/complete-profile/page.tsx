@@ -11,6 +11,7 @@ import { useOnboarding }             from '@/contexts/OnboardingContext'
 import { getAuthHeaders }            from '@/lib/api'
 import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS }                    from '@/lib/tokens'
+import { authErrorMessage } from '@/lib/authErrors'
 
 const PhoneInput = dynamic(
   () => import('@/components/auth/PhoneInput').then(m => ({ default: m.PhoneInput })),
@@ -99,9 +100,7 @@ function CompleteProfileContent() {
       await new Promise(r => setTimeout(r, 1500))
       router.replace('/discover')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : CP.generic_error
-      console.error(`${LOG} error:`, msg)
-      setError(msg)
+      setError(authErrorMessage(err, t.common.auth_errors, CP.generic_error))
       setBusy(false)
     }
   }

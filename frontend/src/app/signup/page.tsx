@@ -21,6 +21,7 @@ import { AuthLayout }               from '@/components/auth/AuthLayout'
 import { CareerStageCards, type CareerStage } from '@/components/auth/CareerStageCards'
 import { evaluatePassword }         from '@/components/auth/PasswordMeter'
 import { TOKENS }                   from '@/lib/tokens'
+import { authErrorKind, authErrorMessage } from '@/lib/authErrors'
 
 // ── SSR-safe dynamic imports (prevents hydration mismatch) ───────────────────
 const PhoneInput = dynamic(
@@ -136,6 +137,7 @@ export default function SignupPage() {
   const router = useRouter()
   const { t } = useI18n()
   const S = t.signup
+  const AE = t.common.auth_errors
 
   // ── Field state ───────────────────────────────────────────────────────────
   const [fullName,     setFullName]     = useState('')
@@ -243,12 +245,10 @@ export default function SignupPage() {
       await new Promise(r => setTimeout(r, 1500))
       router.replace('/discover')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : S.errors.sign_up_failed
-      console.error(`${LOG} signUp error:`, msg)
-      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
+      if (authErrorKind(err) === 'already_exists') {
         setEmailExists(true)
       } else {
-        setSubmitError(msg)
+        setSubmitError(authErrorMessage(err, AE, S.errors.sign_up_failed))
       }
       setBusy(false)
     }
@@ -261,9 +261,7 @@ export default function SignupPage() {
     try {
       await signInWithGoogle(`${window.location.origin}/auth/callback`)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : S.errors.google_failed
-      console.error(`${LOG} Google OAuth error:`, msg)
-      setSubmitError(msg)
+      setSubmitError(authErrorMessage(err, AE, S.errors.google_failed))
       setGoogleBusy(false)
     }
   }
