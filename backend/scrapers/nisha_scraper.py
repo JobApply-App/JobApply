@@ -32,6 +32,7 @@ from bs4 import BeautifulSoup, Tag
 
 from backend.schemas.job import JobMatch
 from backend.scrapers.base_scraper import BaseScraper, make_job_id, minimal_job_match
+from backend.utilities.html_guard import html_visible_text, visible_text
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ def _parse_detail_page(soup: BeautifulSoup) -> str:
         or soup.body
     )
 
-    text = (jd_node or soup).get_text(separator="\n")
+    text = visible_text(jd_node or soup, separator="\n")
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     return "\n".join(lines)
 

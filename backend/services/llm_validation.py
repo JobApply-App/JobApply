@@ -46,7 +46,9 @@ _MAX_SANITIZED_CHARS = 20_000
 _CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
 # Zero-width / bidi-override characters used to hide or reverse instruction text.
-_INVISIBLE_RE = re.compile(r"[​-‏‪-‮⁠-⁤﻿]")
+# Plus the Unicode "tags" block (U+E0000-U+E007F): one invisible code point per
+# ASCII character, so a sentence written in it never renders but a model reads it.
+_INVISIBLE_RE = re.compile(r"[​-‏‪-‮⁠-⁤﻿󠀀-󠁿]")
 
 # Collapse absurd whitespace runs (a common padding trick) to a sane maximum.
 _EXCESS_NEWLINES_RE = re.compile(r"\n{4,}")

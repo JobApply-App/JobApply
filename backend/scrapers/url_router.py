@@ -66,6 +66,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from backend.scrapers.base_scraper import BaseScraper
+from backend.utilities.html_guard import html_visible_text, visible_text
 
 logger = logging.getLogger(__name__)
 
@@ -268,7 +269,7 @@ def _extract_jd_from_soup(soup: BeautifulSoup, url: str) -> Optional[str]:
                         desc_html = item["description"]
                         break
             if desc_html:
-                desc = BeautifulSoup(desc_html, "html.parser").get_text(" ", strip=True)
+                desc = html_visible_text(desc_html, " ", strip=True)
                 desc = _clean_linkedin_text(desc)
                 if len(desc) >= _LI_MIN_CHARS and not _is_loginwall(desc):
                     logger.info("[linkedin_scraper] ✓ JSON-LD: %d chars from %s", len(desc), url)
@@ -286,7 +287,7 @@ def _extract_jd_from_soup(soup: BeautifulSoup, url: str) -> Optional[str]:
         node = soup.find(class_=cls)
         if not node:
             continue
-        text = _clean_linkedin_text(node.get_text(" ", strip=True))
+        text = _clean_linkedin_text(visible_text(node, " ", strip=True))
         if len(text) >= _LI_MIN_CHARS and not _is_loginwall(text):
             logger.info("[linkedin_scraper] ✓ CSS .%s: %d chars from %s", cls, len(text), url)
             return text
@@ -699,7 +700,7 @@ async def scrape_jd_text_async(url: str) -> str:
             )
             if len(raw_html) >= _LI_MIN_CHARS:
                 plain = _clean_linkedin_text(
-                    BeautifulSoup(raw_html, "html.parser").get_text(" ", strip=True)
+                    html_visible_text(raw_html, " ", strip=True)
                 )
                 if len(plain) >= _LI_MIN_CHARS and not _is_loginwall(plain):
                     logger.info(

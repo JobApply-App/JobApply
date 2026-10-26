@@ -53,6 +53,7 @@ from bs4 import BeautifulSoup, Tag
 from backend.schemas.job import JobMatch
 from backend.scrapers.base_scraper import BaseScraper, make_job_id, minimal_job_match
 from backend.config import CREDIT_CONSERVATION_MODE
+from backend.utilities.html_guard import html_visible_text, visible_text
 
 logger = logging.getLogger(__name__)
 
@@ -166,8 +167,7 @@ def _parse_rss(xml_text: str) -> list[dict]:
             company = _text("author") or _text("{http://purl.org/dc/elements/1.1/}creator")
             desc    = _text("description")
 
-            soup = BeautifulSoup(desc, "html.parser")
-            desc_text = soup.get_text(separator="\n").strip()
+            desc_text = html_visible_text(desc, separator="\n").strip()
 
             if title and link:
                 jobs.append({
