@@ -230,7 +230,7 @@ export default function SignupPage() {
     setSubmitError(null)
     setBusy(true)
     try {
-      await signUp(email, password, fullName.trim())
+      await signUp(email, password, fullName.trim(), phone)
       console.log(`${LOG} signUp success`)
       setOnboarding({ fullName: fullName.trim(), careerStage })
 
