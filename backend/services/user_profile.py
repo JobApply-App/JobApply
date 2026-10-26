@@ -1087,4 +1087,27 @@ def build_full_text(user_id: str) -> str:
         )
     if profile.get("skills"):
         parts.append(f"Skills: {', '.join(str(s) for s in profile['skills'])}")
+    answers = _saved_answers(user_id)
+    if answers:
+        # Facts the candidate supplied when tailoring asked about a gap. Kept so
+        # the next CV uses them and the agent does not ask the same thing again.
+        parts.append("Answers the candidate gave to earlier questions:")
+        parts.extend(f"- {qid}: {value}" for qid, value in answers)
     return "\n".join(p for p in parts if p.strip())
+
+
+def _saved_answers(user_id: str) -> list[tuple[str, str]]:
+    """(question_id, answer) pairs saved by merge_answers() for this user."""
+    try:
+        from backend.services.master_profile_service import load as _load_metrics_doc
+        metrics = (_load_metrics_doc(user_id) or {}).get("metrics", {}) or {}
+    except Exception:
+        logger.warning("[user_profile] saved answers unreadable for user=%s", user_id, exc_info=True)
+        return []
+    out = []
+    for qid, entry in metrics.items():
+        if isinstance(entry, dict) and entry.get("source") == "supplemental":
+            value = str(entry.get("value", "") or "").strip()
+            if value:
+                out.append((str(qid), value))
+    return out

@@ -20,7 +20,6 @@ from backend.agents.gatekeeper import RevisionGatekeeper
 from backend.agents.copilot import CopilotAgent
 from backend.services.pdf_builder import build_pdf, PdfEngineUnavailable, TEMPLATE_REGISTRY
 from backend.models.cv import normalize_cv
-from backend.services.supplemental_store import save as save_supplemental
 from backend.services.user_profile import get_profile, save_user_personal_field
 from backend.services.match_score_service import (
     compute_match_score_async,
@@ -615,8 +614,12 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                 jd_answers[qid] = answer
 
         if jd_answers:
+            # This user's profile — not supplemental_store's process-wide file,
+            # which mixed every user's answers together and was never read
+            # back for anyone, so each answer was used for one CV and lost.
             try:
-                n = save_supplemental(jd_answers)
+                from backend.services.master_profile_service import merge_answers
+                n = merge_answers(jd_answers, user.user_id)
                 if n:
                     logger.info(
                         "[resumes/tailor] Persisted %d supplemental answer(s) for job %s",

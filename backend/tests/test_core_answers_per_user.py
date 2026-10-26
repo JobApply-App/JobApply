@@ -55,3 +55,30 @@ def test_another_users_answer_does_not_leak(uid, monkeypatch):
 def test_unknown_or_blank_fields_are_ignored(uid):
     assert up.save_user_personal_field(uid, "salary", "1") is False
     assert up.save_user_personal_field(uid, "phone", "   ") is False
+
+
+# ── Gap answers (the LLM's missing_data questions) ───────────────────────────
+
+def test_gap_answers_are_kept_per_user_and_reach_the_next_cv(uid, monkeypatch):
+    """
+    Answers to tailoring's gap questions went to supplemental_store — one
+    process-wide file mixing every user's answers, never read back — so each
+    answer served one CV and was lost. They are now stored on the user's
+    profile and included in build_full_text(), the profile the agent sees.
+    """
+    from backend.services import master_profile_service as mps
+    from backend.services import supplemental_store
+
+    def _no_global(*_a, **_k):
+        raise AssertionError("wrote to the process-wide supplemental store")
+    monkeypatch.setattr(supplemental_store, "save", _no_global)
+
+    other = str(uuid.uuid4())
+    try:
+        mps.merge_answers({"zendesk_experience": "Yes — two years of Zendesk at Acme"}, uid)
+        assert "zendesk_experience: Yes — two years of Zendesk at Acme" in up.build_full_text(uid)
+        assert "zendesk_experience" not in up.build_full_text(other)
+    finally:
+        from backend.core.database import ENGINE
+        with ENGINE.begin() as c:
+            c.execute(text("DELETE FROM public.profiles WHERE id = CAST(:u AS uuid)"), {"u": other})
