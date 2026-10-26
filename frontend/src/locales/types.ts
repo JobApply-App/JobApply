@@ -306,6 +306,20 @@ export interface Dict {
       copilot_failed: string
       edit_applied:   string
     }
+    core_questions: {
+      core_name: {
+        q: string
+        ctx: string
+      }
+      core_phone: {
+        q: string
+        ctx: string
+      }
+      core_location: {
+        q: string
+        ctx: string
+      }
+    }
   }
   legal: {
     draft_label:   string

@@ -21,7 +21,7 @@ from backend.agents.copilot import CopilotAgent
 from backend.services.pdf_builder import build_pdf, PdfEngineUnavailable, TEMPLATE_REGISTRY
 from backend.models.cv import normalize_cv
 from backend.services.supplemental_store import save as save_supplemental
-from backend.services.user_profile import get_profile, save_personal_field
+from backend.services.user_profile import get_profile, save_user_personal_field
 from backend.services.match_score_service import (
     compute_match_score_async,
     _cv_experience_text,
@@ -592,8 +592,8 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
 
     # Persist answers before calling the agent so that even if generation fails
     # the user's answers are recorded and won't be asked again.
-    # core_* answers (phone, location) update USER_PROFILE["personal"] directly
-    # and are written to personal_overrides.json so they survive restarts.
+    # core_* answers (name, phone, location) are saved to this user's own
+    # profile, where the core-field check reads them, so they are asked once.
     # All other answers go to supplemental_answers.json for JD-gap context.
     jd_answers: dict = {}
     if req.supplemental_answers:
@@ -602,7 +602,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                 # Strip the "core_" prefix to get the profile field name
                 field = qid[len("core_"):]
                 try:
-                    save_personal_field(field, answer)
+                    save_user_personal_field(user.user_id, field, answer)
                     logger.info(
                         "[resumes/tailor] Saved core profile field '%s' for job %s",
                         field, req.job_id,

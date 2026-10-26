@@ -704,6 +704,44 @@ def _master_profile_verified_email(user_id: str) -> str:
         return ""
 
 
+_USER_PERSONAL_FIELDS = frozenset({"name", "phone", "location"})
+
+
+def save_user_personal_field(user_id: str, field: str, value: str) -> bool:
+    """
+    Save a contact field the user typed (tailoring asks for missing ones) to
+    THIS user's profile — master_profile["personal"], the first source
+    get_profile() reads.
+
+    The tailoring route used to call save_personal_field(), which writes a
+    process-wide file and the legacy single-user USER_PROFILE dict. The
+    user's own profile never changed, so the next tailoring asked for the
+    same phone number again — every time — and the answer overwrote shared
+    state. Returns True when saved.
+    """
+    if field not in _USER_PERSONAL_FIELDS:
+        return False
+    clean = str(value or "").strip()
+    if not clean:
+        return False
+    from datetime import datetime, timezone
+    from sqlalchemy.orm import Session
+    from backend.core.database import ENGINE
+    from backend.repositories import profile_repository
+    now = datetime.now(timezone.utc).isoformat()
+    with Session(ENGINE) as session:
+        row, _ = profile_repository.get_or_create(session, user_id, now=now)
+        mp = dict(row.master_profile or {})
+        personal = dict(mp.get("personal") or {}) if isinstance(mp.get("personal"), dict) else {}
+        personal[field] = clean
+        mp["personal"] = personal
+        row.master_profile = mp
+        row.updated_at = now
+        profile_repository.save(session, row)
+        session.commit()
+    return True
+
+
 def _cv_personal(onboarding: dict) -> dict:
     """Contact fields from the stored CV extraction, in the get_profile() key shape."""
     cv = onboarding.get("cv_data") if isinstance(onboarding.get("cv_data"), dict) else {}

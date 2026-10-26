@@ -338,6 +338,20 @@ export const en = {
       copilot_failed:    'Edit failed. Please try again.',
       edit_applied:      'Edit applied.',
     },
+    core_questions: {
+      core_name: {
+        q: 'What is your full name as it should appear on your CV?',
+        ctx: 'The first line of the CV header.',
+      },
+      core_phone: {
+        q: 'What is your phone number?',
+        ctx: 'Displayed in the CV header on every application.',
+      },
+      core_location: {
+        q: 'What is your current city / location? (e.g. Tel Aviv, Israel)',
+        ctx: 'Shown in the CV header so hiring managers know your base.',
+      },
+    },
   },
 
   legal: {
