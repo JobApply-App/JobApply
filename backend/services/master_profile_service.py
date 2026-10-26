@@ -173,8 +173,7 @@ def merge_answers(answers: dict[str, str], user_id: str) -> int:
     Behaviour:
     - Always updates "updated_at" for any key that is already present.
     - Sets source="supplemental", confidence="high" for all merged entries.
-    - Writes to master_profile.json (structured) AND supplemental_store
-      (flat, for LLM context injection) to keep both stores in sync.
+    - Writes to this user's profile document only.
     - Returns the count of *newly written* entries (existing keys that are
       merely updated are not counted).
 
@@ -219,17 +218,10 @@ def merge_answers(answers: dict[str, str], user_id: str) -> int:
         )
     except Exception as exc:
         logger.error("[master_profile] merge_answers failed: %s", exc)
-        # Fall through to supplemental_store write regardless
 
-    # ── Keep supplemental_store in sync ───────────────────────────────────────
-    # supplemental_store feeds build_full_text() → TailorAgent context.
-    # It de-duplicates on its own (skips already-present IDs).
-    try:
-        from backend.services.supplemental_store import save as save_supplemental
-        save_supplemental(answers)
-    except Exception as exc:
-        logger.warning("[master_profile] supplemental_store sync failed: %s", exc)
-
+    # No longer mirrored into supplemental_store: that is one process-wide file,
+    # so every user's answers landed in the same place. build_full_text() reads
+    # this user's answers from profile["metrics"] instead.
     return newly_written
 
 
