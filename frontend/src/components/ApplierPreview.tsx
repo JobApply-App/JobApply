@@ -168,6 +168,10 @@ function MissingDataForm({
   // Guard against stale index if requests array shrinks (shouldn't happen, but safe)
   const safeIdx   = Math.min(idx, requests.length - 1)
   const current   = requests[safeIdx]
+  // Core contact questions (core_name/phone/location) come from the server in
+  // English; show them in the UI language. Gap questions are written by the
+  // LLM and are shown as-is.
+  const coreQ = (A.core_questions as Record<string, { q: string; ctx: string }>)[current?.id ?? '']
   const isFirst   = safeIdx === 0
   const isLast    = safeIdx === requests.length - 1
   const total     = requests.length
@@ -202,10 +206,10 @@ function MissingDataForm({
       {/* ── Question body ── */}
       <div className="px-4 pt-4 pb-3 flex flex-col gap-2">
         <label className="text-[12.5px] font-medium text-slate-700 leading-snug">
-          {current.question}
+          {coreQ?.q ?? current.question}
         </label>
-        {current.context && (
-          <p className="text-[11px] text-slate-400 leading-relaxed">{current.context}</p>
+        {(coreQ?.ctx ?? current.context) && (
+          <p className="text-[11px] text-slate-400 leading-relaxed">{coreQ?.ctx ?? current.context}</p>
         )}
         <textarea
           key={current.id}

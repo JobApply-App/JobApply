@@ -1456,7 +1456,14 @@ def _build_entity_intelligence_block(user_id: str) -> str:
 
 # ── Core profile check ───────────────────────────────────────────────────────
 
+# Shown to the user by id: the frontend renders core_* questions from its own
+# locale files (these English strings are the fallback).
 _CORE_QUESTIONS = {
+    "name": {
+        "id":       "core_name",
+        "question": "What is your full name as it should appear on your CV?",
+        "context":  "The first line of the CV header.",
+    },
     "phone": {
         "id":       "core_phone",
         "question": "What is your phone number?",
