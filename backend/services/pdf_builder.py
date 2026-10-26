@@ -28,8 +28,11 @@ cv_data shape (produced by TailorAgent — contact fields are absent by design):
 from __future__ import annotations
 
 import html as _html
+import logging
 import re
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class PdfEngineUnavailable(RuntimeError):
@@ -377,7 +380,7 @@ def _build_volunteering(text: str) -> str:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def _flatten(cv_data: dict, user_id: str) -> dict:
+def _flatten(cv_data: dict, user_id: str, contact: dict | None = None) -> dict:
     """Map TailorAgent JSON output to the flat placeholder dict the template needs.
 
     Contact fields come exclusively from the caller's own profile (get_profile
@@ -403,7 +406,8 @@ def _flatten(cv_data: dict, user_id: str) -> dict:
     #   static <span> in the template).
     # phone, location       → full <span> element or empty string; the template
     #   injects them raw so that a missing value leaves NO DOM node at all.
-    contact = _load_contact(user_id)
+    if contact is None:
+        contact = _load_contact(user_id)
     flat["name"]          = _e(contact.get("name",     ""))
     flat["email"]         = _e(contact.get("email",    ""))
     flat["linkedin"]      = _e(contact.get("linkedin", ""))
@@ -424,7 +428,8 @@ def _flatten(cv_data: dict, user_id: str) -> dict:
     return flat
 
 
-def render_html(cv_data: dict, template_id: str | None = None, *, user_id: str) -> str:
+def render_html(cv_data: dict, template_id: str | None = None, *, user_id: str,
+                contact: dict | None = None) -> str:
     """Return the fully-rendered HTML string for the CV.
 
     user_id selects whose contact data (name/email/phone/linkedin/location)
@@ -433,7 +438,7 @@ def render_html(cv_data: dict, template_id: str | None = None, *, user_id: str) 
     pass the real caller's user_id.
     """
     template = _resolve_template(template_id).read_text(encoding="utf-8")
-    return _inject(template, _flatten(cv_data, user_id))
+    return _inject(template, _flatten(cv_data, user_id, contact))
 
 
 async def build_pdf(cv_data: dict, output_path: str | Path | None = None,
@@ -445,7 +450,8 @@ async def build_pdf(cv_data: dict, output_path: str | Path | None = None,
     """
     from playwright.async_api import async_playwright
 
-    html_str = render_html(cv_data, template_id=template_id, user_id=user_id)
+    contact  = _load_contact(user_id)
+    html_str = render_html(cv_data, template_id=template_id, user_id=user_id, contact=contact)
 
     async with async_playwright() as pw:
         try:
@@ -483,7 +489,64 @@ async def build_pdf(cv_data: dict, output_path: str | Path | None = None,
         )
         await browser.close()
 
+    ats_text_issues(pdf_bytes, contact)
+
     if output_path is not None:
         Path(output_path).write_bytes(pdf_bytes)
 
     return pdf_bytes
+
+
+# ── ATS text-layer check ──────────────────────────────────────────────────────
+
+
+_NO_SPACE = re.compile(r"\s+")
+_PHONE_PUNCT = re.compile(r"[\s\-().+\u200e\u200f]")
+
+
+def _pdf_text_pages(pdf_bytes: bytes) -> list[str]:
+    import fitz  # pymupdf
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        return [page.get_text() for page in doc]
+
+
+def ats_text_issues(pdf_bytes: bytes, contact: dict) -> list[str]:
+    """
+    Read the rendered PDF the way an ATS parser does — its text layer, not the
+    picture — and return what a parser would miss: contact details that don't
+    extract as literal text, or a CV that spilled past one page.
+
+    Advisory: it logs and returns, never blocks the download. Logged without
+    the values themselves (they are the user's personal details).
+    """
+    try:
+        pages = _pdf_text_pages(pdf_bytes)
+    except Exception as exc:
+        logger.warning("[pdf_builder] ATS check could not read the PDF: %s", exc)
+        return ["unreadable"]
+
+    text = "\n".join(pages)
+    flat = _NO_SPACE.sub("", text).lower()
+    issues: list[str] = []
+    if not flat:
+        issues.append("no_text_layer")
+    else:
+        email = _NO_SPACE.sub("", contact.get("email") or "").lower()
+        if email and email not in flat:
+            issues.append("email")
+        # Last 9 digits: the same number is written +972-54… on the profile and
+        # 054… on a CV, so the country/trunk prefix must not decide the match.
+        phone = re.sub(r"\D", "", contact.get("phone") or "")[-9:]
+        if phone and phone not in _PHONE_PUNCT.sub("", text):
+            issues.append("phone")
+        # Word by word: a Hebrew name extracts with its words in visual order
+        # ("לוי דנה" for "דנה לוי"), which a parser still reads as the name.
+        words = (contact.get("name") or "").lower().split()
+        if words and not all(w in flat for w in words):
+            issues.append("name")
+    if len(pages) > 1:
+        issues.append(f"pages={len(pages)}")
+
+    if issues:
+        logger.warning("[pdf_builder] ATS text-layer check: %s", ", ".join(issues))
+    return issues

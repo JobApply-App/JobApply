@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from backend.scrapers.ats_api_scraper import try_greenhouse_api, try_lever_api, try_workday_api
+from backend.utilities.html_guard import html_visible_text, visible_text
 
 _UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -196,7 +197,7 @@ def scrape_job_post(url: str) -> ScrapedJob:
         or soup.body
     )
 
-    text = (content_node or soup).get_text(separator=" ")
+    text = visible_text(content_node or soup, separator=" ")
     lines = (line.strip() for line in text.splitlines())
     chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
     raw_text = "\n".join(chunk for chunk in chunks if chunk)

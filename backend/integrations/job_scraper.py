@@ -20,6 +20,7 @@ from urllib.parse import urlencode
 
 import requests
 from bs4 import BeautifulSoup
+from backend.utilities.html_guard import html_visible_text, visible_text
 
 # ── HTTP config ───────────────────────────────────────────────────────────────
 
@@ -246,7 +247,7 @@ def _fetch_description(job_url: str) -> str:
     soup    = BeautifulSoup(resp.text, "html.parser")
     desc_el = soup.select_one("div.show-more-less-html__markup")
     if desc_el:
-        return _clean(desc_el.get_text())
+        return _clean(visible_text(desc_el))
     criteria = soup.select("li.description__job-criteria-item")
     if criteria:
         return " | ".join(_clean(el.get_text()) for el in criteria)
@@ -266,7 +267,7 @@ def fetch_text_from_url(url: str, max_chars: int = 6000) -> str:
     soup = BeautifulSoup(resp.text, "html.parser")
     for tag in soup(["script", "style", "nav", "header", "footer", "aside"]):
         tag.decompose()
-    text = soup.get_text(separator=" ", strip=True)
+    text = visible_text(soup, separator=" ", strip=True)
     text = re.sub(r"\s{2,}", " ", text).strip()
     return text[:max_chars]
 

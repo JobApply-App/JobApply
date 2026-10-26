@@ -4,6 +4,7 @@ import logging
 from typing import Optional, Dict, Any, List, Union
 
 from bs4 import BeautifulSoup, Tag
+from backend.utilities.html_guard import html_visible_text, visible_text
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class ParsingEngine:
             script.decompose()
 
         # Extract text
-        text = soup.get_text(separator=" ", strip=True)
+        text = visible_text(soup, separator=" ", strip=True)
 
         # Collapse multiple spaces
         return re.sub(r'\s+', ' ', text).strip()
@@ -79,7 +80,7 @@ class ParsingEngine:
         soup = BeautifulSoup(unescaped, "html.parser")
         for element in soup(["script", "style", "noscript", "meta"]):
             element.decompose()
-        text = soup.get_text(separator="\n").strip()
+        text = visible_text(soup, separator="\n").strip()
         # Collapse runs of blank lines but keep single line breaks
         return re.sub(r"\n{3,}", "\n\n", re.sub(r"[ \t]+\n", "\n", text))
 

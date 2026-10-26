@@ -29,6 +29,7 @@ from bs4 import BeautifulSoup
 
 from backend.scrapers.linkedin_bulk_scraper import normalize_linkedin_job_url
 import backend.repositories.job_repository as job_store
+from backend.utilities.html_guard import html_visible_text, visible_text
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,7 @@ def _extract_job_details(html: str) -> dict:
     description_el = soup.select_one(
         ".description__text, .show-more-less-html__markup, [class*='description']"
     )
-    description = description_el.get_text(separator="\n", strip=True) if description_el else None
+    description = visible_text(description_el, separator="\n", strip=True) if description_el else None
 
     posted_at_el = soup.select_one(
         ".posted-time-ago__text, [class*='posted-time-ago'], time"
