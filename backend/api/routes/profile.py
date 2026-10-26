@@ -54,7 +54,8 @@ from backend.services.confidence_matrix_service import (
 
 logger = logging.getLogger(__name__)
 # Phase 4 invariant: every route carries at least the standard per-user budget.
-# LLM-backed routes (cv-upload) additionally attach llm_rate_limit per-route.
+# LLM-backed routes (cv-upload, research, interview message/resume/upload)
+# additionally attach llm_rate_limit per-route.
 router = APIRouter(dependencies=[Depends(standard_rate_limit)])
 
 
@@ -192,7 +193,7 @@ class ResearchRequest(BaseModel):
     force: bool = False
 
 
-@router.post("/research")
+@router.post("/research", dependencies=[Depends(llm_rate_limit)])
 async def trigger_research(req: ResearchRequest, user: CurrentUser = Depends(get_current_user)):
     """
     Run the ResearcherAgent for all profile entities (or a subset).
@@ -408,8 +409,8 @@ _CV_MAX_FILES = 10
 # A file extension is trivially spoofable (rename anything.exe to cv.pdf), so
 # every upload additionally checks the real file signature (magic bytes)
 # before the content is handed to a parser. This is defense in depth, not a
-# guarantee of a "safe" file — the parsers themselves (PyMuPDF/python-docx/
-# pypdf) already fail closed (return empty text / an "unreadable" result) on
+# guarantee of a "safe" file — the parsers themselves (PyMuPDF/
+# python-docx) already fail closed (return empty text / an "unreadable" result) on
 # malformed content, this just avoids handing obviously-mismatched content to
 # them at all.
 _FILE_SIGNATURES: dict[str, tuple[bytes, ...]] = {
@@ -1335,7 +1336,7 @@ async def start_interview(
         raise HTTPException(status_code=500, detail="Failed to start interview session. Please try again shortly.") from exc
 
 
-@router.post("/interview/message")
+@router.post("/interview/message", dependencies=[Depends(llm_rate_limit)])
 async def send_interview_message(
     req:  InterviewMessageRequest,
     user: CurrentUser = Depends(get_current_user),
@@ -1373,7 +1374,7 @@ async def get_interview_session(
         raise HTTPException(status_code=403, detail=str(exc))
 
 
-@router.post("/interview/{session_id}/resume")
+@router.post("/interview/{session_id}/resume", dependencies=[Depends(llm_rate_limit)])
 async def resume_interview_session(
     session_id: str,
     user:       CurrentUser = Depends(get_current_user),
@@ -1397,7 +1398,7 @@ async def resume_interview_session(
         raise HTTPException(status_code=500, detail="Failed to resume interview session. Please try again shortly.") from exc
 
 
-@router.post("/interview/{session_id}/upload")
+@router.post("/interview/{session_id}/upload", dependencies=[Depends(llm_rate_limit)])
 async def upload_verification_document(
     session_id: str,
     claim:      str        = Form(..., max_length=500, description="The exact claim being verified"),
