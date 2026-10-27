@@ -227,11 +227,32 @@ def _tool_use_blocks_gemini_safe(content: Any) -> bool:
     """
     if not isinstance(content, list):
         return True
-    return all(
-        b.get("thought_signature") is not None
-        for b in content
-        if isinstance(b, dict) and b.get("type") == "tool_use"
-    )
+    calls = [b for b in content if isinstance(b, dict) and b.get("type") == "tool_use"]
+    # Gemini signs only the FIRST function call of a step; parallel calls
+    # after it carry no signature. Requiring one on every call misread each
+    # parallel-call step as Anthropic-produced and sent it to the fallback.
+    return not calls or calls[0].get("thought_signature") is not None
+
+
+def _strip_gemini_fields(messages: list[dict]) -> list[dict]:
+    """
+    Drop Gemini-only block fields (thought_signature, raw bytes) before an
+    Anthropic call. A tool loop that started on Gemini and falls back keeps
+    them in its replayed blocks; Anthropic's client cannot JSON-encode bytes,
+    so every such fallback crashed with "Object of type bytes is not JSON
+    serializable" and Ariel answered "something went wrong".
+    """
+    out = []
+    for m in messages:
+        content = m.get("content")
+        if isinstance(content, list) and any(isinstance(b, dict) and "thought_signature" in b for b in content):
+            content = [
+                {k: v for k, v in b.items() if k != "thought_signature"} if isinstance(b, dict) else b
+                for b in content
+            ]
+            m = {**m, "content": content}
+        out.append(m)
+    return out
 
 
 def _gemini_eligible(messages: list[dict], tools: Optional[list]) -> bool:
@@ -549,7 +570,7 @@ async def _call_anthropic(
     timeout: float,
     max_retries: int,
 ) -> LLMResult:
-    kwargs: dict = dict(model=model, max_tokens=max_tokens, messages=messages)
+    kwargs: dict = dict(model=model, max_tokens=max_tokens, messages=_strip_gemini_fields(messages))
     if system is not None:
         kwargs["system"] = system
     if temperature is not None:
@@ -789,7 +810,7 @@ async def stream_llm(
             yield _gemini_stream_events(_prepend(first_chunk, gemini_agen))
             return
 
-    kwargs: dict = dict(model=model, max_tokens=max_tokens, messages=messages)
+    kwargs: dict = dict(model=model, max_tokens=max_tokens, messages=_strip_gemini_fields(messages))
     if system is not None:
         kwargs["system"] = system
     if temperature is not None:

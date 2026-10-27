@@ -803,3 +803,58 @@ def test_stream_llm_no_fallback_when_no_gemini_client_configured():
                             pass
 
     asyncio.run(run())
+
+
+# ── Gemini → Anthropic fallback mid tool loop (production TypeError, 2026-10-27) ──
+
+def _gemini_tool_turn(*signatures):
+    """An assistant turn as the tool loop replays it: Gemini signs only the
+    first of parallel function calls."""
+    blocks = []
+    for i, sig in enumerate(signatures):
+        b = {"type": "tool_use", "id": f"t{i}", "name": "update_skills", "input": {}}
+        if sig is not None:
+            b["thought_signature"] = sig
+        blocks.append(b)
+    return [
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": blocks},
+        {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": f"t{i}", "content": "ok"} for i in range(len(signatures))
+        ]},
+    ]
+
+
+def test_parallel_gemini_calls_stay_gemini_eligible():
+    msgs = _gemini_tool_turn(b"sig", None)
+    tools = [{"name": "update_skills", "input_schema": {"type": "object"}}]
+    with patch.object(llm_client_module, "_gemini_client", object()):
+        assert llm_client_module._gemini_eligible(msgs, tools)
+
+
+def test_anthropic_produced_calls_are_not_gemini_eligible():
+    msgs = _gemini_tool_turn(None, None)
+    with patch.object(llm_client_module, "_gemini_client", object()):
+        assert not llm_client_module._gemini_eligible(msgs, None)
+
+
+def test_anthropic_fallback_strips_gemini_signature_bytes():
+    """The fallback used to send thought_signature bytes to Anthropic, whose
+    client cannot JSON-encode them — every such Ariel turn failed."""
+    msgs = _gemini_tool_turn(b"\x00sig", None)
+    fake_response = _fake_message()
+
+    async def run():
+        with patch.object(llm_client_module, "_gemini_client", None):
+            with patch.object(
+                llm_client_module._client.messages, "create", new=AsyncMock(return_value=fake_response)
+            ) as mock_create:
+                await call_llm(**{**_CALL_KWARGS, "messages": msgs})
+                sent = mock_create.call_args.kwargs["messages"]
+                import json
+                json.dumps(sent)   # raises TypeError if bytes survived
+                assert all("thought_signature" not in b for b in sent[1]["content"])
+        # The caller's own messages are left untouched (the loop replays them to Gemini).
+        assert msgs[1]["content"][0]["thought_signature"] == b"\x00sig"
+
+    asyncio.run(run())
