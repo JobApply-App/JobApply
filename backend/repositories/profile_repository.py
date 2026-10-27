@@ -647,6 +647,13 @@ def list_onboarding_complete_user_ids() -> list[str]:
     return [str(r[0]) for r in rows]
 
 
+def list_hebrew_ui_user_ids() -> list[str]:
+    """user_ids whose interface language is Hebrew — fit_brief_translation's backfill."""
+    with ENGINE.connect() as conn:
+        rows = conn.execute(text("SELECT user_id FROM public.user_preferences WHERE ui_locale = 'he'")).fetchall()
+    return [str(r[0]) for r in rows]
+
+
 # ── Language preferences ───────────────────────────────────────────────────────
 #
 # Deliberately NOT routed through the master_profile document that save()

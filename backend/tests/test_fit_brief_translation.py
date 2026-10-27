@@ -107,6 +107,19 @@ async def test_llm_failure_does_not_raise(monkeypatch):
     assert await svc.translate_batch(_USER) == 0
 
 
+async def test_translate_all_covers_users_outside_the_pipeline(monkeypatch):
+    monkeypatch.setattr(svc, "_users", None)
+    monkeypatch.setattr(profile_repository, "list_hebrew_ui_user_ids", lambda: [_USER, "u2"])
+    seen = []
+
+    async def _batch(user_id):
+        seen.append(user_id)
+        return 1
+    monkeypatch.setattr(svc, "translate_batch", _batch)
+    assert await svc.translate_all() == 2
+    assert seen == [_USER, "u2"]
+
+
 # ── SQL against the local Postgres ───────────────────────────────────────────
 
 def _seed(job_id: str, fit_brief: str):
@@ -131,6 +144,15 @@ def _cleanup(job_ids):
         conn.execute(text("DELETE FROM public.user_job_matches WHERE job_id = ANY(:ids)"), {"ids": job_ids})
         for (pid,) in postings:
             conn.execute(text("DELETE FROM public.job_postings WHERE id = :pid"), {"pid": pid})
+
+
+def test_sql_lists_hebrew_ui_users(db_available):
+    from backend.core.postgres import PG_ENGINE
+    with PG_ENGINE.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO public.user_preferences (user_id, ui_locale) VALUES (CAST(:u AS uuid), 'he') "
+            "ON CONFLICT (user_id) DO UPDATE SET ui_locale = 'he'"), {"u": _QA_USER_A})
+    assert _QA_USER_A in profile_repository.list_hebrew_ui_user_ids()
 
 
 def test_sql_lists_only_english_and_replace_is_conditional(db_available):
