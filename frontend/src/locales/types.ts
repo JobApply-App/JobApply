@@ -301,6 +301,11 @@ export interface Dict {
     evaluating:       string
     fill_form:        string
     one_detail:       string
+    answer_hint_one:  string
+    answer_hint_many: string
+    submitting:       string
+    mobile_ready_title: string
+    mobile_ready_body:  string
     n_details:        string   // takes {n}
     download_pdf:     string
     download_title:   string
