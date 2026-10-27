@@ -68,6 +68,7 @@ async def translate_batch(user_id: str) -> int:
     if user_id in _done:
         return 0
     if not _wants_hebrew(user_id):
+        logger.info("[fit_brief_translation] user=%s UI is not Hebrew (or unreadable) — skipped", user_id)
         _done.add(user_id)
         return 0
 
@@ -87,6 +88,11 @@ async def translate_batch(user_id: str) -> int:
         return 0
     # One batch costs one unit of the background budget, like one enriched job.
     if not llm_budget.background_llm_allowed(user_id) or not llm_budget.consume(user_id):
+        # Silent before: a spent budget looked exactly like "nothing to do".
+        logger.info(
+            "[fit_brief_translation] user=%s has %d English brief(s) waiting — "
+            "daily background budget spent or AI providers down", user_id, len(pending),
+        )
         return 0
 
     sources = [brief for _, brief in pending]
