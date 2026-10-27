@@ -847,12 +847,13 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
             onKeyDown={handleKeyDown}
             placeholder={C.composer.placeholder}
             rows={2}
-            className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 bg-white"
+            className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-base sm:text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 bg-white"
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || sending}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-white transition disabled:opacity-40 flex-shrink-0"
+            aria-label={C.composer.send}
+            className="w-11 h-11 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white transition disabled:opacity-40 flex-shrink-0"
             style={{ background: TOKENS.color.primary }}
           >
             <SendIcon s={15} />

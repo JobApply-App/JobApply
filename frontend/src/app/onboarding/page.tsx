@@ -19,6 +19,7 @@ import {
 } from '@/lib/api'
 import { CvUploadProgress } from '@/components/CvUploadProgress'
 import { armArielWelcome } from '@/lib/onboardingFlags'
+import { roleLabel, searchRoles } from '@/lib/roleCatalog'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -89,23 +90,6 @@ function DirectionalArrow() {
 // and are indexed positionally against this list. Keep both in the same order.
 const STEP_ICONS = ['🗂️', '⚡', '📊'] as const
 
-// ── Role catalogue for autocomplete (~40 common tech/startup roles) ───────────
-
-const ROLE_CATALOG = [
-  'Account Executive', 'Account Manager', 'Backend Developer', 'Business Analyst',
-  'Business Development Manager', 'Chief of Staff', 'Content Marketing Manager',
-  'Customer Success Manager', 'Data Analyst', 'Data Engineer', 'Data Scientist',
-  'DevOps Engineer', 'Engineering Manager', 'Finance Manager', 'Frontend Developer',
-  'Full Stack Developer', 'Growth Manager', 'HR Business Partner', 'IT Manager',
-  'Machine Learning Engineer', 'Marketing Director', 'Marketing Manager',
-  'Mobile Developer', 'Office Manager', 'Operations Manager', 'Partnership Manager',
-  'Product Analyst', 'Product Designer', 'Product Manager', 'Product Marketing Manager',
-  'Program Manager', 'Project Manager', 'QA Engineer', 'Sales Development Representative',
-  'Sales Manager', 'Security Engineer', 'Software Engineer', 'Solutions Architect',
-  'Talent Acquisition Manager', 'Technical Support Engineer', 'Technical Writer',
-  'UX Designer', 'UX Researcher',
-]
-
 // Values are persisted to the profile and stay English — the stored profile
 // is canonically English so downstream matching sees one spelling per level
 // (see backend migration c5a91b3e7d02). Only the display labels translate,
@@ -125,23 +109,24 @@ function RolePicker({ selected, setSelected }: {
   selected:    PendingRole[]
   setSelected: React.Dispatch<React.SetStateAction<PendingRole[]>>
 }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const P = t.onboarding.preferences
   const [query,     setQuery]     = useState('')
   const [open,      setOpen]      = useState(false)
   const [highlight, setHighlight] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const suggestions = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const taken = new Set(selected.map(r => r.role.toLowerCase()))
-    const pool = ROLE_CATALOG.filter(r => !taken.has(r.toLowerCase()))
-    if (!q) return pool.slice(0, 8)
-    // Prefix-of-word matches first ("aco" → Account…), then substring matches.
-    const starts   = pool.filter(r => r.toLowerCase().split(/\s+/).some(w => w.startsWith(q)) || r.toLowerCase().startsWith(q))
-    const contains = pool.filter(r => !starts.includes(r) && r.toLowerCase().includes(q))
-    return [...starts, ...contains].slice(0, 8)
-  }, [query, selected])
+  const suggestions = useMemo(
+    () => searchRoles(query, new Set(selected.map(r => r.role.toLowerCase()))),
+    [query, selected],
+  )
+  // Anything not in the list can still be added as typed — say so, instead of
+  // leaving it to an Enter key a phone keyboard may label "Go".
+  const typed = query.trim()
+  const offerCustom = typed.length > 1 && !suggestions.some(r =>
+    [r.en, r.he].some(l => l.toLowerCase() === typed.toLowerCase()))
+  const optionCount = suggestions.length + (offerCustom ? 1 : 0)
+  const label = (r: { en: string; he: string }) => (locale === 'he' ? r.he : r.en)
 
   const addRole = (role: string) => {
     const value = role.trim()
@@ -163,47 +148,61 @@ function RolePicker({ selected, setSelected }: {
           ref={inputRef}
           value={query}
           role="combobox"
-          aria-expanded={open && suggestions.length > 0}
+          aria-expanded={open && optionCount > 0}
           aria-autocomplete="list"
           aria-controls="role-suggestions"
           onChange={e => { setQuery(e.target.value); setOpen(true); setHighlight(0) }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 120)}
           onKeyDown={e => {
-            if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(h + 1, suggestions.length - 1)) }
+            if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(h + 1, optionCount - 1)) }
             if (e.key === 'ArrowUp')   { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)) }
             if (e.key === 'Enter') {
               e.preventDefault()
-              if (suggestions[highlight]) addRole(suggestions[highlight])
-              else if (query.trim())      addRole(query)   // free-text custom role
+              if (suggestions[highlight]) addRole(suggestions[highlight].en)
+              else if (typed)             addRole(typed)   // free-text custom role
             }
             if (e.key === 'Escape') setOpen(false)
           }}
           placeholder={P.role_placeholder}
           maxLength={80}
           disabled={selected.length >= 10}
-          className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-[13.5px] text-slate-800 placeholder:text-slate-300 outline-none focus:border-teal-400 transition disabled:opacity-50"
+          className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-base sm:text-[13.5px] text-slate-800 placeholder:text-slate-300 outline-none focus:border-teal-400 transition disabled:opacity-50"
         />
 
-        {open && suggestions.length > 0 && (
+        {open && optionCount > 0 && (
           <ul
             id="role-suggestions"
             role="listbox"
             className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 rounded-xl bg-white border border-slate-100 shadow-elevation-2 overflow-hidden max-h-64 overflow-y-auto"
           >
             {suggestions.map((s, i) => (
-              <li key={s} role="option" aria-selected={i === highlight}>
+              <li key={s.en} role="option" aria-selected={i === highlight}>
                 <button
-                  onMouseDown={e => { e.preventDefault(); addRole(s) }}
+                  onMouseDown={e => { e.preventDefault(); addRole(s.en) }}
                   onMouseEnter={() => setHighlight(i)}
                   className={`w-full text-start px-3.5 py-2.5 text-[13px] transition ${
                     i === highlight ? 'bg-teal-50 text-teal-800' : 'text-slate-700'
                   }`}
                 >
-                  {s}
+                  {label(s)}
+                  {locale === 'he' && <span className="ms-2 text-[11.5px] text-slate-400" dir="ltr">{s.en}</span>}
                 </button>
               </li>
             ))}
+            {offerCustom && (
+              <li role="option" aria-selected={highlight === suggestions.length}>
+                <button
+                  onMouseDown={e => { e.preventDefault(); addRole(typed) }}
+                  onMouseEnter={() => setHighlight(suggestions.length)}
+                  className={`w-full text-start px-3.5 py-2.5 text-[13px] border-t border-slate-100 transition ${
+                    highlight === suggestions.length ? 'bg-teal-50 text-teal-800' : 'text-slate-600'
+                  }`}
+                >
+                  {P.add_custom_role.replace('{role}', typed)}
+                </button>
+              </li>
+            )}
           </ul>
         )}
       </div>
@@ -217,7 +216,7 @@ function RolePicker({ selected, setSelected }: {
               className="rounded-xl border border-slate-100 bg-slate-50/60 px-3.5 py-3"
             >
               <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-[13.5px] font-semibold text-slate-800">{item.role}</span>
+                <span className="text-[13.5px] font-semibold text-slate-800">{roleLabel(item.role, locale)}</span>
                 <button
                   onClick={() => setSelected(prev => prev.filter(r => r.role !== item.role))}
                   aria-label={P.remove_role.replace('{role}', item.role)}
