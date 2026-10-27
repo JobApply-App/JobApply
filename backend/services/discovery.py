@@ -15,7 +15,9 @@ Interval and credit behaviour are controlled by backend/config.py:
   CREDIT_CONSERVATION_MODE    — when True, JD hydration is skipped during
                                  auto-discovery; full descriptions are fetched
                                  only on explicit user action or backfill run.
-  TARGET_SEARCH_QUERIES       — job-title search terms forwarded to the dork scraper.
+  TARGET_SEARCH_QUERIES       — fallback dork terms for a user with no cached
+                                 title terms; otherwise the user's own terms
+                                 (capped by DORK_TERMS_PER_CYCLE) are searched.
   MAX_RELEVANT_JOBS           — hard cap on new jobs saved per cycle.
 """
 from __future__ import annotations
@@ -32,7 +34,6 @@ from backend.config import (
     MAX_RELEVANT_JOBS,
 )
 from backend.scrapers.base_scraper import make_tenant_job_id
-from backend.scrapers.relevancy import is_title_relevant
 from backend.repositories import job_repository as job_store
 import backend.services.agent_store as agent_store
 from backend.schemas.job import JobMatch, RawJobPosting
@@ -194,6 +195,28 @@ def _category_for_query(query: str) -> str:
     return "Customer Success" if any(sig in lower for sig in cs_signals) else "Product"
 
 
+def _dork_terms_for(user_id: str):
+    """(keywords for this cycle, this user's title matcher). Global list when nothing is cached."""
+    from backend.config import DORK_TERMS_PER_CYCLE
+    from backend.scrapers.relevancy import build_title_matcher
+    from backend.services.board_search_terms import next_cycle, select_for_cycle
+    from backend.services.user_title_terms import cached_terms_for_users
+
+    try:
+        terms = cached_terms_for_users([user_id]).get(user_id)
+    except Exception:
+        logger.exception("[discovery] could not read cached terms for user=%s — global list", user_id)
+        terms = None
+    keywords = select_for_cycle(
+        list(terms or TARGET_SEARCH_QUERIES), DORK_TERMS_PER_CYCLE, next_cycle(f"dork:{user_id}"),
+    )
+    logger.info(
+        "[discovery] user=%s own_terms=%s dork_terms=%d keywords=%s",
+        user_id, bool(terms), len(keywords), keywords,
+    )
+    return keywords, build_title_matcher(terms)
+
+
 async def run_discovery_cycle(user_id: str) -> None:
     """
     Run one full discovery cycle: Google Dork → filter → analyse → save.
@@ -215,9 +238,15 @@ async def run_discovery_cycle(user_id: str) -> None:
     )
 
     agent_store.ensure_user_seeded(user_id)
-    agent_store.set_active("s1", f"Google Dorking ATS boards · {len(TARGET_SEARCH_QUERIES)} queries")
 
-    scraper    = GoogleDorkScraper(keywords=TARGET_SEARCH_QUERIES, user_id=user_id)
+    # This user's own title terms, not the founder's global list (see
+    # services/board_search_terms.py). Capped at DORK_TERMS_PER_CYCLE and
+    # rotated: 8 terms = 2 OR-batches × 10 domains = 20 Google queries per
+    # cycle, where the 34-term global list cost 90. Cache read only, no LLM.
+    keywords, relevant = _dork_terms_for(user_id)
+    agent_store.set_active("s1", f"Google Dorking ATS boards · {len(keywords)} terms")
+
+    scraper    = GoogleDorkScraper(keywords=keywords, user_id=user_id, title_filter=relevant)
     agent      = MatcherAgent()
     discovered = 0
     skipped    = 0
@@ -251,7 +280,7 @@ async def run_discovery_cycle(user_id: str) -> None:
 
             # Relevancy gate (already applied inside GoogleDorkScraper, but
             # re-check here in case something slipped through).
-            if not is_title_relevant(title):
+            if not relevant(title):
                 logger.debug("[discovery] SKIP (irrelevant) '%s'", title)
                 skipped += 1
                 continue

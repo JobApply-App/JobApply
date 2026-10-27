@@ -83,9 +83,13 @@ async def _run_s1(user_id: str) -> None:
     _run_agent_scrape skips the outer set_active/set_idle for s1.
     """
     from backend.scrapers.scraper_manager import SCRAPER_MANAGER
+    from backend.services.board_discovery import run_board_discovery_cycle
     from backend.services.discovery import run_discovery_cycle
+    # SCRAPER_MANAGER now holds only the company-site scrapers (Comeet); the
+    # boards search this user's own title terms (board_discovery.py).
     await asyncio.gather(
         SCRAPER_MANAGER.run_all(user_id=user_id),
+        run_board_discovery_cycle([user_id], respect_interval=False),
         run_discovery_cycle(user_id=user_id),
     )
 

@@ -46,7 +46,7 @@ import logging
 import random
 import re
 import time
-from typing import Optional
+from typing import Callable, Optional
 
 from backend.schemas.job import JobMatch
 from backend.scrapers.base_scraper import BaseScraper, make_job_id, minimal_job_match
@@ -203,6 +203,7 @@ class GoogleDorkScraper(BaseScraper):
         domains:          Optional[list[str]] = None,
         include_linkedin: bool = True,
         user_id:          str = "default",
+        title_filter:     Optional[Callable[[str], bool]] = None,
     ) -> None:
         super().__init__("Google Dork (ATS Direct)", "https://www.google.com")
         self._keywords = keywords or TARGET_SEARCH_QUERIES
@@ -211,6 +212,8 @@ class GoogleDorkScraper(BaseScraper):
         # They are queried last so ATS results (higher quality) come first.
         self._domains  = base_domains + (_LINKEDIN_DOMAINS if include_linkedin else [])
         self._user_id  = user_id
+        # None = the global gate; discovery passes the user's own matcher.
+        self._title_filter = title_filter or is_title_relevant
 
     @property
     def source_type(self) -> str:
@@ -324,7 +327,7 @@ class GoogleDorkScraper(BaseScraper):
                     continue
 
                 # Apply relevancy gate
-                if not is_title_relevant(title):
+                if not self._title_filter(title):
                     logger.debug(
                         "[GoogleDorkScraper] SKIP (irrelevant): '%s' @ %s",
                         title, url,

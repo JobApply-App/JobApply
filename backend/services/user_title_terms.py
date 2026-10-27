@@ -195,3 +195,37 @@ def cached_user_terms(user_id: str) -> Optional[list[str]]:
     """Synchronous read of the cached terms (no LLM). None = use the global list."""
     terms = (_profile(user_id).get(_ANSWER_KEY) or {}).get("terms")
     return list(terms) if terms else None
+
+
+def cached_terms_for_users(user_ids: list[str], *, limit: int = 1000) -> dict[str, list[str]]:
+    """
+    Cached terms for many users in ONE narrow query (no LLM, no profile read).
+
+    For background loops that need every user's terms at once. Unlike
+    cached_user_terms() it does not load the whole profile (CV, answers, ...)
+    per user: it reads only the terms array out of one profile_answers row
+    each, so a cycle over every user costs ~1-2 KB of database egress per user
+    (the Supabase free-plan egress cap once suspended the whole product).
+    Users with nothing cached are simply absent from the result.
+    """
+    ids = [u for u in user_ids if u and u.strip()]
+    if not ids:
+        return {}
+    from backend.core.database import ENGINE
+    with ENGINE.connect() as conn:
+        rows = conn.execute(
+            text("""
+                SELECT CAST(user_id AS text), answer -> 'terms'
+                FROM public.profile_answers
+                WHERE question_id = :q AND user_id = ANY(CAST(:ids AS uuid[]))
+                LIMIT :lim
+            """),
+            {"q": _ANSWER_KEY, "ids": ids, "lim": limit},
+        ).fetchall()
+    out: dict[str, list[str]] = {}
+    for uid, terms in rows:
+        if isinstance(terms, str):
+            terms = json.loads(terms)
+        if isinstance(terms, list) and terms:
+            out[uid] = [str(t) for t in terms if str(t).strip()]
+    return out

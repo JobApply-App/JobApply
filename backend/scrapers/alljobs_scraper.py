@@ -34,7 +34,7 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any, Optional
+from typing import Callable, Any, Optional
 from urllib.parse import urljoin, urlencode
 
 import httpx
@@ -258,6 +258,7 @@ class AllJobsScraper(BaseScraper):
         keywords:     Optional[list] = None,
         category:     str = "",
         max_jobs:     int = _MAX_DETAIL_FETCH,
+        title_filter: Optional[Callable[[str], bool]] = None,
     ) -> None:
         super().__init__(company_name=company_name, company_url=company_url)
         self._user_id  = user_id
@@ -267,6 +268,9 @@ class AllJobsScraper(BaseScraper):
         )
         self.category  = category
         self._max_jobs = max_jobs
+        # Pre-detail-fetch title gate. None = the global gate; the board
+        # discovery cycle passes the union of every user's own matcher.
+        self._title_filter = title_filter
 
     @property
     def source_type(self) -> str:
@@ -376,7 +380,7 @@ class AllJobsScraper(BaseScraper):
             all_cards = await self._gather_listing_cards(client)
 
             # Relevancy gate
-            relevant_cards = [c for c in all_cards if is_title_relevant(c["title"])]
+            relevant_cards = [c for c in all_cards if (self._title_filter or is_title_relevant)(c["title"])]
             discarded = len(all_cards) - len(relevant_cards)
             if discarded:
                 logger.info(
