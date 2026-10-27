@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import type { ApiFeedJob, JobSourceType, JobStatus } from '@/lib/apiTypes'
@@ -294,6 +294,8 @@ interface JobFeedProps {
   initialFeedJobs?: ApiFeedJob[]
   /** True while page.tsx's own initial fetch (above) is still in flight. */
   initialFeedJobsLoading?: boolean
+  /** True when that fetch failed — this component then fetches (and reports) itself. */
+  initialFeedJobsFailed?: boolean
 }
 
 function _applyCompletenessFilter(data: ApiFeedJob[]): ApiFeedJob[] {
@@ -310,7 +312,7 @@ function _applyCompletenessFilter(data: ApiFeedJob[]): ApiFeedJob[] {
 
 export function JobFeed({
   onFeedRefreshed, preferences, expandJobId, userId,
-  initialFeedJobs, initialFeedJobsLoading,
+  initialFeedJobs, initialFeedJobsLoading, initialFeedJobsFailed,
 }: JobFeedProps = {}) {
   const F = useI18n().t.job_feed
   const [jobs,         setJobs]         = useState<ApiFeedJob[]>([])
@@ -381,7 +383,7 @@ export function JobFeed({
     }
   }, [preferences?.minScore, F.errors.load_failed])
 
-  // Initial mount only — loadJobs is NOT in the dependency array intentionally.
+  // Initial load only — loadJobs is NOT in the dependency array intentionally.
   // Putting loadJobs here would re-fire on every preferences change because
   // useCallback recreates it, causing an infinite request loop.
   // Subsequent loads are explicit: Refresh button (handleSync) or user action.
@@ -390,28 +392,32 @@ export function JobFeed({
   // firing a second, identical fetchFeedJobs(undefined, 100) request when
   // it's safe to do so: no minScore preference (that's a server-side filter
   // this component's own fetch applies, so it can only be skipped when
-  // there's nothing to filter) and the parent's fetch has already resolved
-  // (if it's still in flight — e.g. a direct deep-link straight to
-  // ?tab=feed on first load — fall back to the normal independent fetch
-  // rather than seeding from not-yet-available data).
+  // there's nothing to filter).
+  //
+  // If the parent's fetch is still in flight — the common case, since the
+  // last tab is remembered and a returning user lands straight on Matches —
+  // wait for it rather than duplicating it. Each duplicate re-read 100 rows
+  // from Supabase, whose egress quota once took the whole product down.
+  // Only a failed parent fetch falls back to this component's own, so the
+  // error is shown here.
+  const seededRef = useRef(false)
   useEffect(() => {
-    const canSeedFromParent =
-      !preferences?.minScore && !initialFeedJobsLoading && initialFeedJobs !== undefined
-    if (canSeedFromParent) {
+    if (seededRef.current) return
+    const parentCovers = !preferences?.minScore && initialFeedJobs !== undefined
+    if (parentCovers && initialFeedJobsLoading) return
+    seededRef.current = true
+    if (parentCovers && !initialFeedJobsFailed) {
       setTotalFetched(initialFeedJobs.length)
       setJobs(_applyCompletenessFilter(initialFeedJobs))
       setLoading(false)
     } else {
       loadJobs()
     }
-  // Mount-only, deliberately — see the note above. The suppression has to sit
-  // here rather than above `useEffect`, where it used to: exhaustive-deps
-  // reports on the dependency array, so a disable-next-line eleven lines up
-  // silently applied to nothing and the warning was never actually suppressed.
-  // Listing the real deps is NOT the fix — loadJobs and initialFeedJobs change
-  // identity on load, which would turn a one-shot seed into a refetch loop.
+  // Runs until it has seeded once, then never again (seededRef). Listing
+  // loadJobs or initialFeedJobs is NOT the fix — they change identity on
+  // load, and later reloads are explicit (Refresh button / user action).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [initialFeedJobsLoading])
 
   // Reset page when any filter changes
   useEffect(() => { setPageEnd(PAGE_SIZE) }, [status, search, source, sortBy, topFitsOnly])

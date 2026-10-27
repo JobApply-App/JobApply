@@ -1105,3 +1105,38 @@ def reassign_user(old_user_id: str, new_user_id: str, session: Session) -> int:
         {"new_uid": new_user_id, "old_uid": old_user_id},
     )
     return result.rowcount
+
+
+# ── One-time Hebrew backfill of fit_brief (services/fit_brief_translation.py) ──
+
+def list_untranslated_fit_briefs(user_id: str, limit: int) -> list[tuple[str, str]]:
+    """
+    (job_id, fit_brief) pairs for this user whose fit_brief has no Hebrew
+    letter — written before #81 asked the scorer for the UI language. Reads
+    two narrow columns only (egress).
+    """
+    with Session(ENGINE) as session:
+        rows = session.execute(
+            text("SELECT job_id, fit_brief FROM public.user_job_matches "
+                 "WHERE user_id = CAST(:user_id AS uuid) AND fit_brief IS NOT NULL "
+                 "AND fit_brief <> '' AND fit_brief !~ '[א-ת]' "
+                 "ORDER BY match_score DESC NULLS LAST LIMIT :limit"),
+            {"user_id": user_id, "limit": limit},
+        ).fetchall()
+    return [(str(r[0]), r[1]) for r in rows]
+
+
+def replace_fit_brief(job_id: str, user_id: str, old: str, new: str) -> bool:
+    """
+    Swap fit_brief for its translation, only if it still holds `old` — a
+    re-score that landed meanwhile wins. Returns True when a row changed.
+    """
+    with Session(ENGINE) as session:
+        res = session.execute(
+            text("UPDATE public.user_job_matches SET fit_brief = :new "
+                 "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid) "
+                 "AND fit_brief = :old"),
+            {"new": new, "old": old, "job_id": job_id, "user_id": user_id},
+        )
+        session.commit()
+        return res.rowcount > 0

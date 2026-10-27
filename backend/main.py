@@ -65,6 +65,7 @@ async def _enrichment_loop() -> None:
     log spam when the Anthropic API is rate-limiting or unreachable.
     """
     from backend.services.feed_service import refresh_user_scores
+    from backend.services.fit_brief_translation import translate_batch
     from backend.services.tenant_registry import list_pipeline_user_ids
 
     # 2 min, was 30s. With a daily per-user budget a faster sweep buys nothing
@@ -88,6 +89,7 @@ async def _enrichment_loop() -> None:
                     logger.info(
                         "[enrichment-loop] Enriched %d job(s) for user=%s", count, user_id,
                     )
+                await translate_batch(user_id)
             consecutive_failures = 0   # reset on success
         except Exception:
             consecutive_failures += 1

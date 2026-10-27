@@ -230,7 +230,7 @@ function HomePageContent() {
   }, [settings])
 
   // ── Live data ───────────────────────────────────────────────────────────────
-  const { jobs: rawJobs, feedJobs, loading: jobsLoading } = useJobMatches()
+  const { jobs: rawJobs, feedJobs, loading: jobsLoading, error: jobsError } = useJobMatches()
 
   // Merge manually-analyzed jobs with hook-fetched data so stats stay live.
   // Memoized: these were previously recomputed via IIFE on every render of
@@ -365,6 +365,7 @@ function HomePageContent() {
             userId={user?.id ?? ''}
             initialFeedJobs={feedJobs}
             initialFeedJobsLoading={jobsLoading}
+            initialFeedJobsFailed={jobsError !== null}
           />
         )}
 
