@@ -18,12 +18,14 @@ from __future__ import annotations
 import json
 import logging
 import re
+from datetime import datetime, timezone
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 _MODEL      = "claude-haiku-4-5"
 _BATCH      = 20
+_DAILY_BATCHES = 10   # per user: 200 briefs a day, ~a few cents of Haiku at most
 _MAX_TOKENS = 4000
 _HEBREW     = re.compile(r"[א-ת]")
 
@@ -42,6 +44,21 @@ _users: Optional[list[str]] = None
 # unusable (kept English, not retried); both reset on restart.
 _done: set[str] = set()
 _skipped: dict[str, set[str]] = {}
+
+
+def _consume_daily(user_id: str) -> bool:
+    """Reserve one batch of today's _DAILY_BATCHES for user_id (kv table, survives restarts)."""
+    from backend.repositories import kv_repository
+    key = f"fit_brief_translation:{user_id}:{datetime.now(timezone.utc).date().isoformat()}"
+    entry = kv_repository.get(key)
+    try:
+        used = int(entry.value) if entry else 0
+    except (TypeError, ValueError):
+        used = 0
+    if used >= _DAILY_BATCHES:
+        return False
+    kv_repository.upsert(key, str(used + 1))
+    return True
 
 
 def _wants_hebrew(user_id: str) -> bool:
@@ -74,8 +91,7 @@ async def translate_batch(user_id: str) -> int:
 
     import asyncio
     from backend.repositories import job_repository
-    from backend.services import llm_budget
-    from backend.services.llm_client import call_llm
+    from backend.services.llm_client import call_llm, providers_unavailable
 
     skipped = _skipped.setdefault(user_id, set())
     rows = await asyncio.to_thread(
@@ -86,12 +102,13 @@ async def translate_batch(user_id: str) -> int:
         _done.add(user_id)
         logger.info("[fit_brief_translation] backlog empty for user=%s", user_id)
         return 0
-    # One batch costs one unit of the background budget, like one enriched job.
-    if not llm_budget.background_llm_allowed(user_id) or not llm_budget.consume(user_id):
-        # Silent before: a spent budget looked exactly like "nothing to do".
+    # Its own daily cap, not the scoring budget (llm_budget): sharing that
+    # one left the backfill blocked all day for every user whose scoring had
+    # used it up, and a translation must never cost a user a scored job.
+    if providers_unavailable() or not _consume_daily(user_id):
         logger.info(
             "[fit_brief_translation] user=%s has %d English brief(s) waiting — "
-            "daily background budget spent or AI providers down", user_id, len(pending),
+            "today's %d batches used or AI providers down", user_id, len(pending), _DAILY_BATCHES,
         )
         return 0
 

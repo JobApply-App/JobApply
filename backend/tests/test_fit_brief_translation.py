@@ -17,10 +17,10 @@ from sqlalchemy import text
 
 from backend.repositories import job_repository, profile_repository
 from backend.services import fit_brief_translation as svc
-from backend.services import llm_budget
 
 _USER = "00000000-0000-0000-0000-000000000001"
 _QA_USER_A = "2631c93b-93bb-4313-a2c2-79dbb786d199"
+_REAL_CONSUME_DAILY = svc._consume_daily   # the autouse fixture stubs it
 
 
 @pytest.fixture(autouse=True)
@@ -28,8 +28,8 @@ def _fresh_state(monkeypatch):
     svc._done.clear()
     svc._skipped.clear()
     monkeypatch.setattr(profile_repository, "get_locales", lambda user_id: {"ui_locale": "he", "cv_locale": None})
-    monkeypatch.setattr(llm_budget, "background_llm_allowed", lambda user_id: True)
-    monkeypatch.setattr(llm_budget, "consume", lambda user_id: True)
+    monkeypatch.setattr(svc, "_consume_daily", lambda user_id: True)
+    monkeypatch.setattr("backend.services.llm_client.providers_unavailable", lambda: False)
 
 
 def _fake_llm(monkeypatch, reply):
@@ -90,8 +90,8 @@ async def test_wrong_length_reply_saves_nothing(monkeypatch):
     assert saved == {}
 
 
-async def test_spent_budget_skips_the_llm(monkeypatch):
-    monkeypatch.setattr(llm_budget, "background_llm_allowed", lambda user_id: False)
+async def test_spent_daily_cap_skips_the_llm(monkeypatch):
+    monkeypatch.setattr(svc, "_consume_daily", lambda user_id: False)
     _fake_repo(monkeypatch, [("j1", "Strong fit.")])
     calls = _fake_llm(monkeypatch, lambda src: "[]")
     assert await svc.translate_batch(_USER) == 0
@@ -118,6 +118,28 @@ async def test_translate_all_covers_users_outside_the_pipeline(monkeypatch):
     monkeypatch.setattr(svc, "translate_batch", _batch)
     assert await svc.translate_all() == 2
     assert seen == [_USER, "u2"]
+
+
+async def test_does_not_touch_the_scoring_budget(monkeypatch):
+    from backend.services import llm_budget
+
+    def _forbidden(*a, **k):
+        raise AssertionError("translation must not spend the scoring budget")
+    monkeypatch.setattr(llm_budget, "consume", _forbidden)
+    monkeypatch.setattr(llm_budget, "background_llm_allowed", _forbidden)
+    _fake_repo(monkeypatch, [("j1", "Strong fit.")])
+    _fake_llm(monkeypatch, lambda src: json.dumps(["התאמה חזקה."], ensure_ascii=False))
+    assert await svc.translate_batch(_USER) == 1
+
+
+def test_daily_cap_counts_in_kv(monkeypatch):
+    from backend.repositories import kv_repository
+    store = {}
+    monkeypatch.setattr(kv_repository, "get",
+                        lambda k: SimpleNamespace(value=store[k]) if k in store else None)
+    monkeypatch.setattr(kv_repository, "upsert", lambda k, v: store.__setitem__(k, v))
+    monkeypatch.setattr(svc, "_DAILY_BATCHES", 2)
+    assert [_REAL_CONSUME_DAILY(_USER) for _ in range(3)] == [True, True, False]
 
 
 # ── SQL against the local Postgres ───────────────────────────────────────────
