@@ -430,6 +430,31 @@ CREDIT_CONSERVATION_MODE: bool = True
 # anyway. Revisit if/when the Render plan changes.
 DISCOVERY_INTERVAL_SECONDS: int = 300  # 5 minutes — pre-launch value
 
+# ── Per-user job-board search (2026-10-27) ────────────────────────────────────
+# The Israeli boards and Google Dork used to search only TARGET_SEARCH_QUERIES
+# (the founder's roles). They now search the union of every onboarded user's
+# own title terms (services/board_search_terms.py) and deliver each job only
+# to the users whose terms match it (services/board_discovery.py). These caps
+# are the cost brake — each term is one search request per board, plus up to
+# 5 result pages; detail-page fetches stay capped inside each scraper.
+#
+# Rough cost at these values: ~190 requests per board cycle across the 5
+# boards (worst case ~365), 6 cycles a day → ~1,100/day (worst ~2,200),
+# i.e. 220–440 per site per day. Google Dork: 8 terms → 2 OR-batches × 10
+# domains = 20 queries per user per cycle (was 90 with the 34-term list).
+# No LLM calls: terms come from the cache that refresh_user_terms fills.
+BOARD_TERMS_PER_CYCLE: int = int(os.getenv("BOARD_TERMS_PER_CYCLE", "10"))
+DORK_TERMS_PER_CYCLE: int = int(os.getenv("DORK_TERMS_PER_CYCLE", "8"))
+# Share of the board slots reserved for Hebrew terms (Israeli boards title
+# postings in Hebrew). Unused slots spill over to English terms.
+BOARD_HEBREW_SHARE: float = 0.7
+# Persisted last-run time gates this, so a Render wake-up restart does not
+# start an extra cycle.
+BOARD_DISCOVERY_INTERVAL_SECONDS: int = int(os.getenv("BOARD_DISCOVERY_INTERVAL_SECONDS", "14400"))  # 4 hours
+# New jobs saved per user per board cycle. Bounds feed growth, and with it the
+# enrichment sweep's per-user feed polling (database egress).
+BOARD_MAX_NEW_JOBS_PER_USER: int = 20
+
 # ── All-jobs matching loop interval ───────────────────────────────────────────
 # How often (in seconds) the background loop that bridges public.all_jobs
 # (the global catalog) into each user's Matches feed runs. This loop only

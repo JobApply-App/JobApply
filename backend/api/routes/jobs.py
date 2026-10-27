@@ -1130,6 +1130,12 @@ async def scrape_company_jobs(
                     manager.register(scraper)
 
         new_count = await manager.run_all(user_id=_uid)
+        if not configs:
+            # The default registry no longer carries the board scrapers; they
+            # search the caller's own title terms (board_discovery.py).
+            from backend.services.board_discovery import run_board_discovery_cycle
+            saved = await run_board_discovery_cycle([_uid], respect_interval=False)
+            new_count += saved.get(_uid, 0)
         logger.info("[jobs/scrape] Scrape complete — %d new jobs saved.", new_count)
 
         if auto_score and new_count > 0:

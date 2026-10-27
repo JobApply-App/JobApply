@@ -43,7 +43,7 @@ import logging
 import re
 import xml.etree.ElementTree as ET
 from html import unescape
-from typing import Optional
+from typing import Callable, Optional
 from urllib.parse import urljoin, urlencode
 
 import httpx
@@ -344,6 +344,7 @@ class DrushimScraper(BaseScraper):
         keywords:     Optional[list] = None,
         category:     str = "",
         max_jobs:     int = _MAX_DETAIL_FETCH,
+        title_filter: Optional[Callable[[str], bool]] = None,
     ) -> None:
         super().__init__(company_name=company_name, company_url=company_url)
         self._user_id  = user_id
@@ -353,6 +354,9 @@ class DrushimScraper(BaseScraper):
         )
         self.category  = category
         self._max_jobs = max_jobs
+        # Pre-detail-fetch title gate. None = the global gate; the board
+        # discovery cycle passes the union of every user's own matcher.
+        self._title_filter = title_filter
 
     @property
     def source_type(self) -> str:
@@ -465,7 +469,7 @@ class DrushimScraper(BaseScraper):
             all_cards = await self._gather_listing_cards(client)
 
             # Relevancy gate before any detail fetch
-            relevant_cards = [c for c in all_cards if is_title_relevant(c["title"])]
+            relevant_cards = [c for c in all_cards if (self._title_filter or is_title_relevant)(c["title"])]
             discarded = len(all_cards) - len(relevant_cards)
             if discarded:
                 logger.info(

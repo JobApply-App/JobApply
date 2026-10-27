@@ -20,7 +20,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import Optional
+from typing import Callable, Optional
 from urllib.parse import urljoin, urlencode
 
 import httpx
@@ -197,6 +197,7 @@ class DialogScraper(BaseScraper):
         keyword:      str = "",
         keywords:     Optional[list] = None,
         max_jobs:     int = _MAX_DETAIL_FETCH,
+        title_filter: Optional[Callable[[str], bool]] = None,
     ) -> None:
         super().__init__(company_name=company_name, company_url=company_url)
         self._user_id  = user_id
@@ -205,6 +206,9 @@ class DialogScraper(BaseScraper):
             else ([keyword] if keyword else [])
         )
         self._max_jobs = max_jobs
+        # Pre-detail-fetch title gate. None = the global gate; the board
+        # discovery cycle passes the union of every user's own matcher.
+        self._title_filter = title_filter
 
     @property
     def source_type(self) -> str:
@@ -299,7 +303,7 @@ class DialogScraper(BaseScraper):
             all_cards = await self._gather_listing_cards(client)
 
             # Relevancy gate before detail fetches
-            relevant_cards = [c for c in all_cards if is_title_relevant(c["title"])]
+            relevant_cards = [c for c in all_cards if (self._title_filter or is_title_relevant)(c["title"])]
             discarded = len(all_cards) - len(relevant_cards)
             if discarded:
                 logger.info(

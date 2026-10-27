@@ -40,10 +40,7 @@ from backend.config import (
     AUTO_DISCOVERY,
     CORS_ORIGINS,
     CREDIT_CONSERVATION_MODE,
-    DEV_MAX_JOBS_PER_BOARD,
-    DEV_MODE,
     DISCOVERY_INTERVAL_SECONDS,
-    TARGET_SEARCH_QUERIES,
 )
 
 logging.basicConfig(
@@ -240,6 +237,33 @@ async def _all_jobs_matching_loop() -> None:
         await asyncio.sleep(ALL_JOBS_MATCHING_INTERVAL_SECONDS)
 
 
+async def _board_discovery_loop() -> None:
+    """
+    Background worker that searches the Israeli job boards for every user's
+    own roles (services/board_discovery.py — why, and how cost is bounded).
+
+    Wakes every 10 minutes but runs a cycle only when
+    BOARD_DISCOVERY_INTERVAL_SECONDS have passed since the last one; that
+    time is persisted, so a Render restart-on-wake does not add a cycle.
+    """
+    from backend.services.board_discovery import run_board_discovery_cycle
+
+    _TICK_SECONDS = 600
+
+    if not AUTO_DISCOVERY:
+        logger.warning("[board-discovery-loop] AUTO_DISCOVERY=False — board discovery is DISABLED.")
+        return
+
+    # Let startup (init_db, the all-jobs cycle) settle before the first check.
+    await asyncio.sleep(120)
+    while True:
+        try:
+            await run_board_discovery_cycle()
+        except Exception:
+            logger.exception("[board-discovery-loop] cycle failed")
+        await asyncio.sleep(_TICK_SECONDS)
+
+
 def _seed_scraper_registry() -> None:
     """
     Register default company scrapers into the global SCRAPER_MANAGER.
@@ -252,12 +276,6 @@ def _seed_scraper_registry() -> None:
     persisted. This placeholder value is never itself written to the DB.
     """
     from backend.scrapers.scraper_manager import SCRAPER_MANAGER, scraper_from_config
-    from backend.scrapers.drushim_scraper      import DrushimScraper
-    from backend.scrapers.alljobs_scraper      import AllJobsScraper
-    from backend.scrapers.gotfriends_scraper   import GotfriendsScraper
-    from backend.scrapers.dialog_scraper       import DialogScraper
-    from backend.scrapers.nisha_scraper        import NishaScraper
-    from backend.scrapers.google_dork_scraper  import GoogleDorkScraper
 
     # ── Company-site adapters (Comeet) ────────────────────────────────────────
     # These scrape specific employer career pages — relevancy gate is applied
@@ -282,41 +300,16 @@ def _seed_scraper_registry() -> None:
         if scraper:
             SCRAPER_MANAGER.register(scraper)
 
-    # ── Israeli board scrapers — targeted multi-keyword search ────────────────
-    # Each board scraper runs one search request per entry in TARGET_SEARCH_QUERIES
-    # and discards non-matching titles before any detail-page fetch.
-    #
-    # Dev-mode cap: when DEV_MODE=True (config.py), each scraper is limited to
-    # DEV_MAX_JOBS_PER_BOARD detail-page fetches so the full s1→s4 pipeline
-    # completes in seconds rather than minutes during local development.
-    # Set DEV_MODE=False in config.py before deploying to production.
-    _board_kw: dict = {"max_jobs": DEV_MAX_JOBS_PER_BOARD} if DEV_MODE else {}
-    if DEV_MODE:
-        logger.info(
-            "[startup] DEV_MODE active — board scrapers capped at %d jobs each.",
-            DEV_MAX_JOBS_PER_BOARD,
-        )
-
-    board_scrapers = [
-        DrushimScraper(keywords=TARGET_SEARCH_QUERIES, user_id="default", **_board_kw),
-        AllJobsScraper(keywords=TARGET_SEARCH_QUERIES, user_id="default", **_board_kw),
-        GotfriendsScraper(keywords=TARGET_SEARCH_QUERIES, user_id="default", **_board_kw),
-        DialogScraper(keywords=TARGET_SEARCH_QUERIES, user_id="default", **_board_kw),
-        NishaScraper(keywords=TARGET_SEARCH_QUERIES, user_id="default", **_board_kw),
-        # "Under the radar" — surfaces roles directly from ATS platforms via Google Dorks
-        # before aggregators re-index them (lower competition, earlier pipeline entry).
-        # GoogleDorkScraper has no max_jobs param — it is not a paginated board scraper.
-        GoogleDorkScraper(keywords=TARGET_SEARCH_QUERIES, user_id="default"),
-    ]
-
-    for scraper in board_scrapers:
-        SCRAPER_MANAGER.register(scraper)
-
+    # ── Israeli board scrapers + Google Dork are NOT registered here ─────────
+    # They used to be, with keywords=TARGET_SEARCH_QUERIES (the founder's
+    # roles), which made every "sync" search one fixed list for everyone and
+    # ran Google Dork a second time next to run_discovery_cycle. They are now
+    # built per cycle from the users' own title terms:
+    #   boards      → services/board_discovery.py (background + "sync")
+    #   Google Dork → services/discovery.py (per user)
     logger.info(
-        "[startup] ScraperManager seeded with %d scraper(s) (%d board scrapers with %d keywords each).",
+        "[startup] ScraperManager seeded with %d company-site scraper(s).",
         SCRAPER_MANAGER.scraper_count,
-        len(board_scrapers),
-        len(TARGET_SEARCH_QUERIES),
     )
 
 
@@ -427,10 +420,11 @@ async def lifespan(app: FastAPI):
     enrich_task    = asyncio.create_task(_enrichment_loop())
     discovery_task = asyncio.create_task(_discovery_loop())
     all_jobs_match_task = asyncio.create_task(_all_jobs_matching_loop())
+    board_discovery_task = asyncio.create_task(_board_discovery_loop())
     try:
         yield
     finally:
-        for t in (enrich_task, discovery_task, all_jobs_match_task):
+        for t in (enrich_task, discovery_task, all_jobs_match_task, board_discovery_task):
             t.cancel()
             try:
                 await t
