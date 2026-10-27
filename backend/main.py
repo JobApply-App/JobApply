@@ -454,6 +454,12 @@ app = FastAPI(
 )
 
 
+# ── Error codes on every error response (backend/core/errors.py) ─────────────
+from backend.core.errors import install_error_handlers  # noqa: E402
+
+install_error_handlers(app)
+
+
 # ── Global exception safety net ───────────────────────────────────────────────
 # Last-resort handler for any exception a route/service did not itself convert
 # to an HTTPException. FastAPI's built-in handlers for HTTPException and
@@ -471,7 +477,7 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSON
     )
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error. Please try again shortly."},
+        content={"detail": "Internal server error. Please try again shortly.", "code": "server_error"},
     )
 
 

@@ -2,6 +2,7 @@ import type { ApiAgentStatus, ApiJobMatch, AnalyzeRequest, AnalyzeResponse, Matc
 import type { Job } from './data'
 import { supabase } from './supabase'
 import { NdjsonLineSplitter } from './ndjson'
+import { ApiError, apiErrorFromBody } from './errors'
 
 // Empty base → all requests are relative (/api/...) and are proxied to
 // FastAPI by the rewrites rule in next.config.mjs. Set NEXT_PUBLIC_API_URL
@@ -92,10 +93,9 @@ export function setAuthErrorHandler(handler: () => void): void {
 /**
  * Call on every non-ok response; fires the sign-out callback for auth errors.
  *
- * Reads the JSON body's `detail` field when present — FastAPI's HTTPException
- * puts the actual failure reason there (e.g. "Scrape Failed: page returned no
- * job description text"), which is far more useful to surface to the user
- * than a bare "422 Unprocessable Entity".
+ * Throws ApiError: the body's error code becomes a localised explanation of
+ * what happened, why, and what to do (lib/errors.ts) — not the server's
+ * English `detail`, and never a bare "422 Unprocessable Entity".
  */
 async function _handleHttpError(
   res: Response,
@@ -114,22 +114,15 @@ async function _handleHttpError(
   if (res.status === 401 && treat401AsAuthFailure) {
     _onAuthError?.()
   }
-  // The server's 429 detail is English; it reached toasts on Hebrew pages
-  // verbatim. The UI language is on <html lang> (set by I18nContext).
-  if (res.status === 429) {
-    const he = typeof document !== 'undefined' && document.documentElement.lang === 'he'
-    throw new Error(he
-      ? 'יותר מדי בקשות ברגע זה. נסו שוב בעוד דקה.'
-      : 'Too many requests right now. Please try again in a minute.')
-  }
-  let detail: string | undefined
+  // The body carries an error code (backend/core/errors.py); ApiError turns
+  // it into a localised what/why/what-to-do message (lib/errors.ts).
+  let body: unknown = null
   try {
-    const body = await res.json()
-    detail = typeof body?.detail === 'string' ? body.detail : undefined
+    body = await res.json()
   } catch {
-    // Non-JSON or empty body — fall back to status text below.
+    // Non-JSON or empty body — the code falls back to the HTTP status.
   }
-  throw new Error(detail || `${res.status} ${res.statusText} — ${path}`)
+  throw apiErrorFromBody(body, res.status)
 }
 
 /**
@@ -144,9 +137,7 @@ async function _handleHttpError(
  * callers only ever see a message meant for a human.
  */
 function _networkErrorOr(err: unknown): Error {
-  if (err instanceof TypeError) {
-    return new Error('Could not reach the server — check your connection and try again.')
-  }
+  if (err instanceof TypeError) return new ApiError('network')
   return err instanceof Error ? err : new Error(String(err))
 }
 
@@ -208,7 +199,7 @@ async function post<TBody, TRes>(path: string, body: TBody, timeoutMs?: number):
     return res.json() as Promise<TRes>
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('Request timed out — the server is taking longer than expected. Please try again.')
+      throw new ApiError('timeout')
     }
     throw _networkErrorOr(err)
   } finally {
@@ -286,7 +277,7 @@ export async function fetchJobs(
 type AnalyzeTaskStatus =
   | { status: 'pending'; elapsed_s: number }
   | { status: 'done'; result: ApiFeedJob }
-  | { status: 'error'; detail: unknown; status_code: number }
+  | { status: 'error'; detail: unknown; status_code: number; code?: string; params?: Record<string, string | number> }
 
 const _ANALYZE_POLL_MS = 2500
 const _ANALYZE_MAX_MS  = 5 * 60_000
@@ -309,15 +300,13 @@ export async function startAnalysis(url: string): Promise<ApiFeedJob> {
       s = await get<AnalyzeTaskStatus>(`/api/jobs/analyze/status/${task_id}`)
     } catch (err) {
       // A blip on one poll is not a failed analysis; the task keeps running.
-      if (err instanceof Error && /Unknown or expired task/.test(err.message)) throw err
+      if (err instanceof ApiError && err.code === 'task_expired') throw err
       continue
     }
     if (s.status === 'done') return s.result
-    if (s.status === 'error') {
-      throw new Error(typeof s.detail === 'string' && s.detail ? s.detail : `Analysis failed (${s.status_code})`)
-    }
+    if (s.status === 'error') throw apiErrorFromBody(s, s.status_code)
   }
-  throw new Error('Request timed out — the server is taking longer than expected. Please try again.')
+  throw new ApiError('timeout')
 }
 
 export async function fetchTemplates(): Promise<import('./apiTypes').TemplateInfo[]> {
@@ -367,12 +356,11 @@ export async function downloadCvPdf(
     // The error body is JSON even though the success body is binary — surface
     // the server's own message (e.g. the 503 explaining PDF export is
     // unavailable in this deployment) instead of a generic failure.
-    let detail = `PDF export failed (${res.status})`
+    let body: unknown = null
     try {
-      const body = await res.json()
-      if (body?.detail) detail = String(body.detail)
-    } catch { /* non-JSON error body — keep the status-based message */ }
-    throw new Error(detail)
+      body = await res.json()
+    } catch { /* non-JSON error body — the code falls back to the status */ }
+    throw apiErrorFromBody(body, res.status)
   }
 
   const blob = await res.blob()

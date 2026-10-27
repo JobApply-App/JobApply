@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from 'react'
 import { ensureFreshToken, getAuthHeaders } from '@/lib/api'
+import { ChatStreamError, chatErrorText } from '@/lib/chatError'
+import type { ErrorParams } from '@/lib/errors'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -203,6 +205,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             let parsed: {
               chunk?: string
               error?: string
+              code?:  string
+              params?: ErrorParams
               type?:  string
               name?:  string
               input?: Record<string, unknown>
@@ -214,7 +218,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             }
 
             if (parsed.error) {
-              throw new Error(parsed.error)
+              throw new ChatStreamError(parsed.error, undefined, parsed.code, parsed.params)
             }
 
             // Tool-call action card
@@ -266,7 +270,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
-      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      const msg = chatErrorText(err)
       setMessages(prev => [
         ...prev,
         { role: 'assistant', content: msg, ts: Date.now() },

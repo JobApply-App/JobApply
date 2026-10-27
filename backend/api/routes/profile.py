@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from backend.core.errors import AppError
 from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit, standard_rate_limit
 from backend.core.database import ENGINE
 from backend.models.profile import ProfileEntityRow
@@ -233,7 +234,7 @@ async def trigger_research(req: ResearchRequest, user: CurrentUser = Depends(get
 
     except Exception as exc:
         logger.exception("[profile/research] Researcher agent failed")
-        raise HTTPException(status_code=502, detail="Research failed. Please try again shortly.")
+        raise AppError("ai_failed", status_code=502, detail="Research failed. Please try again shortly.", feature="research")
 
 
 # ── POST /api/profile/preferences ─────────────────────────────────────────────
@@ -380,7 +381,7 @@ async def linkedin_import(
 
     url = sanitize_text(body.linkedin_url.strip())[:300]
     if not _re.match(r"^https?://(www\.)?linkedin\.com/in/[A-Za-z0-9_%\-\.]+/?$", url):
-        raise HTTPException(
+        raise AppError("invalid_linkedin_url",
             status_code=422,
             detail="Please provide a valid LinkedIn profile URL (https://www.linkedin.com/in/your-name).",
         )
@@ -937,7 +938,7 @@ async def get_cv_upload_status(task_id: str, user: CurrentUser = Depends(get_cur
     """Poll an ingestion task. Readable only by the user who started it."""
     task = _CV_TASKS.get(task_id)
     if task is None or task["user_id"] != user.user_id:
-        raise HTTPException(status_code=404, detail="Unknown or expired task.")
+        raise AppError("task_expired", status_code=404, detail="Unknown or expired task.")
     if task["status"] == "done":
         return {"status": "done", "result": task["result"]}
     if task["status"] == "error":
@@ -1333,7 +1334,7 @@ async def start_interview(
         return state
     except Exception as exc:
         logger.exception("[profile/interview/start] Failed")
-        raise HTTPException(status_code=500, detail="Failed to start interview session. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=500, detail="Failed to start interview session. Please try again shortly.", feature="interview") from exc
 
 
 @router.post("/interview/message", dependencies=[Depends(llm_rate_limit)])
@@ -1351,12 +1352,12 @@ async def send_interview_message(
         state = await process_message(req.session_id, req.message, user_id=user.user_id)
         return state
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise AppError("session_not_found", status_code=404, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except Exception as exc:
         logger.exception("[profile/interview/message] Failed")
-        raise HTTPException(status_code=500, detail="Failed to process message. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=500, detail="Failed to process message. Please try again shortly.", feature="interview") from exc
 
 
 @router.get("/interview/{session_id}")
@@ -1369,7 +1370,7 @@ async def get_interview_session(
     try:
         return get_session(session_id, user_id=user.user_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise AppError("session_not_found", status_code=404, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
 
@@ -1390,12 +1391,12 @@ async def resume_interview_session(
         state = await resume_session(session_id, user_id=user.user_id)
         return state
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise AppError("session_not_found", status_code=404, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except Exception as exc:
         logger.exception("[profile/interview/resume] Failed")
-        raise HTTPException(status_code=500, detail="Failed to resume interview session. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=500, detail="Failed to resume interview session. Please try again shortly.", feature="interview") from exc
 
 
 @router.post("/interview/{session_id}/upload", dependencies=[Depends(llm_rate_limit)])
@@ -1423,19 +1424,19 @@ async def upload_verification_document(
     try:
         session_state = get_session(session_id, user_id=user.user_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise AppError("session_not_found", status_code=404, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
 
     # Read file
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:  # 10 MB cap
-        raise HTTPException(status_code=413, detail="File too large (max 10 MB).")
+        raise AppError("file_too_large", status_code=413, detail="File too large (max 10 MB).", max_mb=10)
 
     fname = file.filename or "upload"
     ext   = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
     if not _content_matches_extension(content, ext):
-        raise HTTPException(
+        raise AppError("file_mismatch",
             status_code=422,
             detail=f"File content does not match its .{ext} extension.",
         )
@@ -1450,9 +1451,9 @@ async def upload_verification_document(
         )
     except Exception as exc:
         logger.exception("[profile/interview/upload] Verification failed")
-        raise HTTPException(
+        raise AppError("ai_failed",
             status_code=500,
-            detail="Document verification failed. Please try again shortly.",
+            detail="Document verification failed. Please try again shortly.", feature="verification",
         ) from exc
 
     # Update confidence_map in DB if verified/partial

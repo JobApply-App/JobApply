@@ -13,6 +13,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
+from backend.core.errors import AppError
 from backend.repositories import job_repository as job_store, profile_repository
 from backend.agents.resume import ResumeAgent
 from backend.agents.tailor import TailorAgent, _inject_static_sections
@@ -54,7 +55,7 @@ def _pdf_http_error(exc: Exception, *, context: str) -> HTTPException:
     """
     if isinstance(exc, PdfEngineUnavailable):
         logger.error("[%s] PDF engine unavailable — Chromium not installed: %s", context, exc)
-        return HTTPException(
+        return AppError("pdf_unavailable",
             status_code=503,
             detail=(
                 "PDF export is currently unavailable on this server. This is a "
@@ -63,7 +64,7 @@ def _pdf_http_error(exc: Exception, *, context: str) -> HTTPException:
             ),
         )
     logger.exception("[%s] PDF build failed", context)
-    return HTTPException(
+    return AppError("pdf_failed",
         status_code=502,
         detail="PDF generation failed. Please try again shortly.",
     )
@@ -139,7 +140,7 @@ async def generate_resume(
     all_jobs = job_store.get_all(user.user_id)
     job      = next((j for j in all_jobs if j.job_id == job_id), None)
     if job is None:
-        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job '{job_id}' not found.")
 
     # ── Parse supplemental answers ────────────────────────────────────────────
     try:
@@ -156,7 +157,7 @@ async def generate_resume(
 
         # Reject legacy .doc with a clear message
         if mime == _LEGACY_DOC_MIME or reference_file.filename.lower().endswith(".doc"):
-            raise HTTPException(
+            raise AppError("legacy_doc",
                 status_code=415,
                 detail=(
                     "Legacy .doc format is not supported. "
@@ -165,7 +166,7 @@ async def generate_resume(
             )
 
         if mime not in _ALLOWED_FILE_TYPES:
-            raise HTTPException(
+            raise AppError("unsupported_file",
                 status_code=415,
                 detail=(
                     f"Unsupported file type '{mime}'. "
@@ -175,7 +176,7 @@ async def generate_resume(
 
         raw = await reference_file.read()
         if len(raw) > _MAX_FILE_BYTES:
-            raise HTTPException(status_code=413, detail="Reference file must be ≤ 10 MB.")
+            raise AppError("file_too_large", status_code=413, detail="Reference file must be ≤ 10 MB.", max_mb=10)
 
         ref_bytes = raw
         ref_mime  = mime
@@ -196,7 +197,7 @@ async def generate_resume(
         )
     except Exception as exc:
         logger.exception("[resumes] ResumeAgent failed for job %s", job_id)
-        raise HTTPException(status_code=502, detail="Resume generation failed. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=502, detail="Resume generation failed. Please try again shortly.", feature="cv_generation") from exc
 
     missing = [
         MissingDataRequest(
@@ -544,7 +545,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
     all_jobs = job_store.get_all(user.user_id)
     job      = next((j for j in all_jobs if j.job_id == req.job_id), None)
     if job is None:
-        raise HTTPException(status_code=404, detail=f"Job '{req.job_id}' not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job '{req.job_id}' not found.")
 
     # ── Regenerate from scratch: purge the stale draft up front ───────────────
     # Deliberately BEFORE the LLM runs, not after. Relying on the successful
@@ -637,7 +638,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
         )
     except Exception as exc:
         logger.exception("[resumes/tailor] TailorAgent failed for job %s", req.job_id)
-        raise HTTPException(status_code=502, detail="CV tailoring failed. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=502, detail="CV tailoring failed. Please try again shortly.", feature="cv_tailoring") from exc
 
     # ── Missing data: attempt auto-fill from master profile ───────────────────
     if result["type"] == "missing_data":
@@ -666,7 +667,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                 logger.exception(
                     "[resumes/tailor] TailorAgent (auto-fill retry) failed for job %s", req.job_id
                 )
-                raise HTTPException(status_code=502, detail="CV tailoring failed. Please try again shortly.") from exc
+                raise AppError("ai_failed", status_code=502, detail="CV tailoring failed. Please try again shortly.", feature="cv_tailoring") from exc
 
         # Still missing data after auto-fill attempt (or no hits): return only
         # the questions that were NOT resolved by the cache.
@@ -942,9 +943,9 @@ async def get_tailor_status(task_id: str, user: CurrentUser = Depends(get_curren
     if task is None:
         # Expired, lost to a restart, or never existed. The client's correct
         # move is the same in all three cases: fall back to /cached/{job_id}.
-        raise HTTPException(status_code=404, detail="Unknown or expired task.")
+        raise AppError("task_expired", status_code=404, detail="Unknown or expired task.")
     if task["user_id"] != user.user_id:
-        raise HTTPException(status_code=404, detail="Unknown or expired task.")
+        raise AppError("task_expired", status_code=404, detail="Unknown or expired task.")
 
     if task["status"] == "done":
         return {"status": "done", "result": task["result"]}
@@ -1019,14 +1020,14 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
     print(f"=== DEBUG [resumes/copilot] job_id={req.job_id}  prompt_len={len(req.user_prompt)}  cv_keys={list(req.cv_data.keys()) if req.cv_data else None} ===")
 
     if not req.user_prompt.strip():
-        raise HTTPException(status_code=422, detail="user_prompt must not be empty.")
+        raise AppError("empty_message", status_code=422, detail="user_prompt must not be empty.")
     if not req.cv_data:
         raise HTTPException(status_code=422, detail="cv_data must not be empty.")
 
     all_jobs = job_store.get_all(user.user_id)
     job      = next((j for j in all_jobs if j.job_id == req.job_id), None)
     if job is None:
-        raise HTTPException(status_code=404, detail=f"Job '{req.job_id}' not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job '{req.job_id}' not found.")
 
     try:
         agent  = CopilotAgent()
@@ -1039,7 +1040,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
         )
     except Exception as exc:
         logger.exception("[resumes/copilot] CopilotAgent failed for job %s", req.job_id)
-        raise HTTPException(status_code=502, detail="Copilot edit failed. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=502, detail="Copilot edit failed. Please try again shortly.", feature="cv_edit") from exc
 
     # ── warning / rejected: skip rebuild, return agent's message immediately ──
     if result["status"] in ("warning", "rejected"):
@@ -1281,7 +1282,7 @@ async def save_cv(req: SaveCvRequest, user: CurrentUser = Depends(get_current_us
     all_jobs = job_store.get_all(user.user_id)
     job      = next((j for j in all_jobs if j.job_id == req.job_id), None)
     if job is None:
-        raise HTTPException(status_code=404, detail=f"Job '{req.job_id}' not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job '{req.job_id}' not found.")
 
     # Fall back to the stored default only when the editor did not say —
     # an older client that predates the field is far likelier to be editing
@@ -1321,14 +1322,14 @@ async def revise_resume(req: ReviseRequest, user: CurrentUser = Depends(get_curr
       • Rejects the request with a plain-English explanation  (status="rejected")
     """
     if not req.revision_text.strip():
-        raise HTTPException(status_code=422, detail="revision_text must not be empty.")
+        raise AppError("empty_message", status_code=422, detail="revision_text must not be empty.")
     if not req.cv_data:
         raise HTTPException(status_code=422, detail="cv_data must not be empty.")
 
     all_jobs = job_store.get_all(user.user_id)
     job      = next((j for j in all_jobs if j.job_id == req.job_id), None)
     if job is None:
-        raise HTTPException(status_code=404, detail=f"Job '{req.job_id}' not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job '{req.job_id}' not found.")
 
     try:
         gk     = RevisionGatekeeper(user.user_id)
@@ -1339,7 +1340,7 @@ async def revise_resume(req: ReviseRequest, user: CurrentUser = Depends(get_curr
         )
     except Exception as exc:
         logger.exception("[resumes/revise] Gatekeeper failed for job %s", req.job_id)
-        raise HTTPException(status_code=502, detail="Revision failed. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=502, detail="Revision failed. Please try again shortly.", feature="cv_revision") from exc
 
     pdf_b64: Optional[str] = None
     if result.pdf_bytes:
@@ -1486,7 +1487,7 @@ async def match_score(req: MatchScoreRequest, user: CurrentUser = Depends(get_cu
     all_jobs = job_store.get_all(user.user_id)
     job      = next((j for j in all_jobs if j.job_id == req.job_id), None)
     if job is None:
-        raise HTTPException(status_code=404, detail=f"Job '{req.job_id}' not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job '{req.job_id}' not found.")
 
     jd_proxy = _build_match_proxy(job)
 
@@ -1496,7 +1497,7 @@ async def match_score(req: MatchScoreRequest, user: CurrentUser = Depends(get_cu
         )
     except Exception as exc:
         logger.exception("[resumes/match-score] Scoring failed for job %s", req.job_id)
-        raise HTTPException(status_code=502, detail="Match scoring failed. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=502, detail="Match scoring failed. Please try again shortly.", feature="match_scoring") from exc
 
     return MatchScoreResponse(
         total               = result.total,
