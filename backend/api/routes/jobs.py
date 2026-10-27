@@ -12,6 +12,7 @@ import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from backend.core.errors import AppError, error_body
 from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit, require_admin, sync_rate_limit
 from backend.schemas.job import DetailedAnalysis, JobMatch, RawJobPosting, ReasonTag
 import backend.repositories.job_repository as job_store
@@ -25,6 +26,7 @@ from backend.scrapers.url_router import (
     LinkedInChallengeError,
     LinkedInRapidApiAuthError,
     LinkedInRapidApiQuotaError,
+    LinkedInJobNotFoundError,
 )
 from backend.agents.matcher import MatcherAgent
 from backend.scrapers.scraper_manager import SCRAPER_MANAGER, scraper_from_config
@@ -429,9 +431,9 @@ async def fetch_single_jd(
     """
     job = job_store.get_by_id(job_id, user.user_id)
     if not job:
-        raise HTTPException(status_code=404, detail=f"Job {job_id!r} not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job {job_id!r} not found.")
     if not job.apply_url:
-        raise HTTPException(status_code=422, detail="Job has no apply URL to scrape.")
+        raise AppError("job_no_url", status_code=422, detail="Job has no apply URL to scrape.")
 
     # ── Scrape ────────────────────────────────────────────────────────────────
     # scrape_jd_text routes to a site-specific parser (Gotfriends, Dialog,
@@ -442,7 +444,7 @@ async def fetch_single_jd(
         jd_text = jd_text.strip()
     except Exception as exc:
         logger.error("[fetch-jd] Scrape failed for job_id=%s url=%s: %s", job_id, job.apply_url, exc)
-        raise HTTPException(
+        raise AppError("scrape_failed",
             status_code=422,
             detail="Could not scrape job description. Please try again shortly.",
         )
@@ -547,19 +549,19 @@ async def tailor_cv_brief(
 
     job = job_store.get_by_id(job_id, user.user_id)
     if not job:
-        raise HTTPException(status_code=404, detail=f"Job {job_id!r} not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job {job_id!r} not found.")
 
     try:
         brief = await generate_tailor_brief(job_id, force_refresh=force_refresh, user_id=user.user_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise AppError("job_not_found", status_code=404, detail=str(exc))
     except RuntimeError as exc:
         # RuntimeError here can wrap a raw Anthropic API error message
         # (see cv_tailor_service.py) — log the full detail, don't echo it.
         logger.error("[tailor-cv] Generation failed for job %s: %s", job_id, exc)
-        raise HTTPException(
+        raise AppError("ai_failed",
             status_code=422,
-            detail="CV tailoring failed. Please try again shortly.",
+            detail="CV tailoring failed. Please try again shortly.", feature="cv_tailoring",
         )
 
     return TailorBriefResponse(**brief, cached=False)
@@ -621,7 +623,7 @@ async def tailor_cv_edit(job_id: str, body: TailorEditRequest, user: CurrentUser
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY is not set.")
+        raise AppError("ai_unavailable", status_code=500, detail="ANTHROPIC_API_KEY is not set.")
 
     sections_json = _json.dumps(
         [s.model_dump() for s in body.sections],
@@ -644,7 +646,7 @@ async def tailor_cv_edit(job_id: str, body: TailorEditRequest, user: CurrentUser
         )
     except LLMCallError:
         logger.exception("[jobs] tailor_cv_edit LLM call failed")
-        raise HTTPException(status_code=422, detail="AI service error. Please try again shortly.")
+        raise AppError("ai_failed", status_code=422, detail="AI service error. Please try again shortly.", feature="analysis")
 
     raw = result_llm.text
 
@@ -658,7 +660,7 @@ async def tailor_cv_edit(job_id: str, body: TailorEditRequest, user: CurrentUser
             data = _json.loads(text[start : end + 1])
         else:
             logger.error("[tailor-cv/edit] Unparseable response (len=%d)", len(raw))
-            raise HTTPException(status_code=422, detail="Model returned unparseable output.")
+            raise AppError("ai_bad_output", status_code=422, detail="Model returned unparseable output.")
 
     updated_sections = [TailoredSection(**s) for s in data.get("sections", [])]
     reply = str(data.get("reply", "Done."))
@@ -718,7 +720,7 @@ async def analyze_job_url(request: JobUrlRequest, user: CurrentUser = Depends(ge
     # ── Step 2: liveness check before wasting an LLM call ────────────────────
     is_live = await _check_liveness(url)
     if not is_live:
-        raise HTTPException(
+        raise AppError("posting_closed",
             status_code=410,
             detail=(
                 "This job posting appears to be closed or removed (HTTP 404/410). "
@@ -731,10 +733,10 @@ async def analyze_job_url(request: JobUrlRequest, user: CurrentUser = Depends(ge
         scraped = await asyncio.to_thread(scrape_job_post, url)
     except ValueError as exc:
         logger.warning("Scrape content too thin for %s: %s", url, exc)
-        raise HTTPException(status_code=422, detail=f"Scraping Error: {exc}")
+        raise AppError("scrape_failed", status_code=422, detail="Could not read a job description from this page.")
     except Exception as exc:
         logger.error("Scrape failed for %s: %s", url, exc)
-        raise HTTPException(status_code=502, detail="Failed to scrape URL. Please try again shortly.")
+        raise AppError("scrape_failed", status_code=502, detail="Failed to scrape URL. Please try again shortly.")
 
     posting = RawJobPosting(
         id=str(uuid.uuid4()),
@@ -751,13 +753,13 @@ async def analyze_job_url(request: JobUrlRequest, user: CurrentUser = Depends(ge
         match = await agent.match(posting, user_id=user.user_id)
     except EnvironmentError as exc:
         logger.error("MatcherAgent config error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise AppError("ai_unavailable", status_code=503, detail="AI analysis is not configured on this server.")
     except ValueError as exc:
         logger.error("MatcherAgent parse error: %s", exc)
-        raise HTTPException(status_code=502, detail=f"AI analysis returned invalid data: {exc}")
+        raise AppError("ai_bad_output", status_code=502, detail="AI analysis returned invalid data.")
     except Exception as exc:
         logger.exception("MatcherAgent failed for %s", url)
-        raise HTTPException(status_code=502, detail="AI analysis failed. Please try again shortly.")
+        raise AppError("analysis_failed", status_code=502, detail="AI analysis failed. Please try again shortly.")
 
     # ── Step 5: tag as manual and persist ────────────────────────────────────
     match = match.model_copy(update={"source": "manual", "is_open": True, "user_id": user.user_id})
@@ -823,7 +825,7 @@ async def analyze_job(
             scraped = await asyncio.to_thread(scrape_job_post, url)
     except LinkedInAuthWallError as exc:
         logger.warning("[analyze] PIPELINE_FAILURE step=scrape url=%s error=auth_wall detail=%r", url, exc)
-        raise HTTPException(
+        raise AppError("linkedin_login_wall",
             status_code=422,
             detail=(
                 "LinkedIn login wall blocked the request. This posting requires a signed-in "
@@ -833,7 +835,7 @@ async def analyze_job(
         )
     except (LinkedInRedirectError, LinkedInChallengeError) as exc:
         logger.warning("[analyze] PIPELINE_FAILURE step=scrape url=%s error=bot_check detail=%r", url, exc)
-        raise HTTPException(
+        raise AppError("linkedin_blocked",
             status_code=422,
             detail="LinkedIn blocked this request as automated traffic. Please try again in a few minutes.",
         )
@@ -841,28 +843,36 @@ async def analyze_job(
         logger.warning("[analyze] PIPELINE_FAILURE step=scrape url=%s error=rapidapi_quota detail=%r", url, exc)
         # 429, not 422 — this is a distinct, retryable condition the frontend
         # can show a specific "quota exceeded" toast for.
-        raise HTTPException(status_code=429, detail="Monthly free quota exceeded for LinkedIn job lookups.")
+        raise AppError("linkedin_quota", status_code=429, detail="Monthly free quota exceeded for LinkedIn job lookups.")
     except LinkedInRapidApiAuthError as exc:
         # Server misconfiguration (missing/invalid RAPIDAPI_KEY) — never 401
         # here, since the frontend treats HTTP 401 as "your session expired"
         # and force-logs the user out. 503 correctly signals "us", not "you".
         logger.error("[analyze] PIPELINE_FAILURE step=scrape url=%s error=rapidapi_auth detail=%r", url, exc)
-        raise HTTPException(
+        raise AppError("linkedin_unavailable",
             status_code=503,
             detail="LinkedIn lookup is temporarily unavailable (scraping service misconfigured). "
                    "Please try again later.",
         )
+    except LinkedInJobNotFoundError as exc:
+        logger.warning("[analyze] PIPELINE_FAILURE step=scrape url=%s error=linkedin_not_found detail=%r", url, exc)
+        raise AppError(
+            "linkedin_job_not_found",
+            detail="LinkedIn's job lookup has no record of this posting (very new, expired, or removed).",
+        )
     except ValueError as exc:
+        # The exception text is technical (provider names, HTTP bodies) — log
+        # it, never show it.
         logger.error("[analyze] PIPELINE_FAILURE step=scrape url=%s error=%r", url, exc, exc_info=True)
-        raise HTTPException(status_code=422, detail=f"Scrape Failed: {exc}")
+        raise AppError("scrape_failed", status_code=422, detail="Could not read a job description from this page.")
     except Exception as exc:
         logger.error("[analyze] PIPELINE_FAILURE step=scrape url=%s error=%r", url, exc, exc_info=True)
-        raise HTTPException(status_code=422, detail="Scrape Failed. Please try again shortly.")
+        raise AppError("scrape_failed", status_code=422, detail="Scrape Failed. Please try again shortly.")
 
     jd_text = (scraped.raw_text or "").strip()
     if not jd_text:
         logger.error("[analyze] PIPELINE_FAILURE step=scrape url=%s error=empty_jd_text", url)
-        raise HTTPException(status_code=422, detail="Scrape Failed: page returned no job description text.")
+        raise AppError("scrape_empty", status_code=422, detail="Scrape Failed: page returned no job description text.")
 
     logger.info("[analyze] Scraped — title=%r company=%r chars=%d", scraped.title, scraped.company, len(jd_text))
 
@@ -881,7 +891,7 @@ async def analyze_job(
         match = await agent.match(posting, user_id=user.user_id)
     except Exception as exc:
         logger.error("[analyze] PIPELINE_FAILURE step=match url=%s error=%r", url, exc, exc_info=True)
-        raise HTTPException(status_code=422, detail="Match Failed. Please try again shortly.")
+        raise AppError("analysis_failed", status_code=422, detail="Match Failed. Please try again shortly.")
 
     if "linkedin.com" in url:
         source_type = "linkedin"
@@ -897,11 +907,11 @@ async def analyze_job(
         structured_json = await structure_jd(jd_text, user_id=user.user_id, job_id=match.job_id)
     except Exception as exc:
         logger.error("[analyze] PIPELINE_FAILURE step=structure url=%s error=%r", url, exc, exc_info=True)
-        raise HTTPException(status_code=422, detail="Structure Failed. Please try again shortly.")
+        raise AppError("analysis_failed", status_code=422, detail="Structure Failed. Please try again shortly.")
 
     if not structured_json:
         logger.error("[analyze] PIPELINE_FAILURE step=structure url=%s error=empty_output", url)
-        raise HTTPException(status_code=422, detail="Structure Failed: LLM returned no structured output.")
+        raise AppError("analysis_failed", status_code=422, detail="Structure Failed: LLM returned no structured output.")
 
     # Overwrite company with LLM-extracted name if the scraper set a platform name
     extracted_company = extract_company_from_structured(structured_json)
@@ -926,7 +936,7 @@ async def analyze_job(
         final_score = round(float(result.total), 1)
     except Exception as exc:
         logger.error("[analyze] PIPELINE_FAILURE step=score url=%s error=%r", url, exc, exc_info=True)
-        raise HTTPException(status_code=422, detail="Score Failed. Please try again shortly.")
+        raise AppError("analysis_failed", status_code=422, detail="Score Failed. Please try again shortly.")
 
     # ── 6. Persist ────────────────────────────────────────────────────────────
     # Apply the same substantive-analysis gate used by the enrichment loop.
@@ -1022,14 +1032,17 @@ async def start_analyze_job(
             result = await analyze_job(request, user)
             _ANALYZE_TASKS[task_id].update(status="done", result=result)
         except HTTPException as exc:
-            # Keep the synchronous path's status and detail; the client maps
-            # the LinkedIn auth-wall / bot-check details to specific messages.
+            # Keep the synchronous path's status, detail and error code.
+            body = error_body(exc)
             _ANALYZE_TASKS[task_id].update(
-                status="error", detail=exc.detail, status_code=exc.status_code
+                status="error", detail=exc.detail, status_code=exc.status_code,
+                code=body["code"], params=body.get("params"),
             )
-        except Exception as exc:
+        except Exception:
             logger.exception("[analyze/start] task %s failed", task_id)
-            _ANALYZE_TASKS[task_id].update(status="error", detail=str(exc), status_code=500)
+            _ANALYZE_TASKS[task_id].update(
+                status="error", detail="Internal server error.", status_code=500, code="server_error",
+            )
         finally:
             _ANALYZE_TASKS[task_id]["updated_at"] = time.time()
             _ANALYZE_TASKS[task_id].pop("_task", None)
@@ -1046,11 +1059,14 @@ async def get_analyze_status(task_id: str, user: CurrentUser = Depends(get_curre
     """Report a task's progress; readable only by the user who started it."""
     task = _ANALYZE_TASKS.get(task_id)
     if task is None or task["user_id"] != user.user_id:
-        raise HTTPException(status_code=404, detail="Unknown or expired task.")
+        raise AppError("task_expired", status_code=404, detail="Unknown or expired task.")
     if task["status"] == "done":
         return {"status": "done", "result": task["result"]}
     if task["status"] == "error":
-        return {"status": "error", "detail": task["detail"], "status_code": task.get("status_code", 500)}
+        return {
+            "status": "error", "detail": task["detail"], "status_code": task.get("status_code", 500),
+            "code": task.get("code") or "server_error", "params": task.get("params") or {},
+        }
     return {"status": "pending", "elapsed_s": round(time.time() - task["created_at"], 1)}
 
 
@@ -1172,7 +1188,7 @@ async def verify_chat(job_id: str, body: VerifyChatRequest, background_tasks: Ba
     """
     job = job_store.get_by_id(job_id, user.user_id)
     if not job:
-        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job '{job_id}' not found.")
 
     cv_data = body.cv_data
     if not cv_data:
@@ -1202,11 +1218,11 @@ async def verify_chat(job_id: str, body: VerifyChatRequest, background_tasks: Ba
             cv_data       = cv_data,
             history       = [h.model_dump() for h in body.history],
         )
-    except EnvironmentError as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    except EnvironmentError:
+        raise AppError("ai_unavailable", detail="AI verification is not configured on this server.")
     except Exception as exc:
         logger.exception("[jobs/verify/chat] Failed for job_id=%s: %s", job_id, exc)
-        raise HTTPException(status_code=502, detail="Verification agent error. Please try again shortly.")
+        raise AppError("ai_failed", status_code=502, detail="Verification agent error. Please try again shortly.", feature="verification")
 
     # Persist score adjustment on verdict
     new_fit: Optional[float] = None
@@ -1259,7 +1275,7 @@ async def get_job(job_id: str, user: CurrentUser = Depends(get_current_user)):
     """Return a single job match by ID — caller's own jobs only."""
     job = job_store.get_by_id(job_id, user.user_id)
     if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise AppError("job_not_found", status_code=404, detail="Job not found")
     return job
 
 
@@ -1292,10 +1308,10 @@ async def analyze_job_now(job_id: str, user: CurrentUser = Depends(get_current_u
 
     job = job_store.get_by_id(job_id, user.user_id)
     if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise AppError("job_not_found", status_code=404, detail="Job not found")
     if job.score_is_proxy or not (job.fit_brief or "").strip():
         if providers_unavailable():
-            raise HTTPException(status_code=503, detail="AI analysis is temporarily unavailable.")
+            raise AppError("ai_unavailable", status_code=503, detail="AI analysis is temporarily unavailable.")
         await refresh_user_scores(user.user_id, only_job_id=job_id)
         job = job_store.get_by_id(job_id, user.user_id) or job
     return JobAnalysisState(
@@ -1320,7 +1336,7 @@ async def get_job_analysis(
     """
     job = job_store.get_by_id(job_id, user.user_id)
     if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise AppError("job_not_found", status_code=404, detail="Job not found")
     return JobAnalysisState(
         job_id=job.job_id,
         fit_brief=job.fit_brief,
@@ -1363,7 +1379,7 @@ async def submit_job_feedback(
         )
     job = job_store.get_by_id(job_id, user.user_id)
     if job is None:
-        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job '{job_id}' not found.")
 
     result = record_feedback(
         user.user_id, job_id, body.feedback_type, body.reason, job=job,
@@ -1397,7 +1413,7 @@ async def update_job_status(job_id: str, body: StatusUpdateRequest, user: Curren
         )
     found = job_store.update_status(job_id, user.user_id, body.status)
     if not found:
-        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job '{job_id}' not found.")
     return {"job_id": job_id, "status": body.status}
 
 
@@ -1437,7 +1453,7 @@ async def get_ats_keywords(job_id: str, user: CurrentUser = Depends(get_current_
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         logger.exception("[ats-keywords] Failed for job_id=%s: %s", job_id, exc)
-        raise HTTPException(status_code=500, detail="ATS keyword extraction failed")
+        raise AppError("ai_failed", status_code=500, detail="ATS keyword extraction failed", feature="ats_keywords")
 
     return AtsKeywordsResponse(**result)
 
@@ -1461,11 +1477,11 @@ async def get_skills_gap(job_id: str, user: CurrentUser = Depends(get_current_us
     """
     job = job_store.get_by_id(job_id, user.user_id)
     if job is None:
-        raise HTTPException(status_code=404, detail=f"Job {job_id!r} not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job {job_id!r} not found.")
 
     jd_text = (job.jd_text or "").strip()
     if not jd_text:
-        raise HTTPException(status_code=400, detail="Job has no JD text — fetch the full description first.")
+        raise AppError("job_no_description", status_code=400, detail="Job has no JD text — fetch the full description first.")
 
     try:
         from backend.services.skills_gap_service import analyze_skills_gap
@@ -1474,7 +1490,7 @@ async def get_skills_gap(job_id: str, user: CurrentUser = Depends(get_current_us
         analysis = await analyze_skills_gap(jd_text, build_full_text(user.user_id))
     except Exception as exc:
         logger.exception("[skills-gap] Failed for job_id=%s: %s", job_id, exc)
-        raise HTTPException(status_code=500, detail="Skills gap analysis failed")
+        raise AppError("ai_failed", status_code=500, detail="Skills gap analysis failed", feature="skills_gap")
 
     return SkillsGapResponse(job_id=job_id, analysis=analysis)
 
@@ -1507,19 +1523,19 @@ def _interview_job_context(job_id: str, user_id: str) -> tuple[JobMatch, str]:
     """Shared guardrails: (job, jd_text) or raise the appropriate HTTPException."""
     job = job_store.get_by_id(job_id, user_id)
     if job is None:
-        raise HTTPException(status_code=404, detail=f"Job {job_id!r} not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job {job_id!r} not found.")
     jd_text = (job.jd_text or "").strip()
     if not jd_text:
-        raise HTTPException(status_code=400, detail="Job has no JD text — fetch the full description first.")
+        raise AppError("job_no_description", status_code=400, detail="Job has no JD text — fetch the full description first.")
     return job, jd_text
 
 
 def _raise_for_service_sentinel(text: str) -> None:
     """interview_simulator returns error strings instead of raising — map them."""
     if text.startswith("API Key missing"):
-        raise HTTPException(status_code=503, detail="LLM unavailable — ANTHROPIC_API_KEY is not configured.")
+        raise AppError("ai_unavailable", status_code=503, detail="LLM unavailable — ANTHROPIC_API_KEY is not configured.")
     if text.startswith("Failed to generate") or text.startswith("Failed to evaluate"):
-        raise HTTPException(status_code=502, detail="Interview simulator failed. Please try again shortly.")
+        raise AppError("ai_failed", status_code=502, detail="Interview simulator failed. Please try again shortly.", feature="interview")
 
 
 @router.post(
@@ -1552,7 +1568,7 @@ async def generate_mock_interview_question(
         )
     except Exception as exc:
         logger.exception("[interview] question generation failed for job_id=%s: %s", job_id, exc)
-        raise HTTPException(status_code=502, detail="Interview simulator failed. Please try again shortly.")
+        raise AppError("ai_failed", status_code=502, detail="Interview simulator failed. Please try again shortly.", feature="interview")
 
     _raise_for_service_sentinel(question)
     return InterviewQuestionResponse(job_id=job_id, question=question)
@@ -1579,7 +1595,7 @@ async def evaluate_mock_interview_answer(
         )
     except Exception as exc:
         logger.exception("[interview] answer evaluation failed for job_id=%s: %s", job_id, exc)
-        raise HTTPException(status_code=502, detail="Interview simulator failed. Please try again shortly.")
+        raise AppError("ai_failed", status_code=502, detail="Interview simulator failed. Please try again shortly.", feature="interview")
 
     _raise_for_service_sentinel(feedback)
     return InterviewFeedbackResponse(job_id=job_id, feedback=feedback)
@@ -1612,7 +1628,7 @@ async def dev_flush_jobs(
     from backend.config import DEV_MODE
 
     if not DEV_MODE:
-        raise HTTPException(
+        raise AppError("dev_only",
             status_code=403,
             detail="This endpoint is only available in development mode.",
         )

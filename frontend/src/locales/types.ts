@@ -3,7 +3,47 @@
 // Every key in Dict must have an entry in BOTH en.ts and he.ts.
 // TypeScript enforces this at compile time via the `satisfies Dict` check.
 
+/**
+ * Error codes the UI explains. Server codes mirror backend/core/errors.py
+ * CODES (test_error_catalog.py keeps the two in sync); the last four are
+ * raised in the browser. docs/error-catalog.md is the readable table.
+ */
+export const ERROR_CODES = [
+  'auth_required', 'session_expired', 'forbidden', 'admin_only', 'dev_only', 'auth_not_configured',
+  'rate_limited', 'daily_cv_limit', 'daily_chat_limit', 'linkedin_quota',
+  'job_not_found', 'application_not_found', 'session_not_found', 'item_not_found', 'task_expired',
+  'invalid_input', 'empty_message', 'invalid_linkedin_url', 'file_too_large', 'unsupported_file',
+  'legacy_doc', 'file_mismatch', 'conflict',
+  'posting_closed', 'linkedin_login_wall', 'linkedin_blocked', 'linkedin_job_not_found',
+  'linkedin_unavailable', 'scrape_failed', 'scrape_empty', 'job_no_description', 'job_no_url',
+  'analysis_failed',
+  'ai_unavailable', 'ai_failed', 'ai_bad_output',
+  'pdf_unavailable', 'pdf_failed',
+  'service_unavailable', 'server_error',
+  // Browser-side
+  'network', 'timeout', 'stream_interrupted', 'unknown',
+] as const
+export type ErrorCode = (typeof ERROR_CODES)[number]
+
+export const ERROR_FEATURES = [
+  'chat', 'cv_tailoring', 'cv_generation', 'cv_edit', 'cv_revision', 'interview', 'outreach',
+  'research', 'verification', 'ats_keywords', 'skills_gap', 'match_scoring', 'analysis',
+] as const
+export type ErrorFeature = (typeof ERROR_FEATURES)[number]
+
+/** What the user sees: what happened, why, and what to do about it. */
+export interface ErrorEntry {
+  title:  string
+  why:    string
+  action: string
+}
+
 export interface Dict {
+  errors: {
+    codes:    Record<ErrorCode, ErrorEntry>
+    /** Names for {feature} in ai_failed ("the CV tailoring"). */
+    features: Record<ErrorFeature, string>
+  }
   common: {
     undo: string
     retry: string

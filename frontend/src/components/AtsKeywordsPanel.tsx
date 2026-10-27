@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { fetchAtsKeywords, ensureFreshToken, getAuthHeaders } from '@/lib/api'
 import { getScoreBand } from '@/lib/scoreBand'
 import type { AtsKeywordsResponse } from '@/lib/apiTypes'
+import { ApiError, errorMessage } from '@/lib/errors'
 
 // ── ATS Breakdown ─────────────────────────────────────────────────────────────
 //
@@ -152,8 +153,7 @@ export function AtsKeywordsPanel({ jobId, hasJd, userId }: Props) {
         }
       } catch (e) {
         if (cancelled) return
-        const msg = e instanceof Error ? e.message : String(e)
-        setError(msg.includes('400') ? NEEDS_JD : msg)
+        setError(e instanceof ApiError && e.code === 'job_no_description' ? NEEDS_JD : errorMessage(e))
       } finally {
         if (!cancelled) setLoading(false)
       }

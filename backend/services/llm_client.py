@@ -172,6 +172,12 @@ class LLMCallError(RuntimeError):
     at the raise site if you need the original traceback for debugging.
     """
 
+    @property
+    def code(self) -> str:
+        """User-facing error code (backend/core/errors.py): a provider outage
+        or quota is "ai_unavailable" (try later); anything else "ai_failed"."""
+        return "ai_unavailable" if "temporarily unavailable" in str(self) else "ai_failed"
+
 
 @dataclass
 class LLMResult:

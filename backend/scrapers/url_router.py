@@ -120,6 +120,11 @@ class LinkedInRapidApiError(Exception):
     """Base class for RapidAPI-provider-specific LinkedIn scrape failures."""
 
 
+class LinkedInJobNotFoundError(ValueError):
+    """Neither the RapidAPI lookup nor a direct fetch found this posting.
+    A ValueError subclass so callers that only catch ValueError keep working."""
+
+
 class LinkedInRapidApiAuthError(LinkedInRapidApiError):
     """
     RAPIDAPI_KEY is missing, or the provider rejected it (401/403).
@@ -441,6 +446,24 @@ def _first_str(payload: dict, *keys: str) -> str:
     return ""
 
 
+def _linkedin_direct_fallback(url: str, job_id: str):
+    """Fetch the public posting directly when RapidAPI has no record of it."""
+    from backend.url_scraper import ScrapedJob  # local import avoids a cycle at module load
+    try:
+        text = _linkedin_scrape(url)
+    except (LinkedInAuthWallError, LinkedInChallengeError, LinkedInRedirectError, ValueError) as exc:
+        logger.info("[url_router] LinkedIn direct fallback failed for job %s: %s", job_id, type(exc).__name__)
+        text = ""
+    if not is_valid_job_content(text):
+        raise LinkedInJobNotFoundError(
+            f"RapidAPI found no LinkedIn job matching ID {job_id} for {url} "
+            f"(outside the {RAPIDAPI_LINKEDIN_TIME_FRAME} lookup window, or expired/removed), "
+            "and the public page had no readable description."
+        )
+    logger.info("[url_router] LinkedIn job %s not in RapidAPI — read from the public page", job_id)
+    return ScrapedJob(title="LinkedIn Job Posting", company="", raw_text=text)
+
+
 def scrape_linkedin_job(url: str):
     """
     Fetch a LinkedIn job posting via a RapidAPI LinkedIn-jobs provider instead
@@ -533,10 +556,10 @@ def scrape_linkedin_job(url: str):
 
     if isinstance(payload, list):
         if not payload:
-            raise ValueError(
-                f"RapidAPI found no LinkedIn job matching ID {job_id} for {url} "
-                f"(outside the {RAPIDAPI_LINKEDIN_TIME_FRAME} lookup window, or expired/removed)."
-            )
+            # The provider's index lags: a posting a few hours old is often
+            # missing (production, 2026-10-27 — a live job was reported as
+            # "not found"). Try LinkedIn's public page before giving up.
+            return _linkedin_direct_fallback(url, job_id)
         payload = payload[0]
 
     if not isinstance(payload, dict):

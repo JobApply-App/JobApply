@@ -350,7 +350,8 @@ export function JobFeed({
   // Dismiss toast after 5 s — long enough to read rescore/backfill messages
   useEffect(() => {
     if (!toast) return
-    const t = setTimeout(() => setToast(null), 5000)
+    // An error now explains what happened, why and what to do — give it time to be read.
+    const t = setTimeout(() => setToast(null), toast.tone === 'error' ? 12000 : 5000)
     return () => clearTimeout(t)
   }, [toast])
 

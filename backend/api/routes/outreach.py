@@ -30,6 +30,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from backend.core.errors import AppError
 from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit
 from backend.repositories import job_repository as job_store
 from backend.services.outreach_service import (
@@ -91,7 +92,7 @@ async def generate_message(body: OutreachRequest, user: CurrentUser = Depends(ge
         )
     except Exception as exc:
         logger.exception("[outreach] Message generation failed: %s", exc)
-        raise HTTPException(status_code=500, detail="Message generation failed. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=500, detail="Message generation failed. Please try again shortly.", feature="outreach") from exc
 
     return OutreachResponse(
         message_type = body.message_type,
@@ -116,7 +117,7 @@ async def generate_headhunter_message(body: HeadhunterRequest, user: CurrentUser
         )
     except Exception as exc:
         logger.exception("[outreach] Headhunter message generation failed: %s", exc)
-        raise HTTPException(status_code=500, detail="Message generation failed. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=500, detail="Message generation failed. Please try again shortly.", feature="outreach") from exc
 
     return OutreachResponse(
         message_type = "headhunter",
@@ -145,10 +146,10 @@ async def generate_job_outreach(
         # Job not found for this user — 404, never leak cross-tenant existence.
         raise HTTPException(status_code=404, detail=str(exc))
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+        raise AppError("ai_unavailable", status_code=503, detail=str(exc))
     except Exception as exc:
         logger.exception("[outreach] generate failed for job %s: %s", job_id, exc)
-        raise HTTPException(status_code=502, detail="Outreach generation failed. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=502, detail="Outreach generation failed. Please try again shortly.", feature="outreach") from exc
 
     return JobOutreachResponse(
         job_id        = job_id,
@@ -192,7 +193,7 @@ async def generate_direct_pitch(
     job = job_store.get_by_id(job_id, user.user_id)
     if job is None:
         # Never leak cross-tenant existence — same 404 contract as /generate/{job_id}.
-        raise HTTPException(status_code=404, detail=f"Job {job_id!r} not found.")
+        raise AppError("job_not_found", status_code=404, detail=f"Job {job_id!r} not found.")
 
     jd_text = (job.jd_text or "").strip() or f"(No full description stored — role: {job.title} at {job.company}.)"
     posting = RawJobPosting(
@@ -208,9 +209,9 @@ async def generate_direct_pitch(
         from backend.services.user_profile import build_full_text
         pitch = await generate_pitch_from_raw(posting, build_full_text(user.user_id))
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+        raise AppError("ai_unavailable", status_code=503, detail=str(exc))
     except Exception as exc:
         logger.exception("[outreach] pitch generation failed for job %s: %s", job_id, exc)
-        raise HTTPException(status_code=502, detail="Pitch generation failed. Please try again shortly.") from exc
+        raise AppError("ai_failed", status_code=502, detail="Pitch generation failed. Please try again shortly.", feature="outreach") from exc
 
     return PitchResponse(job_id=job_id, pitch=pitch, word_count=len(pitch.split()))
