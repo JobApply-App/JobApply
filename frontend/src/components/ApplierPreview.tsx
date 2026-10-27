@@ -913,19 +913,20 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center md:p-4"
       style={{ background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(4px)' }}>
-      <div className="relative flex w-full rounded-2xl overflow-hidden animate-modal-in"
+      {/* Phones: full screen, panes stacked and the whole sheet scrolls — side
+          by side, the 38% controls pane was ~140px wide and its title, score
+          and buttons were crushed. md+: the two-pane dialog. */}
+      <div className="relative flex flex-col md:flex-row w-full h-[100dvh] md:h-[min(90vh,760px)] md:max-w-[min(64rem,calc(100vw-2rem))] md:rounded-2xl overflow-y-auto md:overflow-hidden animate-modal-in"
         style={{
-          height:     'min(90vh, 760px)',
-          maxWidth:   'min(64rem, calc(100vw - 2rem))',
           background: TOKENS.color.surface,
           boxShadow:  '0 24px 64px rgba(15,23,42,0.22)',
         }}>
 
         {/* Close */}
         <button onClick={onClose}
-          className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+          className="absolute top-3 end-3 z-10 w-9 h-9 md:w-7 md:h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
           aria-label={A.close_preview}>
           <XIcon s={14} />
         </button>
@@ -937,7 +938,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
             than its box instead of scrolling/wrapping inside it — the modal's
             own overflow-hidden then clips whatever spilled past the left
             edge instead of containing it. */}
-        <div className="flex flex-col w-[38%] min-w-0 shrink-0 overflow-y-auto overflow-x-hidden border-r"
+        <div className="flex flex-col w-full md:w-[38%] min-w-0 shrink-0 md:overflow-y-auto overflow-x-hidden border-b md:border-b-0 md:border-r"
           style={{ borderColor: TOKENS.color.line, padding: '24px 20px 24px 24px' }}>
 
           <div className="mb-1">
@@ -1222,13 +1223,13 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
           {phase === 'applying' && (
             <div className="flex items-center justify-center gap-2 h-10 text-[13px] text-slate-500">
-              <Spinner size={16} /> Submitting application…
+              <Spinner size={16} /> {A.submitting}
             </div>
           )}
         </div>
 
         {/* ═══ RIGHT PANE — PDF preview, 62% ════════════════════════════════ */}
-        <div className="flex-1 flex items-center justify-center relative"
+        <div className="flex-1 flex items-center justify-center relative min-h-[50vh] md:min-h-0"
           style={{ background: TOKENS.color.bg }}>
 
           {/* Loading overlay — keeps stale PDF visible during generation / revision / copilot */}
@@ -1253,14 +1254,13 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                 {missingReqs.length === 1 ? A.one_detail : A.n_details.replace('{n}', String(missingReqs.length))}
               </p>
               <p className="text-[12.5px] text-slate-400 leading-relaxed max-w-xs">
-                Answer the {missingReqs.length === 1 ? 'question' : 'questions'} on the left.
-                Your answers are saved so you&apos;ll never be asked again.
+                {missingReqs.length === 1 ? A.answer_hint_one : A.answer_hint_many}
               </p>
             </div>
           )}
 
           {cvState && !isEditMode && (
-            <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
+            <div className="absolute top-3 right-3 z-10 hidden md:flex flex-col items-end gap-1.5">
               <button
                 onClick={handleDownloadPdf}
                 disabled={isDownloading}
@@ -1293,13 +1293,33 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
               saveError={saveError}
             />
           ) : cvState ? (
-            <iframe
-              key={cvState.pdfB64.slice(-16)}
-              src={pdfDataUrl(cvState.pdfB64)}
-              title={A.title}
-              className="w-full h-full"
-              style={{ border: 'none' }}
-            />
+            <>
+              {/* Mobile browsers don't render a PDF inside an iframe (Android
+                  Chrome shows nothing, iOS only the first page), so phones get
+                  a download card instead of a blank preview. */}
+              <iframe
+                key={cvState.pdfB64.slice(-16)}
+                src={pdfDataUrl(cvState.pdfB64)}
+                title={A.title}
+                className="hidden md:block w-full h-full"
+                style={{ border: 'none' }}
+              />
+              <div className="md:hidden flex flex-col items-center gap-3 text-center px-8 py-10">
+                <p className="text-[14px] font-semibold text-slate-700">{A.mobile_ready_title}</p>
+                <p className="text-[12.5px] text-slate-500 leading-relaxed">{A.mobile_ready_body}</p>
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={isDownloading}
+                  className="h-11 px-6 rounded-full text-[14px] font-semibold text-white disabled:opacity-60"
+                  style={{ background: TOKENS.color.primary }}
+                >
+                  {isDownloading ? A.preparing : A.download_pdf}
+                </button>
+                {downloadError && (
+                  <span className="text-[12px] text-rose-600">{downloadError}</span>
+                )}
+              </div>
+            </>
           ) : null}
 
           {!cvState && phase !== 'missing_data' && phase !== 'generating' && (
