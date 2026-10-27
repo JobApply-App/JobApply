@@ -443,6 +443,16 @@ DISCOVERY_INTERVAL_SECONDS: int = 300  # 5 minutes — pre-launch value
 # i.e. 220–440 per site per day. Google Dork: 8 terms → 2 OR-batches × 10
 # domains = 20 queries per user per cycle (was 90 with the 34-term list).
 # No LLM calls: terms come from the cache that refresh_user_terms fills.
+#
+# OFF by default (2026-10-27). The first production cycle after #117 showed
+# every board refusing Render's IP: Drushim, AllJobs, Gotfriends and Dialog
+# answer 403 Forbidden to every request, Nisha fails outright, and no proxy
+# is configured (ProxyManager falls back to direct requests). Running it
+# anyway meant ~60 requests, 6 times a day, to sites that block us — zero
+# jobs, and a risk of a longer block. Covers the background loop AND the
+# "sync" button. Set BOARD_DISCOVERY_ENABLED=true once a route the boards do
+# not block exists (a proxy, or another network). Google Dork is unaffected.
+BOARD_DISCOVERY_ENABLED: bool = os.getenv("BOARD_DISCOVERY_ENABLED", "false").strip().lower() in ("1", "true", "yes")
 BOARD_TERMS_PER_CYCLE: int = int(os.getenv("BOARD_TERMS_PER_CYCLE", "10"))
 DORK_TERMS_PER_CYCLE: int = int(os.getenv("DORK_TERMS_PER_CYCLE", "8"))
 # Share of the board slots reserved for Hebrew terms (Israeli boards title

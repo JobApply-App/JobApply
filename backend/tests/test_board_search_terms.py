@@ -177,6 +177,7 @@ class _FakeBoard:
 
 async def test_full_cycle_searches_union_and_delivers_per_user(monkeypatch):
     _FakeBoard.instances = []
+    monkeypatch.setattr("backend.config.BOARD_DISCOVERY_ENABLED", True)
     monkeypatch.setattr(
         "backend.services.user_title_terms.cached_terms_for_users",
         lambda ids: {"agent": INSURANCE, "pm": PRODUCT},
@@ -205,8 +206,42 @@ async def test_full_cycle_searches_union_and_delivers_per_user(monkeypatch):
     assert saved == {"agent": 1, "pm": 1}
 
 
+def test_board_discovery_is_off_by_default():
+    # Every board answered Render's IP with 403 on the first production cycle.
+    from backend import config
+    assert config.BOARD_DISCOVERY_ENABLED is False
+
+
+async def test_paused_cycle_sends_no_board_request(monkeypatch):
+    _FakeBoard.instances = []
+    monkeypatch.setattr("backend.config.BOARD_DISCOVERY_ENABLED", False)
+
+    def _no_db(ids):
+        raise AssertionError("a paused cycle must not even read terms")
+    monkeypatch.setattr("backend.services.user_title_terms.cached_terms_for_users", _no_db)
+
+    # The manual "sync" path (respect_interval=False) is paused too.
+    assert await bd.run_board_discovery_cycle(
+        ["agent"], respect_interval=False, scraper_classes=[_FakeBoard],
+    ) == {}
+    assert _FakeBoard.instances == []
+
+
+async def test_no_terms_never_becomes_an_empty_board_search(monkeypatch):
+    _FakeBoard.instances = []
+    monkeypatch.setattr("backend.config.BOARD_DISCOVERY_ENABLED", True)
+    monkeypatch.setattr("backend.services.user_title_terms.cached_terms_for_users", lambda ids: {})
+    monkeypatch.setattr(bst, "next_cycle", lambda key: 0)
+    monkeypatch.setattr(bd, "plan_cycle", lambda *a, **k: ([], {"agent": lambda t: True}))
+    assert await bd.run_board_discovery_cycle(
+        ["agent"], respect_interval=False, scraper_classes=[_FakeBoard],
+    ) == {}
+    assert _FakeBoard.instances == []
+
+
 async def test_no_pipeline_users_runs_nothing(monkeypatch):
     _FakeBoard.instances = []
+    monkeypatch.setattr("backend.config.BOARD_DISCOVERY_ENABLED", True)
     monkeypatch.setattr("backend.services.tenant_registry.list_pipeline_user_ids", lambda: [])
     assert await bd.run_board_discovery_cycle(scraper_classes=[_FakeBoard]) == {}
     assert _FakeBoard.instances == []

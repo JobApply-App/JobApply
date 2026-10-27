@@ -250,8 +250,17 @@ async def _board_discovery_loop() -> None:
 
     _TICK_SECONDS = 600
 
+    from backend.config import BOARD_DISCOVERY_ENABLED
+
     if not AUTO_DISCOVERY:
         logger.warning("[board-discovery-loop] AUTO_DISCOVERY=False — board discovery is DISABLED.")
+        return
+    if not BOARD_DISCOVERY_ENABLED:
+        logger.warning(
+            "[board-discovery-loop] BOARD_DISCOVERY_ENABLED=false — paused: the boards "
+            "answer this server's IP with 403. Set it to true once a route they "
+            "don't block exists.",
+        )
         return
 
     # Let startup (init_db, the all-jobs cycle) settle before the first check.
