@@ -2,6 +2,7 @@
 import { useI18n } from '@/contexts/I18nContext'
 import { useEffect, useState } from 'react'
 import { fetchSkillsGap } from '@/lib/api'
+import { ApiError, errorMessage } from '@/lib/errors'
 
 // ── Active Skills Gap Analysis (JOB-59) ───────────────────────────────────────
 //
@@ -75,8 +76,7 @@ export function SkillsGapPanel({ jobId, hasJd }: Props) {
       .then(res => { if (!cancelled) setAnalysis(res.analysis) })
       .catch(e => {
         if (cancelled) return
-        const msg = e instanceof Error ? e.message : String(e)
-        setError(msg.includes('400') ? NEEDS_JD : GAP_FAILED)
+        setError(e instanceof ApiError && e.code === 'job_no_description' ? NEEDS_JD : errorMessage(e))
       })
       .finally(() => { if (!cancelled) setLoading(false) })
 

@@ -37,6 +37,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from backend.core.errors import AppError
 from backend.api.deps import CurrentUser, daily_chat_limit, get_current_user, llm_rate_limit, standard_rate_limit
 from backend.core.database import ENGINE
 from backend.agents.ariel_tools import ARIEL_TOOLS, execute_tool
@@ -87,7 +88,7 @@ def _check_anthropic_key() -> None:
             "[chat] Neither ANTHROPIC_API_KEY nor GEMINI_API_KEY is configured — "
             "add at least one to backend/.env and restart."
         )
-        raise HTTPException(
+        raise AppError("ai_unavailable",
             status_code=503,
             detail="Chat is temporarily unavailable. Please try again shortly.",
         )
@@ -219,8 +220,13 @@ def _sse_chunk(text: str) -> str:
 def _sse_done() -> str:
     return _sse("[DONE]")
 
-def _sse_error(msg: str) -> str:
-    return _sse(json.dumps({"error": msg}))
+def _sse_error(msg: str, code: str = "ai_failed", **params) -> str:
+    """`msg` is the English fallback; the UI shows its own text for `code`
+    (backend/core/errors.py) — users saw a bare "something went wrong"."""
+    payload = {"error": msg, "code": code}
+    if params:
+        payload["params"] = params
+    return _sse(json.dumps(payload))
 
 def _sse_tool_call(name: str, input: dict) -> str:
     return _sse(json.dumps({"type": "tool_call", "name": name, "input": input}))
@@ -250,7 +256,7 @@ async def _stream_response(
         ]
 
         if not api_messages or api_messages[-1]["role"] != "user":
-            yield _sse_error("No user message to respond to.")
+            yield _sse_error("No user message to respond to.", "empty_message")
             return
 
         # Accumulator for the tool-use block that is currently being streamed.
@@ -305,7 +311,7 @@ async def _stream_response(
 
     except anthropic.APIStatusError as exc:
         logger.error("[chat/stream] Anthropic API error: %s", exc)
-        yield _sse_error(f"AI service error ({exc.status_code}). Please try again.")
+        yield _sse_error(f"AI service error ({exc.status_code}). Please try again.", "ai_unavailable")
     except genai_errors.APIError as exc:
         # Gemini is the primary provider (see llm_client.py) — a mid-stream
         # failure here raises straight from the async generator stream_llm()
@@ -317,10 +323,10 @@ async def _stream_response(
             "[chat/stream] Gemini API error: %s (status=%s)",
             type(exc).__name__, getattr(exc, "code", None),
         )
-        yield _sse_error(f"AI service error ({getattr(exc, 'code', 'unknown')}). Please try again.")
+        yield _sse_error(f"AI service error ({getattr(exc, 'code', 'unknown')}). Please try again.", "ai_unavailable")
     except Exception as exc:
         logger.exception("[chat/stream] Unexpected error")
-        yield _sse_error("An unexpected error occurred. Please try again.")
+        yield _sse_error("An unexpected error occurred. Please try again.", "ai_failed", feature="chat")
 
 # ── Route ──────────────────────────────────────────────────────────────────────
 
@@ -848,7 +854,7 @@ async def _ariel_tool_loop_then_stream(
             # message. Discarding it for a flat generic string here defeats
             # the whole point of that wrapping.
             logger.exception("[ariel/private] LLM call failed in tool loop")
-            yield _sse_error(str(exc))
+            yield _sse_error(str(exc), exc.code, feature="chat")
             return
         response = result_llm.raw
 
@@ -921,7 +927,7 @@ async def _ariel_tool_loop_then_stream(
         yield _sse_done()
     except anthropic.APIStatusError as exc:
         logger.error("[ariel/private] Anthropic API error in final stream: %s", exc)
-        yield _sse_error(f"AI service error ({exc.status_code}). Please try again.")
+        yield _sse_error(f"AI service error ({exc.status_code}). Please try again.", "ai_unavailable")
     except genai_errors.APIError as exc:
         # Same reasoning as _stream_response's handler — Gemini is primary
         # and a mid-stream error here bypasses stream_llm()'s own fallback,
@@ -930,10 +936,10 @@ async def _ariel_tool_loop_then_stream(
             "[ariel/private] Gemini API error in final stream: %s (status=%s)",
             type(exc).__name__, getattr(exc, "code", None),
         )
-        yield _sse_error(f"AI service error ({getattr(exc, 'code', 'unknown')}). Please try again.")
+        yield _sse_error(f"AI service error ({getattr(exc, 'code', 'unknown')}). Please try again.", "ai_unavailable")
     except Exception:
         logger.exception("[ariel/private] Unexpected error in final stream")
-        yield _sse_error("An unexpected error occurred. Please try again.")
+        yield _sse_error("An unexpected error occurred. Please try again.", "ai_failed", feature="chat")
 
 
 # ── Request schema ────────────────────────────────────────────────────────────
@@ -1264,7 +1270,7 @@ async def ariel_private(
     )
 
     if not body.message.strip():
-        raise HTTPException(status_code=422, detail="message must not be empty.")
+        raise AppError("empty_message", status_code=422, detail="message must not be empty.")
 
     # Enqueue CV ingestion for any attachment that looks like a resume.
     for item in body.attachments:
@@ -1485,7 +1491,7 @@ async def _stream_public_reply(
         yield _sse_done()
     except anthropic.APIStatusError as exc:
         logger.error("[chat/public] Anthropic API error: %s", exc)
-        yield _sse_error(f"AI service error ({exc.status_code}). Please try again.")
+        yield _sse_error(f"AI service error ({exc.status_code}). Please try again.", "ai_unavailable")
     except genai_errors.APIError as exc:
         # Same reasoning as _stream_response's handler — Gemini is primary
         # (see llm_client.py) and a mid-stream error here bypasses
@@ -1495,10 +1501,10 @@ async def _stream_public_reply(
             "[chat/public] Gemini API error: %s (status=%s)",
             type(exc).__name__, getattr(exc, "code", None),
         )
-        yield _sse_error(f"AI service error ({getattr(exc, 'code', 'unknown')}). Please try again.")
+        yield _sse_error(f"AI service error ({getattr(exc, 'code', 'unknown')}). Please try again.", "ai_unavailable")
     except Exception:
         logger.exception("[chat/public] Unexpected error")
-        yield _sse_error("An unexpected error occurred. Please try again.")
+        yield _sse_error("An unexpected error occurred. Please try again.", "ai_failed", feature="chat")
 
 
 # ── Route ─────────────────────────────────────────────────────────────────────
@@ -1513,7 +1519,7 @@ async def eliya_public_chat(body: PublicChatRequest, request: Request) -> Stream
     system prompt carries the integrity directive.
     """
     if not body.message.strip():
-        raise HTTPException(status_code=422, detail="message must not be empty.")
+        raise AppError("empty_message", status_code=422, detail="message must not be empty.")
 
     client_ip = request.client.host if request.client else "unknown"
     logger.info(

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   if (!token) {
     console.log('[chat/private] Rejected: no token')
     return NextResponse.json(
-      { error: 'Not authenticated.' },
+      { error: 'Not authenticated.', code: 'auth_required' },
       { status: 401 },
     )
   }
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     console.log(`[chat/private] supabase.getUser → error=${error?.message ?? 'none'}  user=${data.user?.id ?? 'null'}`)
     if (error || !data.user?.id) {
       return NextResponse.json(
-        { error: 'Invalid or expired session. Please log in again.' },
+        { error: 'Invalid or expired session. Please log in again.', code: 'session_expired' },
         { status: 401 },
       )
     }
@@ -84,12 +84,12 @@ export async function POST(request: NextRequest): Promise<Response> {
   try {
     body = (await request.json()) as typeof body
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid JSON body.', code: 'invalid_input' }, { status: 400 })
   }
 
   if (!body.message || typeof body.message !== 'string' || !body.message.trim()) {
     console.log(`[chat/private] Rejected 422: body.message=${JSON.stringify(body.message)}  keys=${Object.keys(body)}`)
-    return NextResponse.json({ error: 'message is required.' }, { status: 422 })
+    return NextResponse.json({ error: 'message is required.', code: 'empty_message' }, { status: 422 })
   }
 
   console.log(`[chat/private] Forwarding to FastAPI: msg_len=${body.message.trim().length}  history=${Array.isArray(body.chat_history) ? body.chat_history.length : 0}`)
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const msg = err instanceof Error ? err.message : 'FastAPI unreachable'
     console.error('[chat/private] Backend connection failed:', msg)
     return NextResponse.json(
-      { error: `Backend connection failed: ${msg}` },
+      { error: `Backend connection failed: ${msg}`, code: 'service_unavailable' },
       { status: 502 },
     )
   }

@@ -31,6 +31,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from backend.core.errors import AppError
 from backend.services.auth_utils import (
     SUPABASE_URL_NORMALIZED as _SUPABASE_URL,
     JWT_SECRET as _JWT_SECRET,
@@ -105,7 +106,7 @@ async def get_current_user(
     """
     # ── Server misconfiguration check ─────────────────────────────────────────
     if not _SUPABASE_URL and not _JWT_SECRET:
-        raise HTTPException(
+        raise AppError("auth_not_configured",
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
                 "Authentication is not configured on this server. "
@@ -115,7 +116,7 @@ async def get_current_user(
 
     # ── Token presence check ──────────────────────────────────────────────────
     if credentials is None:
-        raise HTTPException(
+        raise AppError("auth_required",
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated.",
             headers={"WWW-Authenticate": "Bearer"},
@@ -153,7 +154,7 @@ async def require_admin(
         user: CurrentUser = Depends(require_admin)
     """
     if not user.is_admin:
-        raise HTTPException(
+        raise AppError("admin_only",
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required.",
         )
@@ -250,7 +251,7 @@ class RateLimiter:
 
             if len(bucket) >= self.max_requests:
                 retry_after = max(1, int(self.window_seconds - (now - bucket[0])) + 1)
-                raise HTTPException(
+                raise AppError("rate_limited",
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="Rate limit exceeded. Please slow down and try again shortly.",
                     headers={"Retry-After": str(retry_after)},
@@ -304,14 +305,14 @@ async def daily_generation_limit(user: CurrentUser = Depends(get_current_user)) 
 
     used = cv_generation_repository.count_today(user.user_id)
     if used >= DAILY_CV_GENERATION_CAP:
-        raise HTTPException(
+        raise AppError("daily_cv_limit",
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=(
                 f"You've reached today's limit of {DAILY_CV_GENERATION_CAP} CV "
                 "generations. This resets at midnight UTC — try again then, or "
                 "use the Live Editor to refine your current CV instead of "
                 "generating a new one."
-            ),
+            ), limit=DAILY_CV_GENERATION_CAP,
         )
 
 
@@ -336,10 +337,10 @@ async def daily_chat_limit(user: CurrentUser = Depends(get_current_user)) -> Non
 
     used = chat_message_log_repository.count_today(user.user_id)
     if used >= DAILY_CHAT_MESSAGE_CAP:
-        raise HTTPException(
+        raise AppError("daily_chat_limit",
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=(
                 f"You've reached today's limit of {DAILY_CHAT_MESSAGE_CAP} messages "
                 "with Ariel. This resets at midnight UTC."
-            ),
+            ), limit=DAILY_CHAT_MESSAGE_CAP,
         )

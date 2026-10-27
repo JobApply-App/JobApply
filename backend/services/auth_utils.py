@@ -61,6 +61,7 @@ from typing import Optional
 import httpx
 from fastapi import HTTPException, status
 
+from backend.core.errors import AppError
 from backend.config import SUPABASE_JWT_SECRET, SUPABASE_URL
 
 logger = logging.getLogger(__name__)
@@ -192,7 +193,7 @@ async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
         # rather than hardcoding a single algorithm — Supabase may rotate alg types.
         alg    = header.get("alg")
         if not alg:
-            raise HTTPException(
+            raise AppError("session_expired",
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token header is missing the 'alg' field.",
                 headers={"WWW-Authenticate": "Bearer"},
@@ -208,7 +209,7 @@ async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
             key  = pick_key(keys, kid)
 
         if key is None:
-            raise HTTPException(
+            raise AppError("session_expired",
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token signing key not found in JWKS.",
                 headers={"WWW-Authenticate": "Bearer"},
@@ -225,11 +226,13 @@ async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
     except HTTPException:
         raise
     except JWTError as exc:
-        raise HTTPException(
+        # The reason stays in the log; the client only needs "sign in again".
+        logger.info("[auth] token rejected: %s", exc)
+        raise AppError("session_expired",
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired token: {exc}",
+            detail="Invalid or expired token.",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
 
 
 def verify_hs256(token: str, jwt, JWTError) -> VerifiedIdentity:
@@ -243,11 +246,13 @@ def verify_hs256(token: str, jwt, JWTError) -> VerifiedIdentity:
         )
         return extract_identity(payload)
     except JWTError as exc:
-        raise HTTPException(
+        # The reason stays in the log; the client only needs "sign in again".
+        logger.info("[auth] token rejected: %s", exc)
+        raise AppError("session_expired",
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired token: {exc}",
+            detail="Invalid or expired token.",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
 
 
 def extract_identity(payload: dict) -> VerifiedIdentity:
@@ -261,7 +266,7 @@ def extract_identity(payload: dict) -> VerifiedIdentity:
     """
     user_id: Optional[str] = payload.get("sub")
     if not user_id:
-        raise HTTPException(
+        raise AppError("session_expired",
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token is missing the 'sub' claim.",
         )

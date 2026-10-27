@@ -9,6 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from backend.core.errors import AppError
 from backend.api.deps import CurrentUser, get_current_user
 from backend.schemas.application import Application, ApplicationStatus
 from backend.repositories import application_repository as app_store
@@ -59,7 +60,7 @@ async def delete_application(application_id: str, user: CurrentUser = Depends(ge
     """Delete a single application, scoped to the authenticated user."""
     deleted = app_store.delete(application_id, user_id=user.user_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail=f"Application '{application_id}' not found.")
+        raise AppError("application_not_found", status_code=404, detail=f"Application '{application_id}' not found.")
     return DeleteApplicationResponse(deleted=True)
 
 
@@ -89,7 +90,7 @@ async def apply_to_job(
     from backend.agents.applier import ApplierAgent
     app = await asyncio.to_thread(ApplierAgent(user_id=user.user_id).apply_single, job_id)
     if app is None:
-        raise HTTPException(
+        raise AppError("job_not_found",
             status_code=404,
             detail=f"Job '{job_id}' not found or has already been applied to.",
         )
@@ -104,7 +105,7 @@ async def get_application(
     """Return a single application by ID, scoped to the authenticated user."""
     match = app_store.get_by_id(application_id, user_id=user.user_id)
     if match is None:
-        raise HTTPException(status_code=404, detail="Application not found.")
+        raise AppError("application_not_found", status_code=404, detail="Application not found.")
     return match
 
 
@@ -149,7 +150,7 @@ async def mark_applied(
     # indistinguishable from "not found" (never leak cross-tenant existence).
     job = job_store.get_by_id(body.job_id, user.user_id)
     if not job:
-        raise HTTPException(
+        raise AppError("job_not_found",
             status_code=404,
             detail=f"Job '{body.job_id}' not found.",
         )

@@ -27,6 +27,7 @@ from pydantic import BaseModel
 from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Session
 
+from backend.core.errors import AppError
 from backend.api.deps import CurrentUser, get_current_user
 from backend.core.database import ENGINE as MAIN_ENGINE   # reuse the same DB file
 
@@ -193,7 +194,7 @@ def get_session(
 
     # 404 on both absent and not-owned — never leak another user's session existence.
     if row is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise AppError("session_not_found", status_code=404, detail="Session not found")
 
     try:
         messages = [ChatMessageSchema(**m) for m in json.loads(row.messages_json or "[]")]
@@ -226,7 +227,7 @@ def upsert_session(
     ).scalar_one_or_none()
 
     if row is not None and row.user_id != user.user_id:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise AppError("session_not_found", status_code=404, detail="Session not found")
 
     serialised = json.dumps(
         [m.model_dump(exclude_none=True) for m in payload.messages],

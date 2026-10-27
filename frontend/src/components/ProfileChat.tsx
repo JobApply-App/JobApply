@@ -13,6 +13,7 @@ import {
 } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { resolveDisplayName } from '@/lib/nameUtils'
+import { errorMessage } from '@/lib/errors'
 
 const SESSION_STORAGE_KEY = 'profile_interview_session_id'
 
@@ -522,12 +523,13 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
     try {
       const updated = await sendInterviewMessage(session.session_id, text)
       setSession(updated)
-    } catch {
+    } catch (err) {
+      // The real reason (lib/errors.ts), not a bare "something went wrong".
       setSession(prev => prev ? {
         ...prev,
         messages: [...prev.messages, {
           role: 'assistant',
-          content: C.composer.send_failed,
+          content: errorMessage(err),
           ts: new Date().toISOString(),
         }],
       } : prev)
@@ -535,7 +537,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
       setSending(false)
       textRef.current?.focus()
     }
-  }, [session, input, sending, C.composer.send_failed])
+  }, [session, input, sending])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

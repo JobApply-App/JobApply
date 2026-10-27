@@ -1,6 +1,7 @@
 'use client'
 
-import { ChatStreamError, chatErrorText } from '@/lib/chatError'
+import { ChatStreamError, chatErrorText, chatStreamErrorFrom } from '@/lib/chatError'
+import type { ErrorParams } from '@/lib/errors'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { useChat }   from '@/contexts/ChatContext'
@@ -488,8 +489,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
 
       if (!res.ok || !res.body) {
         // Non-streaming error response (FastAPI uses `detail`, Next uses `error`)
-        const errData = await res.json().catch(() => ({})) as { error?: string; detail?: string }
-        throw new ChatStreamError(errData.error ?? errData.detail ?? `HTTP ${res.status}`, res.status)
+        throw await chatStreamErrorFrom(res)
       }
 
       const reader     = res.body.getReader()
@@ -510,11 +510,11 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
             const payload = line.slice(5).trim()
             if (payload === '[DONE]') break outer
 
-            let parsed: { chunk?: string; error?: string }
+            let parsed: { chunk?: string; error?: string; code?: string; params?: ErrorParams }
             try { parsed = JSON.parse(payload) as typeof parsed }
             catch { continue }
 
-            if (parsed.error) throw new ChatStreamError(parsed.error)
+            if (parsed.error) throw new ChatStreamError(parsed.error, undefined, parsed.code, parsed.params)
             if (!parsed.chunk) continue
 
             accumulated += parsed.chunk
@@ -545,12 +545,12 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
 
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
-      const msg = chatErrorText(err, { generic: S.generic_error, rateLimited: S.err_rate_limited })
+      const msg = chatErrorText(err)
       setMessages(prev => [...prev, { role: 'assistant', content: msg, ts: Date.now() }])
     } finally {
       setThinking(false)
     }
-  }, [draft, thinking, sessionId, messages, attachments, S.attached_files, S.generic_error, S.no_response, S.err_rate_limited])
+  }, [draft, thinking, sessionId, messages, attachments, S.attached_files, S.no_response])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }

@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from backend.core.errors import AppError
 from backend.api.deps import CurrentUser, get_current_user
 from backend.core.database import ENGINE
 from backend.repositories import application_repository
@@ -150,7 +151,7 @@ async def move_crm_card(
         body.application_id, user.user_id, to_stage, now,
     )
     if result == "not_found":
-        raise HTTPException(
+        raise AppError("application_not_found",
             status_code=404,
             detail=f"Application '{body.application_id}' not found.",
         )

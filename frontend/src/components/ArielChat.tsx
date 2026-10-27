@@ -1,6 +1,7 @@
 'use client'
 
-import { ChatStreamError, chatErrorText } from '@/lib/chatError'
+import { ChatStreamError, chatErrorText, chatStreamErrorFrom } from '@/lib/chatError'
+import type { ErrorParams } from '@/lib/errors'
 import {
   useState, useRef, useEffect, useCallback, memo,
   type KeyboardEvent, type ReactNode, type ChangeEvent,
@@ -667,15 +668,7 @@ async function consumeStream(
     body:    JSON.stringify(body),
     signal,
   })
-  if (!res.ok || !res.body) {
-    // FastAPI error bodies are JSON ({"detail": "..."}) — extract the message
-    // instead of throwing the raw response text, which would render the
-    // literal JSON blob (braces, quotes, key names) as the chat bubble.
-    const text = await res.text().catch(() => '')
-    let detail: string | undefined
-    try { detail = (JSON.parse(text) as { detail?: string }).detail } catch { /* not JSON */ }
-    throw new ChatStreamError(detail || res.statusText || `HTTP ${res.status}`, res.status)
-  }
+  if (!res.ok || !res.body) throw await chatStreamErrorFrom(res)
 
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
@@ -692,8 +685,8 @@ async function consumeStream(
       const payload = line.slice(6).trim()
       if (!payload || payload === '[DONE]') continue
       try {
-        const parsed = JSON.parse(payload) as { chunk?: string; error?: string }
-        if (parsed.error) throw new ChatStreamError(parsed.error)
+        const parsed = JSON.parse(payload) as { chunk?: string; error?: string; code?: string; params?: ErrorParams }
+        if (parsed.error) throw new ChatStreamError(parsed.error, undefined, parsed.code, parsed.params)
         if (parsed.chunk) onChunk(parsed.chunk)
       } catch (e) { if (e instanceof Error && e.message !== payload) throw e }
     }
@@ -1043,7 +1036,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       })
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return
-      const errMsg = chatErrorText(err, { generic: A.generic_error, rateLimited: A.err_rate_limited })
+      const errMsg = chatErrorText(err)
       setMessages(prev => {
         const next = [...prev]
         const i    = next.findIndex(m => m.id === newAsstId)
@@ -1056,7 +1049,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       setStreaming(false)
       triggerProfileRefresh()
     }
-  }, [messages, streaming, forceBottom, triggerProfileRefresh, A.generic_error, A.err_rate_limited])
+  }, [messages, streaming, forceBottom, triggerProfileRefresh])
 
   // ── Send ───────────────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (override?: string) => {
@@ -1103,7 +1096,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
       }, capturedAttachments.length ? capturedAttachments : undefined)
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return
-      const msg = chatErrorText(err, { generic: A.generic_error, rateLimited: A.err_rate_limited })
+      const msg = chatErrorText(err)
       setMessages(prev => {
         const next = [...prev]
         const idx  = next.findIndex(m => m.id === assistantId)
@@ -1128,7 +1121,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
         setTimeout(triggerProfileRefresh, 5000)
       }
     }
-  }, [input, messages, streaming, replyingTo, attachments, forceBottom, triggerProfileRefresh, A.attached_files, A.generic_error, A.replying_to, A.err_rate_limited])
+  }, [input, messages, streaming, replyingTo, attachments, forceBottom, triggerProfileRefresh, A.attached_files, A.replying_to])
 
   // Send the request Ariel was opened with ("Improve with Ariel", the
   // overview's capability chips). Waits out an in-flight reply or session
