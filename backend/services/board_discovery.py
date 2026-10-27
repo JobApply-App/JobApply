@@ -27,6 +27,8 @@ How cost is bounded
 * Search requests: BOARD_TERMS_PER_CYCLE terms × 5 boards × at most
   _MAX_PAGES pages; detail pages stay capped per board by each scraper's own
   max_jobs. The bound is logged every cycle as `request_bound`.
+* Switch: BOARD_DISCOVERY_ENABLED, off by default — every board answers
+  Render's IP with 403 (first production cycle, 2026-10-27).
 * Frequency: BOARD_DISCOVERY_INTERVAL_SECONDS, gated on a last-run time in
   kv_store so Render's restart-on-wake does not add cycles.
 * LLM: none. Terms come from the cache refresh_user_terms already fills;
@@ -158,10 +160,18 @@ async def run_board_discovery_cycle(
     the interval gate and rotates that user's own cursor, not the shared one.
     Returns {user_id: new jobs saved}.
     """
+    from backend import config
     from backend.config import (
         BOARD_HEBREW_SHARE, BOARD_DISCOVERY_INTERVAL_SECONDS, BOARD_MAX_NEW_JOBS_PER_USER,
         BOARD_TERMS_PER_CYCLE, DEV_MAX_JOBS_PER_BOARD, DEV_MODE,
     )
+
+    # Paused by default: every board answers Render's IP with 403 (see
+    # config.BOARD_DISCOVERY_ENABLED). Checked here, not only in the loop, so
+    # the "sync" button stops hitting the blocked sites too.
+    if not config.BOARD_DISCOVERY_ENABLED:
+        logger.info("[board-discovery] paused (BOARD_DISCOVERY_ENABLED=false) — no board requests sent")
+        return {}
     from backend.services.board_search_terms import next_cycle
     from backend.services.tenant_registry import list_pipeline_user_ids
     from backend.services.user_title_terms import cached_terms_for_users
@@ -191,6 +201,11 @@ async def run_board_discovery_cycle(
     )
     if respect_interval:
         _mark_run()
+    if not keywords:
+        # A scraper given no keywords runs one EMPTY search ([""]): the
+        # board's whole listing, unrelated to any user. Never send that.
+        logger.info("[board-discovery] no terms to search — skipping cycle")
+        return {}
 
     def any_user(title: str) -> bool:
         return any(m(title) for m in matchers.values())
