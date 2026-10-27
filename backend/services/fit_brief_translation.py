@@ -6,8 +6,9 @@ jobs scored after it. A Hebrew user's existing jobs kept their English
 analysis (96 of 100 for the first tester), and a job is re-scored only when
 its JD or the profile changes — so they would stay English for weeks.
 
-The enrichment loop calls translate_batch() once per sweep for each Hebrew
-user. It reads at most _BATCH briefs with no Hebrew letter, translates them
+The enrichment loop calls translate_all() once per sweep. It covers every
+user whose UI is Hebrew, not only the pipeline's onboarding-complete users —
+accounts that predate that flag hold the most English briefs. Per user it reads at most _BATCH briefs with no Hebrew letter, translates them
 in a single LLM call, and writes back only those that came back in Hebrew.
 Scores are untouched. Once a user has nothing left, they are skipped for
 the rest of the process, so a finished backfill costs no further queries.
@@ -33,6 +34,9 @@ _SYSTEM = (
     "content. Output ONLY a JSON array of strings, one translation per input, "
     "in the same order."
 )
+
+# Hebrew-UI users, read once per process (users scored after #81 need nothing).
+_users: Optional[list[str]] = None
 
 # Users whose backlog is empty in this process, and briefs that came back
 # unusable (kept English, not retried); both reset on restart.
@@ -113,4 +117,23 @@ async def translate_batch(user_id: str) -> int:
         if await asyncio.to_thread(job_repository.replace_fit_brief, job_id, user_id, old, new):
             saved += 1
     logger.info("[fit_brief_translation] user=%s translated %d/%d", user_id, saved, len(sources))
+    return saved
+
+
+async def translate_all() -> int:
+    """One batch for each Hebrew-UI user with English briefs left; return how many were saved."""
+    global _users
+    import asyncio
+    from backend.repositories import profile_repository
+    if _users is None:
+        try:
+            _users = await asyncio.to_thread(profile_repository.list_hebrew_ui_user_ids)
+        except Exception as exc:
+            logger.warning("[fit_brief_translation] could not list Hebrew users: %s", exc)
+            return 0
+        logger.info("[fit_brief_translation] %d Hebrew-UI user(s) to check", len(_users))
+    saved = 0
+    for user_id in _users:
+        if user_id not in _done:
+            saved += await translate_batch(user_id)
     return saved
