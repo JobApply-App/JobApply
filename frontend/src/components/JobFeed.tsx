@@ -152,7 +152,7 @@ function SearchBar({ value, onChange }: { value: string; onChange: (v: string) =
         placeholder={F.search_placeholder}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full h-9 ps-8 pe-8 rounded-lg border border-slate-200 bg-white text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition"
+        className="w-full h-10 sm:h-9 ps-8 pe-8 rounded-lg border border-slate-200 bg-white text-base sm:text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition"
       />
       {value && (
         <button
@@ -187,12 +187,12 @@ function SourceChips({
 }) {
   const F = useI18n().t.job_feed
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div className="flex items-center gap-1 sm:flex-wrap shrink-0">
       {SOURCE_CHIP_IDS.map(id => (
         <button
           key={id}
           onClick={() => setActive(id)}
-          className={`h-9 sm:h-7 px-3 sm:px-2.5 rounded-full text-[12.5px] sm:text-[11.5px] font-medium transition ${
+          className={`shrink-0 whitespace-nowrap h-9 sm:h-7 px-3 sm:px-2.5 rounded-full text-[12.5px] sm:text-[11.5px] font-medium transition ${
             active === id
               ? 'bg-slate-900 text-white'
               : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
@@ -248,7 +248,7 @@ function TopFitsToggle({ active, onToggle }: { active: boolean; onToggle: () => 
     <button
       onClick={onToggle}
       title={active ? F.top_fits_on.replace('{threshold}', String(TOP_FITS_THRESHOLD)) : F.top_fits_off}
-      className={`inline-flex items-center gap-1.5 h-9 sm:h-7 px-3 rounded-full text-[12.5px] sm:text-[11.5px] font-semibold transition ${
+      className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 h-9 sm:h-7 px-3 rounded-full text-[12.5px] sm:text-[11.5px] font-semibold transition ${
         active
           ? 'bg-emerald-600 text-white shadow-sm'
           : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
@@ -654,13 +654,13 @@ export function JobFeed({
 
   return (
     <section className="w-full">
-      <div className="max-w-4xl space-y-8">
+      <div className="max-w-4xl space-y-5 sm:space-y-8">
 
         {/* ── Page heading + sync ───────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{F.heading}</h1>
-            <p className="text-sm text-slate-400 mt-1">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">{F.heading}</h1>
+            <p className="hidden sm:block text-sm text-slate-400 mt-1">
               {F.subheading}
             </p>
           </div>
@@ -690,7 +690,7 @@ export function JobFeed({
             value={jobUrl}
             onChange={e => setJobUrl(e.target.value)}
             disabled={isAnalyzing}
-            className="flex-1 h-9 px-3 rounded-lg border border-slate-200 bg-white text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition disabled:opacity-50"
+            className="flex-1 min-w-0 h-10 sm:h-9 px-3 rounded-lg border border-slate-200 bg-white text-base sm:text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition disabled:opacity-50"
           />
           <button
             type="submit"
@@ -707,7 +707,7 @@ export function JobFeed({
           <div className="flex-1 min-w-0">
             <SearchBar value={search} onChange={setSearch} />
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 overflow-x-auto sm:overflow-visible sm:flex-wrap -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <SourceChips active={source} setActive={setSource} />
             <div className="h-5 w-px bg-slate-200 hidden sm:block" />
             <TopFitsToggle active={topFitsOnly} onToggle={() => setTopFitsOnly(v => !v)} />

@@ -806,7 +806,7 @@ export const en = {
     start_new:       'Or start something new',
     what_work_on:    'What would you like to work on?',
     input_start:     'Or just type to start…',
-    input_reply:     'Type your reply… (Shift+Enter for new line)',
+    input_reply:     'Type your reply…',
     quick_actions: [
       { label: 'Strengthen my profile', desc: 'A few questions, then she updates your experience and skills — so matches get sharper.', prompt: 'Let\'s strengthen my profile. What\'s missing or weak in it right now?' },
       { label: 'Sharpen my CV for a job', desc: 'Reviews your tailored CV and rewrites weak lines.', prompt: 'Help me improve my tailored CV for a specific job.' },
@@ -1041,7 +1041,8 @@ export const en = {
       cancel:        'Cancel',
     },
     composer: {
-      placeholder: 'Type your answer… (Shift+Enter for new line)',
+      placeholder: 'Type your answer…',
+      send:        'Send',
       attach:      'Attach document',
       new_session: 'Clear this session and start a new interview',
       specialist:  'Adam — Profile Specialist',
@@ -1098,7 +1099,8 @@ export const en = {
       title:            'What are you looking for?',
       intro:            'Whatever your field — engineering, sales, design, marketing, operations, or anything else — add the roles you’re targeting and your experience level in each.',
       roles_label:      'Target roles & experience',
-      role_placeholder: 'Start typing a role — e.g. “aco” → Account Manager…',
+      role_placeholder: 'Type a role — e.g. Insurance Agent, Product Manager, Nurse…',
+      add_custom_role:  'Add “{role}” as typed',
       remove_role:      'Remove {role}',
       level_for_role:   'Experience level for {role}',
       pick_level:       'Pick the level closest to you — it helps us match jobs at the right seniority.',

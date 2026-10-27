@@ -974,6 +974,7 @@ export interface Dict {
       attach:       string
       new_session:  string
       specialist:   string
+      send:         string
       send_failed:  string
     }
   }
@@ -1021,6 +1022,7 @@ export interface Dict {
       intro:            string
       roles_label:      string
       role_placeholder: string
+      add_custom_role:  string   // takes the typed role, {role}
       remove_role:      string   // takes the role name, {role}
       level_for_role:   string   // takes the role name, {role}
       pick_level:       string

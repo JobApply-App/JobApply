@@ -1289,7 +1289,9 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
           rows={1}
           autoFocus
           disabled={inputDisabled}
-          className="flex-1 resize-none overflow-y-auto rounded-xl border border-slate-200 px-3 py-2.5 text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20 transition disabled:opacity-50 bg-white min-h-[44px] max-h-[112px] [unicode-bidi:plaintext] text-start"
+          // 16px on phones: iOS Safari zooms the whole page into any field
+          // smaller than that, and the chat never zooms back out.
+          className="flex-1 resize-none overflow-y-auto rounded-2xl border border-slate-200 px-3.5 py-2.5 text-base sm:text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20 transition disabled:opacity-50 bg-white min-h-[44px] max-h-[112px] [unicode-bidi:plaintext] text-start"
         />
 
         {streaming ? (
@@ -1309,7 +1311,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
             disabled={(!input.trim() && !attachments.length) || loadingSession}
             title={A.send}
             aria-label={A.send}
-            className="shrink-0 w-11 h-11 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white transition active:scale-95 disabled:opacity-35 disabled:pointer-events-none bg-violet-600 hover:bg-violet-700"
+            className="shrink-0 w-11 h-11 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white transition active:scale-95 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-100 disabled:text-slate-300 disabled:pointer-events-none"
           >
             <SendIcon s={15} />
           </button>
