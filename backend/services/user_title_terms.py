@@ -16,8 +16,9 @@ What it does
 1. Source titles, most explicit first:
      a. the roles the user picked in onboarding (role_preferences), else
      b. the most recent job titles on their parsed CV (cv_data.experiences).
-   A user with neither keeps the global list — the old behaviour, and still
-   the right answer for a profile that tells us nothing.
+   A user with neither gets no automatic matches until they name a role or
+   upload a readable CV. The global list used to be the fallback, but it is
+   the founder's own roles, and a new user's feed filled with them.
 2. One cheap LLM call expands those into title search terms: synonyms,
    common variants and Hebrew equivalents ("FP&A Analyst" -> "Financial
    Analyst", "אנליסט פיננסי", ...). Exact substrings alone miss most real
@@ -206,8 +207,8 @@ async def refresh_user_terms(user_id: str, *, force: bool = False) -> Optional[l
     """
     Make sure the cached terms match the user's current titles; return them.
 
-    Returns None when the user has no titles at all — the caller then falls
-    back to the global list. Cheap when nothing changed (one profile read).
+    Returns None when the user has no titles at all — the caller then makes
+    no automatic matches. Cheap when nothing changed (one profile read).
     """
     profile = _profile(user_id)
     titles = source_titles(profile)
@@ -226,7 +227,7 @@ async def refresh_user_terms(user_id: str, *, force: bool = False) -> Optional[l
 
 
 def cached_user_terms(user_id: str) -> Optional[list[str]]:
-    """Synchronous read of the cached terms (no LLM). None = use the global list."""
+    """Synchronous read of the cached terms (no LLM). None = no terms, no automatic matches."""
     terms = (_profile(user_id).get(_ANSWER_KEY) or {}).get("terms")
     return list(terms) if terms else None
 

@@ -201,14 +201,15 @@ def test_bridge_admits_the_users_roles_not_the_global_list(catalog, monkeypatch)
     assert catalog["product"] not in captured["urls"]
 
 
-def test_bridge_without_terms_keeps_the_global_list(catalog, monkeypatch):
+def test_bridge_without_terms_adds_nothing(catalog, monkeypatch):
+    # The global list is the founder's own roles; a user whose roles are not
+    # known yet must not be fed those (a software engineer got Product jobs).
     from backend.services import all_jobs_match_service as svc
     monkeypatch.setattr(svc, "_existing_job_ids", lambda user_id: set())
     captured = _capture_saves(monkeypatch)
 
-    svc.run_all_jobs_matching_cycle(str(uuid.uuid4()), limit=500, terms=None)
-    assert catalog["product"] in captured["urls"]
-    assert catalog["marketing"] not in captured["urls"]
+    assert svc.run_all_jobs_matching_cycle(str(uuid.uuid4()), limit=500, terms=None) == 0
+    assert "urls" not in captured
 
 
 # ── The preferences endpoint ─────────────────────────────────────────────────

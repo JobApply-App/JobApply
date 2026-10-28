@@ -260,11 +260,22 @@ async def test_dork_searches_the_users_own_terms(monkeypatch):
 
 async def test_dork_cap_is_eight_terms(monkeypatch):
     from backend.services import discovery
-    monkeypatch.setattr("backend.services.user_title_terms.cached_terms_for_users", lambda ids: {})
+    many = [f"Insurance Role {i}" for i in range(20)]
+    monkeypatch.setattr(
+        "backend.services.user_title_terms.cached_terms_for_users", lambda ids: {"agent": many},
+    )
     monkeypatch.setattr(bst, "next_cycle", lambda key: 0)
-    keywords, relevant = discovery._dork_terms_for("nobody")
-    assert len(keywords) == 8                       # global list, capped
-    assert relevant is is_title_relevant
+    keywords, _ = discovery._dork_terms_for("agent")
+    assert len(keywords) == 8
+
+
+async def test_dork_without_terms_searches_nothing(monkeypatch):
+    # The global list is the founder's own roles; a user whose roles are not
+    # known yet must not be searched with it.
+    from backend.services import discovery
+    monkeypatch.setattr("backend.services.user_title_terms.cached_terms_for_users", lambda ids: {})
+    keywords, _ = discovery._dork_terms_for("nobody")
+    assert keywords == []
 
 
 # ── The narrow batch read (Postgres) ─────────────────────────────────────────

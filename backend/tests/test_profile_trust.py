@@ -519,7 +519,7 @@ class TestComputeProfileTrustScore:
         svc = self._service()
         br = svc.compute_profile_familiarity(uid, profile=_complete_profile())
 
-        assert set(br.keys()) == {"overall", "breadth", "depth", "context"}
+        assert set(br.keys()) == {"overall", "breadth", "depth", "context", "identity"}
         assert 0.0 <= br["breadth"] <= 40.0
         assert 0.0 <= br["depth"]   <= 40.0
         assert 0.0 <= br["context"] <= 20.0
@@ -684,7 +684,7 @@ class TestTrustScoreEndpoint:
         # ── score_breakdown: the three Holistic Familiarity pillars (Phase 32).
         assert "score_breakdown" in body
         sb = body["score_breakdown"]
-        assert set(sb.keys()) == {"breadth", "depth", "context"}
+        assert set(sb.keys()) == {"breadth", "depth", "context", "identity"}
         assert 0.0 <= sb["breadth"] <= 40.0
         assert 0.0 <= sb["depth"]   <= 40.0
         assert 0.0 <= sb["context"] <= 20.0
