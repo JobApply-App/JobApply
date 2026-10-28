@@ -239,6 +239,11 @@ export interface Dict {
     privacy:      string
     contact:      string
     accessibility:string
+    contact_title: string
+    contact_body:  string
+    contact_email: string
+    contact_phone: string
+    contact_close: string
   }
   a11y_menu: {
     open: string

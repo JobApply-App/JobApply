@@ -169,6 +169,15 @@ input[type='range'] {
   body.has-tabbar .ja-launcher-intro {
     bottom: calc(4rem + 5.5rem + env(safe-area-inset-bottom));
   }
+  /* The accessibility button sat on top of the tab bar, half hidden behind
+     "Overview" (2026-10-28). Same clearance as the Ariel launcher. */
+  body.has-tabbar .a11y-launcher {
+    bottom: calc(4rem + 1rem + env(safe-area-inset-bottom));
+  }
+  body.has-tabbar .a11y-panel {
+    bottom: calc(4rem + 5.5rem + env(safe-area-inset-bottom));
+    max-height: calc(100vh - 4rem - 7rem - env(safe-area-inset-bottom));
+  }
 }
 
 /* ── Scrollbars ────────────────────────────────────────────────────────────── */

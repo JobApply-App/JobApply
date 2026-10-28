@@ -94,7 +94,7 @@ export function AccessibilityMenu() {
           aria-modal="true"
           aria-labelledby="a11y-menu-title"
           tabIndex={-1}
-          className="fixed z-40 bottom-[5.5rem] start-4 sm:start-6 w-[min(21rem,calc(100vw-2rem))] max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl bg-white border border-slate-200 p-4 print:hidden"
+          className="a11y-panel fixed z-40 bottom-[5.5rem] start-4 sm:start-6 w-[min(21rem,calc(100vw-2rem))] max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl bg-white border border-slate-200 p-4 print:hidden"
           style={{ boxShadow: '0 1px 2px rgba(15,23,42,.08), 0 12px 32px rgba(15,23,42,.18)' }}
         >
           <div className="flex items-center justify-between mb-3">
