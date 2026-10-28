@@ -55,6 +55,9 @@ export const en = {
       match_scoring: 'Scoring the match', analysis: 'The analysis',
     },
   },  common: {
+    applying_template: 'Applying the design…',
+    ats_info_label: 'What is ATS?',
+    ats_info: 'ATS (Applicant Tracking System) is the software most companies use to receive CVs. It scans each CV for the skills and keywords in the job description before a person reads it. Your ATS score estimates how well your CV matches this job, so a higher score means a better chance of reaching a recruiter.',
     undo: 'Undo',
     retry: 'Retry',
     sort: 'Sort',
@@ -431,6 +434,10 @@ export const en = {
     generating:         'Generating…',
     save_continue:      'Save & Continue',
     skip_all:           'Skip all',
+    skip_question:      'Skip',
+    optional_hint:      'Optional, but recommended — recruiters often filter by location. You can skip it.',
+    step_back:          '← Back',
+    step_next:          'Next →',
     skip_all_title:     'Generate without answering (may produce approximate results)',
     loading_statuses: [
       'Analyzing job requirements...',
@@ -1142,6 +1149,7 @@ export const en = {
 
   profile_builder: {
     back:             'Back',
+    back_to_app:      'Back to dashboard',
     title:            'Import your resume',
     intro:            'Upload your CV and we’ll extract your work history, skills, and education to power accurate Match Scores.',
     upload_prompt:    'Upload your resume',

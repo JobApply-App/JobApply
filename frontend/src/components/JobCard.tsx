@@ -13,6 +13,7 @@ import { OutreachModal }    from './OutreachModal'
 import { DirectPitchModal } from './DirectPitchModal'
 import { InterviewSimulatorModal } from './InterviewSimulatorModal'
 import { AtsKeywordsPanel } from './AtsKeywordsPanel'
+import { InfoTip } from './ui/InfoTip'
 import { SkillsGapPanel }   from './SkillsGapPanel'
 
 // ── Chevron ───────────────────────────────────────────────────────────────────
@@ -818,6 +819,7 @@ export const JobCard = memo(function JobCard({
 }: JobCardProps) {
   const { t: _t, locale: uiLocale } = useI18n()
   const J = _t.job_card
+  const tCommon = _t.common
   const [showDetails,      setShowDetails]      = useState(initialExpanded)
   const [jdExpanded,       setJdExpanded]       = useState(false)
   const [showOutreach,     setShowOutreach]     = useState(false)
@@ -1159,6 +1161,7 @@ export const JobCard = memo(function JobCard({
 
                   {/* ATS Breakdown — keywords injected / excluded + confidence snapshot */}
                   <div className="pt-3 border-t border-slate-100">
+                    <div className="flex items-center gap-1">
                     <button
                       onClick={e => { e.stopPropagation(); setShowAtsPanel(p => !p) }}
                       className="flex items-center gap-1.5 min-h-[44px] sm:min-h-0 text-[12.5px] sm:text-[12px] font-medium text-slate-500 hover:text-slate-800 transition"
@@ -1167,6 +1170,8 @@ export const JobCard = memo(function JobCard({
                       {J.ats_breakdown}
                       {!hasJD && <span className="text-[10px] text-amber-500 ms-0.5">{J.fetch_jd_first}</span>}
                     </button>
+                    <InfoTip text={tCommon.ats_info} label={tCommon.ats_info_label} />
+                    </div>
                     {showAtsPanel && (
                       <div className="mt-2">
                         <AtsKeywordsPanel jobId={job.job_id} hasJd={hasJD} userId={userId} />

@@ -45,6 +45,9 @@ export interface Dict {
     features: Record<ErrorFeature, string>
   }
   common: {
+    applying_template: string
+    ats_info_label: string
+    ats_info: string
     undo: string
     retry: string
     sort: string
@@ -372,6 +375,10 @@ export interface Dict {
     generating:       string
     save_continue:    string
     skip_all:         string
+    skip_question:    string
+    optional_hint:    string
+    step_back:        string
+    step_next:        string
     skip_all_title:   string
     // Rotating status lines shown while the CV is being written.
     loading_statuses: readonly [string, string, string, string]
@@ -1047,6 +1054,7 @@ export interface Dict {
   }
   profile_builder: {
     back:            string
+    back_to_app:     string
     title:           string
     intro:           string
     upload_prompt:   string

@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/contexts/I18nContext'
 import AuthGuard from '@/components/AuthGuard'
@@ -161,6 +161,19 @@ function ProfileBuilderContent() {
   const [stage,      setStage]      = useState<CvUploadStage>('uploading')
   const [expCount,   setExpCount]   = useState(0)
 
+  // Reached from inside the app ("Update your CV", "Strengthen your profile")
+  // rather than during onboarding: Back and Skip must return to the app.
+  // They used to lead into the onboarding steps and /discover, so a user who
+  // only wanted to replace a CV had no way back. Read from the URL in an
+  // effect (useSearchParams would need its own Suspense boundary here).
+  const [fromApp, setFromApp] = useState(false)
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    const meta = user?.user_metadata as Record<string, unknown> | null
+    setFromApp(q.has('forceIntro') || q.has('intent') || meta?.profile_completed === true)
+  }, [user])
+  const exitTo = fromApp ? '/?tab=overview' : '/onboarding'
+
   const handleFiles = useCallback(async (files: File[]) => {
     setState('uploading')
     setErrorMsg('')
@@ -202,11 +215,11 @@ function ProfileBuilderContent() {
       {/* Back to the onboarding steps */}
       <div className="w-full max-w-lg mx-auto mb-4">
         <button
-          onClick={() => router.push('/onboarding')}
+          onClick={() => router.push(exitTo)}
           disabled={state === 'uploading'}
-          className="text-[13px] text-slate-400 hover:text-slate-700 flex items-center gap-1 transition disabled:opacity-40"
+          className="min-h-[44px] text-[13.5px] font-medium text-slate-500 hover:text-slate-800 flex items-center gap-1.5 transition disabled:opacity-40"
         >
-          <span aria-hidden="true">{dir === 'rtl' ? '\u2192' : '\u2190'}</span> {B.back}
+          <span aria-hidden="true">{dir === 'rtl' ? '\u2192' : '\u2190'}</span> {fromApp ? B.back_to_app : B.back}
         </button>
       </div>
 
@@ -245,7 +258,7 @@ function ProfileBuilderContent() {
       {/* Skip link */}
       {state === 'idle' && (
         <button
-          onClick={() => router.push('/discover')}
+          onClick={() => router.push(fromApp ? '/?tab=overview' : '/discover')}
           className="mt-8 text-[13px] text-slate-400 hover:text-slate-700 underline transition-colors"
         >
           {B.skip}

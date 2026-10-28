@@ -95,6 +95,7 @@ class MissingDataRequest(BaseModel):
     id: str
     question: str
     context: str
+    optional: bool = False   # the user may skip it (e.g. core_location)
 
 
 class ResumeGenerateResponse(BaseModel):

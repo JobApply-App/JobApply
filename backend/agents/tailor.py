@@ -1473,6 +1473,9 @@ _CORE_QUESTIONS = {
         "id":       "core_location",
         "question": "What is your current city / location? (e.g. Tel Aviv, Israel)",
         "context":  "Shown in the CV header so hiring managers know your base.",
+        # Recommended, not required: the frontend offers Skip, which saves
+        # personal.location_skipped and stops this question for good.
+        "optional": True,
     },
 }
 
@@ -1535,6 +1538,8 @@ def _core_profile_gaps(user_id: str) -> list[dict]:
     personal = _resolve_profile(user_id).get("personal", {}) or {}
     gaps: list[dict] = []
     for field, spec in _CORE_QUESTIONS.items():
+        if field == "location" and personal.get("location_skipped"):
+            continue
         if not str(personal.get(field) or "").strip():
             gaps.append(spec)
     return gaps
