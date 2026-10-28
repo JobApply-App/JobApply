@@ -309,6 +309,10 @@ export interface Dict {
     roles_missing_title: string
     roles_missing_body:  string
     roles_missing_cta:   string
+    cv_unreadable_title: string
+    cv_unreadable_body:  string
+    cv_unreadable_cta:   string
+    cv_unreadable_roles: string
     qa_review: string
     qa_review_sub: string
     qa_profile: string

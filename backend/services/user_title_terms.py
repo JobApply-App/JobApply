@@ -78,6 +78,26 @@ def _profile(user_id: str) -> dict:
     return profile_repository.get_profile_json(user_id) or {}
 
 
+def _cv_experiences(profile: dict) -> list:
+    """The CV's work entries: older uploads under cv_data.experiences, the
+    relational schema as top-level "experience" (cv_claims)."""
+    cv = profile.get("cv_data") or {}
+    return (cv.get("experiences") if isinstance(cv, dict) else None) or profile.get("experience") or []
+
+
+def cv_needs_reupload(profile: dict) -> bool:
+    """
+    True when the user uploaded a CV but no work experience was saved from it.
+
+    Before #55 (2026-10-16) an upload the model failed to read — or a file that
+    was not a CV — was saved as an empty result and reported as success. Those
+    users have a CV on record that gives matching nothing, and no way to know.
+    """
+    cv = profile.get("cv_data")
+    uploaded = bool(profile.get("cv_imported_at")) or (isinstance(cv, dict) and bool(cv))
+    return uploaded and not _cv_experiences(profile)
+
+
 def source_titles(profile: dict) -> list[str]:
     """The titles that describe what this user is looking for. Empty = no signal."""
     # Roles the user picked. Onboarding writes role_preferences.target_titles;
@@ -100,10 +120,8 @@ def source_titles(profile: dict) -> list[str]:
     # schema returns the same entries as top-level "experience" (cv_claims).
     # Reading only the old key left users with a CV in cv_claims — the
     # founder's own account among them — with no terms at all.
-    cv = profile.get("cv_data") or {}
-    experiences = (cv.get("experiences") if isinstance(cv, dict) else None) or profile.get("experience") or []
     titles: list[str] = []
-    for exp in experiences:
+    for exp in _cv_experiences(profile):
         if not isinstance(exp, dict):
             continue
         t = str(exp.get("title") or exp.get("role") or "").strip()
