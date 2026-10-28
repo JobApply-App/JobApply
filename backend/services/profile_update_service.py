@@ -162,18 +162,18 @@ def load_identity_profile(user_id: str) -> dict:
     Postgres. Postgres is now read first; the file only fills gaps.
     """
     doc: dict = {}
+    meta: dict = {}
     try:
         from backend.repositories import profile_repository
-        doc = profile_repository.get_profile_json(user_id) or {}
+        doc, meta = profile_repository.get_identity_sources(user_id)
     except Exception:
-        logger.warning("[familiarity] profile document unreadable for user=%s", user_id, exc_info=True)
+        logger.warning("[familiarity] identity sources unreadable for user=%s", user_id, exc_info=True)
 
     def _d(v) -> dict:
         return v if isinstance(v, dict) else {}
 
     personal = _d(doc.get("personal"))
     metrics_personal = _d(_d(doc.get("metrics_doc")).get("personal"))
-    cv_personal = _d(_d(doc.get("cv_data")).get("personal"))
     prefs = _d(doc.get("role_preferences"))
     goals = _d(doc.get("career_goals"))
 
@@ -194,19 +194,12 @@ def load_identity_profile(user_id: str) -> dict:
         return ""
 
     name = _first(personal.get("full_name"), personal.get("name"),
-                  metrics_personal.get("full_name"), cv_personal.get("full_name"),
-                  file_personal.get("full_name"))
+                  metrics_personal.get("full_name"), file_personal.get("full_name"))
     phone = _first(personal.get("phone"), metrics_personal.get("phone"),
-                   cv_personal.get("phone"), file_personal.get("phone"))
-    if not phone or not name:
-        # What the user typed at sign-up. Only read when still missing.
-        try:
-            from backend.services.user_profile import _auth_metadata_personal
-            auth = _auth_metadata_personal(user_id)
-            name = name or auth.get("name", "")
-            phone = phone or auth.get("phone", "")
-        except Exception:
-            pass
+                   file_personal.get("phone"))
+    # What the user typed at sign-up (read in the same query).
+    name = name or _first(meta.get("full_name"), meta.get("name"))
+    phone = phone or _first(meta.get("phone"))
     roles = (prefs.get("target_titles") or goals.get("target_roles")
              or file_prefs.get("target_titles") or [])
     return {

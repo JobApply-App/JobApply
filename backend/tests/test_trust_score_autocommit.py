@@ -81,7 +81,11 @@ def test_trust_score_issues_exactly_two_queries(db_available, seeded_entities):
     finally:
         event.remove(ENGINE, "before_cursor_execute", _count)
 
-    assert query_count == 2, f"expected exactly 2 queries (entities + batched evidence), got {query_count}"
+    # entities + batched evidence + ONE identity query (name / phone / roles
+    # for the familiarity score, profile_repository.get_identity_sources).
+    # Identity used to come from a local JSON file, which a container restart
+    # wiped — a user's score dropped with nothing changed on her side.
+    assert query_count == 3, f"expected exactly 3 queries (entities + batched evidence + identity), got {query_count}"
 
 
 def test_trust_score_matches_default_mode(db_available):

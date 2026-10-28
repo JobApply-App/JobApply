@@ -36,8 +36,12 @@ def test_answers_are_saved_per_user_and_not_asked_again(uid, monkeypatch):
     assert up.save_user_personal_field(uid, "phone", "050-1234567")
     assert up.save_user_personal_field(uid, "location", "Haifa")
     assert up.save_user_personal_field(uid, "name", "Sahar Levi")
+    assert _gap_ids(uid) == ["core_linkedin"]          # optional, asked once
 
+    # Skipping an optional question is remembered (and saves no fake value).
+    assert up.save_user_personal_field(uid, "linkedin", up.SKIP_ANSWER)
     assert _gap_ids(uid) == []
+    assert up.get_profile(uid)["personal"]["linkedin"] == ""
     personal = up.get_profile(uid)["personal"]
     assert (personal["phone"], personal["location"], personal["name"]) == ("050-1234567", "Haifa", "Sahar Levi")
 

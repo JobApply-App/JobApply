@@ -22,14 +22,12 @@ def wiped_disk(monkeypatch):
         lambda uid: {"personal": {"full_name": "", "phone": ""},
                      "role_preferences": {"target_titles": []}},
     )
-    monkeypatch.setattr(
-        "backend.services.user_profile._auth_metadata_personal", lambda uid: {},
-    )
 
 
-def _postgres(monkeypatch, doc):
+def _postgres(monkeypatch, doc, meta=None):
     monkeypatch.setattr(
-        "backend.repositories.profile_repository.get_profile_json", lambda uid: doc,
+        "backend.repositories.profile_repository.get_identity_sources",
+        lambda uid: (doc, meta or {}),
     )
 
 
@@ -59,3 +57,9 @@ def test_score_identity_does_not_drop_after_restart(monkeypatch, wiped_disk):
     _postgres(monkeypatch, {})
     without = svc._compute_familiarity_from_rows(rows, "u1")["context"]
     assert with_roles - without == pytest.approx(pus.ProfileUpdateService.CONTEXT_IDENTITY_MAX / 3, abs=0.1)
+
+
+def test_sign_up_phone_counts(monkeypatch, wiped_disk):
+    _postgres(monkeypatch, {}, meta={"phone": "050-1111111", "full_name": "Sapir"})
+    anchors = pus.identity_anchors(pus.load_identity_profile("u1"))
+    assert anchors == {"name": True, "phone": True, "roles": False}

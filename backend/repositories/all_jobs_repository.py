@@ -338,13 +338,12 @@ def get_paginated_all_jobs(
     conditions = _build_filter_conditions(filters) if filters else []
     order_clauses = _SORT_OPTIONS.get(sort_by, _SORT_OPTIONS[DEFAULT_SORT_BY])
     if filters and filters.title and filters.title.strip():
-        # Titles containing the exact phrase the user typed come first; the
-        # broader matches (other language, reordered words) follow.
-        phrase = f"%{_escape_like(filters.title.strip())}%"
-        order_clauses = (
-            case((_TABLE.c.job_title.ilike(phrase, escape="\\"), 0), else_=1),
-            *order_clauses,
-        )
+        # Titles with the words the user typed (any gender form, any order)
+        # come first; matches found through the other language follow.
+        variants = expand_title_query(filters.title)
+        if variants:
+            own_words = and_(*[_title_word_condition(w) for w in variants[0]])
+            order_clauses = (case((own_words, 0), else_=1), *order_clauses)
 
     columns = [_TABLE.c[name] for name in _LIST_VIEW_COLUMNS]
     total_count_col = func.count().over().label("total_count")
