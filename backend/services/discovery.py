@@ -15,9 +15,8 @@ Interval and credit behaviour are controlled by backend/config.py:
   CREDIT_CONSERVATION_MODE    — when True, JD hydration is skipped during
                                  auto-discovery; full descriptions are fetched
                                  only on explicit user action or backfill run.
-  TARGET_SEARCH_QUERIES       — fallback dork terms for a user with no cached
-                                 title terms; otherwise the user's own terms
-                                 (capped by DORK_TERMS_PER_CYCLE) are searched.
+  Dork terms are the user's own cached title terms (capped by
+  DORK_TERMS_PER_CYCLE). A user with none is not searched at all.
   MAX_RELEVANT_JOBS           — hard cap on new jobs saved per cycle.
 """
 from __future__ import annotations
@@ -30,7 +29,6 @@ from datetime import datetime, timezone
 from backend.agents.matcher import MatcherAgent
 from backend.config import (
     CREDIT_CONSERVATION_MODE,
-    TARGET_SEARCH_QUERIES,
     MAX_RELEVANT_JOBS,
 )
 from backend.scrapers.base_scraper import make_tenant_job_id
@@ -196,7 +194,7 @@ def _category_for_query(query: str) -> str:
 
 
 def _dork_terms_for(user_id: str):
-    """(keywords for this cycle, this user's title matcher). Global list when nothing is cached."""
+    """(keywords for this cycle, this user's title matcher). No keywords when nothing is cached."""
     from backend.config import DORK_TERMS_PER_CYCLE
     from backend.scrapers.relevancy import build_title_matcher
     from backend.services.board_search_terms import next_cycle, select_for_cycle
@@ -205,10 +203,16 @@ def _dork_terms_for(user_id: str):
     try:
         terms = cached_terms_for_users([user_id]).get(user_id)
     except Exception:
-        logger.exception("[discovery] could not read cached terms for user=%s — global list", user_id)
+        logger.exception("[discovery] could not read cached terms for user=%s — skipping", user_id)
         terms = None
+    # No terms = no search. Falling back to TARGET_SEARCH_QUERIES (the
+    # founder's own Product / CS roles) filled a new user's feed with someone
+    # else's career before their roles were known.
+    if not terms:
+        logger.info("[discovery] user=%s has no title terms yet — no search this cycle", user_id)
+        return [], build_title_matcher(terms)
     keywords = select_for_cycle(
-        list(terms or TARGET_SEARCH_QUERIES), DORK_TERMS_PER_CYCLE, next_cycle(f"dork:{user_id}"),
+        list(terms), DORK_TERMS_PER_CYCLE, next_cycle(f"dork:{user_id}"),
     )
     logger.info(
         "[discovery] user=%s own_terms=%s dork_terms=%d keywords=%s",
@@ -244,6 +248,8 @@ async def run_discovery_cycle(user_id: str) -> None:
     # rotated: 8 terms = 2 OR-batches × 10 domains = 20 Google queries per
     # cycle, where the 34-term global list cost 90. Cache read only, no LLM.
     keywords, relevant = _dork_terms_for(user_id)
+    if not keywords:
+        return
     agent_store.set_active("s1", f"Google Dorking ATS boards · {len(keywords)} terms")
 
     scraper    = GoogleDorkScraper(keywords=keywords, user_id=user_id, title_filter=relevant)

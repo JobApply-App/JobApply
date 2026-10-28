@@ -45,6 +45,9 @@ export interface Dict {
     features: Record<ErrorFeature, string>
   }
   common: {
+    applying_template: string
+    ats_info_label: string
+    ats_info: string
     undo: string
     retry: string
     sort: string
@@ -309,6 +312,23 @@ export interface Dict {
     roles_missing_title: string
     roles_missing_body:  string
     roles_missing_cta:   string
+    next_step_label: string
+    next: {
+      cv:         { title: string; body: string; cta: string }
+      review:     { title: string; body: string; cta: string }
+      strengthen: { title: string; body: string; cta: string }
+    }
+    more_actions: string
+    score_change: {
+      up: string; up_chat: string; down: string; down_chat: string; live: string
+      celebrate: string; why: string
+      reasons: Record<
+        'breadth_up' | 'depth_up' | 'context_up' | 'breadth_down' | 'depth_down' |
+        'context_down' | 'lost_roles' | 'lost_phone' | 'lost_name', string>
+      fix_roles: string; ask_ariel: string; dismiss: string
+    }
+    missing_hint: string
+    missing_items: { roles: string; phone: string; name: string }
     cv_unreadable_title: string
     cv_unreadable_body:  string
     cv_unreadable_cta:   string
@@ -359,6 +379,11 @@ export interface Dict {
     generating:       string
     save_continue:    string
     skip_all:         string
+    skip_question:    string
+    optional_hint:    string
+    optional_hint_linkedin: string
+    step_back:        string
+    step_next:        string
     skip_all_title:   string
     // Rotating status lines shown while the CV is being written.
     loading_statuses: readonly [string, string, string, string]
@@ -399,6 +424,10 @@ export interface Dict {
         ctx: string
       }
       core_location: {
+        q: string
+        ctx: string
+      }
+      core_linkedin: {
         q: string
         ctx: string
       }
@@ -594,6 +623,14 @@ export interface Dict {
     strengthen_trust: string
     evidence_recorded: string
     shallow_detected: string
+    coach: {
+      title: string
+      tips: string[]
+      example: string
+      retry_later: string
+      practice: string
+      practice_topic: string
+    }
     confidence_updated: string
     flagged_as: string
     remove_attachment_named: string
@@ -648,9 +685,11 @@ export interface Dict {
       pending: string
       categories: {
         Technical: string
-        Product_Leadership: string
-        Data_Analysis: string
-        Customer_Success: string
+        Leadership: string
+        Data: string
+        Product: string
+        Business: string
+        Domain: string
       }
     }
     verification: {
@@ -663,6 +702,12 @@ export interface Dict {
       score_desc: string
       needs_verification: string
       category: string
+      by_area: string
+    }
+    areas: {
+      show_all: string
+      show_less: string
+      hint: string
     }
     filter: {
       all: string
@@ -1018,6 +1063,7 @@ export interface Dict {
   }
   profile_builder: {
     back:            string
+    back_to_app:     string
     title:           string
     intro:           string
     upload_prompt:   string

@@ -50,6 +50,7 @@ from backend.services.confidence_math import compute_decoupled_score, EvidenceRo
 from backend.services.confidence_matrix_service import (
     compute_breakdown,
     compute_radar,
+    resolve_category,
     load_entities_and_evidence,
 )
 
@@ -1104,6 +1105,10 @@ def build_trust_score_response(
             "entity_id":               ent.entity_id,
             "name":                    ent.name,
             "entity_type":             ent.entity_type,
+            # Profession-neutral area (Technical / Leadership / Data / ...),
+            # the same classification the radar uses, so the capabilities
+            # list can group a long CV into a few readable areas.
+            "category":                resolve_category(ent.normalized_name or "", ent.entity_type or "skill", ent.name or ""),
             "confidence_score":        ent.confidence_score,
             "verification_status":     ent.verification_status,
             "manual_review_required":  ent.manual_review_required,
@@ -1174,6 +1179,7 @@ def build_trust_score_response(
             "breadth": familiarity["breadth"],
             "depth":   familiarity["depth"],
             "context": familiarity["context"],
+            "identity": familiarity.get("identity"),
         },
         "entities":            result_entities,
         "category_averages":   category_averages,
@@ -1509,12 +1515,13 @@ def get_confidence_matrix_endpoint(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Returns the four-category Confidence Matrix for the RadarChart.
+    Returns the category Confidence Matrix for the RadarChart.
 
-    Categories: Technical | Product_Leadership | Data_Analysis | Customer_Success
+    Categories: Technical | Leadership | Data | Product | Business | Domain.
+    Only the categories the user has entities in are returned (at least 3).
 
     Each category score is computed by:
-      1. Grouping profile_entities by semantic category via ENTITY_CATEGORY_MAP
+      1. Grouping profile_entities by category (keyword match, then entity type)
       2. Re-weighting evidence by source credibility (cv_parse=0.4, portfolio=0.8,
          conversation_star=0.9, certification=0.7)
       3. Applying exponential recency decay (via confidence_math.freshness_factor)
@@ -1524,10 +1531,9 @@ def get_confidence_matrix_endpoint(
       {
         "user_id": "...",
         "radar_data": [
-          { "category": "Technical",          "value": 78.4 },
-          { "category": "Product_Leadership", "value": 85.1 },
-          { "category": "Data_Analysis",      "value": 62.7 },
-          { "category": "Customer_Success",   "value": 91.3 }
+          { "category": "Technical",  "value": 78.4, "count": 21 },
+          { "category": "Leadership", "value": 85.1, "count": 4 },
+          { "category": "Data",       "value": 62.7, "count": 9 }
         ],
         "entity_breakdown": [
           { "entity_id": "...", "name": "Python", "category": "Technical", "score": 88.2 },

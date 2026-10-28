@@ -429,6 +429,8 @@ export interface TrustProfileEntity {
   // Dynamic trust model (optional — absent on entities loaded before v2 scoring)
   evidence_multiplier?:    number   // 0.5–1.0 dynamic weight based on engagement
   evidence_count?:         number   // AI-verified challenge count
+  /** Area for grouping (Technical / Leadership / Data / ...); absent on older responses. */
+  category?:               MatrixCategory
   trust_breakdown:         TrustEvidenceEntry[]
 }
 
@@ -456,15 +458,19 @@ export interface ScoreBreakdown {
   breadth: number   // 0-40  — volume of extracted landscape data
   depth:   number   // 0-40  — verified claims + honest proficiency levels
   context: number   // 0-20  — profile completeness + AI interaction
+  /** Which identity anchors were counted in Context (name, phone, target roles). */
+  identity?: { name: boolean; phone: boolean; roles: boolean } | null
 }
 
-// ── Confidence Matrix (four semantic categories) ──────────────────────────────
+// ── Confidence Matrix (profession-neutral categories) ─────────────────────────
 
 export type MatrixCategory =
   | 'Technical'
-  | 'Product_Leadership'
-  | 'Data_Analysis'
-  | 'Customer_Success'
+  | 'Leadership'
+  | 'Data'
+  | 'Product'
+  | 'Business'
+  | 'Domain'
 
 export interface ConfidenceEntityBreakdown {
   entity_id:               string

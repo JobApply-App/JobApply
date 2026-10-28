@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 import backend.services.all_jobs_match_service as svc
 
 
@@ -103,6 +105,55 @@ def test_row_to_job_match_job_id_is_deterministic_per_url():
 
 # ── run_all_jobs_matching_cycle ──────────────────────────────────────────────
 
+# The cycle needs a user's own title terms; with none it adds nothing (see
+# test_cycle_without_terms_adds_nothing).
+_TERMS = ["Product Manager"]
+
+
+@pytest.fixture(autouse=True)
+def _no_retire(request, monkeypatch):
+    """Unit tests have no database; the retire step is covered on its own."""
+    if "disposable_qa_account" not in request.fixturenames and "retire" not in request.node.name:
+        monkeypatch.setattr(svc, "retire_off_target_matches", lambda user_id, matcher: 0)
+
+
+def test_cycle_without_terms_adds_nothing(monkeypatch):
+    def _boom(*a, **k):
+        raise AssertionError("no terms must mean no candidates are even looked up")
+
+    monkeypatch.setattr(svc, "_candidate_all_jobs_rows", _boom)
+    assert svc.run_all_jobs_matching_cycle("user-abc", terms=None) == 0
+    assert svc.run_all_jobs_matching_cycle("user-abc", terms=[]) == 0
+
+
+def test_retire_keeps_matching_titles_and_removes_the_rest(monkeypatch):
+    from backend.scrapers.relevancy import build_title_matcher
+
+    rows = [("allj-1", "Senior Software Engineer"), ("allj-2", "Product Manager")]
+    executed = []
+
+    class _Conn:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def execute(self, stmt, params):
+            executed.append((str(stmt), params))
+            return SimpleNamespace(fetchall=lambda: rows)
+
+    monkeypatch.setattr(
+        "backend.core.database.ENGINE",
+        SimpleNamespace(connect=_Conn, begin=_Conn),
+    )
+    removed = svc.retire_off_target_matches("user-abc", build_title_matcher(["Software Engineer"]))
+
+    assert removed == 1
+    delete_stmt, params = executed[-1]
+    assert "DELETE" in delete_stmt
+    assert params["ids"] == ["allj-2"]
+    # Only untouched rows of this bridge are ever candidates.
+    select_stmt, select_params = executed[0]
+    assert "ujm.status = 'new'" in select_stmt and "applied" in select_stmt
+    assert select_params["prefix"] == "allj-%"
+
 def test_cycle_skips_rows_the_user_already_has_a_match_for(monkeypatch):
     """
     The core safety property: a row whose salted job_id is already in the
@@ -138,7 +189,7 @@ def test_cycle_skips_rows_the_user_already_has_a_match_for(monkeypatch):
         "backend.scrapers.scraper_manager.ScraperManager", _FakeScraperManager,
     )
 
-    saved = svc.run_all_jobs_matching_cycle("user-abc", limit=10)
+    saved = svc.run_all_jobs_matching_cycle("user-abc", limit=10, terms=_TERMS)
 
     assert saved == 1
     assert len(captured["jobs"]) == 1
@@ -166,7 +217,7 @@ def test_cycle_respects_limit(monkeypatch):
         "backend.scrapers.scraper_manager.ScraperManager", _FakeScraperManager,
     )
 
-    svc.run_all_jobs_matching_cycle("user-abc", limit=2)
+    svc.run_all_jobs_matching_cycle("user-abc", limit=2, terms=_TERMS)
     assert len(captured["jobs"]) == 2
 
 
@@ -182,7 +233,7 @@ def test_cycle_returns_zero_and_skips_save_when_nothing_new(monkeypatch):
         SimpleNamespace(_save_new=_boom),
     )
 
-    assert svc.run_all_jobs_matching_cycle("user-abc") == 0
+    assert svc.run_all_jobs_matching_cycle("user-abc", terms=_TERMS) == 0
 
 
 # ── Live Dev integration: real all_jobs rows, real user_job_matches writes ──
@@ -196,7 +247,7 @@ def test_cycle_against_real_dev_writes_zero_score_matches(disposable_qa_account)
 
     from backend.core.database import ENGINE
 
-    saved = svc.run_all_jobs_matching_cycle(disposable_qa_account, limit=5)
+    saved = svc.run_all_jobs_matching_cycle(disposable_qa_account, limit=5, terms=_TERMS)
     assert saved > 0, (
         "Expected at least one candidate from the real Dev all_jobs table — "
         "if this fails, either all_jobs is empty or every candidate title "
@@ -265,7 +316,7 @@ def test_cycle_against_real_dev_writes_zero_score_matches(disposable_qa_account)
     real_candidates_fn = svc._candidate_all_jobs_rows
     svc._candidate_all_jobs_rows = lambda *a, **k: [target_row]
     try:
-        saved_repeat = svc.run_all_jobs_matching_cycle(disposable_qa_account, limit=5)
+        saved_repeat = svc.run_all_jobs_matching_cycle(disposable_qa_account, limit=5, terms=_TERMS)
     finally:
         svc._candidate_all_jobs_rows = real_candidates_fn
 

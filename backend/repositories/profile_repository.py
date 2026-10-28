@@ -212,6 +212,42 @@ def get(user_id: str, engine: Optional[Engine] = None) -> Optional[ProfileHandle
         return get_in_session(session, user_id)
 
 
+_IDENTITY_KEYS = ["personal", "metrics_doc", "role_preferences", "career_goals"]
+
+
+def get_identity_sources(user_id: str, engine: Optional[Engine] = None) -> tuple[dict, dict]:
+    """
+    The profile-document sections that hold name / phone / target roles, plus
+    the Supabase sign-up metadata, in ONE query.
+
+    For the familiarity score, which runs on every trust-score and dashboard
+    request: get_profile_json() costs five queries (profile row, every
+    profile_answers row, CV tables, preferences), which a query-budget test on
+    the trust-score endpoint rightly rejects. Returns ({section: value},
+    raw_user_meta_data); ({}, {}) for an unknown or non-UUID user.
+    """
+    if not _is_valid_uuid(user_id):
+        return {}, {}
+    eng = engine or ENGINE
+    with eng.connect() as conn:
+        row = conn.execute(
+            text("""
+                SELECT
+                  (SELECT jsonb_object_agg(question_id, answer)
+                     FROM public.profile_answers
+                    WHERE user_id = CAST(:uid AS uuid) AND question_id = ANY(:keys)) AS answers,
+                  (SELECT raw_user_meta_data FROM auth.users
+                    WHERE id = CAST(:uid AS uuid)) AS meta
+            """),
+            {"uid": user_id, "keys": _IDENTITY_KEYS},
+        ).fetchone()
+    if row is None:
+        return {}, {}
+    answers = row.answers if isinstance(row.answers, dict) else {}
+    meta = row.meta if isinstance(row.meta, dict) else {}
+    return answers, meta
+
+
 def get_profile_json(user_id: str, engine: Optional[Engine] = None) -> dict:
     """Return the profile document dict for user_id, or {} if absent."""
     handle = get(user_id, engine=engine)

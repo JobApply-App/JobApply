@@ -234,6 +234,53 @@ def _candidate_all_jobs_rows(matcher, existing: set[str], user_id: str, limit: i
     return sorted(rows, key=lambda r: order[r.id])
 
 
+def retire_off_target_matches(user_id: str, matcher) -> int:
+    """
+    Remove this bridge's untouched matches whose title no longer fits the
+    user's roles. Returns how many were removed.
+
+    Matches are admitted by the title filter in force when they arrive, and
+    nothing ever took them out again. When a user's roles changed — or, as
+    happened in production, when the first cycles ran on the founder's global
+    list before the user's roles were known — the old jobs stayed in the feed
+    for good.
+
+    Only rows the user never acted on go: status 'new', not applied, no
+    tailored CV, and only rows this bridge created ('allj-' ids). A job the
+    user pasted in, saved, skipped or tailored is never touched. Only the
+    per-user match row is deleted; the shared job_postings row stays.
+    """
+    from backend.core.database import ENGINE
+
+    with ENGINE.connect() as conn:
+        rows = conn.execute(
+            text("""
+                SELECT ujm.job_id, jp.title
+                FROM public.user_job_matches ujm
+                JOIN public.job_postings jp ON jp.id = ujm.job_posting_id
+                WHERE ujm.user_id = CAST(:uid AS uuid)
+                  AND ujm.job_id LIKE :prefix
+                  AND ujm.status = 'new'
+                  AND COALESCE(ujm.applied, false) = false
+                  AND (ujm.tailored_cv IS NULL
+                       OR ujm.tailored_cv IN ('null'::jsonb, '{}'::jsonb))
+            """),
+            {"uid": user_id, "prefix": f"{_JOB_ID_PREFIX}-%"},
+        ).fetchall()
+
+    stale = [job_id for job_id, title in rows if not matcher(title or "")]
+    if not stale:
+        return 0
+    with ENGINE.begin() as conn:
+        conn.execute(
+            text("DELETE FROM public.user_job_matches "
+                 "WHERE user_id = CAST(:uid AS uuid) AND job_id = ANY(:ids)"),
+            {"uid": user_id, "ids": stale},
+        )
+    logger.info("[all_jobs_match] user=%s retired %d off-target matches", user_id, len(stale))
+    return len(stale)
+
+
 def run_all_jobs_matching_cycle(
     user_id: str, *, limit: int = DEFAULT_CYCLE_LIMIT, terms: Optional[list[str]] = None,
 ) -> int:
@@ -250,12 +297,22 @@ def run_all_jobs_matching_cycle(
     from backend.scrapers.relevancy import build_title_matcher
     from backend.scrapers.scraper_manager import ScraperManager
 
-    # This user's own title terms (services/user_title_terms.py), or the
-    # global list when their profile names no titles. Relevancy is checked
-    # here, across the whole catalog, not just inside _save_new — so a pool
-    # front-loaded with irrelevant rows can't exhaust *limit* before a
-    # single real job is found.
+    # No terms = no matches yet. This used to fall back to the global list
+    # (config.TARGET_SEARCH_QUERIES), which is the founder's own Product /
+    # Customer Success roles. A new user whose roles were not known yet got
+    # those jobs: in production a senior software engineer's feed opened with
+    # "Product Manager" postings that read like someone else's data had leaked
+    # into her account, and they stayed after her real roles arrived. A user
+    # with no roles gets matches once onboarding or a CV names them.
+    if not terms:
+        logger.info("[all_jobs_match] user=%s has no title terms yet — skipping cycle", user_id)
+        return 0
+
+    # Relevancy is checked here, across the whole catalog, not just inside
+    # _save_new — so a pool front-loaded with irrelevant rows can't exhaust
+    # *limit* before a single real job is found.
     matcher = build_title_matcher(terms)
+    retire_off_target_matches(user_id, matcher)
     existing = _existing_job_ids(user_id)
     candidates = _candidate_all_jobs_rows(matcher, existing, user_id, limit)
 

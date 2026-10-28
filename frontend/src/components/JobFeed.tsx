@@ -7,6 +7,7 @@ import type { Job, ReasonKind, AutomationSettings, WorkMode, Region, CompanyStag
 import { fetchFeedJobs, forceRefreshAllScores, updateJobStatus, backfillJdText, startAnalysis, setAuthToken } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { JobCard } from './JobCard'
+import { InfoTip } from './ui/InfoTip'
 import { ApplierPreview } from './ApplierPreview'
 
 // ── Preference filter helpers (client-side, Matches page only) ─────────────────
@@ -315,6 +316,7 @@ export function JobFeed({
   initialFeedJobs, initialFeedJobsLoading, initialFeedJobsFailed,
 }: JobFeedProps = {}) {
   const F = useI18n().t.job_feed
+  const C = useI18n().t.common
   const [jobs,         setJobs]         = useState<ApiFeedJob[]>([])
   // Raw count before the zero-click completeness filter — distinguishes
   // "pipeline still running" (totalFetched > 0, jobs === 0) from
@@ -659,7 +661,10 @@ export function JobFeed({
         {/* ── Page heading + sync ───────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">{F.heading}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 inline-flex items-center gap-1.5">
+              {F.heading}
+              <InfoTip text={C.ats_info} label={C.ats_info_label} />
+            </h1>
             <p className="hidden sm:block text-sm text-slate-400 mt-1">
               {F.subheading}
             </p>

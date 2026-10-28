@@ -100,7 +100,13 @@ interface MissingDataRequest {
   id:       string
   question: string
   context?: string
+  /** The user may skip it (location: recommended, not required). */
+  optional?: boolean
 }
+
+// Answer sent for a skipped optional question; the backend records the
+// choice so the question is not asked again (backend user_profile.SKIP_ANSWER).
+const SKIP_ANSWER = '__skip__'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -158,7 +164,8 @@ function MissingDataForm({
   requests:   MissingDataRequest[]
   answers:    Record<string, string>
   onChange:   (id: string, value: string) => void
-  onSubmit:   () => void
+  /** `extra` carries an answer set in the same click (a skipped last question). */
+  onSubmit:   (extra?: Record<string, string>) => void
   onSkip:     () => void
   submitting: boolean
 }) {
@@ -177,6 +184,15 @@ function MissingDataForm({
   const total     = requests.length
   const curAnswer = (answers[current?.id ?? ''] || '').trim()
   const canNext   = curAnswer.length > 0
+  const optional  = !!current?.optional || current?.id === 'core_location' || current?.id === 'core_linkedin'
+  const skipped   = curAnswer === SKIP_ANSWER
+  // Skipping records the choice and moves on (or submits on the last step,
+  // passing the skip along since the parent's state has not updated yet).
+  const skipThis  = () => {
+    onChange(current.id, SKIP_ANSWER)
+    if (isLast) onSubmit({ [current.id]: SKIP_ANSWER })
+    else setIdx(i => i + 1)
+  }
 
   if (!current) return null
 
@@ -211,9 +227,14 @@ function MissingDataForm({
         {(coreQ?.ctx ?? current.context) && (
           <p className="text-[11px] text-slate-400 leading-relaxed">{coreQ?.ctx ?? current.context}</p>
         )}
+        {optional && (
+          <p className="text-[11px] text-teal-700 leading-relaxed">
+            {current.id === 'core_linkedin' ? A.optional_hint_linkedin : A.optional_hint}
+          </p>
+        )}
         <textarea
           key={current.id}
-          value={answers[current.id] || ''}
+          value={skipped ? '' : (answers[current.id] || '')}
           onChange={e => onChange(current.id, e.target.value)}
           placeholder={A.answer_placeholder}
           rows={3}
@@ -244,7 +265,7 @@ function MissingDataForm({
             disabled={submitting}
             className="h-9 px-3 rounded-full text-[12px] text-slate-500 border border-slate-200 hover:bg-slate-50 transition disabled:opacity-50 shrink-0"
           >
-            ← Back
+            {A.step_back}
           </button>
         )}
 
@@ -256,16 +277,27 @@ function MissingDataForm({
             className="flex-1 h-9 rounded-full text-[12.5px] font-semibold text-white flex items-center justify-center gap-1.5 transition disabled:opacity-50 active:scale-[0.98]"
             style={{ background: TOKENS.color.primary }}
           >
-            Next →
+            {A.step_next}
           </button>
         ) : (
           <button
-            onClick={onSubmit}
+            onClick={() => onSubmit()}
             disabled={!canNext || submitting}
             className="flex-1 h-9 rounded-full text-[12.5px] font-semibold text-white flex items-center justify-center gap-1.5 transition disabled:opacity-50 active:scale-[0.98]"
             style={{ background: TOKENS.color.primary }}
           >
             {submitting ? <><Spinner size={13} /> {A.generating}</> : A.save_continue}
+          </button>
+        )}
+
+        {/* Skip this one question — only for optional ones */}
+        {optional && (
+          <button
+            onClick={skipThis}
+            disabled={submitting}
+            className="h-9 px-3 rounded-full text-[12px] text-slate-500 border border-slate-200 hover:bg-slate-50 transition disabled:opacity-50 shrink-0"
+          >
+            {A.skip_question}
           </button>
         )}
 
@@ -660,7 +692,8 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     callTailor()
   }, [callTailor, feedJob, A.errors.still_loading])
 
-  const handleSubmitInfo  = useCallback(() => callTailor(answers),         [callTailor, answers])
+  const handleSubmitInfo  = useCallback(
+    (extra?: Record<string, string>) => callTailor({ ...answers, ...extra }), [callTailor, answers])
   const handleSkipInfo    = useCallback(() => callTailor({}),              [callTailor])
 
   const handleAnswerChange = useCallback((id: string, value: string) => {
@@ -747,14 +780,24 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     }
   }, [cvState, selectedTemplate, A.errors.download_failed])
 
+  // Switching designs re-renders the PDF on the server (a few seconds). It
+  // used to happen silently: the old preview stayed up and testers clicked
+  // again. Now the chosen tile spins and the preview says it is updating;
+  // a slower earlier render can never overwrite a later choice.
+  const [renderingTemplate, setRenderingTemplate] = useState<string | null>(null)
+  const templateReqRef = useRef(0)
   const handleSelectTemplate = useCallback(async (templateId: string) => {
     setSelectedTemplate(templateId)
     const data = parsedCv ? toLiveEditorCvData(parsedCv) : (cvState?.cvData as CvData | undefined)
     if (!data) return
+    const req = ++templateReqRef.current
+    setRenderingTemplate(templateId)
     try {
       const pdfB64 = await renderPdf(data as Record<string, unknown>, templateId)
-      setCvState(prev => prev ? { ...prev, pdfB64 } : null)
-    } catch { /* leave existing preview intact */ }
+      if (req === templateReqRef.current) setCvState(prev => prev ? { ...prev, pdfB64 } : null)
+    } catch { /* leave existing preview intact */ } finally {
+      if (req === templateReqRef.current) setRenderingTemplate(null)
+    }
   }, [parsedCv, cvState])
 
   const handleCopilotSubmit = useCallback(async () => {
@@ -968,6 +1011,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                   selectedId={selectedTemplate}
                   onSelect={handleSelectTemplate}
                   isLoading={isLoading}
+                  renderingId={renderingTemplate}
                 />
               )}
 
@@ -1297,6 +1341,14 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
               {/* Mobile browsers don't render a PDF inside an iframe (Android
                   Chrome shows nothing, iOS only the first page), so phones get
                   a download card instead of a blank preview. */}
+              {renderingTemplate && (
+                <div
+                  role="status"
+                  className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-white/70 backdrop-blur-[1px] text-[13px] font-medium text-slate-600"
+                >
+                  <Spinner size={16} /> {C.applying_template}
+                </div>
+              )}
               <iframe
                 key={cvState.pdfB64.slice(-16)}
                 src={pdfDataUrl(cvState.pdfB64)}

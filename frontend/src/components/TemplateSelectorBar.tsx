@@ -142,10 +142,12 @@ export interface TemplateSelectorBarProps {
   selectedId:       string
   onSelect:         (id: string) => void
   isLoading?:       boolean
+  /** Template whose preview is being rendered right now (spinner on its tile). */
+  renderingId?:     string | null
 }
 
 export function TemplateSelectorBar({
-  templates, selectedId, onSelect, isLoading,
+  templates, selectedId, onSelect, isLoading, renderingId = null,
 }: TemplateSelectorBarProps) {
   const C = useI18n().t.common
   return (
@@ -160,11 +162,14 @@ export function TemplateSelectorBar({
         {templates.map(t => {
           const Thumb = THUMBS[t.id]
           const active = t.id === selectedId
+          const rendering = renderingId === t.id
+          const busy = isLoading || (renderingId !== null && !rendering)
           return (
             <button
               key={t.id}
-              onClick={() => !isLoading && onSelect(t.id)}
-              disabled={isLoading}
+              onClick={() => !busy && !rendering && onSelect(t.id)}
+              disabled={busy || rendering}
+              aria-busy={rendering}
               title={t.description}
               style={{
                 flex: '1 1 60px',
@@ -175,13 +180,25 @@ export function TemplateSelectorBar({
                   ? `2px solid ${TOKENS.color.primary}`
                   : `1.5px solid ${TOKENS.color.line}`,
                 background: active ? TOKENS.color.primarySoft : '#fff',
-                cursor: isLoading ? 'default' : 'pointer',
-                opacity: isLoading ? 0.55 : 1,
+                cursor: busy || rendering ? 'default' : 'pointer',
+                opacity: busy ? 0.55 : 1,
                 transition: 'border-color 0.15s, background 0.15s',
                 position: 'relative',
               }}
             >
               {Thumb && <Thumb selected={active} />}
+              {rendering && (
+                <span
+                  aria-hidden="true"
+                  className="animate-spin"
+                  style={{
+                    position: 'absolute', top: 10, left: '50%', marginLeft: -9,
+                    width: 18, height: 18, borderRadius: '50%',
+                    border: `2px solid ${TOKENS.color.primarySoft}`,
+                    borderTopColor: TOKENS.color.primary,
+                  }}
+                />
+              )}
               <span style={{
                 fontSize: 10, fontWeight: active ? 700 : 500,
                 color: active ? TOKENS.color.primary : TOKENS.color.muted,
