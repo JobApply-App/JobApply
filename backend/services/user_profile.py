@@ -704,12 +704,14 @@ def _master_profile_verified_email(user_id: str) -> str:
         return ""
 
 
-_USER_PERSONAL_FIELDS = frozenset({"name", "phone", "location"})
+_USER_PERSONAL_FIELDS = frozenset({"name", "phone", "location", "linkedin"})
 
-# Sent as the answer to core_location when the user chooses not to give a
-# location. Location is recommended, not required: it is recorded as skipped
-# so tailoring stops asking, and the CV header simply omits it.
+# Sent as the answer to an optional core question (location, LinkedIn) when
+# the user chooses not to give it. Both are recommended, not required: the
+# choice is recorded as <field>_skipped so tailoring stops asking, and the CV
+# header simply omits the field.
 SKIP_ANSWER = "__skip__"
+OPTIONAL_PERSONAL_FIELDS = frozenset({"location", "linkedin"})
 
 
 def save_user_personal_field(user_id: str, field: str, value: str) -> bool:
@@ -729,7 +731,7 @@ def save_user_personal_field(user_id: str, field: str, value: str) -> bool:
     clean = str(value or "").strip()
     if not clean:
         return False
-    skipped = field == "location" and clean == SKIP_ANSWER
+    skipped = field in OPTIONAL_PERSONAL_FIELDS and clean == SKIP_ANSWER
     from datetime import datetime, timezone
     from sqlalchemy.orm import Session
     from backend.core.database import ENGINE
@@ -740,11 +742,10 @@ def save_user_personal_field(user_id: str, field: str, value: str) -> bool:
         mp = dict(row.master_profile or {})
         personal = dict(mp.get("personal") or {}) if isinstance(mp.get("personal"), dict) else {}
         if skipped:
-            personal["location_skipped"] = True
+            personal[f"{field}_skipped"] = True
         else:
             personal[field] = clean
-            if field == "location":
-                personal.pop("location_skipped", None)
+            personal.pop(f"{field}_skipped", None)
         mp["personal"] = personal
         row.master_profile = mp
         row.updated_at = now
@@ -972,15 +973,16 @@ def get_profile(user_id: str) -> dict:
         "phone":    _first("phone"),
         "linkedin": _first("linkedin"),
         "location": _first("location"),
-        # The user chose not to give a location (tailoring offers a Skip).
+        # The user chose not to give these (tailoring offers a Skip).
         "location_skipped": bool(onboarding_personal.get("location_skipped")),
+        "linkedin_skipped": bool(onboarding_personal.get("linkedin_skipped")),
     }
 
     # Missing-data guard — never fail CV generation over this (a CV with a
     # gap is still usable; a 500 isn't), but make an incomplete header loud
     # in the logs instead of silently shipping it, per every source checked.
     missing = [k for k in ("name", "phone", "linkedin", "location")
-               if not personal[k] and not (k == "location" and personal["location_skipped"])]
+               if not personal[k] and not personal.get(f"{k}_skipped")]
     if missing:
         logger.warning(
             "[user_profile] get_profile(%s): contact field(s) %s are blank in every source "

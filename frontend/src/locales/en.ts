@@ -436,6 +436,7 @@ export const en = {
     skip_all:           'Skip all',
     skip_question:      'Skip',
     optional_hint:      'Optional, but recommended — recruiters often filter by location. You can skip it.',
+    optional_hint_linkedin: 'Optional, but recommended — many recruiters open the LinkedIn profile from the CV. You can skip it.',
     step_back:          '← Back',
     step_next:          'Next →',
     skip_all_title:     'Generate without answering (may produce approximate results)',
@@ -484,6 +485,10 @@ export const en = {
       core_location: {
         q: 'What is your current city / location? (e.g. Tel Aviv, Israel)',
         ctx: 'Shown in the CV header so hiring managers know your base.',
+      },
+      core_linkedin: {
+        q: 'What is your LinkedIn profile URL? (e.g. linkedin.com/in/your-name)',
+        ctx: 'Added to the CV header as a link.',
       },
     },
   },

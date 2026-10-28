@@ -1477,6 +1477,12 @@ _CORE_QUESTIONS = {
         # personal.location_skipped and stops this question for good.
         "optional": True,
     },
+    "linkedin": {
+        "id":       "core_linkedin",
+        "question": "What is your LinkedIn profile URL? (e.g. linkedin.com/in/your-name)",
+        "context":  "Many CVs link to LinkedIn in the header. Optional.",
+        "optional": True,
+    },
 }
 
 
@@ -1538,7 +1544,7 @@ def _core_profile_gaps(user_id: str) -> list[dict]:
     personal = _resolve_profile(user_id).get("personal", {}) or {}
     gaps: list[dict] = []
     for field, spec in _CORE_QUESTIONS.items():
-        if field == "location" and personal.get("location_skipped"):
+        if spec.get("optional") and personal.get(f"{field}_skipped"):
             continue
         if not str(personal.get(field) or "").strip():
             gaps.append(spec)

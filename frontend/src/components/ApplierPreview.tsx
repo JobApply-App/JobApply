@@ -184,7 +184,7 @@ function MissingDataForm({
   const total     = requests.length
   const curAnswer = (answers[current?.id ?? ''] || '').trim()
   const canNext   = curAnswer.length > 0
-  const optional  = !!current?.optional || current?.id === 'core_location'
+  const optional  = !!current?.optional || current?.id === 'core_location' || current?.id === 'core_linkedin'
   const skipped   = curAnswer === SKIP_ANSWER
   // Skipping records the choice and moves on (or submits on the last step,
   // passing the skip along since the parent's state has not updated yet).
@@ -228,7 +228,9 @@ function MissingDataForm({
           <p className="text-[11px] text-slate-400 leading-relaxed">{coreQ?.ctx ?? current.context}</p>
         )}
         {optional && (
-          <p className="text-[11px] text-teal-700 leading-relaxed">{A.optional_hint}</p>
+          <p className="text-[11px] text-teal-700 leading-relaxed">
+            {current.id === 'core_linkedin' ? A.optional_hint_linkedin : A.optional_hint}
+          </p>
         )}
         <textarea
           key={current.id}

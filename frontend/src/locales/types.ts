@@ -377,6 +377,7 @@ export interface Dict {
     skip_all:         string
     skip_question:    string
     optional_hint:    string
+    optional_hint_linkedin: string
     step_back:        string
     step_next:        string
     skip_all_title:   string
@@ -419,6 +420,10 @@ export interface Dict {
         ctx: string
       }
       core_location: {
+        q: string
+        ctx: string
+      }
+      core_linkedin: {
         q: string
         ctx: string
       }
