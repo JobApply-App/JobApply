@@ -19,11 +19,12 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from sqlalchemy import Integer, MetaData, Table, and_, func, select, text
+from sqlalchemy import Integer, MetaData, Table, and_, case, func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from backend.core.postgres import get_pg_session
+from backend.services.title_search import expand_title_query, is_whole_word, pg_word_regex
 from backend.models.all_jobs import AllJobRow
 from backend.services.linkedin_job_normalize import (
     _INDUSTRY_KNOWN_TERMS,
@@ -241,6 +242,18 @@ class AllJobsFilters:
     posted_within_hours: Optional[int] = None
 
 
+def _escape_like(term: str) -> str:
+    """Escape LIKE wildcards so '%' or '_' typed in a search are literal."""
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _title_word_condition(word: str):
+    """Whole English word (regex, case-insensitive) or substring for Hebrew/symbols."""
+    if is_whole_word(word):
+        return _TABLE.c.job_title.op("~*")(pg_word_regex(word))
+    return _TABLE.c.job_title.ilike(f"%{_escape_like(word)}%", escape="\\")
+
+
 def _build_filter_conditions(filters: AllJobsFilters) -> list:
     conditions = []
     if filters.source:
@@ -260,8 +273,15 @@ def _build_filter_conditions(filters: AllJobsFilters) -> list:
         conditions.append(_TABLE.c.industries.overlap(filters.industry))
     if filters.company:
         conditions.append(_TABLE.c.company_name_normalized.ilike(f"%{filters.company.strip().lower()}%"))
-    if filters.title:
-        conditions.append(_TABLE.c.job_title.ilike(f"%{filters.title.strip()}%"))
+    if filters.title and filters.title.strip():
+        # Any variant of the query (other language, gender forms, word order —
+        # services/title_search.py); within a variant every word must appear.
+        variants = expand_title_query(filters.title)
+        if variants:
+            conditions.append(or_(*[
+                and_(*[_title_word_condition(w) for w in words])
+                for words in variants
+            ]))
     if filters.min_applicants is not None:
         conditions.append(_TABLE.c.applicants["value"].astext.cast(Integer) >= filters.min_applicants)
     if filters.max_applicants is not None:
@@ -317,6 +337,14 @@ def get_paginated_all_jobs(
 
     conditions = _build_filter_conditions(filters) if filters else []
     order_clauses = _SORT_OPTIONS.get(sort_by, _SORT_OPTIONS[DEFAULT_SORT_BY])
+    if filters and filters.title and filters.title.strip():
+        # Titles containing the exact phrase the user typed come first; the
+        # broader matches (other language, reordered words) follow.
+        phrase = f"%{_escape_like(filters.title.strip())}%"
+        order_clauses = (
+            case((_TABLE.c.job_title.ilike(phrase, escape="\\"), 0), else_=1),
+            *order_clauses,
+        )
 
     columns = [_TABLE.c[name] for name in _LIST_VIEW_COLUMNS]
     total_count_col = func.count().over().label("total_count")
