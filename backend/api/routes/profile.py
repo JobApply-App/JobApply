@@ -270,12 +270,18 @@ async def get_role_preferences(user: CurrentUser = Depends(get_current_user)) ->
     # which Render wipes on every deploy — reading only that made saved roles
     # vanish after each release. The file stays as a fallback for anything
     # written before the database copy existed.
-    prefs = (profile_repository.get_profile_json(user.user_id).get("role_preferences") or {})
+    from backend.services.user_title_terms import cv_needs_reupload
+
+    profile = profile_repository.get_profile_json(user.user_id)
+    prefs = (profile.get("role_preferences") or {})
     if not prefs.get("roles") and not prefs.get("target_titles"):
         prefs = (user_load(user.user_id).get("role_preferences") or {})
     return {
         "roles":         prefs.get("roles", []),
         "target_titles": prefs.get("target_titles", []),
+        # Read from the same profile row — no extra query. Drives the overview
+        # prompt asking users whose CV was saved empty to upload it again.
+        "cv_unreadable": cv_needs_reupload(profile),
     }
 
 

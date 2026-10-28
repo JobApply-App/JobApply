@@ -336,3 +336,70 @@ def test_cv_claims_profile_gets_terms_from_postgres(uid, monkeypatch):
         s.commit()
 
     assert utt.source_titles(utt._profile(uid)) == ["Insurance Agent"]
+
+
+# ── CVs saved empty before #55 ────────────────────────────────────────────────
+# Production, 2026-10-29: two onboarded users had a cv_documents row and a
+# cv_data answer whose experiences list was empty — uploads from before
+# 2026-10-16, when an unreadable file was saved as an empty success. They got
+# no search terms and no signal to upload again.
+
+def test_cv_with_no_experience_needs_reupload():
+    profile = {"cv_imported_at": "2026-10-14T19:25:05+00:00", "cv_data": {"experiences": [], "skills": []}}
+    assert utt.cv_needs_reupload(profile) is True
+
+
+def test_readable_cv_does_not_need_reupload():
+    assert utt.cv_needs_reupload({"cv_data": {"experiences": [{"role": "Nurse"}]}}) is False
+    assert utt.cv_needs_reupload({"cv_imported_at": "x", "experience": [{"role": "Nurse"}]}) is False
+
+
+def test_user_without_a_cv_is_not_asked_to_reupload():
+    assert utt.cv_needs_reupload({}) is False
+    assert utt.cv_needs_reupload({"cv_data": {}}) is False
+
+
+def _get_preferences(uid: str, monkeypatch) -> dict:
+    from fastapi.testclient import TestClient
+    from backend.api.deps import CurrentUser, get_current_user
+    from backend.main import app
+
+    monkeypatch.setattr("backend.services.user_profile_store.load", lambda user_id: {})
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(user_id=uid, email="t@example.com")
+    try:
+        res = TestClient(app).get("/api/profile/preferences")
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+def _save_cv(uid: str, *, cv_data: dict, experience: list) -> None:
+    from backend.core.database import ENGINE
+    from backend.repositories import profile_repository
+    now = datetime.now(timezone.utc).isoformat()
+    with Session(ENGINE) as s:
+        row, _ = profile_repository.get_or_create(s, uid, now=now)
+        mp = dict(row.master_profile or {})
+        mp["cv_data"] = cv_data
+        mp["experience"] = experience
+        mp["cv_imported_at"] = now
+        row.master_profile = mp
+        profile_repository.save(s, row)
+        s.commit()
+
+
+def test_preferences_flag_an_empty_saved_cv(uid, monkeypatch):
+    """The production shape, through the real Postgres read and the route."""
+    _save_cv(uid, cv_data={"experiences": [], "skills": [], "education": [], "summary": ""}, experience=[])
+    assert _get_preferences(uid, monkeypatch)["cv_unreadable"] is True
+
+
+def test_preferences_do_not_flag_a_readable_cv(uid, monkeypatch):
+    _save_cv(uid, cv_data={"experiences": []}, experience=[{"role": "Insurance Agent", "company": "Harel"}])
+    assert _get_preferences(uid, monkeypatch)["cv_unreadable"] is False
+
+
+def test_preferences_do_not_flag_a_user_with_no_cv(uid, monkeypatch):
+    _set_roles(uid, ["Nurse"])
+    assert _get_preferences(uid, monkeypatch)["cv_unreadable"] is False

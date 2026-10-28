@@ -63,13 +63,45 @@ function LinkedInBlockedBanner({ blockedAt }: { blockedAt: string | null }) {
 function RolesMissingBanner() {
   const O = useI18n().t.overview
   const [missing, setMissing] = useState(false)
+  const [cvUnreadable, setCvUnreadable] = useState(false)
   useEffect(() => {
     let cancelled = false
     fetchRolePreferences()
-      .then(({ roles }) => { if (!cancelled) setMissing(roles.length === 0) })
+      .then(({ roles, cvUnreadable }) => {
+        if (cancelled) return
+        setMissing(roles.length === 0)
+        setCvUnreadable(cvUnreadable)
+      })
       .catch(() => { /* unknown: don't nag */ })
     return () => { cancelled = true }
   }, [])
+  // A CV saved with no work experience (uploads from before 2026-10-16 that
+  // the model failed to read were stored empty) takes precedence: uploading it
+  // again fixes matching for good. Picking roles stays one tap away.
+  if (cvUnreadable) return (
+    <div
+      className="rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 border border-amber-200 bg-amber-50"
+      role="status"
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-bold text-slate-900 mb-0.5">{O.cv_unreadable_title}</p>
+        <p className="text-[13px] text-slate-700 leading-relaxed">{O.cv_unreadable_body}</p>
+      </div>
+      <div className="shrink-0 flex flex-col sm:items-end gap-1.5">
+        <a
+          href="/profile-builder"
+          className="text-sm font-semibold px-4 py-2.5 rounded-lg text-white text-center bg-ja-primary hover:bg-ja-primaryHover transition-colors"
+        >
+          {O.cv_unreadable_cta}
+        </a>
+        {missing && (
+          <a href="/onboarding?step=preferences" className="text-[13px] font-semibold text-teal-800 underline text-center py-1">
+            {O.cv_unreadable_roles}
+          </a>
+        )}
+      </div>
+    </div>
+  )
   if (!missing) return null
   return (
     <div
