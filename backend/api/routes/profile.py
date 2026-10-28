@@ -1168,6 +1168,7 @@ def build_trust_score_response(
             "breadth": familiarity["breadth"],
             "depth":   familiarity["depth"],
             "context": familiarity["context"],
+            "identity": familiarity.get("identity"),
         },
         "entities":            result_entities,
         "category_averages":   category_averages,

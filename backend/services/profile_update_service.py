@@ -135,6 +135,86 @@ def _base_profile_completeness_fraction(profile: Optional[dict]) -> float:
     return present / 3.0
 
 
+def identity_anchors(profile: Optional[dict]) -> dict[str, bool]:
+    """Which of the three identity anchors are known — name, phone, roles."""
+    if not isinstance(profile, dict):
+        return {"name": False, "phone": False, "roles": False}
+    personal   = profile.get("personal", {})       or {}
+    role_prefs = profile.get("role_preferences", {}) or {}
+    return {
+        "name":  bool(str(personal.get("full_name", "")).strip()),
+        "phone": bool(str(personal.get("phone", "")).strip()),
+        "roles": bool(role_prefs.get("target_titles")),
+    }
+
+
+def load_identity_profile(user_id: str) -> dict:
+    """
+    Name, phone and target roles for the familiarity score, from durable
+    storage, in the user_profile_store shape _base_profile_completeness_fraction
+    reads.
+
+    The score used to read only user_profile_store — a JSON file on the
+    server's local disk, which Render discards whenever the container restarts.
+    In production a user's score fell from 40.2 to 38.2 with nothing changed
+    on her side: the container restarted, the file was recreated empty, and the
+    "roles known" anchor (2 points) vanished although her roles were safe in
+    Postgres. Postgres is now read first; the file only fills gaps.
+    """
+    doc: dict = {}
+    try:
+        from backend.repositories import profile_repository
+        doc = profile_repository.get_profile_json(user_id) or {}
+    except Exception:
+        logger.warning("[familiarity] profile document unreadable for user=%s", user_id, exc_info=True)
+
+    def _d(v) -> dict:
+        return v if isinstance(v, dict) else {}
+
+    personal = _d(doc.get("personal"))
+    metrics_personal = _d(_d(doc.get("metrics_doc")).get("personal"))
+    cv_personal = _d(_d(doc.get("cv_data")).get("personal"))
+    prefs = _d(doc.get("role_preferences"))
+    goals = _d(doc.get("career_goals"))
+
+    file_profile: dict = {}
+    try:
+        from backend.services import user_profile_store
+        file_profile = user_profile_store.load(user_id) or {}
+    except Exception:
+        file_profile = {}
+    file_personal = _d(file_profile.get("personal"))
+    file_prefs = _d(file_profile.get("role_preferences"))
+
+    def _first(*values) -> str:
+        for v in values:
+            s = str(v or "").strip()
+            if s:
+                return s
+        return ""
+
+    name = _first(personal.get("full_name"), personal.get("name"),
+                  metrics_personal.get("full_name"), cv_personal.get("full_name"),
+                  file_personal.get("full_name"))
+    phone = _first(personal.get("phone"), metrics_personal.get("phone"),
+                   cv_personal.get("phone"), file_personal.get("phone"))
+    if not phone or not name:
+        # What the user typed at sign-up. Only read when still missing.
+        try:
+            from backend.services.user_profile import _auth_metadata_personal
+            auth = _auth_metadata_personal(user_id)
+            name = name or auth.get("name", "")
+            phone = phone or auth.get("phone", "")
+        except Exception:
+            pass
+    roles = (prefs.get("target_titles") or goals.get("target_roles")
+             or file_prefs.get("target_titles") or [])
+    return {
+        "personal": {"full_name": name, "phone": phone},
+        "role_preferences": {"target_titles": [r for r in roles if str(r).strip()]},
+    }
+
+
 # ── Service ───────────────────────────────────────────────────────────────────
 
 class ProfileUpdateService:
@@ -1419,11 +1499,7 @@ class ProfileUpdateService:
         )
 
         if profile is None:
-            try:
-                from backend.services import user_profile_store
-                profile = user_profile_store.load(user_id)
-            except Exception:
-                profile = None
+            profile = load_identity_profile(user_id)
         identity = self.CONTEXT_IDENTITY_MAX * _base_profile_completeness_fraction(profile)
 
         proficiency_engagement = self.CONTEXT_PROFICIENCY_MAX * (
@@ -1439,6 +1515,9 @@ class ProfileUpdateService:
             "breadth": round(breadth, 1),
             "depth":   round(depth, 1),
             "context": round(context, 1),
+            # Which identity anchors were counted, so the UI can say exactly
+            # what is missing (and why a score moved) instead of a bare number.
+            "identity": identity_anchors(profile),
         }
 
     # ─────────────────────────────────────────────────────────────────────────
