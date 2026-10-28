@@ -294,3 +294,45 @@ def test_saved_level_round_trips_and_returning_user_reads_as_onboarded(uid, monk
     assert read["roles"] == [{"role": "Insurance Agent", "seniority": "senior"}]
     assert sync.status_code == 200, sync.text
     assert sync.json()["profile_completed"] is True
+
+
+# ── Titles saved in the other places the product writes them ────────────────
+# Production, 2026-10-28: users with a role saved through Ariel, or a CV
+# stored in cv_claims, had no search terms — source_titles read only
+# role_preferences and cv_data.
+
+def test_roles_told_to_ariel_count_as_picked_roles():
+    profile = {"career_goals": {"target_roles": ["Insurance Agent"]},
+               "experience": [{"role": "Barista"}]}
+    assert utt.source_titles(profile) == ["Insurance Agent"]
+
+
+def test_onboarding_roles_still_win_over_ariel_goals():
+    profile = {"role_preferences": {"target_titles": ["Nurse"]},
+               "career_goals": {"target_roles": ["Teacher"]}}
+    assert utt.source_titles(profile) == ["Nurse"]
+
+
+def test_cv_stored_in_cv_claims_gives_titles():
+    profile = {"experience": [{"role": "Pension Advisor", "company": "X"}, {"title": "Clerk"}]}
+    assert utt.source_titles(profile) == ["Pension Advisor", "Clerk"]
+
+
+def test_malformed_goals_do_not_crash():
+    assert utt.source_titles({"career_goals": "oops", "role_preferences": None}) == []
+
+
+def test_cv_claims_profile_gets_terms_from_postgres(uid, monkeypatch):
+    """End to end through the real profile read: a CV saved the current way."""
+    from backend.core.database import ENGINE
+    from backend.repositories import profile_repository
+
+    with Session(ENGINE) as s:
+        row, _ = profile_repository.get_or_create(s, uid, now=datetime.now(timezone.utc).isoformat())
+        mp = dict(row.master_profile or {})
+        mp["experience"] = [{"role": "Insurance Agent", "company": "Harel"}]
+        row.master_profile = mp
+        profile_repository.save(s, row)
+        s.commit()
+
+    assert utt.source_titles(utt._profile(uid)) == ["Insurance Agent"]
