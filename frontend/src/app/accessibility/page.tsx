@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useI18n } from '@/contexts/I18nContext'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { TOKENS } from '@/lib/tokens'
+import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_E164 } from '@/lib/contact'
 
 // Content: bilingual, self-contained. Not part of the shared Dict type,
 // since this is one standalone legal/informational page, not app chrome
@@ -12,7 +13,6 @@ import { TOKENS } from '@/lib/tokens'
 
 const STATEMENT_DATE = 'August 25, 2026'
 const STATEMENT_DATE_HE = '25 באוגוסט 2026'
-const CONTACT_EMAIL = 'ronmorim98@gmail.com'
 
 const content = {
   en: {
@@ -54,6 +54,7 @@ const content = {
       'If something on the site gets in your way, or if anything above does not match what you see, ' +
       'write to us. A person on the team reads every message.',
     contactCta: 'Email us',
+    contactPhone: 'Or call / WhatsApp',
     sizeNote:
       'JobApply is a small, early-stage team. Israeli law does not yet require us to name a formal ' +
       'accessibility coordinator at our size. The email above still reaches a real person.',
@@ -98,6 +99,7 @@ const content = {
       'אם משהו באתר מפריע לכם, או שמשהו למעלה לא תואם למה שאתם רואים, ' +
       'כתבו לנו. בן אדם מהצוות קורא כל הודעה.',
     contactCta: 'שלחו לנו מייל',
+    contactPhone: 'או בטלפון / WhatsApp',
     sizeNote:
       'JobApply הוא צוות קטן בשלב מוקדם. החוק בישראל עדיין לא מחייב אותנו למנות רכז נגישות ' +
       'פורמלי בגודל הנוכחי שלנו. המייל למעלה עדיין מגיע לבן אדם אמיתי.',
@@ -201,6 +203,12 @@ export default function AccessibilityPage() {
             >
               {c.contactCta}: {CONTACT_EMAIL}
             </a>
+            <p className="text-[13.5px] text-slate-600 mt-3">
+              {c.contactPhone}:{' '}
+              <a href={`tel:${CONTACT_PHONE_E164}`} dir="ltr" className="font-semibold text-teal-700 underline underline-offset-2 hover:text-teal-800">
+                {CONTACT_PHONE_DISPLAY}
+              </a>
+            </p>
             <p className="text-[12px] text-slate-400 leading-relaxed mt-5 max-w-[62ch]">
               {c.sizeNote}
             </p>
