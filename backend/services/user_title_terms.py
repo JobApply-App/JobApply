@@ -80,14 +80,30 @@ def _profile(user_id: str) -> dict:
 
 def source_titles(profile: dict) -> list[str]:
     """The titles that describe what this user is looking for. Empty = no signal."""
+    # Roles the user picked. Onboarding writes role_preferences.target_titles;
+    # Ariel's update_career_goals / update_profile_base tools write
+    # career_goals.target_roles. Reading only the first made a user who told
+    # Ariel their role look like they had picked nothing (production,
+    # 2026-10-28: user_preferences held their role, the cache held no terms).
     prefs = profile.get("role_preferences") or {}
-    picked = [str(t).strip() for t in (prefs.get("target_titles") or []) if str(t).strip()]
+    goals = profile.get("career_goals") or {}
+    if not isinstance(prefs, dict):
+        prefs = {}
+    if not isinstance(goals, dict):
+        goals = {}
+    raw_picked = prefs.get("target_titles") or goals.get("target_roles") or []
+    picked = [str(t).strip() for t in raw_picked if str(t).strip()]
     if picked:
         return picked[:10]
 
+    # CV titles. Older uploads live under cv_data.experiences; the relational
+    # schema returns the same entries as top-level "experience" (cv_claims).
+    # Reading only the old key left users with a CV in cv_claims — the
+    # founder's own account among them — with no terms at all.
     cv = profile.get("cv_data") or {}
+    experiences = (cv.get("experiences") if isinstance(cv, dict) else None) or profile.get("experience") or []
     titles: list[str] = []
-    for exp in (cv.get("experiences") or []):
+    for exp in experiences:
         if not isinstance(exp, dict):
             continue
         t = str(exp.get("title") or exp.get("role") or "").strip()
