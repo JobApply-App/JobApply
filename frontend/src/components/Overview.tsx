@@ -11,7 +11,7 @@ import { TrustDashboard } from './TrustDashboard'
 import { ProductTour } from './ProductTour'
 import { useChat } from '@/contexts/ChatContext'
 import {
-  streamDashboardOverview, fetchScraperStatus, RateLimitError,
+  streamDashboardOverview, fetchScraperStatus, fetchRolePreferences, RateLimitError,
   type AnalyticsOverview, type ScraperStatus, type DashboardOverviewResponse,
 } from '@/lib/api'
 import { getLastKnownDashboardSnapshot, saveDashboardSnapshot, clearDashboardSnapshot } from '@/lib/dashboardLocalCache'
@@ -50,6 +50,42 @@ function LinkedInBlockedBanner({ blockedAt }: { blockedAt: string | null }) {
           <code className="font-mono text-[11px]">--resume</code>.
         </p>
       </div>
+    </div>
+  )
+}
+
+// ── No saved roles ───────────────────────────────────────────────────────────
+// Shown only when the user has no target roles saved. Without them every
+// source falls back to a general list of someone else's roles. One ask, in the
+// app, instead of sending people back through onboarding on each sign-in;
+// once they save, the next load finds roles and this disappears.
+
+function RolesMissingBanner() {
+  const O = useI18n().t.overview
+  const [missing, setMissing] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    fetchRolePreferences()
+      .then(({ roles }) => { if (!cancelled) setMissing(roles.length === 0) })
+      .catch(() => { /* unknown: don't nag */ })
+    return () => { cancelled = true }
+  }, [])
+  if (!missing) return null
+  return (
+    <div
+      className="rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 border border-teal-100 bg-teal-50"
+      role="status"
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-bold text-slate-900 mb-0.5">{O.roles_missing_title}</p>
+        <p className="text-[13px] text-slate-700 leading-relaxed">{O.roles_missing_body}</p>
+      </div>
+      <a
+        href="/onboarding?step=preferences"
+        className="shrink-0 text-sm font-semibold px-4 py-2.5 rounded-lg text-white text-center bg-ja-primary hover:bg-ja-primaryHover transition-colors"
+      >
+        {O.roles_missing_cta}
+      </a>
     </div>
   )
 }
@@ -863,6 +899,8 @@ export function Overview({
       {scraperStatus?.status === 'PAUSED' && (
         <LinkedInPausedBanner />
       )}
+
+      <RolesMissingBanner />
 
       {/* ── Hero greeting ───────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
