@@ -30,9 +30,9 @@ class ArielSessionRow(Base):
     target_job_id          = Column(String, nullable=True, index=True)
     target_entities        = Column(Text,   nullable=True)    # JSON array
     ariel_goal             = Column(Text,   nullable=True)
-    status                 = Column(String, nullable=False, default="active")
+    status                 = Column(String, nullable=False, default="active", server_default="active")
     transcript_json        = Column(Text,   nullable=True)
-    confidence_delta_total = Column(Float,  nullable=False, default=0.0)
+    confidence_delta_total = Column(Float,  nullable=False, default=0.0, server_default="0")
     started_at             = Column(String, nullable=False)
     ended_at               = Column(String, nullable=True)
 

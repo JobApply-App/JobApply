@@ -633,7 +633,7 @@ class ProfileUpdateService:
         source_type
             'certification' or 'portfolio'.
         cert_metadata
-            Optional dict — stored as JSON in evidence_records.metadata.
+            Optional dict — stored as JSON in evidence_records.extra_metadata.
             Useful for: {"issuer": "AWS", "cert_id": "abc123", "type": "portfolio"}.
         hard_expires_at
             ISO-8601 UTC string.  When set, evidence stops contributing after
@@ -656,7 +656,7 @@ class ProfileUpdateService:
                     INSERT INTO evidence_records
                         (evidence_id, entity_id, user_id, source_type,
                          base_weight, raw_content, verified_at,
-                         hard_expires_at, metadata)
+                         hard_expires_at, extra_metadata)
                     VALUES
                         (:evid, :eid, :uid, :src,
                          :w, :raw, :now,
@@ -784,7 +784,7 @@ class ProfileUpdateService:
                         INSERT INTO evidence_records
                             (evidence_id, entity_id, user_id, source_type,
                              base_weight, raw_content, verified_at,
-                             session_id, event_id, metadata)
+                             session_id, event_id, extra_metadata)
                         VALUES
                             (:evid, :eid, :uid, 'conversation_star',
                              :w, :raw, :now,
@@ -900,7 +900,7 @@ class ProfileUpdateService:
                     INSERT INTO evidence_records
                         (evidence_id, entity_id, user_id, source_type,
                          base_weight, raw_content, verified_at,
-                         session_id, metadata)
+                         session_id, extra_metadata)
                     VALUES
                         (:evid, :eid, :uid, 'negative_flag',
                          :w, :raw, :now,
@@ -1088,7 +1088,7 @@ class ProfileUpdateService:
                         INSERT INTO evidence_records
                             (evidence_id, entity_id, user_id, source_type,
                              base_weight, raw_content, verified_at,
-                             session_id, metadata)
+                             session_id, extra_metadata)
                         VALUES
                             (:evid, :eid, :uid, 'contextual_reinforcement',
                              :w, :raw, :now,
