@@ -257,3 +257,40 @@ def test_bridge_skips_a_role_the_user_already_has_under_another_url(catalog, mon
     captured = _capture_saves(monkeypatch)
     svc.run_all_jobs_matching_cycle(str(uuid.uuid4()), limit=500, terms=["Digital Marketing"])
     assert catalog["marketing"] not in captured.get("urls", [])
+
+
+# ── Returning users are recognised, not sent back through onboarding ────────
+
+def test_saved_level_round_trips_and_returning_user_reads_as_onboarded(uid, monkeypatch):
+    """
+    The Google sign-in callback asks /api/auth/sync-user whether this user
+    already finished onboarding; until it did, every Google login landed on
+    the "complete your profile" page. Pin both halves: roles keep their level
+    in Postgres, and an onboarded user is reported as completed.
+    """
+    from fastapi.testclient import TestClient
+    from backend.api.deps import CurrentUser, get_current_user
+    from backend.main import app
+    from backend.repositories import profile_repository
+
+    monkeypatch.setattr(
+        "backend.services.all_jobs_match_service.schedule_refresh_for_user", lambda user_id: None
+    )
+    monkeypatch.setattr("backend.services.user_profile_store.load", lambda user_id: {})
+    monkeypatch.setattr("backend.services.user_profile_store.save", lambda user_id, p: None)
+
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(user_id=uid, email=f"{uid}@example.com")
+    try:
+        client = TestClient(app)
+        assert client.post(
+            "/api/profile/preferences", json={"roles": [{"role": "Insurance Agent", "seniority": "senior"}]},
+        ).status_code == 200
+        profile_repository.mark_onboarding_complete(uid)
+        read = client.get("/api/profile/preferences").json()
+        sync = client.post("/api/auth/sync-user")
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert read["roles"] == [{"role": "Insurance Agent", "seniority": "senior"}]
+    assert sync.status_code == 200, sync.text
+    assert sync.json()["profile_completed"] is True

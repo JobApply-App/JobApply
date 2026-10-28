@@ -301,6 +301,9 @@ export interface Dict {
     linkedin_blocked:      string
     linkedin_maintenance:  string
     linkedin_maintenance_body: string
+    roles_missing_title: string
+    roles_missing_body:  string
+    roles_missing_cta:   string
     qa_review: string
     qa_review_sub: string
     qa_profile: string
