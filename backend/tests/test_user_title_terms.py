@@ -404,3 +404,46 @@ def test_preferences_do_not_flag_a_readable_cv(uid, monkeypatch):
 def test_preferences_do_not_flag_a_user_with_no_cv(uid, monkeypatch):
     _set_roles(uid, ["Nurse"])
     assert _get_preferences(uid, monkeypatch)["cv_unreadable"] is False
+
+
+# ── Degrees and military service are not jobs to search for ──────────────────
+# Production, 2026-10-28: the founder's CV gave the search terms
+# "B.A. Business Administration & Digital Innovation" and "Clerk to Lieutenant
+# Colonel" — the parser files both under experiences.
+
+def test_degree_and_military_entries_are_skipped_for_search_terms():
+    profile = {"experience": [
+        {"role": "B.A. Business Administration & Digital Innovation", "company": "Reichman University"},
+        {"role": "Insurance & Financial Referent", "company": "Harel"},
+        {"role": "Clerk to Lieutenant Colonel", "company": "IDF"},
+        {"role": "Customer Success Manager", "company": "Monday"},
+        {"role": "Operations Coordinator", "company": "Wix"},
+    ]}
+    assert utt.source_titles(profile) == [
+        "Insurance & Financial Referent", "Customer Success Manager", "Operations Coordinator",
+    ]
+
+
+@pytest.mark.parametrize("title,company", [
+    ("BSc Computer Science", ""), ("MBA", "Tel Aviv University"), ("Master of Laws", ""),
+    ("תואר ראשון במנהל עסקים", ""), ("Bachelor's degree in Economics", ""),
+    ("Logistics NCO", "IDF"), ("Clerk", 'צה"ל'), ("Operations Sergeant", ""),
+    ("פקידת לשכה", "צה״ל"), ("מש\"קית ת\"ש", "שירות סדיר"), ("Instructor", "Israeli Air Force"),
+])
+def test_not_a_job(title, company):
+    assert utt.source_titles({"experience": [{"role": title, "company": company}]}) == []
+
+
+@pytest.mark.parametrize("title,company", [
+    ("Manager", "Leumi"), ("Marketing Associate", ""), ("Sales Associate", "Old Navy"),
+    ("Data Analyst", "Mabat"), ("Deputy Manager", ""), ("סגן מנהל סניף", "בנק הפועלים"),
+    ("Master Data Specialist", "Teva"), ("Business Analyst", "Amdocs"),
+])
+def test_real_jobs_are_kept(title, company):
+    assert utt.source_titles({"experience": [{"role": title, "company": company}]}) == [title]
+
+
+def test_picked_roles_are_never_filtered():
+    """The filter is for guessing from a CV; a role the user chose is kept as is."""
+    profile = {"role_preferences": {"target_titles": ["Military Liaison Officer"]}}
+    assert utt.source_titles(profile) == ["Military Liaison Officer"]
