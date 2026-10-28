@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/contexts/I18nContext'
 import AuthGuard            from '@/components/AuthGuard'
@@ -10,7 +10,7 @@ import { useOnboarding }    from '@/contexts/OnboardingContext'
 import { resolveDisplayName } from '@/lib/nameUtils'
 import { TOKENS }           from '@/lib/tokens'
 import {
-  saveRolePreferences, markOnboardingComplete,
+  saveRolePreferences, fetchRolePreferences, markOnboardingComplete,
   uploadCvFiles,
   cvUploadErrorMessage,
   type CvUploadStage,
@@ -307,6 +307,31 @@ function OnboardingContent() {
   // for every role kept this button disabled for most users, who then pressed
   // Skip — so in production no user had saved a single target role, and the
   // matcher fell back to a global list of someone else's roles.
+  // Load what this user already saved. The picker used to start empty on
+  // every visit, so a returning user saw a blank form, assumed nothing had
+  // been kept and pressed Skip. Roles live in Postgres (user_preferences +
+  // profile_answers), so they survive deploys and other devices.
+  const prefilled = useRef(false)
+  useEffect(() => {
+    if (prefilled.current) return
+    prefilled.current = true
+    fetchRolePreferences()
+      .then(({ roles }) => {
+        if (!roles.length) return
+        setSelected(prev => prev.length ? prev : roles.map(r => ({
+          role:      r.role,
+          seniority: (r.seniority || null) as SeniorityLevel | null,
+        })))
+      })
+      .catch(() => { /* empty picker, as before */ })
+  }, [])
+
+  // Someone who already finished onboarding came here only to change their
+  // roles (from the in-app prompt). Saving takes them back to the app instead
+  // of on to the CV upload they already did.
+  const alreadyOnboarded =
+    (user?.user_metadata as Record<string, unknown> | null)?.profile_completed === true
+
   const hasRoles = selected.length > 0
   const toItems = (): RoleSeniorityItem[] =>
     selected.map(r => ({ role: r.role, seniority: r.seniority ?? '' }))
@@ -316,7 +341,8 @@ function OnboardingContent() {
     setSaveError('')
     try {
       await saveRolePreferences({ roles: toItems() })
-      setPhase('intake')
+      if (alreadyOnboarded) router.push('/?tab=overview')
+      else setPhase('intake')
     } catch {
       setSaveError(O.preferences.save_failed)
     } finally {

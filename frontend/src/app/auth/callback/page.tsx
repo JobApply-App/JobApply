@@ -84,7 +84,27 @@ export default function AuthCallbackPage() {
         const meta        = session.user.user_metadata as Record<string, unknown> | null
         const careerStage = meta?.career_stage
 
-        const destination = code && !careerStage ? '/auth/complete-profile' : '/discover'
+        // A returning user who already finished onboarding goes straight into
+        // the app. This used to send EVERY Google sign-in to /discover (the
+        // "complete your profile" page), so people who had onboarded were
+        // asked to start over on each login. The metadata flag is checked
+        // first; when it is missing (older accounts) the backend decides —
+        // onboarding_status or an imported CV, the same rule sync-user uses.
+        let destination = code && !careerStage ? '/auth/complete-profile' : '/discover'
+        if (destination === '/discover') {
+          if (meta?.profile_completed === true) {
+            destination = '/'
+          } else {
+            try {
+              const res = await fetch('/api/auth/sync-user', {
+                method:  'POST',
+                headers: { Authorization: `Bearer ${session.access_token}` },
+              })
+              const sync = res.ok ? await res.json() as { profile_completed?: boolean } : null
+              if (sync?.profile_completed) destination = '/'
+            } catch { /* non-fatal: fall back to /discover */ }
+          }
+        }
         console.log(`${LOG} redirecting to ${destination}`)
         router.replace(destination)
 

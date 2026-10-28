@@ -663,8 +663,14 @@ export async function saveRolePreferences(prefs: RolePreferences): Promise<void>
 
 /** Fetch the saved role/seniority preferences (empty arrays when unset). */
 export async function fetchRolePreferences(): Promise<RolePreferences> {
-  const data = await get<{ roles: RoleSeniorityItem[] }>('/api/profile/preferences')
-  return { roles: data.roles ?? [] }
+  const data = await get<{ roles: RoleSeniorityItem[]; target_titles?: string[] }>('/api/profile/preferences')
+  // Some writers (Ariel's tools, older onboarding) saved only the flat title
+  // list. Those are still the user's roles — without this they read as "no
+  // roles", the picker opened empty and the user was asked again.
+  const roles = data.roles?.length
+    ? data.roles
+    : (data.target_titles ?? []).map((role): RoleSeniorityItem => ({ role, seniority: '' }))
+  return { roles }
 }
 
 export interface LinkedInImportResponse {
