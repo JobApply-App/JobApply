@@ -329,6 +329,10 @@ export interface Dict {
     }
     missing_hint: string
     missing_items: { roles: string; phone: string; name: string }
+    cv_unreadable_title: string
+    cv_unreadable_body:  string
+    cv_unreadable_cta:   string
+    cv_unreadable_roles: string
     qa_review: string
     qa_review_sub: string
     qa_profile: string

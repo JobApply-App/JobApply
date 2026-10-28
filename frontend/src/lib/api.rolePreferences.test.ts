@@ -17,16 +17,21 @@ describe('fetchRolePreferences', () => {
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(json({
       roles: [{ role: 'Insurance Agent', seniority: 'senior' }], target_titles: ['Insurance Agent'],
     }))
-    expect(await fetchRolePreferences()).toEqual({ roles: [{ role: 'Insurance Agent', seniority: 'senior' }] })
+    expect(await fetchRolePreferences()).toEqual({ roles: [{ role: 'Insurance Agent', seniority: 'senior' }], cvUnreadable: false })
   })
 
   it('treats a titles-only save as saved roles, not as none', async () => {
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(json({ roles: [], target_titles: ['Nurse'] }))
-    expect(await fetchRolePreferences()).toEqual({ roles: [{ role: 'Nurse', seniority: '' }] })
+    expect(await fetchRolePreferences()).toEqual({ roles: [{ role: 'Nurse', seniority: '' }], cvUnreadable: false })
   })
 
   it('returns no roles when nothing was saved', async () => {
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(json({ roles: [], target_titles: [] }))
-    expect(await fetchRolePreferences()).toEqual({ roles: [] })
+    expect(await fetchRolePreferences()).toEqual({ roles: [], cvUnreadable: false })
+  })
+
+  it('reports a CV that was saved without work experience', async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(json({ roles: [], target_titles: [], cv_unreadable: true }))
+    expect(await fetchRolePreferences()).toEqual({ roles: [], cvUnreadable: true })
   })
 })

@@ -58,11 +58,12 @@ function LinkedInBlockedBanner({ blockedAt }: { blockedAt: string | null }) {
   )
 }
 
-// ── No saved roles ───────────────────────────────────────────────────────────
-// Shown only when the user has no target roles saved. Without them every
-// source falls back to a general list of someone else's roles. One ask, in the
-// app, instead of sending people back through onboarding on each sign-in;
-// once they save, the next load finds roles and this disappears.
+// ── Your next step ───────────────────────────────────────────────────────────
+// One primary action for where the user is now. Without saved roles or a
+// readable CV the user gets no automatic matches at all (the old fallback to a
+// general list fed them someone else's roles), so those come first. One ask,
+// in the app, instead of sending people back through onboarding on each
+// sign-in; once resolved, the card moves on to the next step.
 
 function NextStepCard({ entityCount, newCount, onGo, onAriel }: {
   /** Capabilities parsed so far; null while unknown. 0 = no CV yet. */
@@ -73,18 +74,29 @@ function NextStepCard({ entityCount, newCount, onGo, onAriel }: {
 }) {
   const O = useI18n().t.overview
   const [rolesMissing, setRolesMissing] = useState(false)
+  const [cvUnreadable, setCvUnreadable] = useState(false)
   useEffect(() => {
     let cancelled = false
     fetchRolePreferences()
-      .then(({ roles }) => { if (!cancelled) setRolesMissing(roles.length === 0) })
+      .then(({ roles, cvUnreadable }) => {
+        if (cancelled) return
+        setRolesMissing(roles.length === 0)
+        setCvUnreadable(cvUnreadable)
+      })
       .catch(() => { /* unknown: don't nag */ })
     return () => { cancelled = true }
   }, [])
 
-  // Priority: roles decide which jobs reach the user at all, then the CV
-  // they are scored against, then the matches themselves, then depth.
-  let step: { title: string; body: string; cta: string; act: () => void } | null = null
-  if (rolesMissing) {
+  // Priority: a CV saved with no work experience (uploads from before
+  // 2026-10-16 that the model failed to read were stored empty) comes first,
+  // since uploading it again fixes matching for good; then roles, which
+  // decide which jobs reach the user at all; then the CV they are scored
+  // against; then the matches themselves; then depth.
+  let step: { title: string; body: string; cta: string; act: () => void; warn?: boolean } | null = null
+  if (cvUnreadable) {
+    step = { title: O.cv_unreadable_title, body: O.cv_unreadable_body, cta: O.cv_unreadable_cta,
+             act: () => onGo('profile-builder'), warn: true }
+  } else if (rolesMissing) {
     step = { title: O.roles_missing_title, body: O.roles_missing_body, cta: O.roles_missing_cta,
              act: () => { window.location.href = '/onboarding?step=preferences' } }
   } else if (entityCount === 0) {
@@ -99,19 +111,27 @@ function NextStepCard({ entityCount, newCount, onGo, onAriel }: {
   return (
     <section
       aria-label={O.next_step_label}
-      className="rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 border border-teal-100 bg-teal-50"
+      className={`rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 border ${
+        step.warn ? 'border-amber-200 bg-amber-50' : 'border-teal-100 bg-teal-50'}`}
     >
       <div className="flex-1 min-w-0">
         <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-teal-700 mb-1">{O.next_step_label}</p>
         <p className="text-[15px] font-bold text-slate-900 mb-0.5">{step.title}</p>
         <p className="text-[13px] text-slate-700 leading-relaxed">{step.body}</p>
       </div>
-      <button
-        onClick={step.act}
-        className="shrink-0 text-sm font-semibold px-5 h-11 rounded-lg text-white text-center bg-ja-primary hover:bg-ja-primaryHover transition-colors"
-      >
-        {step.cta}
-      </button>
+      <div className="shrink-0 flex flex-col sm:items-end gap-1.5">
+        <button
+          onClick={step.act}
+          className="text-sm font-semibold px-5 h-11 rounded-lg text-white text-center bg-ja-primary hover:bg-ja-primaryHover transition-colors"
+        >
+          {step.cta}
+        </button>
+        {cvUnreadable && rolesMissing && (
+          <a href="/onboarding?step=preferences" className="text-[13px] font-semibold text-teal-800 underline text-center py-1">
+            {O.cv_unreadable_roles}
+          </a>
+        )}
+      </div>
     </section>
   )
 }

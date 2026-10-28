@@ -350,7 +350,7 @@ export const en = {
     linkedin_maintenance:      'LinkedIn Scraper Maintenance Pause',
     linkedin_maintenance_body: 'The enrichment loop is paused while a fresh cookie is being configured.',
     roles_missing_title: 'Which role are you looking for?',
-    roles_missing_body:  "You haven't saved any target roles yet, so we're guessing from your CV or a general list. Pick your roles once and they're kept for every future sign-in.",
+    roles_missing_body:  "You haven't saved any target roles yet, so we can only match from the job titles in your CV. Pick your roles once and they're kept for every future sign-in.",
     roles_missing_cta:   'Choose roles',
     // One primary action, picked from where the user is. Testers saw a
     // banner, an Ariel strip, an "Improve" button and four action cards at
@@ -387,6 +387,10 @@ export const en = {
     },
     missing_hint: 'Add your {items} to raise your score.',
     missing_items: { roles: 'target roles', phone: 'phone number', name: 'name' },
+    cv_unreadable_title: "We couldn't read your CV",
+    cv_unreadable_body:  "Your CV was saved without any work experience, so we can't match jobs to you yet. Upload it again (PDF or DOCX) and we'll search by your experience.",
+    cv_unreadable_cta:   'Upload CV',
+    cv_unreadable_roles: 'or choose roles',
     qa_review: 'Review {n} new matches',
     qa_review_sub: 'Top matches this morning',
     qa_profile: 'Strengthen your profile',

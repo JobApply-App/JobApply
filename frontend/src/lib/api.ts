@@ -661,16 +661,22 @@ export async function saveRolePreferences(prefs: RolePreferences): Promise<void>
   await post<RolePreferences, { status: string }>('/api/profile/preferences', prefs)
 }
 
-/** Fetch the saved role/seniority preferences (empty arrays when unset). */
-export async function fetchRolePreferences(): Promise<RolePreferences> {
-  const data = await get<{ roles: RoleSeniorityItem[]; target_titles?: string[] }>('/api/profile/preferences')
+/**
+ * Fetch the saved role/seniority preferences (empty arrays when unset), plus
+ * whether the user's saved CV came back with no work experience — those users
+ * are asked to upload it again.
+ */
+export async function fetchRolePreferences(): Promise<RolePreferences & { cvUnreadable: boolean }> {
+  const data = await get<{
+    roles: RoleSeniorityItem[]; target_titles?: string[]; cv_unreadable?: boolean
+  }>('/api/profile/preferences')
   // Some writers (Ariel's tools, older onboarding) saved only the flat title
   // list. Those are still the user's roles — without this they read as "no
   // roles", the picker opened empty and the user was asked again.
   const roles = data.roles?.length
     ? data.roles
     : (data.target_titles ?? []).map((role): RoleSeniorityItem => ({ role, seniority: '' }))
-  return { roles }
+  return { roles, cvUnreadable: data.cv_unreadable === true }
 }
 
 export interface LinkedInImportResponse {
