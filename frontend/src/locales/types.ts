@@ -240,6 +240,24 @@ export interface Dict {
     contact:      string
     accessibility:string
   }
+  a11y_menu: {
+    open: string
+    title: string
+    close: string
+    font_size: string
+    font_small: string
+    font_medium: string
+    font_large: string
+    contrast: string
+    grayscale: string
+    no_animation: string
+    highlight_links: string
+    readable_font: string
+    focus_ring: string
+    reset: string
+    statement: string
+    active_hint: string
+  }
   overview: {
     greeting_morning:   string
     greeting_afternoon: string
