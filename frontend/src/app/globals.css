@@ -116,6 +116,20 @@ input[type='range'] {
   to   { opacity: 1; transform: translateY(0);   }
 }
 
+/* Score went up: dots burst out of the gauge once, and the gauge pops.
+   --dx/--dy set per dot. Covered by the reduced-motion and a11y
+   "no animation" rules below like every other animation. */
+@keyframes ja-burst {
+  0%   { transform: translate(0, 0) scale(0.4); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 0; }
+}
+
+@keyframes ja-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
 @keyframes ja-fade-in-up {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0);    }

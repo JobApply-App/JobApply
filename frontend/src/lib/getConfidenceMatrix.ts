@@ -1,11 +1,12 @@
 /**
  * getConfidenceMatrix.ts
  *
- * Fetches the four-category Confidence Matrix from
+ * Fetches the category Confidence Matrix from
  * GET /api/profile/{userId}/confidence-matrix
  * and returns data ready for recharts RadarChart.
  *
- * Categories: Technical | Product_Leadership | Data_Analysis | Customer_Success
+ * Categories: Technical | Leadership | Data | Product | Business | Domain
+ * (only those the user has entities in, at least three)
  *
  * Source Weight Contract (enforced on the backend):
  *   cv_parse          → 0.40
@@ -20,9 +21,11 @@ import { ensureFreshToken, getAuthHeaders } from './api'
 
 export type MatrixCategory =
   | 'Technical'
-  | 'Product_Leadership'
-  | 'Data_Analysis'
-  | 'Customer_Success'
+  | 'Leadership'
+  | 'Data'
+  | 'Product'
+  | 'Business'
+  | 'Domain'
 
 export interface RadarDatum {
   /** Display label on the radar axis (spaces replace underscores). */
@@ -49,10 +52,12 @@ export interface ConfidenceMatrixResponse {
 // Converts API category keys to human-friendly axis labels.
 
 const CATEGORY_LABELS: Record<MatrixCategory, string> = {
-  Technical:           'Technical',
-  Product_Leadership:  'Product Leadership',
-  Data_Analysis:       'Data Analysis',
-  Customer_Success:    'Customer Success',
+  Technical:  'Technical',
+  Leadership: 'Leadership & People',
+  Data:       'Data & Analysis',
+  Product:    'Product & Delivery',
+  Business:   'Business & Customers',
+  Domain:     'Domain Expertise',
 }
 
 // ── Fetch function ────────────────────────────────────────────────────────────

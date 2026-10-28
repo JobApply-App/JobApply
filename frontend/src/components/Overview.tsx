@@ -15,6 +15,10 @@ import {
   type AnalyticsOverview, type ScraperStatus, type DashboardOverviewResponse,
 } from '@/lib/api'
 import { getLastKnownDashboardSnapshot, saveDashboardSnapshot, clearDashboardSnapshot } from '@/lib/dashboardLocalCache'
+import {
+  diffScore, loadSnapshot, saveSnapshot, missingAnchors,
+  type ScoreChange, type ScoreSnapshot,
+} from '@/lib/scoreChange'
 
 // ── LinkedIn Scraper Status Banners ──────────────────────────────────────────
 //
@@ -60,33 +64,55 @@ function LinkedInBlockedBanner({ blockedAt }: { blockedAt: string | null }) {
 // app, instead of sending people back through onboarding on each sign-in;
 // once they save, the next load finds roles and this disappears.
 
-function RolesMissingBanner() {
+function NextStepCard({ entityCount, newCount, onGo, onAriel }: {
+  /** Capabilities parsed so far; null while unknown. 0 = no CV yet. */
+  entityCount: number | null
+  newCount:    number
+  onGo:        (tab: string) => void
+  onAriel:     () => void
+}) {
   const O = useI18n().t.overview
-  const [missing, setMissing] = useState(false)
+  const [rolesMissing, setRolesMissing] = useState(false)
   useEffect(() => {
     let cancelled = false
     fetchRolePreferences()
-      .then(({ roles }) => { if (!cancelled) setMissing(roles.length === 0) })
+      .then(({ roles }) => { if (!cancelled) setRolesMissing(roles.length === 0) })
       .catch(() => { /* unknown: don't nag */ })
     return () => { cancelled = true }
   }, [])
-  if (!missing) return null
+
+  // Priority: roles decide which jobs reach the user at all, then the CV
+  // they are scored against, then the matches themselves, then depth.
+  let step: { title: string; body: string; cta: string; act: () => void } | null = null
+  if (rolesMissing) {
+    step = { title: O.roles_missing_title, body: O.roles_missing_body, cta: O.roles_missing_cta,
+             act: () => { window.location.href = '/onboarding?step=preferences' } }
+  } else if (entityCount === 0) {
+    step = { ...O.next.cv, act: () => onGo('profile-builder') }
+  } else if (newCount > 0) {
+    step = { ...O.next.review, title: O.next.review.title.replace('{n}', String(newCount)), act: () => onGo('feed') }
+  } else if (entityCount !== null) {
+    step = { ...O.next.strengthen, act: onAriel }
+  }
+  if (!step) return null
+
   return (
-    <div
+    <section
+      aria-label={O.next_step_label}
       className="rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 border border-teal-100 bg-teal-50"
-      role="status"
     >
       <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-bold text-slate-900 mb-0.5">{O.roles_missing_title}</p>
-        <p className="text-[13px] text-slate-700 leading-relaxed">{O.roles_missing_body}</p>
+        <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-teal-700 mb-1">{O.next_step_label}</p>
+        <p className="text-[15px] font-bold text-slate-900 mb-0.5">{step.title}</p>
+        <p className="text-[13px] text-slate-700 leading-relaxed">{step.body}</p>
       </div>
-      <a
-        href="/onboarding?step=preferences"
-        className="shrink-0 text-sm font-semibold px-4 py-2.5 rounded-lg text-white text-center bg-ja-primary hover:bg-ja-primaryHover transition-colors"
+      <button
+        onClick={step.act}
+        className="shrink-0 text-sm font-semibold px-5 h-11 rounded-lg text-white text-center bg-ja-primary hover:bg-ja-primaryHover transition-colors"
       >
-        {O.roles_missing_cta}
-      </a>
-    </div>
+        {step.cta}
+      </button>
+    </section>
   )
 }
 
@@ -252,90 +278,30 @@ function AnalyticsErrorBanner({ rateLimited, onRetry }: {
 }
 
 // ── Quick actions ─────────────────────────────────────────────────────────────
-// A 2×2 grid of interactive action cards — each with a distinct icon container,
-// an accent hairline that grows on hover, and a soft lift. Strictly teal/emerald.
+// Secondary actions as one quiet row of links. They used to be four large
+// cards competing with every other button on the page; the one action that
+// matters now lives in NextStepCard.
 
-function QuickActions({ newCount, savedCount, onGo }: {
-  newCount: number; savedCount: number; onGo: (tab: string) => void
-}) {
+function MoreActions({ onGo }: { onGo: (tab: string) => void }) {
   const O = useI18n().t.overview
   const items = [
-    {
-      id: 'review', tab: 'feed',
-      label: O.qa_review.replace('{n}', String(newCount)),
-      sub: O.qa_review_sub,
-      accent: TOKENS.color.primary,
-      Icon: SparkIcon,
-    },
-    {
-      id: 'profile', tab: 'profile-builder:optimize_gaps',
-      label: O.qa_profile,
-      sub: O.qa_profile_sub,
-      accent: TOKENS.color.success,
-      Icon: UserBadgeIcon,
-    },
-    {
-      id: 'cv', tab: 'profile-builder',
-      label: O.qa_cv,
-      sub: O.qa_cv_sub,
-      accent: TOKENS.color.primaryHover,
-      Icon: FileIcon,
-    },
-    {
-      id: 'prefs', tab: 'prefs',
-      label: O.qa_prefs,
-      sub: O.qa_prefs_sub,
-      accent: TOKENS.color.success,
-      Icon: SlidersIcon,
-    },
+    { id: 'profile', tab: 'profile-builder:optimize_gaps', label: O.qa_profile, Icon: UserBadgeIcon },
+    { id: 'cv',      tab: 'profile-builder',               label: O.qa_cv,      Icon: FileIcon },
+    { id: 'prefs',   tab: 'prefs',                         label: O.qa_prefs,   Icon: SlidersIcon },
   ]
-
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-baseline justify-between mb-4">
-        <h2 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-          {O.quick_actions}
-        </h2>
-      </div>
-      {/* flex-1 lets the 2×2 grid absorb the column's remaining height; the
-          sm:grid-rows-2 template splits that height into two equal fr rows so
-          the cards stretch to meet the 4-row Top Matches stack at the bottom. */}
-      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 sm:grid-rows-2 gap-3">
-        {items.map(it => {
-          const { Icon } = it
-          return (
-            <button
-              key={it.id}
-              onClick={() => onGo(it.tab)}
-              className="group text-left rounded-2xl bg-white border border-slate-100 p-5 transition-all duration-200 ease-out hover:border-slate-200 hover:-translate-y-px shadow-[0_1px_3px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.07),0_2px_4px_rgba(15,23,42,0.04)]"
-            >
-              <div className="flex items-start gap-3.5">
-                <span
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl shrink-0"
-                  style={{
-                    background: `color-mix(in oklab, ${it.accent} 10%, white)`,
-                    color: it.accent,
-                  }}
-                >
-                  <Icon s={15} />
-                </span>
-                <span className="flex-1 min-w-0 pt-0.5">
-                  <span className="flex items-center gap-1.5">
-                    <span className="block text-[13.5px] font-semibold text-slate-800 leading-snug">
-                      {it.label}
-                    </span>
-                    <span className="text-slate-300 -translate-x-1 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-hover:text-slate-400">
-                      <ArrowIcon s={12} />
-                    </span>
-                  </span>
-                  <span className="block text-[12px] text-slate-400 mt-1.5 leading-snug">{it.sub}</span>
-                </span>
-              </div>
-            </button>
-          )
-        })}
-      </div>
-    </div>
+    <nav aria-label={O.more_actions} className="flex flex-wrap items-center gap-x-5 gap-y-2">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{O.more_actions}</span>
+      {items.map(({ id, tab, label, Icon }) => (
+        <button
+          key={id}
+          onClick={() => onGo(tab)}
+          className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-0 text-[13px] font-medium text-slate-600 hover:text-teal-700 transition-colors"
+        >
+          <Icon s={13} />{label}
+        </button>
+      ))}
+    </nav>
   )
 }
 
@@ -460,14 +426,40 @@ function confidenceTier(pct: number): { key: ReturnType<typeof getScoreBand>['ke
   return { key: band.key, color: band.hexFg }
 }
 
-function ConfidenceGauge({ pct, color }: { pct: number | null; color: string }) {
+// 12 dots, evenly spaced, flying ~46px out of the gauge centre.
+const BURST = Array.from({ length: 12 }, (_, i) => {
+  const a = (i / 12) * Math.PI * 2
+  return { dx: `${Math.round(Math.cos(a) * 46)}px`, dy: `${Math.round(Math.sin(a) * 46)}px`, i }
+})
+
+function ConfidenceGauge({ pct, color, celebrate = false }: {
+  pct: number | null; color: string; celebrate?: boolean
+}) {
   const SIZE = 76
   const RADIUS = 30
   const CIRCUMFERENCE = 2 * Math.PI * RADIUS
   const dash = pct !== null ? (Math.min(100, Math.max(0, pct)) / 100) * CIRCUMFERENCE : 0
 
   return (
-    <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
+    <div
+      className="relative shrink-0"
+      style={{ width: SIZE, height: SIZE, animation: celebrate ? 'ja-pop 600ms ease-out 1' : undefined }}
+    >
+      {celebrate && (
+        <span aria-hidden="true" className="pointer-events-none absolute inset-0">
+          {BURST.map(d => (
+            <span
+              key={d.i}
+              className="absolute left-1/2 top-1/2 -ml-1 -mt-1 h-2 w-2 rounded-full"
+              style={{
+                background: d.i % 3 === 0 ? TOKENS.color.success : d.i % 3 === 1 ? color : '#F59E0B',
+                animation: 'ja-burst 900ms cubic-bezier(0.22,1,0.36,1) forwards',
+                ['--dx' as string]: d.dx, ['--dy' as string]: d.dy,
+              } as React.CSSProperties}
+            />
+          ))}
+        </span>
+      )}
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
         <circle cx={SIZE / 2} cy={SIZE / 2} r={RADIUS} fill="none" stroke={TOKENS.color.lineSoft} strokeWidth={7} />
         {pct !== null && (
@@ -555,12 +547,22 @@ function PillarRail({ label, value, max, color, Icon, caption, hint, loading }: 
   )
 }
 
-function ConfidenceScoreCard({ score, breakdown, onImprove }: {
+function ConfidenceScoreCard({ score, breakdown, onImprove, change, chatSpan, liveDelta, onDismissChange }: {
   score:      number | null
   breakdown:  ScoreBreakdown | null
   onImprove:  () => void
+  /** Difference from the last score this browser showed (null = nothing to say). */
+  change:     ScoreChange | null
+  /** Set when `change` summarises a whole chat with Ariel. */
+  chatSpan:   { from: number; to: number } | null
+  /** While a chat is open: running delta, shown quietly — no celebration per answer. */
+  liveDelta:  number | null
+  onDismissChange: () => void
 }) {
   const O = useI18n().t.overview
+  const SC = O.score_change
+  const fmtDelta = (d: number) => `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`
+  const missing = missingAnchors(breakdown?.identity ?? null)
   // 1-decimal precision throughout (.ai_rules) — no early rounding to an int.
   const pct  = score !== null ? Math.min(100, Math.max(0, score)) : null
   const tier = pct !== null ? confidenceTier(pct) : null
@@ -576,7 +578,11 @@ function ConfidenceScoreCard({ score, breakdown, onImprove }: {
     >
       {/* ── Header row: gauge + title/description + CTA ─────────────────── */}
       <div className="flex items-center gap-5">
-        <ConfidenceGauge pct={pct} color={tier?.color ?? TOKENS.color.primary} />
+        <ConfidenceGauge
+          pct={pct}
+          color={tier?.color ?? TOKENS.color.primary}
+          celebrate={change?.direction === 'up'}
+        />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -591,40 +597,80 @@ function ConfidenceScoreCard({ score, breakdown, onImprove }: {
                 {O.bands[tier.key]}
               </span>
             )}
+            {liveDelta !== null && Math.abs(liveDelta) >= 0.1 && (
+              <span
+                dir="ltr"
+                className="inline-flex items-center h-[18px] px-2 rounded-md text-[10.5px] font-semibold tabular-nums"
+                style={{
+                  background: liveDelta > 0 ? 'oklch(0.96 0.04 160)' : 'oklch(0.96 0.04 70)',
+                  color:      liveDelta > 0 ? 'oklch(0.45 0.12 160)' : 'oklch(0.48 0.12 60)',
+                }}
+                aria-live="polite"
+              >
+                {SC.live.replace('{delta}', fmtDelta(liveDelta))}
+              </span>
+            )}
           </div>
           <p className="text-[12px] text-slate-500 leading-relaxed">
             {O.confidence_body}
           </p>
         </div>
 
-        <button
-          onClick={onImprove}
-          className="hidden sm:inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg text-[12.5px] font-semibold transition active:scale-[0.97] hover:opacity-90 shrink-0"
-          style={{ background: TOKENS.color.primary, color: '#fff' }}
-        >
-          <SparkIcon s={12} />
-          {O.improve_with_ariel}
-        </button>
       </div>
 
-      {/* ── Composition bar: the three pillars stacked toward 100 ──────── */}
-      <div
-        className="mt-4 flex h-2 w-full rounded-full overflow-hidden"
-        style={{ background: TOKENS.color.lineSoft }}
-        title={O.confidence_tooltip}
-      >
-        {breakdown && PILLAR_META.map(p => (
-          <div
-            key={p.key}
-            className="h-full first:rounded-l-full"
-            style={{
-              width: `${Math.min(100, Math.max(0, breakdown[p.key]))}%`,
-              background: p.color,
-              transition: 'width 700ms cubic-bezier(0.22,1,0.36,1)',
-            }}
-          />
-        ))}
-      </div>
+      {/* ── What changed since last time (and why) ───────────────────────── */}
+      {change && (change.direction === 'up' || change.direction === 'down') && (
+        <div
+          role="status"
+          className="mt-4 rounded-xl px-4 py-3"
+          style={change.direction === 'up'
+            ? { background: 'oklch(0.97 0.03 160)', border: '1px solid oklch(0.90 0.05 160)' }
+            : { background: 'oklch(0.98 0.03 75)',  border: '1px solid oklch(0.90 0.06 75)' }}
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-[12.5px] font-semibold text-slate-800">
+                {chatSpan
+                  ? (change.direction === 'up' ? SC.up_chat : SC.down_chat)
+                      .replace('{from}', chatSpan.from.toFixed(1)).replace('{to}', chatSpan.to.toFixed(1))
+                  : (change.direction === 'up' ? SC.up : SC.down).replace('{delta}', fmtDelta(change.delta))}
+              </p>
+              {change.direction === 'up' && (
+                <p className="text-[12px] text-slate-600 mt-0.5">{SC.celebrate}</p>
+              )}
+              {change.reasons.length > 0 && (
+                <ul className="mt-1.5 space-y-0.5 text-[12px] text-slate-600 list-disc ps-4">
+                  {change.reasons.map(r => <li key={r}>{SC.reasons[r]}</li>)}
+                </ul>
+              )}
+              {change.direction === 'down' && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {change.reasons.includes('lost_roles') && (
+                    <a
+                      href="/onboarding?step=preferences"
+                      className="inline-flex items-center h-8 px-3 rounded-lg text-[12px] font-semibold text-white bg-ja-primary hover:bg-ja-primaryHover"
+                    >
+                      {SC.fix_roles}
+                    </a>
+                  )}
+                  <button
+                    onClick={onImprove}
+                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  >
+                    <SparkIcon s={11} />{SC.ask_ariel}
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={onDismissChange}
+              className="shrink-0 text-[11.5px] font-medium text-slate-500 hover:text-slate-800"
+            >
+              {SC.dismiss}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Three pillar rails with tooltips + micro-copy ──────────────── */}
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
@@ -643,15 +689,17 @@ function ConfidenceScoreCard({ score, breakdown, onImprove }: {
         ))}
       </div>
 
-      {/* ── Mobile CTA (header CTA is hidden on narrow screens) ─────────── */}
-      <button
-        onClick={onImprove}
-        className="sm:hidden mt-4 w-full inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg text-[12.5px] font-semibold transition active:scale-[0.98]"
-        style={{ background: TOKENS.color.primary, color: '#fff' }}
-      >
-        <SparkIcon s={12} />
-        {O.improve_with_ariel}
-      </button>
+      {/* ── A concrete way up: what the score is still missing ──────────── */}
+      {missing.length > 0 && (
+        <p className="mt-4 text-[12px] text-slate-500">
+          {O.missing_hint.replace('{items}', missing.map(k => O.missing_items[k]).join(', '))}
+          {missing.includes('roles') && (
+            <a href="/onboarding?step=preferences" className="ms-1.5 font-semibold text-teal-700 hover:text-teal-800">
+              {SC.fix_roles}
+            </a>
+          )}
+        </p>
+      )}
     </section>
   )
 }
@@ -704,9 +752,58 @@ export function Overview({
   // ── System Confidence Score (Phase 14) ──────────────────────────────────────
   // Mirrored from TrustDashboard's own /trust-score fetch via onScoreChange —
   // see the comment above ConfidenceScoreCard for why we don't fetch it twice.
-  const { openChat, profileVersion } = useChat()
+  const { openChat, profileVersion, isOpen: chatOpen } = useChat()
   const [confidenceScore, setConfidenceScore] = useState<number | null>(null)
   const [scoreBreakdown, setScoreBreakdown]   = useState<ScoreBreakdown | null>(null)
+
+  // ── Score change: explain every move, celebrate a rise once ────────────────
+  // Compared with the last score this browser showed. While Ariel's chat is
+  // open the score can move after every answer; celebrating each one would be
+  // noise, so it is shown as a quiet running delta and summarised (with one
+  // celebration, if it rose) when the chat closes.
+  const [scoreChange, setScoreChange] = useState<ScoreChange | null>(null)
+  const [chatSpan,    setChatSpan]    = useState<{ from: number; to: number } | null>(null)
+  const [liveDelta,   setLiveDelta]   = useState<number | null>(null)
+  const chatStartRef = useRef<ScoreSnapshot | null>(null)
+  const lastSnapRef  = useRef<ScoreSnapshot | null>(null)
+
+  useEffect(() => {
+    if (confidenceScore === null || !scoreBreakdown) return
+    const snap: ScoreSnapshot = {
+      overall: confidenceScore, breadth: scoreBreakdown.breadth, depth: scoreBreakdown.depth,
+      context: scoreBreakdown.context, identity: scoreBreakdown.identity ?? null,
+    }
+    lastSnapRef.current = snap
+    if (chatOpen) {
+      if (!chatStartRef.current) chatStartRef.current = loadSnapshot(userId) ?? snap
+      const d = Math.round((snap.overall - chatStartRef.current.overall) * 10) / 10
+      setLiveDelta(d)
+      return
+    }
+    const prev = loadSnapshot(userId)
+    const change = diffScore(prev, snap)
+    if (change.direction === 'up' || change.direction === 'down') {
+      setScoreChange(change)
+      setChatSpan(null)
+    }
+    saveSnapshot(userId, snap)
+  }, [confidenceScore, scoreBreakdown, chatOpen, userId])
+
+  // Chat closed: one summary of the whole conversation.
+  useEffect(() => {
+    if (chatOpen || !chatStartRef.current) return
+    const start = chatStartRef.current
+    const end   = lastSnapRef.current
+    chatStartRef.current = null
+    setLiveDelta(null)
+    if (!end) return
+    const change = diffScore(start, end)
+    if (change.direction === 'up' || change.direction === 'down') {
+      setScoreChange(change)
+      setChatSpan({ from: start.overall, to: end.overall })
+    }
+    saveSnapshot(userId, end)
+  }, [chatOpen, userId])
 
   // Mirror both the overall score and its three-pillar breakdown up from
   // TrustDashboard's single /trust-score fetch (Phase 32).
@@ -900,8 +997,6 @@ export function Overview({
         <LinkedInPausedBanner />
       )}
 
-      <RolesMissingBanner />
-
       {/* ── Hero greeting ───────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -963,17 +1058,29 @@ export function Overview({
 
       <ProductTour ready={!jobsLoading} />
 
-      {/* ── Ariel, in one line — what she is for, and a way straight in ── */}
-      <ArielStrip />
+      {/* ── The one thing to do next — a single primary button ──────────── */}
+      <NextStepCard
+        entityCount={trustScoreData ? (trustScoreData.entities?.length ?? 0) : null}
+        newCount={jobsScannedToday}
+        onGo={onGo}
+        onAriel={handleImproveScore}
+      />
 
-      {/* ── System Confidence Score — gamified Ariel engagement CTA ──────── */}
+      {/* ── System Confidence Score ─────────────────────────────────────── */}
       <div data-tour="confidence">
         <ConfidenceScoreCard
           score={confidenceScore}
           breakdown={scoreBreakdown}
           onImprove={handleImproveScore}
+          change={scoreChange}
+          chatSpan={chatSpan}
+          liveDelta={chatOpen ? liveDelta : null}
+          onDismissChange={() => { setScoreChange(null); setChatSpan(null) }}
         />
       </div>
+
+      {/* ── Ariel, in one line — what she is for, and a way straight in ── */}
+      <ArielStrip />
 
       {/* ── KPI strip — server analytics with local fallback ─────────────── */}
       <section className="space-y-4">
@@ -1021,21 +1128,9 @@ export function Overview({
         />
       </section>
 
-      {/* ── Quick actions + Top matches, side by side on wide screens ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-10 lg:gap-12 items-stretch">
-
-        {/* Quick actions — h-full so its inner flex column can stretch to
-            match the Top Matches list height in the adjacent grid cell. */}
-        <section className="h-full">
-          <QuickActions
-            newCount={jobsScannedToday}
-            savedCount={savedIds.length}
-            onGo={onGo}
-          />
-        </section>
-
-        {/* Top matches — first on phones: it is what people come to see. */}
-        <section className="order-first lg:order-none" data-tour="top-matches">
+      {/* ── Top matches ─────────────────────────────────────────────────── */}
+      <div>
+        <section data-tour="top-matches">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-400">
               {O.top_matches}
@@ -1070,6 +1165,9 @@ export function Overview({
         </section>
 
       </div>
+
+      {/* ── Secondary actions, quietly ───────────────────────────────────── */}
+      <MoreActions onGo={onGo} />
     </div>
   )
 }

@@ -66,11 +66,13 @@ const RadarChartLazy = lazy(() =>
               ResponsiveContainer, Tooltip } = m
       const hasSyntax = data.some(d => d.syn_value > 0)
       return (
-        <ResponsiveContainer width="100%" height={260}>
+        <ResponsiveContainer width="100%" height={300}>
+          {/* Side margins leave room for the longest axis label
+              ("Business & Customers") — at 44px they were clipped. */}
           <RadarChart
             data={data}
-            outerRadius="70%"
-            margin={{ top: 10, right: 44, bottom: 10, left: 44 }}
+            outerRadius="66%"
+            margin={{ top: 16, right: 90, bottom: 16, left: 90 }}
           >
             <PolarGrid stroke="#E2E8F0" strokeDasharray="3 3" />
             <PolarAngleAxis
@@ -1008,6 +1010,7 @@ interface ProbeModalProps {
 
 export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalProps) {
   const T = useI18n().t.trust
+  const { openChat } = useChat()
   const [probe,        setProbe]        = useState<ProbeState>(initialProbe)
   const [answer,       setAnswer]       = useState('')
   const [sending,      setSending]      = useState(false)
@@ -1262,6 +1265,27 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                   )}
                 </div>
               </div>
+              {/* Not just "shallow": what a strong answer contains, when to
+                  try again, and a way to practise it now. */}
+              {!flagPositive && (
+                <div className="rounded-xl px-4 py-3.5 border border-slate-100 bg-slate-50">
+                  <p className="text-[12.5px] font-semibold text-slate-800 mb-1.5">{T.coach.title}</p>
+                  <ul className="space-y-1 text-[12px] text-slate-600 list-disc ps-4">
+                    {T.coach.tips.map(tip => <li key={tip}>{tip}</li>)}
+                  </ul>
+                  <p className="mt-2 text-[12px] text-slate-500 italic leading-relaxed">{T.coach.example}</p>
+                  <p className="mt-2 text-[12px] text-slate-600">{T.coach.retry_later}</p>
+                  <button
+                    onClick={() => {
+                      onDone(probe.new_confidence)
+                      openChat({ topic: T.coach.practice_topic.replace('{skill}', probe.entity_name) })
+                    }}
+                    className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-semibold border border-teal-200 bg-white text-teal-700 hover:bg-teal-50"
+                  >
+                    <SparkIcon s={11} />{T.coach.practice}
+                  </button>
+                </div>
+              )}
               <button
                 onClick={() => onDone(probe.new_confidence)}
                 className="w-full h-9 rounded-xl text-[12.5px] font-semibold transition active:scale-[0.98]"
@@ -1550,8 +1574,7 @@ function StatRow({
 
 function TrustRadarChart({ data: raw }: { data: RadarDatum[] }) {
   const T = useI18n().t.trust
-  // Category keys arrive as "Product Leadership" (underscores already
-  // replaced); show them in the UI language.
+  // Category keys (Technical, Leadership, Data, ...) shown in the UI language.
   const cats = T.radar.categories as Record<string, string>
   const data = raw.map(d => ({ ...d, category: cats[d.category.replace(/ /g, '_')] ?? d.category }))
   const hasSyntax = data.some(d => d.syn_value > 0)
@@ -1574,7 +1597,7 @@ function TrustRadarChart({ data: raw }: { data: RadarDatum[] }) {
       {/* dir="ltr": recharts anchors the side labels with text-anchor
           start/end, which an RTL page mirrors — in Hebrew both side labels
           were drawn toward the centre, on top of each other. */}
-      <div className="relative w-full" style={{ maxWidth: 340 }} dir="ltr">
+      <div className="relative w-full" style={{ maxWidth: 560 }} dir="ltr">
         <Suspense fallback={
           <div
             className="flex items-center justify-center rounded-xl"
@@ -2361,13 +2384,20 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
 // Reuses the same fetch + sort + filter logic as TrustDashboard.
 // Render this inside /app/capabilities/page.tsx.
 
+const AREA_ORDER = ['Technical', 'Leadership', 'Data', 'Product', 'Business', 'Domain'] as const
+const AREA_PREVIEW = 5
+
 export function CapabilitiesList({ userId, className = '' }: { userId: string; className?: string }) {
   const T = useI18n().t.trust
   const [data,    setData]    = useState<TrustScoreResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
   const [filter,  setFilter]  = useState<FilterCategory>('all')
-  const [sort,    setSort]    = useState<'score_desc' | 'needs_verification' | 'category'>('score_desc')
+  // 'area' is the default: a CV produces dozens of capabilities, and one long
+  // list buried the important ones. Grouped by area, each showing its
+  // strongest few, with the rest one click away (nothing is removed).
+  const [sort,    setSort]    = useState<'area' | 'score_desc' | 'needs_verification' | 'category'>('area')
+  const [openAreas, setOpenAreas] = useState<Record<string, boolean>>({})
 
   const [probeTarget,   setProbeTarget]  = useState<TrustProfileEntity | null>(null)
   const [probeState,    setProbeState]   = useState<ProbeState | null>(null)
@@ -2478,6 +2508,7 @@ export function CapabilitiesList({ userId, className = '' }: { userId: string; c
             {T.sort.label}
           </span>
           {([
+            ['area',              T.sort.by_area],
             ['score_desc',        T.sort.score_desc],
             ['needs_verification', T.sort.needs_verification],
             ['category',          T.sort.category],
@@ -2541,6 +2572,50 @@ export function CapabilitiesList({ userId, className = '' }: { userId: string; c
       </div>
 
       {/* ── Capability rows ─────────────────────────────────────────────────── */}
+      {sort === 'area' && sorted.length > 0 ? (
+        <div className="space-y-6">
+          <p className="text-[12px] text-slate-500">{T.areas.hint}</p>
+          {AREA_ORDER
+            .map(area => ({ area, items: sorted.filter(e => (e.category ?? 'Technical') === area) }))
+            .filter(g => g.items.length > 0)
+            .sort((a, b) => b.items.length - a.items.length)
+            .map(({ area, items }) => {
+              const open = !!openAreas[area]
+              const shown = open ? items : items.slice(0, AREA_PREVIEW)
+              return (
+                <section key={area} aria-label={(T.radar.categories as Record<string, string>)[area] ?? area}>
+                  <div className="flex items-baseline justify-between mb-2 px-1">
+                    <h3 className="text-[12px] font-bold tracking-wide text-slate-700">
+                      {(T.radar.categories as Record<string, string>)[area] ?? area}
+                      <span className="ms-2 text-[11px] font-medium text-slate-400 tabular-nums">{items.length}</span>
+                    </h3>
+                    {items.length > AREA_PREVIEW && (
+                      <button
+                        onClick={() => setOpenAreas(o => ({ ...o, [area]: !open }))}
+                        className="text-[11.5px] font-semibold text-teal-700 hover:text-teal-800"
+                        aria-expanded={open}
+                      >
+                        {open ? T.areas.show_less : T.areas.show_all.replace('{count}', String(items.length))}
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {shown.map(entity => (
+                      <CapabilityRow
+                        key={entity.entity_id}
+                        entity={entity}
+                        onVerify={handleManualVerify}
+                        onProbe={handleProbe}
+                        probing={probingId === entity.entity_id}
+                        onSelect={setDetailEntity}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
+        </div>
+      ) : (
       <div className="space-y-2">
         {sorted.length === 0 ? (
           <p className="text-center py-12 text-[13px] text-slate-400">
@@ -2557,6 +2632,7 @@ export function CapabilitiesList({ userId, className = '' }: { userId: string; c
           />
         ))}
       </div>
+      )}
 
       <CapabilityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
 

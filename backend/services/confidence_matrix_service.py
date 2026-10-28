@@ -1,8 +1,9 @@
 """
-confidence_matrix_service.py — Four-Category Confidence Matrix
+confidence_matrix_service.py — Category Confidence Matrix
 
-Aggregates profile_entities into four semantic buckets:
-  Technical | Product_Leadership | Data_Analysis | Customer_Success
+Aggregates profile_entities into profession-neutral buckets:
+  Technical | Leadership | Data | Product | Business | Domain
+Only the buckets a user has entities in are returned (at least three).
 
 Each entity's raw score is re-weighted by a Source Weight multiplier that
 reflects the credibility of the evidence type:
@@ -19,10 +20,9 @@ half-life). Evidence at full age still contributes — it never reaches zero.
 
 Output contract (recharts RadarChart):
   [
-    { "category": "Technical",           "value": 78.4 },
-    { "category": "Product_Leadership",  "value": 85.1 },
-    { "category": "Data_Analysis",       "value": 62.7 },
-    { "category": "Customer_Success",    "value": 91.3 },
+    { "category": "Technical",  "value": 78.4, "count": 21 },
+    { "category": "Leadership", "value": 85.1, "count": 4 },
+    { "category": "Data",       "value": 62.7, "count": 9 },
   ]
 
 Key implementation note
@@ -37,6 +37,7 @@ at execution time with the correct number of placeholders.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timezone
 from typing import TypedDict
 
@@ -72,97 +73,106 @@ NEGATIVE_CAP: float = 50.0
 PENALTY_CAP_RATIO: float = 0.80
 
 # ── Entity → semantic category mapping ───────────────────────────────────────
-
-ENTITY_CATEGORY_MAP: dict[str, str] = {
-    # Technical
-    "python":                       "Technical",
-    "sql":                          "Technical",
-    "react":                        "Technical",
-    "javascript":                   "Technical",
-    "typescript":                   "Technical",
-    "fastapi":                      "Technical",
-    "next_js":                      "Technical",
-    "nextjs":                       "Technical",
-    "html_css":                     "Technical",
-    "html":                         "Technical",
-    "css":                          "Technical",
-    "jira":                         "Technical",
-    "figma":                        "Technical",
-    "git":                          "Technical",
-    "api_development":              "Technical",
-    "database_design":              "Technical",
-    "sqlite":                       "Technical",
-    "postgresql":                   "Technical",
-    "supabase":                     "Technical",
-    # Product_Leadership
-    "product_management":           "Product_Leadership",
-    "product_ownership":            "Product_Leadership",
-    "sprint_planning":              "Product_Leadership",
-    "roadmap_planning":             "Product_Leadership",
-    "ux_review":                    "Product_Leadership",
-    "user_flow_analysis":           "Product_Leadership",
-    "acceptance_criteria":          "Product_Leadership",
-    "cross_functional_delivery":    "Product_Leadership",
-    "stakeholder_management":       "Product_Leadership",
-    "team_leadership":              "Product_Leadership",
-    "people_management":            "Product_Leadership",
-    "agile_scrum":                  "Product_Leadership",
-    "b2b2c_saas":                   "Product_Leadership",
-    "product_strategy":             "Product_Leadership",
-    "go_to_market":                 "Product_Leadership",
-    "user_research":                "Product_Leadership",
-    # Data_Analysis
-    "data_analysis":                "Data_Analysis",
-    "power_bi":                     "Data_Analysis",
-    "powerbi":                      "Data_Analysis",
-    "dax":                          "Data_Analysis",
-    "excel":                        "Data_Analysis",
-    "excel_vba":                    "Data_Analysis",
-    "machine_learning":             "Data_Analysis",
-    "a_b_testing":                  "Data_Analysis",
-    "data_visualization":           "Data_Analysis",
-    "kpi_design":                   "Data_Analysis",
-    "funnel_analysis":              "Data_Analysis",
-    "retention_analysis":           "Data_Analysis",
-    "etl":                          "Data_Analysis",
-    "data_driven_decision_making":  "Data_Analysis",
-    "sql_reporting":                "Data_Analysis",
-    # Customer_Success
-    "customer_success":             "Customer_Success",
-    "account_management":           "Customer_Success",
-    "b2b_relationships":            "Customer_Success",
-    "client_retention":             "Customer_Success",
-    "onboarding":                   "Customer_Success",
-    "escalation_management":        "Customer_Success",
-    "live_event_operations":        "Customer_Success",
-    "insurance_domain":             "Customer_Success",
-    "pension_migrations":           "Customer_Success",
-    "saas_migrations":              "Customer_Success",
-    "renewal_ownership":            "Customer_Success",
-    "upsell":                       "Customer_Success",
-    "churn_prevention":             "Customer_Success",
-    "global_account_management":    "Customer_Success",
-    "partner_management":           "Customer_Success",
-}
-
-_TYPE_FALLBACK: dict[str, str] = {
-    "skill":      "Technical",
-    "domain":     "Customer_Success",
-    "experience": "Product_Leadership",
-    "trait":      "Product_Leadership",
-}
+#
+# Profession-neutral categories. The previous four axes (Technical /
+# Product_Leadership / Data_Analysis / Customer_Success) were the founder's own
+# career, and anything unrecognised fell into them by entity type: every
+# "experience" entity became Product Leadership and every "domain" Customer
+# Success. A senior software engineer's radar showed Product Leadership and
+# Customer Success, which read as another user's data in her account. Matching
+# was also by bare substring, so "Go" landed in "go_to_market".
+#
+# Classification: keyword lists matched on word boundaries, checked in order
+# (more specific categories first), then a fallback by entity type.
 
 CATEGORIES: list[str] = [
     "Technical",
-    "Product_Leadership",
-    "Data_Analysis",
-    "Customer_Success",
+    "Leadership",
+    "Data",
+    "Product",
+    "Business",
+    "Domain",
 ]
+
+_CATEGORY_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("Leadership", (
+        "lead", "leader", "leadership", "team lead", "tech lead", "manager",
+        "management", "managing", "head", "director", "vp", "chief", "cto",
+        "ceo", "coo", "mentoring", "mentor", "coaching", "people management",
+        "hiring", "recruiting", "stakeholder", "stakeholders", "communication",
+        "negotiation", "ownership", "teamwork", "collaboration",
+        "ניהול", "מנהל", "מנהלת", "ראש צוות", "הובלה", "הנהלה",
+    )),
+    ("Product", (
+        "product", "product management", "product strategy", "roadmap",
+        "agile", "scrum", "kanban", "sprint", "jira", "confluence",
+        "user research", "ux", "ui ux", "figma", "prd", "requirements",
+        "acceptance criteria", "go to market", "project management",
+        "program management", "delivery", "pmp", "מוצר", "אפיון",
+    )),
+    ("Data", (
+        "data", "analytics", "analysis", "analyst", "bi",
+        "business intelligence", "etl", "data warehousing", "warehouse",
+        "power bi", "powerbi", "tableau", "informatica", "biee", "obiee", "looker", "excel", "dax",
+        "statistics", "machine learning", "ml", "data mining", "kpi",
+        "a b testing", "pandas", "spark", "sql reporting", "dashboards",
+        "נתונים", "ניתוח",
+    )),
+    ("Business", (
+        "customer", "customers", "customer success", "client", "clients",
+        "account management", "account", "sales", "business development",
+        "business", "partnership", "partnerships", "partner", "marketing",
+        "seo", "sem", "crm", "salesforce", "hubspot", "onboarding",
+        "retention", "churn", "upsell", "renewal", "operations", "finance",
+        "budget", "procurement", "legal", "compliance", "hr",
+        "לקוחות", "מכירות", "שיווק", "תפעול", "כספים",
+    )),
+    ("Technical", (
+        "python", "java", "javascript", "typescript", "node", "node js",
+        "react", "angular", "vue", "html", "css", "c", "c++", "c#", "go",
+        "golang", "rust", "kotlin", "swift", "android", "ios", "php", "ruby",
+        "sql", "nosql", "mongodb", "postgresql", "mysql", "oracle", "dba",
+        "database", "stored procedures", "queries", "docker", "kubernetes",
+        "openshift", "aws", "azure", "gcp", "cloud", "linux", "git",
+        "ci cd", "devops", "microservices", "architecture", "api", "apis",
+        "rest", "graphql", "kafka", "elk", "software", "development",
+        "developer", "engineer", "engineering", "programming", "code",
+        "testing", "qa", "security", "network", "embedded", "frontend",
+        "backend", "full stack", "פיתוח", "מפתח", "מהנדס", "תוכנה",
+    )),
+]
+
+_TYPE_FALLBACK: dict[str, str] = {
+    "skill":      "Technical",
+    "domain":     "Domain",
+    "experience": "Domain",
+    "trait":      "Leadership",
+}
+
+
+def _kw_regex(kw: str) -> str:
+    escaped = re.escape(kw)
+    return rf"(?<![\w]){escaped}(?![\w])"
+
+
+_CATEGORY_PATTERNS: list[tuple[str, "re.Pattern[str]"]] = [
+    (cat, re.compile("|".join(_kw_regex(k) for k in sorted(kws, key=len, reverse=True))))
+    for cat, kws in _CATEGORY_KEYWORDS
+]
+
+
+def _name_for_matching(name: str) -> str:
+    """'Node.js' / 'node_js' / 'CI/CD' -> 'node js' / 'ci cd' (lowercase, single spaces)."""
+    n = (name or "").lower().replace("_", " ").replace(".", " ").replace("/", " ").replace("-", " ")
+    return " ".join(n.split())
 
 
 # ── TypedDicts ────────────────────────────────────────────────────────────────
 
-class RadarDatum(TypedDict):
+_MIN_AXES = 3
+
+
+class RadarDatum(TypedDict, total=False):
     category:   str
     value:      float   # final blended score (stored confidence_score)
     arch_value: float   # Architecture_Confidence average for the category
@@ -182,13 +192,17 @@ class EntityScore(TypedDict):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _resolve_category(normalized_name: str, entity_type: str) -> str:
-    if normalized_name in ENTITY_CATEGORY_MAP:
-        return ENTITY_CATEGORY_MAP[normalized_name]
-    for key, cat in ENTITY_CATEGORY_MAP.items():
-        if key in normalized_name or normalized_name in key:
-            return cat
+def _resolve_category(normalized_name: str, entity_type: str, name: str = "") -> str:
+    """Category for one entity — keyword match on its name, else by entity type."""
+    text_ = _name_for_matching(name or normalized_name)
+    if text_:
+        for cat, pattern in _CATEGORY_PATTERNS:
+            if pattern.search(text_):
+                return cat
     return _TYPE_FALLBACK.get(entity_type, "Technical")
+
+
+resolve_category = _resolve_category
 
 
 def _compute_weighted_score(evidence_rows: list[dict], entity_name: str = "") -> float:
@@ -360,11 +374,11 @@ def load_entities_and_evidence(engine: Engine, user_id: str):
 
 
 def compute_radar(entity_rows, evidence_by_entity, user_id: str) -> list[RadarDatum]:
-    """Every category is always present with value ≥ 0.0 so recharts renders
-    all four axes even when some have no evidence."""
+    """Categories the user has entities in (at least three axes). An empty
+    profile gets every category at 0.0."""
     if not entity_rows:
         logger.warning("[confidence_matrix] no entities found for user_id=%s", user_id)
-        return [{"category": c, "value": 0.0, "arch_value": 0.0, "syn_value": 0.0}
+        return [{"category": c, "value": 0.0, "arch_value": 0.0, "syn_value": 0.0, "count": 0}
                 for c in CATEGORIES]
 
     logger.info("[confidence_matrix] user=%s  entity_count=%d", user_id, len(entity_rows))
@@ -374,7 +388,7 @@ def compute_radar(entity_rows, evidence_by_entity, user_id: str) -> list[RadarDa
     cat_syn:    dict[str, list[float]] = {c: [] for c in CATEGORIES}
 
     for row in entity_rows:
-        (entity_id, _name, entity_type, normalized_name, fallback_score,
+        (entity_id, name, entity_type, normalized_name, fallback_score,
          arch_col, syn_col, _skill_tier, _vl) = row
         evidence = evidence_by_entity.get(entity_id, [])
         score = (
@@ -382,7 +396,7 @@ def compute_radar(entity_rows, evidence_by_entity, user_id: str) -> list[RadarDa
             if evidence
             else float(fallback_score or 0.0)
         )
-        cat = _resolve_category(normalized_name or "", entity_type or "skill")
+        cat = _resolve_category(normalized_name or "", entity_type or "skill", name or "")
         cat_scores[cat].append(score)
         cat_arch[cat].append(float(arch_col or 0.0))
         cat_syn[cat].append(float(syn_col  or 0.0))
@@ -395,14 +409,20 @@ def compute_radar(entity_rows, evidence_by_entity, user_id: str) -> list[RadarDa
     def _avg(scores: list[float]) -> float:
         return round(sum(scores) / len(scores), 1) if scores else 0.0
 
+    # Only the categories this user actually has entities in — an engineer's
+    # radar has no empty "Business" axis. A radar needs at least three axes,
+    # so a narrow profile is padded with the next categories (value 0).
+    present = [c for c in CATEGORIES if cat_scores[c]]
+    shown = present + [c for c in CATEGORIES if c not in present][: max(0, _MIN_AXES - len(present))]
     result = [
         {
             "category":   cat,
             "value":      _avg(cat_scores[cat]),
             "arch_value": _avg(cat_arch[cat]),
             "syn_value":  _avg(cat_syn[cat]),
+            "count":      len(cat_scores[cat]),
         }
-        for cat in CATEGORIES
+        for cat in CATEGORIES if cat in shown
     ]
 
     logger.info("[confidence_matrix] result for user=%s: %s", user_id, result)
@@ -420,7 +440,7 @@ def compute_breakdown(entity_rows, evidence_by_entity) -> list[EntityScore]:
             if evidence
             else 0.0
         )
-        cat = _resolve_category(normalized_name or "", entity_type or "skill")
+        cat = _resolve_category(normalized_name or "", entity_type or "skill", name or "")
         result.append({
             "entity_id":               entity_id,
             "name":                    name,
