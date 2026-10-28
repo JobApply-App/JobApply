@@ -9,6 +9,7 @@ import { I18nProvider }        from '@/contexts/I18nContext'
 import { OnboardingProvider }  from '@/contexts/OnboardingContext'
 import { ChatOverlay }         from '@/components/ChatOverlay'
 import { ChatLauncher }        from '@/components/ChatLauncher'
+import { AccessibilityMenu }   from '@/components/AccessibilityMenu'
 import type { Locale }         from '@/locales'
 
 const inter = Inter({ subsets: ['latin', 'latin-ext'], variable: '--font-latin' })
@@ -54,6 +55,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 {children}
                 <ChatOverlay />
                 <ChatLauncher />
+                {/* Every page, signed in or not, desktop and mobile: the
+                    statement must be reachable from anywhere (IS 5568). */}
+                <AccessibilityMenu />
               </ChatProvider>
             </OnboardingProvider>
           </AuthProvider>

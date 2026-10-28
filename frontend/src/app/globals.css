@@ -262,3 +262,32 @@ input[type='range'] {
  * If an element must hold English inside the Hebrew layout permanently, give
  * that element `dir="auto"` deliberately — opt in where the content is known.
  */
+
+/* ── Accessibility menu preferences (components/AccessibilityMenu.tsx) ──────
+   Classes toggled on <html> by the viewer's own choices. Filters and text
+   zoom are applied inline by the component. */
+html.a11y-no-animation *,
+html.a11y-no-animation *::before,
+html.a11y-no-animation *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+html.a11y-highlight-links a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+  outline: 2px solid #b45309 !important;
+  outline-offset: 2px;
+}
+html.a11y-readable-font body,
+html.a11y-readable-font body * {
+  font-family: Arial, "Assistant", Helvetica, sans-serif !important;
+  letter-spacing: 0.01em !important;
+  word-spacing: 0.08em !important;
+}
+html.a11y-focus-ring *:focus-visible,
+html.a11y-focus-ring *:focus {
+  outline: 3px solid #b45309 !important;
+  outline-offset: 2px !important;
+}
