@@ -1317,10 +1317,12 @@ async def save_cv(req: SaveCvRequest, user: CurrentUser = Depends(get_current_us
     if job is None:
         raise AppError("job_not_found", status_code=404, detail=f"Job '{req.job_id}' not found.")
 
-    # Fall back to the stored default only when the editor did not say —
-    # an older client that predates the field is far likelier to be editing
-    # a CV in the user's usual language than in the other one.
-    saved_locale = req.cv_locale or _stored_cv_locale(user.user_id)
+    # An older client may not say. The CV's own text is a better witness
+    # than the user's default language: the default filed a Hebrew edit
+    # under English and overwrote the English version (one CV is kept per
+    # language since #134).
+    from backend.services.pdf_builder import detect_cv_locale
+    saved_locale = req.cv_locale or detect_cv_locale(req.cv_data)
     save_tailored_cv(req.job_id, user.user_id, req.cv_data, req.match_score, cv_locale=saved_locale)
     logger.info(
         "[resumes/save-cv] Explicitly saved draft CV for job %s (locale=%s)",

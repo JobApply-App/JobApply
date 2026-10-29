@@ -794,7 +794,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     setIsSavingDraft(true)
     setSaveDraftError(null)
     try {
-      await saveCv(job.id, cvState.cvData, matchScore as unknown as Record<string, unknown> | null)
+      await saveCv(job.id, cvState.cvData, matchScore as unknown as Record<string, unknown> | null, shownLang ?? cvLang)
       setHasUnsavedDraft(false)
     } catch (e: unknown) {
       // hasUnsavedDraft stays true — the banner (and this message) remain
@@ -803,7 +803,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     } finally {
       setIsSavingDraft(false)
     }
-  }, [cvState, isSavingDraft, job.id, matchScore, A.errors.save_draft_failed])
+  }, [cvState, isSavingDraft, job.id, matchScore, shownLang, cvLang, A.errors.save_draft_failed])
 
   // ── PDF download ─────────────────────────────────────────────────────────
   // Streams the binary from the server and saves it directly. The embedded

@@ -446,9 +446,13 @@ export async function saveCv(
   jobId: string,
   cvData: Record<string, unknown>,
   matchScore: Record<string, unknown> | null,
+  cvLocale: string,
 ): Promise<void> {
+  // cv_locale is required: the server keeps one CV per language, and an edit
+  // saved without it was filed under the user's default language — a Hebrew
+  // edit overwrote the English version.
   await post('/api/resumes/save-cv', {
-    job_id: jobId, cv_data: cvData, match_score: matchScore,
+    job_id: jobId, cv_data: cvData, match_score: matchScore, cv_locale: cvLocale,
   })
 }
 
