@@ -25,7 +25,9 @@ from sqlalchemy.orm import Session
 
 from backend.core.postgres import get_pg_session
 from backend.services.job_freshness import fresh_condition
-from backend.services.title_search import expand_title_query, is_whole_word, pg_word_regex
+from backend.services.title_search import (
+    expand_title_query, is_prefix_word, is_whole_word, pg_word_regex, typing_word,
+)
 from backend.models.all_jobs import AllJobRow
 from backend.services.linkedin_job_normalize import (
     _INDUSTRY_KNOWN_TERMS,
@@ -238,6 +240,9 @@ class AllJobsFilters:
     industry: Optional[list[str]] = None
     company: Optional[str] = None
     title: Optional[str] = None
+    # One search box for "role or company": matches the title (with the same
+    # other-language/gender/order variants as `title`) OR the company name.
+    q: Optional[str] = None
     min_applicants: Optional[int] = None
     max_applicants: Optional[int] = None
     posted_within_hours: Optional[int] = None
@@ -248,11 +253,33 @@ def _escape_like(term: str) -> str:
     return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _title_word_condition(word: str):
-    """Whole English word (regex, case-insensitive) or substring for Hebrew/symbols."""
+def _title_word_condition(word: str, typed: str = ""):
+    """English word (regex, case-insensitive; a prefix when it is the word
+    being typed) or substring for Hebrew/symbols."""
     if is_whole_word(word):
-        return _TABLE.c.job_title.op("~*")(pg_word_regex(word))
+        return _TABLE.c.job_title.op("~*")(pg_word_regex(word, prefix=is_prefix_word(word, typed)))
     return _TABLE.c.job_title.ilike(f"%{_escape_like(word)}%", escape="\\")
+
+
+def _title_condition(query: str):
+    """Any variant of the query (other language, gender forms, word order —
+    services/title_search.py); within a variant every word must appear."""
+    variants = expand_title_query(query)
+    if not variants:
+        return None
+    typed = typing_word(query)
+    return or_(*[and_(*[_title_word_condition(w, typed) for w in words]) for words in variants])
+
+
+def _own_words_condition(query: str):
+    """The query's own words in the title — ranks those before other-language matches."""
+    variants = expand_title_query(query)
+    typed = typing_word(query)
+    return and_(*[_title_word_condition(w, typed) for w in variants[0]]) if variants else None
+
+
+def _company_condition(query: str):
+    return _TABLE.c.company_name_normalized.ilike(f"%{_escape_like(query.strip().lower())}%", escape="\\")
 
 
 def _build_filter_conditions(filters: AllJobsFilters) -> list:
@@ -272,17 +299,16 @@ def _build_filter_conditions(filters: AllJobsFilters) -> list:
         # at least one element with the selected list (OR semantics across
         # the selected industries, same as every other multi-select field).
         conditions.append(_TABLE.c.industries.overlap(filters.industry))
-    if filters.company:
-        conditions.append(_TABLE.c.company_name_normalized.ilike(f"%{filters.company.strip().lower()}%"))
+    if filters.company and filters.company.strip():
+        conditions.append(_company_condition(filters.company))
     if filters.title and filters.title.strip():
-        # Any variant of the query (other language, gender forms, word order —
-        # services/title_search.py); within a variant every word must appear.
-        variants = expand_title_query(filters.title)
-        if variants:
-            conditions.append(or_(*[
-                and_(*[_title_word_condition(w) for w in words])
-                for words in variants
-            ]))
+        title_cond = _title_condition(filters.title)
+        if title_cond is not None:
+            conditions.append(title_cond)
+    if filters.q and filters.q.strip():
+        title_cond = _title_condition(filters.q)
+        company_cond = _company_condition(filters.q)
+        conditions.append(or_(title_cond, company_cond) if title_cond is not None else company_cond)
     if filters.min_applicants is not None:
         conditions.append(_TABLE.c.applicants["value"].astext.cast(Integer) >= filters.min_applicants)
     if filters.max_applicants is not None:
@@ -341,12 +367,13 @@ def get_paginated_all_jobs(
     # (services/job_freshness.py).
     conditions.append(fresh_condition(_TABLE.c.posted_at, _TABLE.c.first_seen_at))
     order_clauses = _SORT_OPTIONS.get(sort_by, _SORT_OPTIONS[DEFAULT_SORT_BY])
-    if filters and filters.title and filters.title.strip():
+    query = filters and ((filters.title or "").strip() or (filters.q or "").strip())
+    if query:
         # Titles with the words the user typed (any gender form, any order)
-        # come first; matches found through the other language follow.
-        variants = expand_title_query(filters.title)
-        if variants:
-            own_words = and_(*[_title_word_condition(w) for w in variants[0]])
+        # come first; matches found through the other language (or, for q,
+        # by company name only) follow.
+        own_words = _own_words_condition(query)
+        if own_words is not None:
             order_clauses = (case((own_words, 0), else_=1), *order_clauses)
 
     columns = [_TABLE.c[name] for name in _LIST_VIEW_COLUMNS]

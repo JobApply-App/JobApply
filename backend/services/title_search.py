@@ -139,16 +139,41 @@ def is_whole_word(word: str) -> bool:
     return bool(_PLAIN_EN.match(word))
 
 
-def pg_word_regex(word: str) -> str:
-    """Postgres ARE for a whole English word, plural allowed (\\m / \\M = word edges)."""
+# The word being typed — the query's last word — matches from the start of a
+# title word, so results appear while it is typed ("androi" -> "Android",
+# "manag" -> "Manager"). With whole words only, the board showed nothing until
+# the word was complete and search felt broken. Every other word stays whole,
+# so the finished query "product manager" still skips "Production Manager".
+# Short words (IT, PM, QA, HR) stay whole even when typed last: as prefixes
+# they would match "Italy" or "PMO".
+_PREFIX_MIN = 3
+
+
+def typing_word(query: str) -> str:
+    """The query's last word (normalised like the variants), or "" when none."""
+    words = _words(query)
+    return words[-1] if words else ""
+
+
+def is_prefix_word(word: str, typed: str) -> bool:
+    return bool(typed) and word == typed and len(word) >= _PREFIX_MIN and is_whole_word(word)
+
+
+def pg_word_regex(word: str, *, prefix: bool = False) -> str:
+    """Postgres ARE for an English word (\\m / \\M = word edges): whole, plural allowed, or a prefix."""
+    if prefix:
+        return rf"\m{word}"
     return rf"\m{word}(s|es)?\M"
 
 
 def title_matches(title: str, query: str) -> bool:
     """Python mirror of the SQL filter — used by tests and in-memory callers."""
     t = (title or "").lower()
+    typed = typing_word(query)
 
     def has(word: str) -> bool:
+        if is_prefix_word(word, typed):
+            return re.search(rf"(?<![a-z0-9]){word}", t) is not None
         if is_whole_word(word):
             return re.search(rf"(?<![a-z0-9]){word}(?:s|es)?(?![a-z0-9])", t) is not None
         return word in t
