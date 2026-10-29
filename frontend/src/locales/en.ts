@@ -425,6 +425,7 @@ export const en = {
   },
   applier: {
     close_preview:      'Close preview',
+    back_to_jobs:       'Back to jobs',
     cv_language:        'CV language',
     cv_language_regen_hint: 'Applies when you regenerate.',
     edit_cv:         '✎ Edit CV',

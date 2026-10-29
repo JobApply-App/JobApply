@@ -364,6 +364,7 @@ export interface Dict {
   }
   applier: {
     close_preview:    string
+    back_to_jobs:     string
     cv_language:      string
     cv_language_regen_hint: string
     edit_cv:          string
