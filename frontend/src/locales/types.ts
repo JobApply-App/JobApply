@@ -18,8 +18,8 @@ export const ERROR_CODES = [
   'linkedin_unavailable', 'scrape_failed', 'scrape_empty', 'job_no_description', 'job_no_url',
   'analysis_failed',
   'ai_unavailable', 'ai_failed', 'ai_bad_output',
-  'pdf_unavailable', 'pdf_failed',
-  'service_unavailable', 'server_error',
+  'pdf_unavailable', 'pdf_failed', 'pdf_busy',
+  'service_unavailable', 'payload_too_large', 'server_error',
   // Browser-side
   'network', 'timeout', 'stream_interrupted', 'unknown',
 ] as const
@@ -48,6 +48,8 @@ export interface Dict {
     applying_template: string
     ats_info_label: string
     ats_info: string
+    skills_gap_info_label: string
+    skills_gap_info: string
     undo: string
     retry: string
     sort: string
@@ -405,6 +407,9 @@ export interface Dict {
     download_pdf:     string
     download_title:   string
     preparing:        string
+    render_wait_almost: string
+    render_wait_eta:    string
+    render_wait_queue:  string
     errors: {
       timeout:        string
       still_loading:  string

@@ -219,6 +219,21 @@ def _rate_identity(request: Request) -> str:
     return f"ip:{host}"
 
 
+_REDIS = {"client": None, "ready": False}
+
+
+def _redis_client():
+    """The shared Redis client for rate limiting, or None when REDIS_URL is unset."""
+    if not _REDIS["ready"]:
+        _REDIS["ready"] = True
+        from backend.config import REDIS_URL
+        if REDIS_URL:
+            import redis.asyncio as aioredis
+            _REDIS["client"] = aioredis.from_url(REDIS_URL, socket_timeout=0.5, socket_connect_timeout=0.5)
+            logger.info("[rate-limit] counters in Redis")
+    return _REDIS["client"]
+
+
 class RateLimiter:
     """
     FastAPI dependency enforcing `max_requests` per `window_seconds` per caller.
@@ -236,6 +251,8 @@ class RateLimiter:
 
     async def __call__(self, request: Request) -> None:
         key = f"{self.scope}:{_rate_identity(request)}"
+        if await self._check_redis(key):
+            return
         now = time.monotonic()
         cutoff = now - self.window_seconds
         with _RATE_LOCK:
@@ -250,13 +267,41 @@ class RateLimiter:
                 bucket.popleft()
 
             if len(bucket) >= self.max_requests:
-                retry_after = max(1, int(self.window_seconds - (now - bucket[0])) + 1)
-                raise AppError("rate_limited",
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="Rate limit exceeded. Please slow down and try again shortly.",
-                    headers={"Retry-After": str(retry_after)},
-                )
+                raise self._limited(int(self.window_seconds - (now - bucket[0])) + 1)
             bucket.append(now)
+
+    def _limited(self, retry_after: int) -> AppError:
+        return AppError("rate_limited",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded. Please slow down and try again shortly.",
+            headers={"Retry-After": str(max(1, retry_after))},
+        )
+
+    async def _check_redis(self, key: str) -> bool:
+        """
+        Count this request in Redis when REDIS_URL is set; True = handled.
+
+        Fixed window (INCR + EXPIRE on a per-window key): one round trip, and
+        every instance sees the same count. Any Redis error falls back to the
+        in-memory window rather than failing the request — a limiter outage
+        must not become an API outage.
+        """
+        client = _redis_client()
+        if client is None:
+            return False
+        window = int(time.time() // self.window_seconds)
+        rkey = f"rl:{key}:{window}"
+        try:
+            pipe = client.pipeline()
+            pipe.incr(rkey)
+            pipe.expire(rkey, self.window_seconds + 1)
+            count, _ = await pipe.execute()
+        except Exception as exc:
+            logger.warning("[rate-limit] Redis unavailable, using in-memory limits: %s", exc)
+            return False
+        if count > self.max_requests:
+            raise self._limited(int(self.window_seconds - time.time() % self.window_seconds) + 1)
+        return True
 
 
 # Shared limiter instances — import and attach as route/router dependencies.
@@ -270,6 +315,10 @@ webhook_rate_limit  = RateLimiter(max_requests=30, window_seconds=60, scope="web
 # on database egress (the Supabase free plan's binding limit), with no reason
 # to run more than occasionally.
 sync_rate_limit     = RateLimiter(max_requests=2, window_seconds=600, scope="sync")
+# PDF renders share one browser slot (services/chromium_slot.py): one user
+# flipping designs as fast as they can click should not fill the queue for
+# everyone. 20 a minute is far above any real editing pace.
+pdf_rate_limit      = RateLimiter(max_requests=20, window_seconds=60, scope="pdf")
 
 
 # ── Daily CV-generation cap ──────────────────────────────────────────────────
