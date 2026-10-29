@@ -190,6 +190,68 @@ def _inject(template: str, data: dict) -> str:
     return re.sub(r"\{\{[^}]+\}\}", "", template)
 
 
+# ── Language: headings, direction ─────────────────────────────────────────────
+# A Hebrew CV used to render in the English layout: left-to-right, with
+# "PROFESSIONAL SUMMARY", "EXPERIENCE" headings over Hebrew text and the
+# punctuation of every Hebrew line on the wrong side. Headings now come from
+# this table and the page gets lang/dir from the CV's language.
+
+_LABELS: dict[str, dict[str, str]] = {
+    "en": {
+        "summary": "Professional Summary", "summary_short": "Summary",
+        "experience": "Experience", "education": "Education", "skills": "Skills",
+        "languages": "Languages", "military": "Military Service",
+        "volunteering": "Volunteering", "relevant": "Relevant:",
+    },
+    "he": {
+        "summary": "תקציר מקצועי", "summary_short": "תקציר",
+        "experience": "ניסיון תעסוקתי", "education": "השכלה", "skills": "כישורים",
+        "languages": "שפות", "military": "שירות צבאי",
+        "volunteering": "התנדבות", "relevant": "קורסים רלוונטיים:",
+    },
+}
+_RTL_LOCALES = {"he"}
+
+# Fixed vocabulary in the languages section comes from the profile in English.
+_HE_LANGUAGE_NAMES = {
+    "hebrew": "עברית", "english": "אנגלית", "arabic": "ערבית", "russian": "רוסית",
+    "french": "צרפתית", "spanish": "ספרדית", "german": "גרמנית", "amharic": "אמהרית",
+    "italian": "איטלקית", "portuguese": "פורטוגזית", "yiddish": "יידיש",
+}
+_HE_LANGUAGE_LEVELS = {
+    "native": "שפת אם", "mother tongue": "שפת אם", "fluent": "רמה גבוהה מאוד",
+    "full professional proficiency": "רמה גבוהה מאוד", "professional": "רמה גבוהה",
+    "professional working proficiency": "רמה גבוהה", "advanced": "רמה גבוהה",
+    "conversational": "רמה בינונית", "intermediate": "רמה בינונית",
+    "limited working proficiency": "רמה בינונית", "basic": "בסיסית", "elementary": "בסיסית",
+}
+
+_HEBREW_CHAR = re.compile(r"[\u0590-\u05FF]")
+_LATIN_CHAR  = re.compile(r"[A-Za-z]")
+
+
+def detect_cv_locale(cv_data: dict) -> str:
+    """
+    "he" when the CV's own prose (summary and bullets) is mostly Hebrew.
+
+    Read from the content rather than passed in, so every path that renders a
+    stored CV (cached, re-render, export, design switch) gets it right without
+    each caller having to know which language the CV was written in. A Hebrew
+    CV keeps English product and company names, so the bar is 40 %, not half.
+    """
+    parts = [str(cv_data.get("summary") or "")]
+    for exp in cv_data.get("experience") or []:
+        if isinstance(exp, dict):
+            parts.extend(str(b) for b in exp.get("bullets") or [])
+    text = " ".join(parts)
+    he, en = len(_HEBREW_CHAR.findall(text)), len(_LATIN_CHAR.findall(text))
+    return "he" if he and he / (he + en) >= 0.4 else "en"
+
+
+def _labels(locale: str) -> dict[str, str]:
+    return _LABELS.get(locale, _LABELS["en"])
+
+
 # ── Section HTML builders ─────────────────────────────────────────────────────
 
 def _build_experience(entries: list[dict]) -> str:
@@ -217,7 +279,7 @@ def _build_experience(entries: list[dict]) -> str:
     return "\n".join(parts)
 
 
-def _build_education(entries: list[dict]) -> str:
+def _build_education(entries: list[dict], L: dict | None = None) -> str:
     from backend.models.cv import LIMITS
 
     parts: list[str] = []
@@ -230,7 +292,7 @@ def _build_education(entries: list[dict]) -> str:
 
         honors_html     = f'<span class="edu-honors">{honors}</span>' if honors else ""
         coursework_html = (
-            f'<span class="edu-coursework">Relevant: {coursework}</span>'
+            f'<span class="edu-coursework">{(L or _LABELS["en"])["relevant"]} {coursework}</span>'
             if coursework else ""
         )
 
@@ -259,7 +321,7 @@ def _build_education(entries: list[dict]) -> str:
 _SKILLS_ITEMS_PER_CATEGORY_CAP = 20
 
 
-def _build_skills(skills_data: dict) -> str:
+def _build_skills(skills_data: dict, L: dict | None = None) -> str:
     """
     Render skills as plain inline text.  Delimiters are written directly into
     the HTML (not via CSS ::after) so they survive PDF rendering and never
@@ -286,13 +348,13 @@ def _build_skills(skills_data: dict) -> str:
         return ""
     return (
         f'<div class="side-sec">'
-        f'  <h2 class="sec-title">Skills</h2>'
+        f'  <h2 class="sec-title">{(L or _LABELS["en"])["skills"]}</h2>'
         + "".join(cats_html) +
         f'</div>'
     )
 
 
-def _build_languages(languages: list[dict]) -> str:
+def _build_languages(languages: list[dict], L: dict | None = None, locale: str = "en") -> str:
     """
     Render each language's name and level as two separate spans — no literal
     separator between them.  Some templates lay lang-name/lang-level side by
@@ -304,8 +366,12 @@ def _build_languages(languages: list[dict]) -> str:
         return ""
     rows = []
     for lang in languages[:5]:
-        name  = _t(lang.get("language", ""), 20)
-        level = _t(lang.get("level",    ""), 35)
+        raw_name, raw_level = str(lang.get("language", "") or ""), str(lang.get("level", "") or "")
+        if locale == "he":
+            raw_name = _HE_LANGUAGE_NAMES.get(raw_name.strip().lower(), raw_name)
+            raw_level = _HE_LANGUAGE_LEVELS.get(raw_level.strip().lower(), raw_level)
+        name  = _t(raw_name, 20)
+        level = _t(raw_level, 35)
         if not name:
             continue
         level_html = f'<span class="lang-level">{level}</span>' if level else ""
@@ -319,13 +385,13 @@ def _build_languages(languages: list[dict]) -> str:
         return ""
     return (
         f'<div class="side-sec">'
-        f'  <h2 class="sec-title">Languages</h2>'
+        f'  <h2 class="sec-title">{(L or _LABELS["en"])["languages"]}</h2>'
         f'  {"".join(rows)}'
         f'</div>'
     )
 
 
-def _build_military(mil: dict | None) -> str:
+def _build_military(mil: dict | None, L: dict | None = None) -> str:
     """
     Render the military-service block, or nothing at all.
 
@@ -356,7 +422,7 @@ def _build_military(mil: dict | None) -> str:
 
     return (
         f'<div class="side-sec">'
-        f'  <h2 class="sec-title">Military Service</h2>'
+        f'  <h2 class="sec-title">{(L or _LABELS["en"])["military"]}</h2>'
         f'  <div class="entry-hdr">'
         f'    <div class="entry-meta">'
         f'      <span class="mil-role">{role}</span>'
@@ -369,12 +435,12 @@ def _build_military(mil: dict | None) -> str:
     )
 
 
-def _build_volunteering(text: str) -> str:
+def _build_volunteering(text: str, L: dict | None = None) -> str:
     if not text:
         return ""
     return (
         f'<div class="side-sec">'
-        f'  <h2 class="sec-title">Volunteering</h2>'
+        f'  <h2 class="sec-title">{(L or _LABELS["en"])["volunteering"]}</h2>'
         f'  <div class="vol-text">{_t(text, 120)}</div>'
         f'</div>'
     )
@@ -382,7 +448,8 @@ def _build_volunteering(text: str) -> str:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def _flatten(cv_data: dict, user_id: str, contact: dict | None = None) -> dict:
+def _flatten(cv_data: dict, user_id: str, contact: dict | None = None,
+             cv_locale: str | None = None) -> dict:
     """Map TailorAgent JSON output to the flat placeholder dict the template needs.
 
     Contact fields come exclusively from the caller's own profile (get_profile
@@ -420,18 +487,26 @@ def _flatten(cv_data: dict, user_id: str, contact: dict | None = None) -> dict:
     flat["title"]   = _t((clean.get("header") or {}).get("target_title", ""), 58)
     flat["summary"] = _t(clean.get("summary", ""), 400)
 
+    # ── Language: page direction and section headings ────────────────────────
+    locale = cv_locale if cv_locale in _LABELS else detect_cv_locale(clean)
+    L = _labels(locale)
+    flat["lang"] = locale
+    flat["dir"]  = "rtl" if locale in _RTL_LOCALES else "ltr"
+    for key in ("summary", "summary_short", "experience", "education"):
+        flat[f"sec_{key}"] = L[key]
+
     flat["experience_blocks"]    = _build_experience(clean.get("experience", []))
-    flat["education_blocks"]     = _build_education(clean.get("education",  []))
-    flat["skills_section"]       = _build_skills(clean.get("skills", {}))
-    flat["languages_section"]    = _build_languages(clean.get("languages", []))
-    flat["military_section"]     = _build_military(clean.get("military_service"))
-    flat["volunteering_section"] = _build_volunteering(clean.get("volunteering", ""))
+    flat["education_blocks"]     = _build_education(clean.get("education",  []), L)
+    flat["skills_section"]       = _build_skills(clean.get("skills", {}), L)
+    flat["languages_section"]    = _build_languages(clean.get("languages", []), L, locale)
+    flat["military_section"]     = _build_military(clean.get("military_service"), L)
+    flat["volunteering_section"] = _build_volunteering(clean.get("volunteering", ""), L)
 
     return flat
 
 
 def render_html(cv_data: dict, template_id: str | None = None, *, user_id: str,
-                contact: dict | None = None) -> str:
+                contact: dict | None = None, cv_locale: str | None = None) -> str:
     """Return the fully-rendered HTML string for the CV.
 
     user_id selects whose contact data (name/email/phone/linkedin/location)
@@ -440,11 +515,12 @@ def render_html(cv_data: dict, template_id: str | None = None, *, user_id: str,
     pass the real caller's user_id.
     """
     template = _resolve_template(template_id).read_text(encoding="utf-8")
-    return _inject(template, _flatten(cv_data, user_id, contact))
+    return _inject(template, _flatten(cv_data, user_id, contact, cv_locale))
 
 
 async def build_pdf(cv_data: dict, output_path: str | Path | None = None,
-                    template_id: str | None = None, *, user_id: str) -> bytes:
+                    template_id: str | None = None, *, user_id: str,
+                    cv_locale: str | None = None) -> bytes:
     """
     Render cv_data to a single-page A4 PDF using Playwright headless Chromium.
 
@@ -455,7 +531,8 @@ async def build_pdf(cv_data: dict, output_path: str | Path | None = None,
     from backend.services.chromium_slot import chromium_slot
 
     contact  = _load_contact(user_id)
-    html_str = render_html(cv_data, template_id=template_id, user_id=user_id, contact=contact)
+    html_str = render_html(cv_data, template_id=template_id, user_id=user_id, contact=contact,
+                           cv_locale=cv_locale)
 
     async with chromium_slot(), async_playwright() as pw:
         try:

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{lang}}" dir="{{dir}}">
 <head>
 <meta charset="UTF-8"/>
 <title>{{name}}</title>
@@ -129,14 +129,14 @@ on, so widening the tracking for looks costs real matches. */
 .entry-dates {
   font-size: 8.5pt;
   color: #555;
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .bullets {
   margin-top: 3px;
-  padding-left: 14px;
+  padding-inline-start: 14px;
   list-style: disc;
 }
 
@@ -222,6 +222,14 @@ on, so widening the tracking for looks costs real matches. */
 
 /* ── Volunteering ── */
 .vol-text { font-size: 8.5pt; color: #333; line-height: 1.48; }
+
+/* Hebrew CVs: each contact line takes its direction from its own text, so a
+   URL, email or phone stays left-to-right inside a right-to-left page
+   (otherwise "https://…/ron-morim/" renders as "/https://…/ron-morim"). */
+.contact-line { unicode-bidi: plaintext; }
+/* Hebrew has no capitals to space out, and spaced letters extract as
+   separate characters ("ת ק צ י ר") — headings are set tight in RTL. */
+[dir="rtl"] .sec-title { letter-spacing: normal; }
 </style>
 </head>
 <body>
@@ -240,17 +248,17 @@ on, so widening the tracking for looks costs real matches. */
 
   <div class="body">
     <div class="main-sec">
-      <h2 class="sec-title">Professional Summary</h2>
+      <h2 class="sec-title">{{sec_summary}}</h2>
       <div class="summary-text">{{summary}}</div>
     </div>
 
     <div class="main-sec">
-      <h2 class="sec-title">Experience</h2>
+      <h2 class="sec-title">{{sec_experience}}</h2>
       {{experience_blocks}}
     </div>
 
     <div class="main-sec">
-      <h2 class="sec-title">Education</h2>
+      <h2 class="sec-title">{{sec_education}}</h2>
       {{education_blocks}}
     </div>
 
@@ -282,7 +290,7 @@ on, so widening the tracking for looks costs real matches. */
   var needed    = body.scrollHeight;
   if (available > 0 && needed > available) {
     var scale = Math.max(MIN_SCALE, available / needed);
-    body.style.transformOrigin = 'top left';
+    body.style.transformOrigin = (document.documentElement.dir === 'rtl' ? 'top right' : 'top left');
     body.style.transform       = 'scale(' + scale + ')';
     body.style.width           = (100 / scale) + '%';
   }

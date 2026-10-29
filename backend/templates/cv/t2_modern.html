@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{lang}}" dir="{{dir}}">
 <head>
 <meta charset="UTF-8"/>
 <title>{{name}}</title>
@@ -76,7 +76,7 @@ html, body {
   text-transform: uppercase;
 }
 
-.hdr-right { text-align: right; flex-shrink: 0; }
+.hdr-right { text-align: end; flex-shrink: 0; }
 
 .contact-line {
   font-size: 8pt;
@@ -168,13 +168,13 @@ of another guess at the boundary. */
 .entry-dates {
   font-size: 8pt;
   color: var(--faint);
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
   flex-shrink: 0;
   font-weight: 500;
 }
 
-.bullets { margin-top: 4px; padding-left: 13px; }
+.bullets { margin-top: 4px; padding-inline-start: 13px; }
 
 .bullets li {
   font-size: 9pt;
@@ -262,6 +262,14 @@ of another guess at the boundary. */
 
 /* ── Volunteering ── */
 .vol-text { font-size: 8.5pt; color: var(--ink-2); line-height: 1.48; }
+
+/* Hebrew CVs: each contact line takes its direction from its own text, so a
+   URL, email or phone stays left-to-right inside a right-to-left page
+   (otherwise "https://…/ron-morim/" renders as "/https://…/ron-morim"). */
+.contact-line { unicode-bidi: plaintext; }
+/* Hebrew has no capitals to space out, and spaced letters extract as
+   separate characters ("ת ק צ י ר") — headings are set tight in RTL. */
+[dir="rtl"] .sec-title { letter-spacing: normal; }
 </style>
 </head>
 <body>
@@ -282,17 +290,17 @@ of another guess at the boundary. */
 
   <div class="body">
     <div class="main-sec">
-      <h2 class="sec-title">Professional Summary</h2>
+      <h2 class="sec-title">{{sec_summary}}</h2>
       <div class="summary-text">{{summary}}</div>
     </div>
 
     <div class="main-sec">
-      <h2 class="sec-title">Experience</h2>
+      <h2 class="sec-title">{{sec_experience}}</h2>
       {{experience_blocks}}
     </div>
 
     <div class="main-sec">
-      <h2 class="sec-title">Education</h2>
+      <h2 class="sec-title">{{sec_education}}</h2>
       {{education_blocks}}
     </div>
 
@@ -329,7 +337,7 @@ of another guess at the boundary. */
   var needed    = body.scrollHeight;
   if (available > 0 && needed > available) {
     var scale = Math.max(MIN_SCALE, available / needed);
-    body.style.transformOrigin = 'top left';
+    body.style.transformOrigin = (document.documentElement.dir === 'rtl' ? 'top right' : 'top left');
     body.style.transform       = 'scale(' + scale + ')';
     body.style.width           = (100 / scale) + '%';
   }

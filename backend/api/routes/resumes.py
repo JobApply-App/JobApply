@@ -253,6 +253,9 @@ class TailorResponse(BaseModel):
     missing_data_requests: list           = []
     match_score:           Optional[dict] = None   # MatchScoreResult.as_dict()
     preferred_template:    str            = "t2_modern"
+    # Language the returned CV is written in — the client shows it on the
+    # language picker and offers the other language as a new version.
+    cv_locale:             str            = "en"
 
 
 def _build_jd_proxy(job) -> str:
@@ -600,6 +603,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                 pdf_b64            = base64.b64encode(cached_pdf).decode() if cached_pdf else None,
                 match_score        = cached.get("match_score"),
                 preferred_template = "t2_modern",
+                cv_locale          = cv_locale,
             )
 
     # Persist answers before calling the agent so that even if generation fails
@@ -843,6 +847,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
         pdf_b64            = base64.b64encode(pdf_bytes).decode(),
         match_score        = match_score_dict,
         preferred_template = "t2_modern",
+        cv_locale          = cv_locale,
     )
 
 
@@ -994,6 +999,7 @@ async def get_cached_resume(job_id: str, user: CurrentUser = Depends(get_current
         pdf_b64            = pdf_b64,
         match_score        = cached.get("match_score"),
         preferred_template = "t2_modern",
+        cv_locale          = cached.get("cv_locale") or "en",
     )
 
 

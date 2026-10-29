@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{lang}}" dir="{{dir}}">
 <head>
 <meta charset="UTF-8"/>
 <title>{{name}}</title>
@@ -97,7 +97,7 @@ html, body {
 }
 
 .hdr-right {
-  text-align: right;
+  text-align: end;
   flex-shrink: 0;
   padding-top: 3px;
 }
@@ -122,7 +122,7 @@ html, body {
 .col-main {
   width: 65%;
   padding: 13px 16px 8px 24px;
-  border-right: 1px solid var(--divider);
+  border-inline-end: 1px solid var(--divider);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -215,7 +215,7 @@ html, body {
   font-size: 7.5pt;
   font-weight: 400;
   color: var(--faint);
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
   flex-shrink: 0;
   padding-top: 1px;
@@ -224,7 +224,7 @@ html, body {
 
 .bullets {
   margin-top: 3px;
-  padding-left: 10px;
+  padding-inline-start: 10px;
   overflow: hidden;
 }
 
@@ -358,7 +358,7 @@ html, body {
 .lang-level {
   font-size: 7.5pt;
   color: var(--faint);
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -394,6 +394,14 @@ html, body {
 
 /* ─── Utility ───────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }
+
+/* Hebrew CVs: each contact line takes its direction from its own text, so a
+   URL, email or phone stays left-to-right inside a right-to-left page
+   (otherwise "https://…/ron-morim/" renders as "/https://…/ron-morim"). */
+.contact-line { unicode-bidi: plaintext; }
+/* Hebrew has no capitals to space out, and spaced letters extract as
+   separate characters ("ת ק צ י ר") — headings are set tight in RTL. */
+[dir="rtl"] .sec-title { letter-spacing: normal; }
 </style>
 </head>
 <body>
@@ -420,17 +428,17 @@ html, body {
     <div class="col-main">
 
       <div class="main-sec">
-        <span class="sec-title">Professional Summary</span>
+        <span class="sec-title">{{sec_summary}}</span>
         <div class="summary-text">{{summary}}</div>
       </div>
 
       <div class="main-sec">
-        <span class="sec-title">Experience</span>
+        <span class="sec-title">{{sec_experience}}</span>
         {{experience_blocks}}
       </div>
 
       <div class="main-sec">
-        <span class="sec-title">Education</span>
+        <span class="sec-title">{{sec_education}}</span>
         {{education_blocks}}
       </div>
 
