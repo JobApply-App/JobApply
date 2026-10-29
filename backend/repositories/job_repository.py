@@ -521,30 +521,67 @@ def mark_applied(job_id: str, applied_at: str, user_id: str) -> None:
         session.commit()
 
 
-def get_tailored_cv(job_id: str, user_id: str, cv_locale: Optional[str] = None) -> Optional[dict]:
-    """
-    Return the cached tailored CV payload for a job owned by user_id, or None.
+# One tailored CV per language per job. The tailored_cv column holds the
+# most recently written version at its top level (what callers without a
+# language read) and every version under "by_locale". It used to hold a
+# single CV: creating the Hebrew version replaced the English one, and going
+# back meant generating it again — another of the user's daily generations.
 
-    Returns None when the cached draft was generated from an older version of
-    the user's master profile (see profile_fingerprint) — the caller then
-    regenerates from current data instead of serving a draft built from
-    since-edited experience/skills/contact details.
+_VERSION_KEYS = ("cv_data", "match_score", "profile_fingerprint", "cv_locale")
 
-    Also returns None when cv_locale is given and does not match the language
-    the cached draft was written in. Without that check, switching CV
-    language and regenerating returns the previous language's draft from
-    cache — the setting appears to do nothing, which reads as a broken
-    feature rather than a cache hit. Drafts saved before this field existed
-    have no stored locale and are treated as English, which is what they are.
-    """
+
+def _read_tailored_blob(job_id: str, user_id: str) -> Optional[dict]:
     with Session(ENGINE) as session:
         row = session.execute(
             text("SELECT tailored_cv FROM public.user_job_matches "
                  "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid)"),
             {"job_id": job_id, "user_id": user_id},
         ).fetchone()
-        cached = row.tailored_cv if row else None
+    return row.tailored_cv if row and row.tailored_cv else None
 
+
+def _versions(blob: Optional[dict]) -> dict[str, dict]:
+    """locale -> version. A CV saved before versions existed is one version,
+    in its own cv_locale (English when it has none, which is what it is)."""
+    if not blob:
+        return {}
+    versions = blob.get("by_locale")
+    if isinstance(versions, dict) and versions:
+        return {k: v for k, v in versions.items() if isinstance(v, dict) and v.get("cv_data")}
+    if blob.get("cv_data"):
+        return {blob.get("cv_locale") or "en": {k: blob.get(k) for k in _VERSION_KEYS}}
+    return {}
+
+
+def tailored_cv_locales(job_id: str, user_id: str) -> list[str]:
+    """Languages this job has a saved CV in (stale ones included)."""
+    return sorted(_versions(_read_tailored_blob(job_id, user_id)))
+
+
+def get_tailored_cv(job_id: str, user_id: str, cv_locale: Optional[str] = None) -> Optional[dict]:
+    """
+    Return the cached tailored CV payload for a job owned by user_id, or None.
+
+    With cv_locale, the version in that language (None when there is none);
+    without it, the most recently written version.
+
+    Returns None when the version was generated from an older version of the
+    user's master profile (see profile_fingerprint) — the caller then
+    regenerates from current data instead of serving a draft built from
+    since-edited experience/skills/contact details.
+    """
+    blob = _read_tailored_blob(job_id, user_id)
+    if not blob:
+        return None
+    if cv_locale is None:
+        cached = {k: blob.get(k) for k in _VERSION_KEYS} if blob.get("cv_data") else None
+        if cached and not cached.get("cv_locale"):
+            cached["cv_locale"] = "en"
+    else:
+        cached = _versions(blob).get(cv_locale)
+        if cached is None:
+            logger.info("[job_store] No %s tailored CV for job=%s", cv_locale, job_id)
+            return None
     if not cached:
         return None
 
@@ -553,13 +590,6 @@ def get_tailored_cv(job_id: str, user_id: str, cv_locale: Optional[str] = None) 
         logger.info(
             "[job_store] Tailored CV for job=%s is stale (profile changed) — ignoring cache",
             job_id,
-        )
-        return None
-
-    if cv_locale is not None and cached.get("cv_locale", "en") != cv_locale:
-        logger.info(
-            "[job_store] Tailored CV for job=%s was written in %s, %s requested — ignoring cache",
-            job_id, cached.get("cv_locale", "en"), cv_locale,
         )
         return None
     return cached
@@ -578,6 +608,20 @@ def profile_fingerprint(user_id: str) -> str:
     return get_updated_at(user_id)
 
 
+def _write_tailored_blob(job_id: str, user_id: str, versions: dict[str, dict], latest: Optional[str]) -> None:
+    payload = None
+    if versions:
+        top = versions.get(latest) or next(iter(versions.values()))
+        payload = {**top, "by_locale": versions}
+    with Session(ENGINE) as session:
+        session.execute(
+            text("UPDATE public.user_job_matches SET tailored_cv = CAST(:payload AS jsonb) "
+                 "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid)"),
+            {"payload": json.dumps(payload) if payload else None, "job_id": job_id, "user_id": user_id},
+        )
+        session.commit()
+
+
 def save_tailored_cv(
     job_id: str,
     user_id: str,
@@ -585,35 +629,37 @@ def save_tailored_cv(
     match_score: Optional[dict],
     cv_locale: str = "en",
 ) -> None:
-    """Persist the generated CV data + match score for a job owned by user_id."""
-    payload = {
+    """Persist the generated CV + match score as the job's version in cv_locale,
+    keeping the versions in other languages."""
+    versions = _versions(_read_tailored_blob(job_id, user_id))
+    versions[cv_locale] = {
         "cv_data": cv_data,
         "match_score": match_score,
         "profile_fingerprint": profile_fingerprint(user_id),
         "cv_locale": cv_locale,
     }
-    with Session(ENGINE) as session:
-        session.execute(
-            text("UPDATE public.user_job_matches SET tailored_cv = CAST(:payload AS jsonb) "
-                 "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid)"),
-            {"payload": json.dumps(payload), "job_id": job_id, "user_id": user_id},
-        )
-        session.commit()
+    _write_tailored_blob(job_id, user_id, versions, latest=cv_locale)
 
 
-def clear_tailored_cv(job_id: str, user_id: str) -> bool:
+def clear_tailored_cv(job_id: str, user_id: str, cv_locale: Optional[str] = None) -> bool:
     """
-    Drop the cached tailored CV for a job owned by user_id. Returns True if a
-    cached payload was actually removed.
+    Drop the cached tailored CV for a job owned by user_id — only the version
+    in cv_locale when given, every version otherwise. Returns True if
+    something was actually removed.
     """
-    with Session(ENGINE) as session:
-        result = session.execute(
-            text("UPDATE public.user_job_matches SET tailored_cv = NULL "
-                 "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid) AND tailored_cv IS NOT NULL"),
-            {"job_id": job_id, "user_id": user_id},
-        )
-        session.commit()
-        return result.rowcount > 0
+    blob = _read_tailored_blob(job_id, user_id)
+    versions = _versions(blob)
+    if not versions:
+        return False
+    if cv_locale is None:
+        _write_tailored_blob(job_id, user_id, {}, None)
+        return True
+    if cv_locale not in versions:
+        return False
+    versions.pop(cv_locale)
+    latest = blob.get("cv_locale") if blob.get("cv_locale") in versions else next(iter(versions), None)
+    _write_tailored_blob(job_id, user_id, versions, latest)
+    return True
 
 
 # Matches for jobs older than config.JOB_MAX_AGE_DAYS are hidden from the

@@ -421,11 +421,14 @@ export interface TailorOkResponse {
   match_score:        MatchScoreResult | null
   preferred_template: string
   cv_locale?:         string   // language the CV is written in
+  available_locales?: string[] // languages this job has a saved CV in
 }
 
-export async function fetchCachedCV(jobId: string): Promise<TailorOkResponse | null> {
+/** The saved CV for a job — the version in `cvLocale` when given, else the latest. */
+export async function fetchCachedCV(jobId: string, cvLocale?: string): Promise<TailorOkResponse | null> {
   await _ensureFreshToken()
-  const res = await fetch(`${BASE}/api/resumes/cached/${jobId}`, {
+  const qs = cvLocale ? `?cv_locale=${encodeURIComponent(cvLocale)}` : ''
+  const res = await fetch(`${BASE}/api/resumes/cached/${jobId}${qs}`, {
     headers: _authHeaders(),
     cache:   'no-store',
   })
