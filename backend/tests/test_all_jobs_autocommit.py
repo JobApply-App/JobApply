@@ -28,7 +28,7 @@ def test_list_all_jobs_matches_default_mode(db_available):
         list_all_jobs(
             page=1, page_size=25,
             source=None, seniority_level=None, employment_type=None,
-            job_function=None, industry=None, company=None, title=None,
+            job_function=None, industry=None, company=None, title=None, q=None,
             min_applicants=None, max_applicants=None, posted_within_hours=None,
             sort_by="recent",
             user=user,
