@@ -1531,19 +1531,25 @@ def _output_language_directive(cv_locale: str) -> str:
     if not language or cv_locale == "en":
         return ""
 
+    # A Hebrew CV kept every job title and skill label in English (founder's
+    # export, 2026-10-29: "Customer Success & Partnerships Team Lead" over
+    # Hebrew bullets). A Hebrew CV is sent to a Hebrew posting, whose own words
+    # are what an applicant tracking system matches — so titles follow the
+    # posting's language, and only true proper nouns stay as they are.
     return (
         f"\nOUTPUT_LANGUAGE: {language}\n"
-        f"Write every piece of prose in this CV in {language} — the professional "
-        f"summary, all bullet points, section headings and role descriptions — in "
-        f"natural, professional {language} written for a native reader, never a "
-        f"literal word-for-word rendering of the English source.\n"
+        f"Write this whole CV in {language}, for a native reader — never a literal "
+        f"word-for-word rendering of the English source. That includes: the target "
+        f"title, the professional summary, every bullet point, every role title, "
+        f"every skill category label and every generic skill (\"customer "
+        f"onboarding\", \"stakeholder management\").\n"
+        f"A role title stays in English ONLY when the job description itself names "
+        f"that role in English; otherwise write the {language} title used in the "
+        f"local job market.\n"
         f"KEEP IN THEIR ORIGINAL FORM, untranslated and untransliterated: company "
-        f"and employer names, product and project names, job titles that are "
-        f"industry-standard in English, technology and tool names, certification "
-        f"names, university and degree names, and the contact block. These are "
-        f"matched literally against the job description by applicant tracking "
-        f"systems — translating them destroys that match and makes this CV score "
-        f"worse than the English one it was built from.\n"
+        f"and employer names, product and project names, technology and tool names "
+        f"(Jira, Salesforce, SQL), certification names, and the contact block. "
+        f"These are proper nouns an applicant tracking system matches literally.\n"
         f"Keep the JSON structure, all field names and all field-length limits "
         f"exactly as specified — only the human-readable values change language.\n"
     )

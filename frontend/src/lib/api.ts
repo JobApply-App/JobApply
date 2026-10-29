@@ -420,6 +420,7 @@ export interface TailorOkResponse {
   pdf_b64:            string | null
   match_score:        MatchScoreResult | null
   preferred_template: string
+  cv_locale?:         string   // language the CV is written in
 }
 
 export async function fetchCachedCV(jobId: string): Promise<TailorOkResponse | null> {

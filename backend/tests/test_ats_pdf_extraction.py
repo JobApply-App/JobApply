@@ -127,3 +127,22 @@ def test_contact_details_survive_extraction(template_id):
     text = _extract(template_id)
     for field in ("candidate@example.com", "Test Candidate"):
         assert field in text, f"{template_id}: contact detail {field!r} missing"
+
+
+@pytest.mark.parametrize("template_id", TEMPLATE_IDS)
+def test_hebrew_headings_survive_extraction(template_id):
+    """
+    Hebrew headings must extract as whole words too (spaced letters would read
+    "ת ק צ י ר"). Extractors return RTL lines in visual order, so the words of
+    a two-word heading can come out reversed — each word is checked, not the
+    phrase.
+    """
+    from backend.tests.test_hebrew_cv_layout import HE_CV
+    pdf = asyncio.run(build_pdf(HE_CV, template_id=template_id, user_id="test-user"))
+    doc = fitz.open(stream=pdf, filetype="pdf")
+    try:
+        words = set("\n".join(page.get_text() for page in doc).split())
+    finally:
+        doc.close()
+    for word in ("ניסיון", "תעסוקתי", "השכלה", "כישורים", "שפות"):
+        assert word in words, f"{template_id}: Hebrew heading word {word!r} not extracted whole"
