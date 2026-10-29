@@ -621,9 +621,8 @@ def _build_profile_context(
         # ── CV claims ─────────────────────────────────────────────────────────
         cv_claims: dict = {}
         try:
-            from backend.services.user_profile_store import load as _store_load
-            stored    = _store_load(user_id)
-            cv_claims = stored.get("cv_claims") or {}
+            from backend.repositories import profile_repository
+            cv_claims = profile_repository.get_profile_json(user_id).get("cv_data") or {}
         except Exception:
             pass
 

@@ -90,11 +90,14 @@ def _get_or_create_profile_row(user_id: str, session):
     return row
 
 
-def load(user_id: str) -> dict:
+def load(user_id: str, *, strict: bool = False) -> dict:
     """
     Load the metrics/supplemental document for user_id from master_profiles.
 
-    Returns a fresh scaffold when the user has none.
+    Returns a fresh scaffold when the user has none. On a database error it
+    also returns a scaffold, unless strict=True, which raises instead: a
+    caller that loads, edits and saves back must not mistake a failed read
+    for an empty document and overwrite the real one with it.
     """
     from sqlalchemy.orm import Session
     from backend.core.database import ENGINE
@@ -118,6 +121,8 @@ def load(user_id: str) -> dict:
             return doc
     except Exception as exc:
         logger.error("[master_profile] load failed for user=%s: %s", user_id, exc)
+        if strict:
+            raise
         return _empty_profile()
 
 
@@ -185,7 +190,9 @@ def merge_answers(answers: dict[str, str], user_id: str) -> int:
 
     newly_written = 0
     try:
-        profile = load(user_id)
+        # strict: a failed read must abort, not save these answers over an
+        # empty stand-in for the user's real document.
+        profile = load(user_id, strict=True)
         metrics = profile.setdefault("metrics", {})
 
         for qid, raw_answer in answers.items():

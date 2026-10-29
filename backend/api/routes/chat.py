@@ -1150,7 +1150,6 @@ def _ingest_cv_from_chat(user_id: str, item: AttachmentItem) -> None:
             aggregate_cv_claims, claims_have_cv_content, extract_text,
         )
         from backend.services.profile_update_service import ProfileUpdateService
-        from backend.services.user_profile_store import load as user_load, save as user_save
         from backend.api.routes.profile import _cv_claims_to_parsed_entities
         from sqlalchemy.orm import Session as _Session
 
@@ -1201,11 +1200,7 @@ def _ingest_cv_from_chat(user_id: str, item: AttachmentItem) -> None:
             )
             return
 
-        # Step 4 — persist cv_claims to profile JSON + master_profiles table
-        profile = user_load(user_id)
-        profile["cv_claims"] = cv_claims
-        user_save(user_id, profile)
-
+        # Step 4 — persist cv_claims to the profile (cv_data)
         _now = datetime.now(timezone.utc).isoformat()
         with _Session(ENGINE) as sess:
             from backend.repositories import profile_repository

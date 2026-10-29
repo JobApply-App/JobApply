@@ -96,13 +96,13 @@ def _cv_claims_skill_score(jd_text: str, claimed_skills: list[str]) -> float:
 
 def _load_cv_claims_skills(user_id: str) -> list[str]:
     """
-    Load the candidate's claimed skills from the user's profile store.
+    Load the candidate's claimed skills from the CV saved in their profile.
     Returns an empty list silently on any failure (non-fatal).
     """
     try:
-        from backend.services.user_profile_store import load as profile_load
-        profile = profile_load(user_id)
-        skills  = profile.get("cv_claims", {}).get("skills", [])
+        from backend.repositories import profile_repository
+        cv = profile_repository.get_profile_json(user_id).get("cv_data") or {}
+        skills = cv.get("skills", []) if isinstance(cv, dict) else []
         return [s for s in skills if isinstance(s, str) and s.strip()]
     except Exception as exc:
         logger.debug("[MatcherAgent] Could not load cv_claims for user=%s: %s", user_id, exc)

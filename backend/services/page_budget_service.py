@@ -137,7 +137,9 @@ async def measure_fill(html: str, page=None) -> float:
         return (m["natural"] / m["box"]) if m["box"] else 0.0
 
     from playwright.async_api import async_playwright
-    async with async_playwright() as pw:
+
+    from backend.services.chromium_slot import chromium_slot
+    async with chromium_slot(), async_playwright() as pw:
         browser = await pw.chromium.launch()
         try:
             pg = await browser.new_page()
@@ -216,7 +218,9 @@ async def fit_to_page(
 
     try:
         from playwright.async_api import async_playwright
-        async with async_playwright() as pw:
+
+        from backend.services.chromium_slot import chromium_slot
+        async with chromium_slot(), async_playwright() as pw:
             browser = await pw.chromium.launch()
             try:
                 page = await browser.new_page()

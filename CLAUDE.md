@@ -43,7 +43,7 @@ There is exactly **one** Supabase project (`ynirccgaxwcwmbhkfxnh`), reached via 
 
 Two traps this section previously hid, both of which reached production:
 - **An empty database is indistinguishable from a healthy one.** `core/migrations.py` runs `Base.metadata.create_all()` at startup, so pointing at a fresh/wrong project creates the schema on arrival and every query returns `200` with zero rows. No error anywhere. This is what a `_PROD` variable aimed at an unpopulated project looks like.
-- **`/health` proves nothing about the database.** It returns `{"status": "ok"}` unconditionally and touches neither Postgres nor Chromium.
+- **`/health` checks the connection, not the data.** Since #73 it runs `SELECT 1` and returns 503 when Postgres is unreachable (`backend/tests/test_health_db.py`), but a reachable, empty or wrong project still passes — see the trap above.
 
 The stale text claimed SQLite was primary, `DATABASE_URL` was "aspirational/unused", and `backend/services/db.py` existed. Anyone trusting it would conclude the database configuration could not be the cause of a data problem — which is exactly the wrong place to stop looking. Root-level `jobs.db` remains a stray 0-byte artifact.
 
