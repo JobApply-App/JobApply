@@ -74,8 +74,10 @@ CODES: dict[str, int] = {
     # Documents
     "pdf_unavailable":         503,
     "pdf_failed":              502,
+    "pdf_busy":                503,   # render queue full; Retry-After says when
     # Generic
     "service_unavailable":     503,
+    "payload_too_large":       413,
     "server_error":            500,
 }
 

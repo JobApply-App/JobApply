@@ -14,6 +14,7 @@ import { fetchTemplates, renderPdf, downloadCvPdf, fetchMatchScore, fetchCachedC
 import { MatchScorePanel } from './MatchScorePanel'
 import { TemplateSelectorBar } from './TemplateSelectorBar'
 import { LiveEditor } from './LiveEditor'
+import { RenderWait } from './RenderWait'
 import type { CvData } from './LiveEditor'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -1317,6 +1318,11 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
               >
                 {isDownloading ? A.preparing : A.download_pdf}
               </button>
+              {isDownloading && (
+                <div className="bg-white/95 backdrop-blur px-3 py-2 rounded-lg border border-slate-200">
+                  <RenderWait active compact />
+                </div>
+              )}
               {downloadError && (
                 <span className="max-w-[240px] text-right text-[11.5px] leading-snug text-rose-600
                                  bg-white/95 backdrop-blur px-2 py-1 rounded-md border border-rose-200">
@@ -1342,11 +1348,11 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                   Chrome shows nothing, iOS only the first page), so phones get
                   a download card instead of a blank preview. */}
               {renderingTemplate && (
-                <div
-                  role="status"
-                  className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-white/70 backdrop-blur-[1px] text-[13px] font-medium text-slate-600"
-                >
-                  <Spinner size={16} /> {C.applying_template}
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/75 backdrop-blur-[1px]">
+                  <span className="flex items-center gap-2 text-[13px] font-medium text-slate-600">
+                    <Spinner size={16} /> {C.applying_template}
+                  </span>
+                  <RenderWait active />
                 </div>
               )}
               <iframe
@@ -1367,6 +1373,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                 >
                   {isDownloading ? A.preparing : A.download_pdf}
                 </button>
+                {isDownloading && <RenderWait active compact />}
                 {downloadError && (
                   <span className="text-[12px] text-rose-600">{downloadError}</span>
                 )}

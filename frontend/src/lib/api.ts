@@ -3,6 +3,7 @@ import type { Job } from './data'
 import { supabase } from './supabase'
 import { NdjsonLineSplitter } from './ndjson'
 import { ApiError, apiErrorFromBody } from './errors'
+import { retryWhileBusy } from './pdfQueue'
 
 // Empty base → all requests are relative (/api/...) and are proxied to
 // FastAPI by the rewrites rule in next.config.mjs. Set NEXT_PUBLIC_API_URL
@@ -314,10 +315,26 @@ export async function fetchTemplates(): Promise<import('./apiTypes').TemplateInf
   return data.templates
 }
 
+export interface RenderQueueStatus {
+  ahead: number
+  running: number
+  eta_seconds: number
+  avg_render_seconds: number
+}
+
+/** How busy PDF rendering is: renders ahead and an estimated wait (polled while a render is pending). */
+export async function fetchRenderQueue(): Promise<RenderQueueStatus> {
+  return get<RenderQueueStatus>('/api/resumes/render-queue')
+}
+
+function retryWhilePdfBusy<T>(fn: () => Promise<T>): Promise<T> {
+  return retryWhileBusy(fn, async () => (await fetchRenderQueue()).eta_seconds)
+}
+
 export async function renderPdf(cvData: Record<string, unknown>, templateId: string): Promise<string> {
-  const data = await post<object, { pdf_b64: string }>('/api/resumes/render-pdf', {
+  const data = await retryWhilePdfBusy(() => post<object, { pdf_b64: string }>('/api/resumes/render-pdf', {
     cv_data: cvData, template_id: templateId,
-  })
+  }))
   return data.pdf_b64
 }
 
@@ -335,6 +352,13 @@ export async function renderPdf(cvData: Record<string, unknown>, templateId: str
  * which matters for Hebrew names that cannot travel in a latin-1 header.
  */
 export async function downloadCvPdf(
+  cvData: Record<string, unknown>,
+  templateId: string,
+): Promise<void> {
+  return retryWhilePdfBusy(() => _downloadCvPdfOnce(cvData, templateId))
+}
+
+async function _downloadCvPdfOnce(
   cvData: Record<string, unknown>,
   templateId: string,
 ): Promise<void> {

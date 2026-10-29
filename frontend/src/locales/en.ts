@@ -41,6 +41,8 @@ export const en = {
       ai_bad_output:          { title: 'The AI returned an unusable answer', why: 'The answer arrived incomplete or in a broken format.', action: 'Try again — a second attempt usually works.' },
       pdf_unavailable:        { title: 'PDF download is down on our side', why: 'The component that builds PDFs is not available on the server. Retrying will not help until we fix it.', action: 'We have been notified. Meanwhile you can copy the CV text from the preview.' },
       pdf_failed:             { title: 'Creating the PDF failed', why: 'Something broke while building the file.', action: 'Try again. If it keeps failing, switch to a different template.' },
+      pdf_busy:               { title: 'Lots of CVs are being prepared right now', why: 'Yours is next in line and will start in a few seconds.', action: 'No need to do anything — we retry automatically.' },
+      payload_too_large:      { title: 'That is too much to send at once', why: 'The request was larger than the server accepts.', action: 'Try a smaller file, or send fewer files together.' },
       service_unavailable:    { title: 'The service is temporarily unavailable', why: 'Part of the system is not responding right now.', action: 'Try again in a few minutes.' },
       server_error:           { title: 'Something broke on our side', why: 'An unexpected error happened on our server. It is not something you did, and it was logged for us to fix.', action: 'Try again. If it keeps happening, tell us what you did just before.' },
       network:                { title: 'No connection to the server', why: 'Your device could not reach JobApply — the internet connection dropped or is weak.', action: 'Check your connection and try again.' },
@@ -468,6 +470,9 @@ export const en = {
     download_pdf:       'Download PDF',
     download_title:     'Download your CV as a PDF',
     preparing:          'Preparing…',
+    render_wait_almost: 'Almost ready…',
+    render_wait_eta:    'Your CV will be ready in about {s} seconds',
+    render_wait_queue:  '{n} CVs ahead of you · about {s} seconds',
     errors: {
       timeout:           'Generation timed out. This can happen when the AI service is busy — please try again.',
       still_loading:     'Job details are still loading. Please wait a moment and try again.',

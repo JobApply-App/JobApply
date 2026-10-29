@@ -147,6 +147,11 @@ ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
 TAVILY_API_KEY:    Optional[str] = os.getenv("TAVILY_API_KEY")
 GEMINI_API_KEY:    Optional[str] = os.getenv("GEMINI_API_KEY")
 
+# Optional. When set, API rate-limit counters live in Redis (shared by every
+# instance) instead of each process's memory — needed once the service runs
+# on more than one instance. Unset = in-memory, correct for a single instance.
+REDIS_URL: Optional[str] = os.getenv("REDIS_URL")
+
 # Both resolved via _select_env_var() — SUPABASE_URL_DEV/_PROD and
 # SUPABASE_JWT_SECRET_DEV/_PROD let a Dev and a Prod Supabase project's auth
 # settings coexist in one backend/.env, with APP_ENV picking which is live.

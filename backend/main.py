@@ -544,6 +544,32 @@ class RequestTimingMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(RequestTimingMiddleware)
 
+
+# ── Request size cap ──────────────────────────────────────────────────────────
+# Nothing bounded a request body: a single multi-gigabyte JSON POST would be
+# read into memory on a 512 MB instance. Refused by its declared length before
+# the body is read. Multipart (CV uploads: up to 10 files of 10 MB each, see
+# routes/profile.py) gets the larger cap; everything else is JSON, where a CV
+# sent as base64 to the chat is the largest legitimate body (~14 MB).
+_MAX_BODY_MULTIPART = 105 * 1024 * 1024
+_MAX_BODY_OTHER     = 20 * 1024 * 1024
+
+
+class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        declared = request.headers.get("content-length")
+        if declared and declared.isdigit():
+            multipart = request.headers.get("content-type", "").startswith("multipart/")
+            if int(declared) > (_MAX_BODY_MULTIPART if multipart else _MAX_BODY_OTHER):
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "This request is too large.", "code": "payload_too_large"},
+                )
+        return await call_next(request)
+
+
+app.add_middleware(BodySizeLimitMiddleware)
+
 # Origin list is environment-based (backend/config.py::CORS_ORIGINS):
 #   ENVIRONMENT=development (default) → same localhost list as before.
 #   ENVIRONMENT=production            → explicit CORS_ALLOWED_ORIGINS only.

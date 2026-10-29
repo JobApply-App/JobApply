@@ -27,7 +27,9 @@ from backend.services.match_score_service import (
     _cv_experience_text,
     _is_experience_backed,
 )
-from backend.api.deps import CurrentUser, daily_generation_limit, get_current_user, llm_rate_limit, standard_rate_limit
+from backend.api.deps import (
+    CurrentUser, daily_generation_limit, get_current_user, llm_rate_limit, pdf_rate_limit, standard_rate_limit,
+)
 from backend.services.master_profile_service import get_cached_answer, merge_answers
 from backend.repositories.job_repository import clear_tailored_cv, get_tailored_cv, save_tailored_cv
 
@@ -53,6 +55,15 @@ def _pdf_http_error(exc: Exception, *, context: str) -> HTTPException:
     Centralised so the several call sites can't drift into telling users
     different stories about the same condition.
     """
+    from backend.services.chromium_slot import QueueFull
+    if isinstance(exc, QueueFull):
+        # Load shedding, not a failure: the render queue is full. The client
+        # shows a short countdown and retries after Retry-After.
+        return AppError("pdf_busy",
+            status_code=503,
+            detail="We're preparing many CVs right now. Yours will start in a few seconds.",
+            headers={"Retry-After": str(exc.retry_after)},
+        )
     if isinstance(exc, PdfEngineUnavailable):
         logger.error("[%s] PDF engine unavailable — Chromium not installed: %s", context, exc)
         return AppError("pdf_unavailable",
@@ -1370,7 +1381,17 @@ class RenderPdfRequest(BaseModel):
     template_id: str = "t2_modern"
 
 
-@router.post("/render-pdf")
+@router.get("/render-queue")
+async def render_queue(user: CurrentUser = Depends(get_current_user)):
+    """
+    How busy PDF rendering is right now: renders ahead and an estimated wait.
+    Polled by the frontend while a render is pending, to show a countdown.
+    """
+    from backend.services.chromium_slot import queue_status
+    return queue_status()
+
+
+@router.post("/render-pdf", dependencies=[Depends(pdf_rate_limit)])
 async def render_pdf(req: RenderPdfRequest, user: CurrentUser = Depends(get_current_user)):
     """
     Render cv_data with the chosen template and return a base64 PDF.
@@ -1411,7 +1432,7 @@ def _cv_filename(user_id: str) -> tuple[str, str]:
     return ascii_name, quote(utf8_source, safe="")
 
 
-@router.post("/export-pdf")
+@router.post("/export-pdf", dependencies=[Depends(pdf_rate_limit)])
 async def export_pdf(req: RenderPdfRequest, user: CurrentUser = Depends(get_current_user)):
     """
     Stream the CV as a raw PDF binary for a one-click browser download.
