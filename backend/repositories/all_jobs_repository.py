@@ -24,6 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from backend.core.postgres import get_pg_session
+from backend.services.job_freshness import fresh_condition
 from backend.services.title_search import expand_title_query, is_whole_word, pg_word_regex
 from backend.models.all_jobs import AllJobRow
 from backend.services.linkedin_job_normalize import (
@@ -336,6 +337,9 @@ def get_paginated_all_jobs(
     offset = (page - 1) * page_size
 
     conditions = _build_filter_conditions(filters) if filters else []
+    # Jobs older than config.JOB_MAX_AGE_DAYS are hidden, not deleted
+    # (services/job_freshness.py).
+    conditions.append(fresh_condition(_TABLE.c.posted_at, _TABLE.c.first_seen_at))
     order_clauses = _SORT_OPTIONS.get(sort_by, _SORT_OPTIONS[DEFAULT_SORT_BY])
     if filters and filters.title and filters.title.strip():
         # Titles with the words the user typed (any gender form, any order)

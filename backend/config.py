@@ -480,6 +480,13 @@ BOARD_MAX_NEW_JOBS_PER_USER: int = 20
 # gets an immediate cycle (all_jobs_match_service.schedule_refresh_for_user).
 ALL_JOBS_MATCHING_INTERVAL_SECONDS: int = 21600  # 6 hours
 
+# Jobs posted (or, when the posting date is unknown, first seen) more than
+# this many days ago are hidden from users everywhere: the job boards (All
+# Jobs, LinkedIn), matching, and the Matches feed. Nothing is deleted — the
+# rows stay in the database, out of sight, until job open/closed detection
+# exists. Jobs the user saved or applied to stay visible to them.
+JOB_MAX_AGE_DAYS: int = int(os.getenv("JOB_MAX_AGE_DAYS", "30"))
+
 # ── Development mode ──────────────────────────────────────────────────────────
 # When DEV_MODE is True, each board scraper is capped at DEV_MAX_JOBS_PER_BOARD
 # detail-page fetches per run.  This keeps the full s1 → s4 pipeline cycle

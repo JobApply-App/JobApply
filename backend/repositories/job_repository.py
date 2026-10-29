@@ -616,6 +616,21 @@ def clear_tailored_cv(job_id: str, user_id: str) -> bool:
         return result.rowcount > 0
 
 
+# Matches for jobs older than config.JOB_MAX_AGE_DAYS are hidden from the
+# feed (services/job_freshness.py), except jobs the user saved or applied to:
+# those are the user's own history. Nothing is deleted.
+_FRESH_FOR_USER = (
+    "(ujm.status IN ('saved', 'applied') OR COALESCE(ujm.applied, false)"
+    " OR COALESCE(jp.posted_at, jp.created_at) IS NULL"
+    " OR COALESCE(jp.posted_at, jp.created_at) >= :fresh_cutoff)"
+)
+
+
+def _fresh_params() -> dict:
+    from backend.services.job_freshness import cutoff
+    return {"fresh_cutoff": cutoff()}
+
+
 def get_feed(user_id: str, status_filter: Optional[str] = None) -> List[JobMatch]:
     """
     Return the job feed for a user, sorted by match_score DESC then created_at DESC.
@@ -632,10 +647,13 @@ def get_feed(user_id: str, status_filter: Optional[str] = None) -> List[JobMatch
     with ENGINE.connect().execution_options(isolation_level="AUTOCOMMIT") as conn, \
             Session(bind=conn) as session:
         if status_filter:
-            rows = _get_joined(session, user_id=user_id, extra_where="ujm.status = :status",
-                                params={"status": status_filter})
+            rows = _get_joined(session, user_id=user_id,
+                               extra_where="ujm.status = :status AND " + _FRESH_FOR_USER,
+                               params={"status": status_filter, **_fresh_params()})
         else:
-            rows = _get_joined(session, user_id=user_id, extra_where="ujm.status != 'ignored'")
+            rows = _get_joined(session, user_id=user_id,
+                               extra_where="ujm.status != 'ignored' AND " + _FRESH_FOR_USER,
+                               params=_fresh_params())
         rows = sorted(
             rows,
             key=lambda r: (
@@ -672,6 +690,7 @@ _SELECT_CANDIDATES = f"""
     FROM public.user_job_matches ujm
     JOIN public.job_postings jp ON jp.id = ujm.job_posting_id
     WHERE ujm.user_id = CAST(:user_id AS uuid) AND ujm.status != 'ignored'
+      AND {_FRESH_FOR_USER}
     ORDER BY COALESCE(ujm.match_score, 0) DESC, ujm.created_at DESC NULLS LAST
 """
 
@@ -679,7 +698,8 @@ _SELECT_CANDIDATES = f"""
 def get_enrichment_candidates(user_id: str, min_chars: int) -> list:
     """Narrow rows for choosing what to enrich — no JD text or analysis payloads."""
     with ENGINE.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        rows = conn.execute(text(_SELECT_CANDIDATES), {"user_id": user_id, "min_chars": min_chars}).fetchall()
+        rows = conn.execute(text(_SELECT_CANDIDATES),
+                            {"user_id": user_id, "min_chars": min_chars, **_fresh_params()}).fetchall()
     return [
         SimpleNamespace(
             job_id=r.job_id, title=r.title, company=r.company, apply_url=r.apply_url,
@@ -726,12 +746,12 @@ assert _SELECT_READY != _SELECT_JOINED, "jd_text column not found in _SELECT_JOI
 def get_ready_feed(user_id: str, *, status_filter: Optional[str] = None,
                    min_score: float = 0.0, limit: int = 50) -> List[JobMatch]:
     """Feed rows that pass the ready gate, best first, at most `limit`."""
-    params: dict = {"min_score": min_score, "limit": limit}
+    params: dict = {"min_score": min_score, "limit": limit, **_fresh_params()}
     if status_filter:
-        where = "ujm.status = :status AND " + _READY_WHERE
+        where = "ujm.status = :status AND " + _FRESH_FOR_USER + " AND " + _READY_WHERE
         params["status"] = status_filter
     else:
-        where = "ujm.status != 'ignored' AND " + _READY_WHERE
+        where = "ujm.status != 'ignored' AND " + _FRESH_FOR_USER + " AND " + _READY_WHERE
     order = " ORDER BY ujm.match_score DESC NULLS LAST, ujm.created_at DESC NULLS LAST LIMIT :limit"
     with ENGINE.connect().execution_options(isolation_level="AUTOCOMMIT") as conn, \
             Session(bind=conn) as session:
