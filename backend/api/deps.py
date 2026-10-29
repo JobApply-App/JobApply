@@ -183,28 +183,54 @@ _RATE_LOCK = threading.Lock()
 _RATE_MAX_KEYS = 50_000   # opportunistic-cleanup threshold to bound memory
 
 
-def _rate_identity(request: Request) -> str:
-    """
-    Best-effort caller identity for rate keying.
+# Verified token -> user id, so a token is checked once per couple of minutes
+# for rate keying rather than on every request (auth verifies it again anyway).
+_RATE_SUB_CACHE: dict[str, tuple[float, str]] = {}
+_RATE_SUB_TTL = 120.0
+_RATE_SUB_MAX = 10_000
 
-    Prefers the JWT `sub` (unverified decode — keying only, never trusted for
-    authz), falls back to a token prefix, then to the client IP. Unverified
-    decode is safe here: a forged `sub` only changes which bucket the caller's
-    own requests land in, so a caller can throttle only themselves — they can
-    never lift another identity's limit.
+
+async def _verified_sub(token: str) -> Optional[str]:
+    """The token's user id if its signature verifies, else None."""
+    now = time.monotonic()
+    hit = _RATE_SUB_CACHE.get(token)
+    if hit and hit[0] > now:
+        return hit[1]
+    from jose import JWTError, jwt
+    try:
+        if _SUPABASE_URL:
+            identity = await _verify_rs256_identity(token, jwt, JWTError)
+        else:
+            identity = _verify_hs256_identity(token, jwt, JWTError)
+    except Exception:
+        return None
+    if len(_RATE_SUB_CACHE) >= _RATE_SUB_MAX:
+        _RATE_SUB_CACHE.clear()
+    _RATE_SUB_CACHE[token] = (now + _RATE_SUB_TTL, identity.user_id)
+    return identity.user_id
+
+
+async def _rate_identity(request: Request) -> str:
+    """
+    Caller identity for rate keying.
+
+    The user id from a token whose signature verifies. It used to be read
+    from the token WITHOUT verification: a caller minting a fake token with a
+    new `sub` per request got a fresh, empty bucket every time — no limit at
+    all. A token that does not verify now lands in one shared "unverified"
+    bucket per peer, so forging tokens no longer escapes the limit; real
+    users always carry a valid token. Requests with no token fall back to
+    the client IP.
     """
     auth = request.headers.get("authorization", "")
     if auth[:7].lower() == "bearer ":
         token = auth[7:].strip()
         if token:
-            try:
-                from jose import jwt as _jwt
-                sub = _jwt.get_unverified_claims(token).get("sub")
-                if sub:
-                    return f"user:{sub}"
-            except Exception:
-                pass
-            return f"token:{token[:24]}"
+            sub = await _verified_sub(token)
+            if sub:
+                return f"user:{sub}"
+            client = request.client
+            return f"unverified:{client.host if client else 'unknown'}"
     client = request.client
     host   = client.host if client else "unknown"
     # Trusted-proxy hop: the Next.js server proxies public traffic from
@@ -250,7 +276,7 @@ class RateLimiter:
         self.scope          = scope
 
     async def __call__(self, request: Request) -> None:
-        key = f"{self.scope}:{_rate_identity(request)}"
+        key = f"{self.scope}:{await _rate_identity(request)}"
         if await self._check_redis(key):
             return
         now = time.monotonic()
