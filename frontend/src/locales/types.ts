@@ -48,6 +48,8 @@ export interface Dict {
     applying_template: string
     ats_info_label: string
     ats_info: string
+    skills_gap_info_label: string
+    skills_gap_info: string
     undo: string
     retry: string
     sort: string

@@ -59,6 +59,8 @@ export const en = {
   },  common: {
     applying_template: 'Applying the design…',
     ats_info_label: 'What is ATS?',
+    skills_gap_info_label: 'What is the Skills Gap Analysis?',
+    skills_gap_info: 'It compares the skills this job asks for with the skills in your profile and CV, and lists what is missing or not shown clearly enough. Each gap is something to add to your CV if you have it, or to practise and prepare for the interview if you do not. It does not lower your chances by itself: it shows where to focus.',
     ats_info: 'ATS (Applicant Tracking System) is the software most companies use to receive CVs. It scans each CV for the skills and keywords in the job description before a person reads it. Your ATS score estimates how well your CV matches this job, so a higher score means a better chance of reaching a recruiter.',
     undo: 'Undo',
     retry: 'Retry',

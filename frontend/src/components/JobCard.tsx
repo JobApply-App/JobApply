@@ -1181,6 +1181,7 @@ export const JobCard = memo(function JobCard({
 
                   {/* Active Skills Gap Analysis (JOB-59) */}
                   <div className="pt-3 border-t border-slate-100">
+                    <div className="flex items-center gap-1">
                     <button
                       onClick={e => { e.stopPropagation(); setShowSkillsGap(p => !p) }}
                       className="flex items-center gap-1.5 min-h-[44px] sm:min-h-0 text-[12.5px] sm:text-[12px] font-medium text-slate-500 hover:text-slate-800 transition"
@@ -1189,6 +1190,8 @@ export const JobCard = memo(function JobCard({
                       {J.skills_gap}
                       {!hasJD && <span className="text-[10px] text-amber-500 ms-0.5">{J.fetch_jd_first}</span>}
                     </button>
+                    <InfoTip text={tCommon.skills_gap_info} label={tCommon.skills_gap_info_label} />
+                    </div>
                     {showSkillsGap && (
                       <div className="mt-2">
                         <SkillsGapPanel jobId={job.job_id} hasJd={hasJD} />
