@@ -64,7 +64,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"  # matches backend/Dockerfile's runtime image
+          python-version: "3.12"  # matches backend/Dockerfile's runtime image
           cache: "pip"
           cache-dependency-path: backend/requirements.txt
 

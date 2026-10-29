@@ -7,7 +7,12 @@
 # narrowed to backend/ itself, deferred to a later infra pass. Build with:
 #   docker build -f backend/Dockerfile -t jobapply-backend .
 # (docker-compose.yml at the repo root already sets this up.)
-# Pinned to a specific Debian codename (not the floating `python:3.9-slim`
+# Python 3.12: 3.9 reached end of life in October 2025 (google-auth warned
+# on every start that it gets no further fixes). 3.12 is supported until
+# October 2028; the full test suite and every pinned requirement were
+# verified on it before the switch.
+#
+# Pinned to a specific Debian codename (not the floating `python:3.12-slim`
 # tag) because Playwright 1.49.1's `--with-deps` installer below only knows
 # how to map apt package names for specific Debian releases — a newer
 # unpinned base (Debian "trixie") fails with missing/renamed font packages
@@ -15,7 +20,7 @@
 # Playwright 1.49.1 fully supports. Verified via a real `docker compose
 # build` run — do not un-pin this without re-testing the playwright install
 # step.
-FROM python:3.9-slim-bookworm
+FROM python:3.12-slim-bookworm
 
 # build-essential: some pinned wheels (pymupdf, lxml) fall back to a source
 # build on platforms without a prebuilt wheel. curl: used by the compose
