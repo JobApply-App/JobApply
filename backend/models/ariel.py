@@ -38,7 +38,8 @@ class ArielSessionRow(Base):
 
 
 class ConversationEventRow(Base):
-    """One STAR behavioral event extracted by the LLM from a session transcript."""
+    """One event inside an Ariel session: a STAR extraction, or a probe outcome
+    (event_kind='probe', migration 32d536527e9a — the probe log folded in)."""
     __tablename__ = "conversation_events"
 
     event_id              = Column(String, primary_key=True)
@@ -54,10 +55,15 @@ class ConversationEventRow(Base):
     star_task             = Column(Text,   nullable=True)
     star_action           = Column(Text,   nullable=True)
     star_result           = Column(Text,   nullable=True)
-    extracted_entity_ids  = Column(Text,   nullable=False)   # JSON array
-    extraction_confidence = Column(Float,  nullable=False)
+    # Required for star_extraction, empty for probe rows (a CHECK constraint
+    # in Postgres enforces it per event_kind).
+    extracted_entity_ids  = Column(Text,   nullable=True)    # JSON array
+    extraction_confidence = Column(Float,  nullable=True)
     raw_quote             = Column(Text,   nullable=True)
     analyzed_at           = Column(String, nullable=False)
+    event_kind            = Column(Text,   nullable=False, server_default="star_extraction")
+    probe_outcome         = Column(Text,   nullable=True)
+    entity_id             = Column(Text,   nullable=True)
 
 
 class ArielGapQueueRow(Base):

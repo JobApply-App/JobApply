@@ -28,3 +28,14 @@ describe('role search', () => {
     expect(roleLabel('שמאי רכב', 'he')).toBe('שמאי רכב')
   })
 })
+
+describe('Hebrew role search tolerates how people actually type', () => {
+  const top = (q: string) => searchRoles(q, new Set()).map(r => r.en)
+  it.each(['מנהל מוצר', 'מנהלת מוצר', 'מנהל מוצרים', 'מנהל המוצר', 'מוצר מנהל', 'product manager', 'product manag'])(
+    '%s finds Product Manager', q => {
+      expect(top(q)).toContain('Product Manager')
+    })
+  it('every typed word must match, so a second word narrows the list', () => {
+    expect(top('מנהל מוצר')).not.toContain('Finance Manager')
+  })
+})
