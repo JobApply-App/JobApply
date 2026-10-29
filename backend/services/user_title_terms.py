@@ -55,7 +55,8 @@ _CV_TITLES_USED  = 3      # most recent CV roles, when the user picked none
 # Leading/trailing words that make a title more specific without changing the
 # profession. Stripping them is the deterministic fallback expansion.
 _SENIORITY_WORDS = re.compile(
-    r"\b(senior|sr\.?|junior|jr\.?|lead|principal|head of|chief|vp( of)?|"
+    r"\b(senior|sr\.?|junior|jr\.?|lead(?!\s*(?:-\s*)?(?:gen|generation|qualification|nurtur\w*|management|scoring|routing)\b)|"
+    r"principal|head of|chief|vp( of)?|"
     r"director( of)?|associate|assistant|intern|staff|group|global|regional)\b",
     re.IGNORECASE,
 )

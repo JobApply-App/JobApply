@@ -179,7 +179,8 @@ class AnalysisState(TypedDict):
 # ── Node 1: Scraper (Full Playwright Implementation) ───────────────────────────
 
 async def _fetch_with_playwright(url: str) -> tuple[str, dict]:
-    async with async_playwright() as pw:
+    from backend.services.chromium_slot import chromium_slot
+    async with chromium_slot(), async_playwright() as pw:
         browser = await pw.chromium.launch(headless=True)
         ctx = await browser.new_context(viewport={"width": 1280, "height": 900})
         page = await ctx.new_page()

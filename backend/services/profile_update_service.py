@@ -159,7 +159,8 @@ def load_identity_profile(user_id: str) -> dict:
     In production a user's score fell from 40.2 to 38.2 with nothing changed
     on her side: the container restarted, the file was recreated empty, and the
     "roles known" anchor (2 points) vanished although her roles were safe in
-    Postgres. Postgres is now read first; the file only fills gaps.
+    Postgres. Everything is read from Postgres now; the file store itself
+    moved into the database (metrics_doc, read here as metrics_personal).
     """
     doc: dict = {}
     meta: dict = {}
@@ -177,15 +178,6 @@ def load_identity_profile(user_id: str) -> dict:
     prefs = _d(doc.get("role_preferences"))
     goals = _d(doc.get("career_goals"))
 
-    file_profile: dict = {}
-    try:
-        from backend.services import user_profile_store
-        file_profile = user_profile_store.load(user_id) or {}
-    except Exception:
-        file_profile = {}
-    file_personal = _d(file_profile.get("personal"))
-    file_prefs = _d(file_profile.get("role_preferences"))
-
     def _first(*values) -> str:
         for v in values:
             s = str(v or "").strip()
@@ -194,14 +186,12 @@ def load_identity_profile(user_id: str) -> dict:
         return ""
 
     name = _first(personal.get("full_name"), personal.get("name"),
-                  metrics_personal.get("full_name"), file_personal.get("full_name"))
-    phone = _first(personal.get("phone"), metrics_personal.get("phone"),
-                   file_personal.get("phone"))
+                  metrics_personal.get("full_name"))
+    phone = _first(personal.get("phone"), metrics_personal.get("phone"))
     # What the user typed at sign-up (read in the same query).
     name = name or _first(meta.get("full_name"), meta.get("name"))
     phone = phone or _first(meta.get("phone"))
-    roles = (prefs.get("target_titles") or goals.get("target_roles")
-             or file_prefs.get("target_titles") or [])
+    roles = prefs.get("target_titles") or goals.get("target_roles") or []
     return {
         "personal": {"full_name": name, "phone": phone},
         "role_preferences": {"target_titles": [r for r in roles if str(r).strip()]},

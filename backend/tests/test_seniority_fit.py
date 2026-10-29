@@ -54,3 +54,20 @@ def test_no_preference_keeps_everything():
 def test_multiple_roles_union_levels():
     levels = user_levels([{"role": "A", "seniority": "junior"}, {"role": "B", "seniority": "director"}])
     assert fits(levels, "Junior Analyst") and fits(levels, "Head of Product")
+
+
+def test_lead_generation_is_a_function_not_a_level():
+    from backend.services.seniority_fit import title_level
+    for t in ["Lead Generation Specialist", "Lead Gen Manager", "Lead-Generation Rep",
+              "SDR - Lead Qualification", "Lead Nurturing Specialist"]:
+        assert title_level(t) != 4, t
+    assert title_level("Lead Generation Specialist") is None
+    assert title_level("Senior Lead Generation Manager") == 3
+    assert title_level("Team Lead") == 4 and title_level("Lead Engineer") == 4
+    assert title_level("Sales Lead") == 4
+
+
+def test_lead_generation_title_keeps_its_profession_in_search_terms():
+    from backend.services.user_title_terms import deterministic_terms
+    assert deterministic_terms(["Lead Generation Specialist"]) == ["Lead Generation Specialist"]
+    assert "Engineer" in deterministic_terms(["Lead Engineer"])

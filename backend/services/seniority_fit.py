@@ -40,7 +40,10 @@ _LINKEDIN_LEVELS: dict[str, tuple[int, int]] = {
 _TITLE_LEVELS: list[tuple[int, re.Pattern]] = [
     (6, re.compile(r"\b(vp|vice president|chief|cto|ceo|coo|cfo|cpo|cmo|c-level|evp|svp)\b|סמנכ\"?ל|סמנכ״ל|מנכ\"?ל|מנכ״ל")),
     (5, re.compile(r"\b(director|head of)\b|דירקטור|ראש תחום|ראש מחלקה|מנהל(?:/ת)? מחלקה")),
-    (4, re.compile(r"\b(lead|principal|staff|team leader|tech lead)\b|ראש צוות|ראש/ת צוות|מוביל(?:/ה)? טכנולוגי")),
+    # "lead" is a level in "Team Lead" / "Lead Engineer", but a sales term in
+    # "Lead Generation" / "Lead Qualification" — those say nothing about level.
+    (4, re.compile(r"\b(lead(?!\s*(?:-\s*)?(?:gen|generation|qualification|nurtur\w*|management|scoring|routing)\b)|"
+                   r"principal|staff|team leader|tech lead)\b|ראש צוות|ראש/ת צוות|מוביל(?:/ה)? טכנולוגי")),
     (3, re.compile(r"\b(senior|sr\.?)\b|בכיר|סניור")),
     (1, re.compile(r"\b(junior|jr\.?|entry[- ]level|graduate|new grad)\b|ג'וניור|ג׳וניור|זוטר|ללא ניסיון|בוגר(?:/ת)?")),
     (0, re.compile(r"\b(intern|internship|student|trainee)\b|סטודנט|מתמחה|התמחות")),

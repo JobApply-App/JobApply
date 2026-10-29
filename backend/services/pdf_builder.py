@@ -450,10 +450,12 @@ async def build_pdf(cv_data: dict, output_path: str | Path | None = None,
     """
     from playwright.async_api import async_playwright
 
+    from backend.services.chromium_slot import chromium_slot
+
     contact  = _load_contact(user_id)
     html_str = render_html(cv_data, template_id=template_id, user_id=user_id, contact=contact)
 
-    async with async_playwright() as pw:
+    async with chromium_slot(), async_playwright() as pw:
         try:
             browser = await pw.chromium.launch()
         except Exception as exc:

@@ -265,18 +265,10 @@ class RolePreferencesPayload(BaseModel):
 @router.get("/preferences")
 async def get_role_preferences(user: CurrentUser = Depends(get_current_user)) -> dict:
     """Return the calling user's saved role/seniority preferences."""
-    from backend.services.user_profile_store import load as user_load
-
-    # Postgres first. The per-user JSON file lives on the container's disk,
-    # which Render wipes on every deploy — reading only that made saved roles
-    # vanish after each release. The file stays as a fallback for anything
-    # written before the database copy existed.
     from backend.services.user_title_terms import cv_needs_reupload
 
     profile = profile_repository.get_profile_json(user.user_id)
     prefs = (profile.get("role_preferences") or {})
-    if not prefs.get("roles") and not prefs.get("target_titles"):
-        prefs = (user_load(user.user_id).get("role_preferences") or {})
     return {
         "roles":         prefs.get("roles", []),
         "target_titles": prefs.get("target_titles", []),
@@ -293,7 +285,6 @@ async def save_role_preferences(
 ) -> dict:
     """Persist onboarding role/seniority preferences for the calling user only."""
     from backend.services.llm_validation import sanitize_text
-    from backend.services.user_profile_store import load as user_load, save as user_save
 
     roles: list[dict] = []
     for item in body.roles:
@@ -311,14 +302,7 @@ async def save_role_preferences(
 
     target_titles = [r["role"] for r in roles]
 
-    # Per-user profile JSON — the store the matching pipeline reads.
-    profile = user_load(user.user_id)
-    prefs = profile.setdefault("role_preferences", {})
-    prefs["target_titles"] = target_titles   # legacy consumers: flat title list
-    prefs["roles"]         = roles           # per-role seniority pairs
-    user_save(user.user_id, profile)
-
-    # Mirror into the relational profile schema for DB-side consumers.
+    # target_titles: flat list for older consumers; roles: per-role seniority.
     _now = datetime.now(timezone.utc).isoformat()
     with Session(ENGINE) as _sess:
         row, _created = profile_repository.get_or_create(_sess, user.user_id, now=_now)
@@ -607,8 +591,6 @@ async def _ingest_cv_full(
     from backend.services.cv_aggregator_service import (
         CvAggregationError, aggregate_cv_claims, claims_have_cv_content,
     )
-    from backend.services.user_profile_store import load as user_load, save as user_save
-
     # ── Mode A: Full CV ingestion pipeline ────────────────────────────────────
 
     # Phase 2: Aggregate via LLM. Both failure modes stop here, BEFORE
@@ -632,11 +614,7 @@ async def _ingest_cv_full(
             "experience, skills or education in it.",
         )
 
-    # Phase 3: Persist cv_claims to profile JSON + master_profiles table
-    profile = user_load(user_id)
-    profile["cv_claims"] = cv_claims
-    user_save(user_id, profile)
-
+    # Phase 3: Persist cv_claims to the profile (cv_data)
     _now = datetime.now(timezone.utc).isoformat()
     parsed_personal = cv_claims.get("personal") or {}
     with Session(ENGINE) as _sess:
