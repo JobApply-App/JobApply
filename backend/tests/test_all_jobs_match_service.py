@@ -115,6 +115,7 @@ def _no_retire(request, monkeypatch):
     """Unit tests have no database; the retire step is covered on its own."""
     if "disposable_qa_account" not in request.fixturenames and "retire" not in request.node.name:
         monkeypatch.setattr(svc, "retire_off_target_matches", lambda user_id, matcher: 0)
+        monkeypatch.setattr(svc, "_user_levels", lambda user_id: set())
 
 
 def test_cycle_without_terms_adds_nothing(monkeypatch):
@@ -332,3 +333,7 @@ def test_cycle_against_real_dev_writes_zero_score_matches(disposable_qa_account)
         ).fetchone()
     assert row.score == 91.5
     assert row.match_score == 87.0
+
+
+def test_refresh_after_profile_change_fills_more_than_a_background_cycle():
+    assert svc.REFRESH_CYCLE_LIMIT > svc.DEFAULT_CYCLE_LIMIT >= 50

@@ -56,7 +56,13 @@ _JOB_ID_PREFIX = "allj"
 # after. Candidates are pulled most-recently-seen-first, so a user with a
 # large unmatched backlog surfaces the freshest listings first and works
 # through the rest over subsequent cycles rather than in one burst.
-DEFAULT_CYCLE_LIMIT = 20
+#
+# It was 20 per 6-hour cycle. After a role change or a CV upload the feed was
+# cleared of off-target jobs and refilled with 20, so a user who had just told
+# us what they want saw a near-empty feed for hours. The background cycle now
+# adds up to 50, and the immediate refresh after a profile change up to 100.
+DEFAULT_CYCLE_LIMIT = 50
+REFRESH_CYCLE_LIMIT = 100
 
 # How many all_jobs titles to scan per user per cycle (a light id/title/url
 # query). Covers the whole current catalog (~8.5k rows) with headroom; the
@@ -160,7 +166,7 @@ def _catalog_index():
         rows = (
             session.query(
                 AllJobRow.id, AllJobRow.job_title, AllJobRow.job_url,
-                AllJobRow.company_name, AllJobRow.location,
+                AllJobRow.company_name, AllJobRow.location, AllJobRow.seniority_level,
             )
             .order_by(AllJobRow.last_seen_at.desc())
             .limit(_CANDIDATE_POOL_SIZE)
@@ -186,7 +192,7 @@ def _existing_posting_keys(user_id: str) -> set[str]:
     return {r[0] for r in rows if r[0]}
 
 
-def _candidate_all_jobs_rows(matcher, existing: set[str], user_id: str, limit: int):
+def _candidate_all_jobs_rows(matcher, existing: set[str], user_id: str, limit: int, level_ok=None):
     """
     Up to *limit* all_jobs rows whose title passes *matcher* and that the user
     doesn't already have, most-recently-seen first. Lives on the dedicated
@@ -212,10 +218,12 @@ def _candidate_all_jobs_rows(matcher, existing: set[str], user_id: str, limit: i
 
     have_keys = _existing_posting_keys(user_id)
     chosen: list = []
-    for row_id, title, url, company, location in _catalog_index():
+    for row_id, title, url, company, location, seniority in _catalog_index():
         apply_url = (url or "").strip()
         clean_title = (title or "").strip()
         if not apply_url or not matcher(clean_title):
+            continue
+        if level_ok is not None and not level_ok(clean_title, seniority):
             continue
         if make_tenant_job_id(make_job_id(apply_url, prefix=_JOB_ID_PREFIX), user_id) in existing:
             continue
@@ -281,6 +289,20 @@ def retire_off_target_matches(user_id: str, matcher) -> int:
     return len(stale)
 
 
+def _user_levels(user_id: str) -> set[int]:
+    """Seniority levels the user picked per role (services/seniority_fit.py); empty = any."""
+    from backend.repositories import profile_repository
+    from backend.services.seniority_fit import user_levels
+
+    try:
+        prefs = profile_repository.get_profile_json(user_id).get("role_preferences") or {}
+    except Exception:
+        # Not fatal: matching by role alone is what ran before levels existed.
+        logger.warning("[all_jobs_match] seniority unreadable for user=%s — matching by role only", user_id, exc_info=True)
+        return set()
+    return user_levels(prefs.get("roles") if isinstance(prefs, dict) else [])
+
+
 def run_all_jobs_matching_cycle(
     user_id: str, *, limit: int = DEFAULT_CYCLE_LIMIT, terms: Optional[list[str]] = None,
 ) -> int:
@@ -311,10 +333,18 @@ def run_all_jobs_matching_cycle(
     # Relevancy is checked here, across the whole catalog, not just inside
     # _save_new — so a pool front-loaded with irrelevant rows can't exhaust
     # *limit* before a single real job is found.
+    from backend.services.seniority_fit import fits
+
     matcher = build_title_matcher(terms)
-    retire_off_target_matches(user_id, matcher)
+    levels = _user_levels(user_id)
+
+    def level_ok(title: str, seniority_level: Optional[str] = None) -> bool:
+        return fits(levels, title, seniority_level)
+
+    # Retire by role AND level: a senior user's untouched internships go too.
+    retire_off_target_matches(user_id, lambda title: matcher(title) and level_ok(title))
     existing = _existing_job_ids(user_id)
-    candidates = _candidate_all_jobs_rows(matcher, existing, user_id, limit)
+    candidates = _candidate_all_jobs_rows(matcher, existing, user_id, limit, level_ok=level_ok)
 
     from backend.scrapers.base_scraper import make_job_id, make_tenant_job_id
 
@@ -370,7 +400,9 @@ def schedule_refresh_for_user(user_id: str) -> None:
             if handle is None or handle.onboarding_status != "complete":
                 return
             terms = await refresh_user_terms(user_id)
-            saved = await asyncio.to_thread(run_all_jobs_matching_cycle, user_id, terms=terms)
+            saved = await asyncio.to_thread(
+                run_all_jobs_matching_cycle, user_id, terms=terms, limit=REFRESH_CYCLE_LIMIT,
+            )
             logger.info("[all_jobs_match] immediate refresh user=%s new_matches=%d", user_id, saved)
         except Exception:
             logger.exception("[all_jobs_match] immediate refresh failed for user=%s", user_id)

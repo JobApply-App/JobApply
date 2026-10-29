@@ -13,18 +13,15 @@ round-trip via `.model_dump()`) — that hasn't changed. What changed is which
 provider actually answers first:
 
 Primary provider — both call_llm() and stream_llm():
-  GEMINI_API_KEY is currently unset (2026-08-16 — the subscription behind
-  the previous key lapsed). `_gemini_client` is therefore None,
+  Production has GEMINI_API_KEY set (logs on 2026-10-28 show Ariel's chat,
+  title-term expansion and CV extraction answered by gemini-flash-latest).
+  An earlier note here said the key was unset (it was, from 2026-08-16 until
+  it was restored); without a key `_gemini_client` is None,
   `_gemini_eligible()` returns False before any network call, and every
-  request goes straight to Anthropic: no wasted attempt, no 503/429 retry
-  latency. See backend/config.py's GEMINI_API_KEY comment. The Gemini path
-  below is intentionally left in place, not deleted, so restoring a live key
-  re-enables it with no code change — re-verify it's still cost/latency
-  favorable over Anthropic-only before doing so; it wasn't in the state that
-  led to this note.
+  request goes straight to Anthropic with no wasted attempt.
 
-  When a key IS configured: every call attempts Gemini (`_GEMINI_MODEL`, via
-  GEMINI_API_KEY) first,
+  With a key configured: every eligible call attempts Gemini (`_GEMINI_MODEL`,
+  via GEMINI_API_KEY) first,
   translating the Anthropic-shaped `messages`/`tools` into Gemini's shape
   and translating the response back into Anthropic-shaped objects, so
   callers never need to know which provider actually ran. This only happens
