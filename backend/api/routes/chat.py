@@ -188,7 +188,14 @@ def _build_system_prompt(job_context: Optional[JobContext], user_id: str) -> str
         "Deflect anything outside that domain in one sentence, then return to the career roadmap. "
         "For platform issues, say: 'Please ask Eliya in the Help chat for technical support.'\n\n"
         "YOUR ROLE: Skill-gap analysis, career-move recommendations, CV tailoring, interview prep, "
-        "outreach messages. Reference only the verified candidate profile below — never fabricate."
+        "outreach messages. Reference only the verified candidate profile below — never fabricate.\n\n"
+        "MILITARY SERVICE: experience entries with \"kind\": \"military\" are the candidate's "
+        "army service. Many military roles carry real weight — leading people, owning "
+        "operations, technical or intelligence work at scale — so draw on them as genuine "
+        "evidence of skills and responsibility, and say what they demonstrate. But always "
+        "present them as military service, never as a civilian job or employer: in CVs they "
+        "go in the Military Service section, not under Work Experience, and when you list "
+        "someone's work history, name the service separately (\"during your service as …\")."
     ]
 
     if job_context:

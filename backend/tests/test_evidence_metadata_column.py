@@ -119,3 +119,32 @@ def test_certification_is_recorded():
         cert_metadata={"issuer": "AWS"},
     )
     assert _metadata_of("certification", eid)["issuer"] == "AWS"
+
+
+# The last probe answer runs record_probe_outcome as a whole: evidence write
+# plus the conversation_events cooldown row. Sapir's shallow answer took the
+# negative path and got a 500 on the final question (production, 2026-10-28).
+def _probe_outcome(flag_type: str, conf: float) -> str:
+    from backend.services.ariel_probe_service import ArielProbeService
+    uid = str(uuid.uuid4())
+    eid = _entity(uid, "Node.js")
+    sid = _session(uid)
+    ArielProbeService(_ENGINE, _svc()).record_probe_outcome(
+        uid, {"entity_id": eid, "entity_type": "skill"}, sid,
+        {"flag_type": flag_type, "extraction_confidence": conf, "probe_method": "star",
+         "star_components": {"situation": "s", "task": "t", "action": "a", "result": "r"}},
+    )
+    with _ENGINE.connect() as conn:
+        return conn.execute(
+            text("SELECT probe_outcome FROM conversation_events "
+                 "WHERE entity_id = :e AND event_kind = 'probe'"),
+            {"e": eid},
+        ).scalar_one()
+
+
+def test_full_probe_outcome_shallow_answer():
+    assert _probe_outcome("shallow_star", 0.40) == "shallow_star"
+
+
+def test_full_probe_outcome_good_answer():
+    assert _probe_outcome("none", 0.8) == "positive_star"

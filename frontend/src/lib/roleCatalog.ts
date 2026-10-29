@@ -343,14 +343,31 @@ const feminine  = (s: string) => clean(s).replace(
 )
 const haystack = (r: RoleOption) => `${clean(r.en)} ${masculine(r.he)} ${feminine(r.he)}`
 
-/** Suggestions for `query`, word-prefix matches first, then substring matches. */
+// One typed word matches one catalog word when either is a prefix of the
+// other: "מוצרים" (plural) finds "מוצר", "manag" finds "manager". A leading
+// Hebrew definite article is optional ("המוצר" finds "מוצר").
+const wordMatches = (typed: string, word: string) => {
+  const forms = typed.length > 3 && typed.startsWith('ה') ? [typed, typed.slice(1)] : [typed]
+  return forms.some(t => word.startsWith(t) || (word.length >= 3 && t.startsWith(word)))
+}
+const words = (s: string) => s.split(/[\s/,-]+/).filter(Boolean)
+
+/**
+ * Suggestions for `query`: roles where every typed word matches a word of the
+ * role in either language, in any order ("מנהל מוצרים", "מוצר מנהל"); roles
+ * whose text merely contains the query come after.
+ */
 export function searchRoles(query: string, exclude: ReadonlySet<string>, limit = 8): RoleOption[] {
   const q = clean(query.trim())
   const pool = ROLE_CATALOG.filter(r => !exclude.has(r.en.toLowerCase()))
   if (!q) return pool.slice(0, limit)
-  const starts   = pool.filter(r => haystack(r).split(/[\s/]+/).some(w => w.startsWith(q)))
-  const contains = pool.filter(r => !starts.includes(r) && haystack(r).includes(q))
-  return [...starts, ...contains].slice(0, limit)
+  const typed = words(q)
+  const byWord   = pool.filter(r => {
+    const ws = words(haystack(r))
+    return typed.every(t => ws.some(w => wordMatches(t, w)))
+  })
+  const contains = pool.filter(r => !byWord.includes(r) && haystack(r).includes(q))
+  return [...byWord, ...contains].slice(0, limit)
 }
 
 /** The label to show for a stored role: the catalog's translation, or the role as typed. */

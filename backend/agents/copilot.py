@@ -277,7 +277,8 @@ def _serialize_master_profile(master_profile: dict) -> str:
     if experience:
         parts.append("EXPERIENCE (civilian history; earliest first):")
         for exp in experience:
-            if exp.get("unit") and not exp.get("company"):
+            # Legacy singleton: "unit" and no "company". CV import: kind="military".
+            if (exp.get("unit") and not exp.get("company")) or exp.get("kind") == "military":
                 military_entries.append(exp)
                 continue
 
@@ -308,7 +309,7 @@ def _serialize_master_profile(master_profile: dict) -> str:
         )
         for mil in military_entries:
             role   = mil.get("role", "")
-            unit   = mil.get("unit", "")
+            unit   = mil.get("unit") or mil.get("company", "")
             period = mil.get("period", "")
             parts.append(
                 f'  cv_data["military_service"] = {{"role_title": "{role}", "unit_type": "{unit}", "dates": "{period}", "key_responsibilities": []}}'

@@ -1167,10 +1167,11 @@ def _inject_static_sections(
     singleton's and the DB profile's spellings are accepted:
       education: school|institution → institution | period|year → dates
                  | status → honors
-      military:  found in experience[] entries that have a "unit" key but no
-                 "company". The DB profile has no such entries (military shows
-                 up as an ordinary company), so real users get no military
-                 sidebar — which is correct, it isn't their data to inject.
+      military:  experience[] entries with a "unit" key and no "company"
+                 (legacy singleton), or tagged kind="military" (CV import,
+                 services/cv_entry_kind.py). The entry fills the Military
+                 Service section, and any Experience entry for the same unit
+                 is removed: service is never listed as a civilian job.
       skills:    flat list → {categories: [{label, items}]}
 
     When a section is EMPTY in the resolved profile, it is left as the LLM
@@ -1244,19 +1245,35 @@ def _inject_static_sections(
             )
 
     # ── Military ──────────────────────────────────────────────────────────────
-    # Military entries in the legacy singleton's experience[] have a "unit" key
-    # but no "company" key — that's the reliable discriminator. The DB profile
-    # never produces such entries, so this is a no-op for real users.
+    # Military service is always its own CV section, never a job under
+    # Experience — even when the role was real professional work (it is still
+    # weighed as experience in scoring; this is only about where it is shown).
+    # Legacy singleton entries have "unit" and no "company"; CV-imported ones
+    # are tagged kind="military" (cv_entry_kind) with the unit as "company".
     if not _explicitly_deleted("military_service"):
-        for exp in profile.get("experience", []):
-            if exp.get("unit") and not exp.get("company"):
+        from backend.services.cv_entry_kind import is_military
+        military = [
+            exp for exp in profile.get("experience", [])
+            if (exp.get("unit") and not exp.get("company")) or is_military(exp)
+        ]
+        if military:
+            exp = military[0]  # only one military entry expected
+            current = data.get("military_service") or {}
+            if not current.get("role_title"):
                 data["military_service"] = {
                     "role_title": exp.get("role", ""),
-                    "unit_type":  exp.get("unit", ""),
+                    "unit_type":  exp.get("unit") or exp.get("company", ""),
                     "dates":      exp.get("period") or exp.get("dates", ""),
                     "key_responsibilities": [],
                 }
-                break  # only one military entry expected
+            # The model sometimes lists the service under Experience as well.
+            # Matched by the unit name, not by is_military(): a civilian job
+            # "on Air Force programs" must stay where it is.
+            units = {_norm_company(m.get("unit") or m.get("company") or "") for m in military} - {""}
+            data["experience"] = [
+                e for e in (data.get("experience") or [])
+                if not (isinstance(e, dict) and _norm_company(e.get("company") or "") in units)
+            ]
     else:
         data["military_service"] = None
 
@@ -1309,7 +1326,9 @@ def _required_profile_employers(user_id: str) -> list[dict]:
     for exp in profile.get("experience", []):
         company = exp.get("company", "")
         if not company:
-            continue  # military entry uses "unit", not "company"
+            continue  # legacy military entry uses "unit", not "company"
+        if str(exp.get("kind") or "").lower() == "military":
+            continue  # its own CV section, not an employer
         c_norm = _norm_company(company)
         if c_norm in seen:
             continue
