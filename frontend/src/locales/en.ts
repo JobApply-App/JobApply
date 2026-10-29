@@ -806,9 +806,13 @@ export const en = {
       ariel_question: "Ariel's question",
       request_failed: 'Request failed',
       steps: {
-        STAR: 'Situation|Task|Action|Result',
-        SCOPE: 'Scale|Context|Trade-off|Result',
-        SIGNAL: 'Situation|Task|Action|Result',
+        // One label per question the backend asks (3 turns —
+        // services/ariel_probe_service.py). There used to be four labels, so
+        // the result question showed under "Action" with a Finish button and
+        // "Result" was never reached.
+        STAR: 'Situation|Action|Result',
+        SCOPE: 'Scale|Challenge|Trade-off',
+        SIGNAL: 'Situation|Contribution|Impact',
       },
     },
   },

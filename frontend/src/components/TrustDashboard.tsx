@@ -1008,6 +1008,9 @@ interface ProbeModalProps {
   onDone:  (newConfidence: number | null) => void
 }
 
+// The backend asks exactly this many questions (ariel_probe_service: turns 1–3).
+const PROBE_TURNS = 3
+
 export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalProps) {
   const T = useI18n().t.trust
   const { openChat } = useChat()
@@ -1128,7 +1131,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
     }
   }
 
-  const totalTurns  = 3
+  const totalTurns  = PROBE_TURNS
   const isLastTurn  = probe.turn === totalTurns
   const flagPositive = probe.flag_type === 'none' || probe.flag_type === null
 
@@ -1177,10 +1180,10 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
         </div>
 
         <div className="px-5 pb-5 space-y-4">
-          {/* Progress stepper — 4 labeled steps matching STAR / SCOPE / SIGNAL */}
+          {/* Progress stepper — one step per question the backend asks */}
           {!probe.done && (() => {
             const method = probe.probe_method ?? 'STAR'
-            const stepLabels = (T.probe.steps[method] ?? T.probe.steps.STAR).split('|')
+            const stepLabels = (T.probe.steps[method] ?? T.probe.steps.STAR).split('|').slice(0, PROBE_TURNS)
             return (
               <div className="flex items-start gap-0">
                 {stepLabels.map((label, idx) => {
