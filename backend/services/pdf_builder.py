@@ -327,13 +327,15 @@ def _build_skills(skills_data: dict, L: dict | None = None) -> str:
     the HTML (not via CSS ::after) so they survive PDF rendering and never
     look like interactive web-UI badge components.
     """
+    from backend.models.cv import LIMITS
+
     categories = (skills_data or {}).get("categories", [])
     if not categories:
         return ""
     cats_html = []
     for cat in categories[:4]:
-        label = _t(cat.get("label", ""), 20)
-        items = [_t(s, 25) for s in (cat.get("items") or [])[:_SKILLS_ITEMS_PER_CATEGORY_CAP] if s]
+        label = _t(cat.get("label", ""), LIMITS["skill_label"])
+        items = [_t(s, LIMITS["skill_item"]) for s in (cat.get("items") or [])[:_SKILLS_ITEMS_PER_CATEGORY_CAP] if s]
         if not items:
             continue
         # Bullet-separated plain text — no background, no border, no badge look.

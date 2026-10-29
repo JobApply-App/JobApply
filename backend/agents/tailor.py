@@ -62,8 +62,8 @@ _LIM = {
     "mil_role":      45,
     "mil_unit":      60,   # raised from 40 — "IDF Telecommunication Corps — Hoshen Unit" is 41 chars
     "mil_dates":     20,
-    "skill_label":   20,
-    "skill_item":    25,
+    "skill_label":   40,   # mirrors backend/models/cv.py LIMITS
+    "skill_item":    35,
     "lang_name":     20,
     "lang_level":    35,
     "volunteering": 120,
@@ -721,7 +721,7 @@ Supporting roles: 2-3 focused bullets. Never pad with weak bullets to hit a coun
     "education": [
       {{
         "degree":      "<string <=60 chars — copy exactly from profile>",
-        "institution": "<string <=35 chars — copy exactly from profile>",
+        "institution": "<string <=60 chars — copy exactly from profile>",
         "dates":       "<copied exactly from profile, <=20 chars>",
         "honors":      "<FACTUAL HONORS ONLY <=60 chars: 'Dean's List', 'GPA: X.X', \
 'Graduated with Distinction'. NEVER add contextual commentary, personal narrative, \
@@ -742,8 +742,8 @@ credential was earned, such as 'while working full-time', or \
     "skills": {{
       "categories": [
         {{
-          "label": "<category <=20 chars — mirrors JD language, never ends in '&' or 'and'>",
-          "items": ["<skill <=25 chars, max 6 per category>"]
+          "label": "<category <=40 chars — mirrors JD language, never ends in '&' or 'and'>",
+          "items": ["<skill <=35 chars, max 6 per category>"]
         }}
       ]
     }},
