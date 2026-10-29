@@ -52,6 +52,7 @@ export interface TailorOkResponse {
   pdf_b64:            string
   match_score:        MatchScoreResult | null
   preferred_template: string
+  cv_locale?:          string   // language the CV is written in
 }
 
 export interface TailorMissingResponse {

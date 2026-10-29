@@ -367,6 +367,7 @@ export interface Dict {
     back_to_jobs:     string
     cv_language:      string
     cv_language_regen_hint: string
+    create_lang_version:    string   // takes {lang}
     edit_cv:          string
     back_to_preview:  string
     approve_apply:    string

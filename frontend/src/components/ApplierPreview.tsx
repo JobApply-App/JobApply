@@ -40,6 +40,15 @@ function CheckIcon({ s = 16 }: { s?: number }) {
   )
 }
 
+/** A language's name in the interface language: "Hebrew" / "אנגלית". */
+function languageName(code: string, uiLocale: string): string {
+  try {
+    return new Intl.DisplayNames([uiLocale], { type: 'language' }).of(code) ?? code
+  } catch {
+    return code
+  }
+}
+
 function XIcon({ s = 16 }: { s?: number }) {
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -402,6 +411,12 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   // Follow the interface language until the user overrides it for this job.
   const cvLangTouched = useRef(false)
   useEffect(() => { if (!cvLangTouched.current) setCvLang(locale) }, [locale])
+  // The language of the CV on screen (null until one is loaded). When the
+  // picker differs from it, the preview offers that language as a new
+  // version — picking it used to do nothing until the user also found the
+  // small "regenerate" link, so an English CV could not become a Hebrew one.
+  const [shownLang, setShownLang] = useState<Locale | null>(null)
+  const asLocale = (v: unknown): Locale => (LOCALES.some(l => l.code === v) ? v as Locale : 'en')
 
   /**
    * Output-language picker, rendered wherever a generation can be started.
@@ -506,6 +521,9 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       if (!data || !data.cv_data) return
       setCvState({ cvData: data.cv_data, pdfB64: data.pdf_b64 ?? '' })
       setParsedCv(parseCv(data.cv_data).data)
+      const lang = asLocale(data.cv_locale)
+      setShownLang(lang)
+      if (!cvLangTouched.current) setCvLang(lang)
       if (data.match_score)        setMatchScore(data.match_score)
       if (data.preferred_template) setSelectedTemplate(data.preferred_template)
       setPhase('preview')
@@ -627,6 +645,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
       // status === "ok"
       setCvState({ cvData: data.cv_data, pdfB64: data.pdf_b64 })
+      setShownLang(asLocale(data.cv_locale ?? cvLang))
       setParsedCv(parseCv(data.cv_data).data)
       setIsDirty(false)
       setIsEditMode(false)
@@ -1249,6 +1268,18 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
           {(phase === 'preview' || phase === 'revising') && (
             <div className="space-y-2.5">
+              {/* Language first: the CV on screen is in one language, and the
+                  other is one tap away as a new version. */}
+              {cvLanguagePicker(A.cv_language, A.cv_language_regen_hint)}
+              {shownLang && cvLang !== shownLang && (
+                <button onClick={handleRegenerate} disabled={isLoading || isCopilotBusy}
+                  className="w-full h-10 rounded-full text-[13.5px] font-semibold text-white flex items-center justify-center gap-2 transition disabled:opacity-60 active:scale-[0.98]"
+                  style={{ background: TOKENS.color.primary }}>
+                  <WandIcon s={15} />
+                  {A.create_lang_version.replace('{lang}', languageName(cvLang, locale))}
+                </button>
+              )}
+
               {/* Edit / Preview toggle */}
               {/* Also disabled while Copilot is in flight. The Copilot panel
                   only renders in PDF view, so the user can never be *inside*
@@ -1275,8 +1306,6 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                 style={{ background: TOKENS.color.success }}>
                 <CheckIcon s={15} /> {A.approve_apply}
               </button>
-
-              {cvLanguagePicker(A.cv_language, A.cv_language_regen_hint)}
 
               {/* Same reason: regenerating clears cvState, which the pending
                   Copilot response would then write straight back over. */}
