@@ -1135,6 +1135,42 @@ def _build_skill_synonym_map(skill_names: list[str]) -> dict[str, list[str]]:
 
 # ── Static section injection ─────────────────────────────────────────────────
 
+_HEBREW_LETTER = re.compile(r"[\u0590-\u05FF]")
+
+
+def _localized_education(canonical: list[dict], generated) -> list[dict]:
+    """
+    Education for the CV: the profile's facts, in the CV's language.
+
+    Education is injected from the profile so the model cannot invent a
+    degree — which also kept a Hebrew CV's education in English ("B.A.
+    Business Administration, Reichman University" under "השכלה"). For a
+    Hebrew CV the model writes the degree and institution in Hebrew; that
+    wording is used only when it is Hebrew and the model returned exactly as
+    many entries as the profile has (same order, as the prompt asks). Dates
+    and honors always come from the profile. Anything else keeps the
+    profile's own text.
+    """
+    from backend.services.pdf_builder import detect_cv_locale
+
+    if not isinstance(generated, list) or len(generated) != len(canonical):
+        return canonical
+    if detect_cv_locale({"summary": " ".join(
+        f"{g.get('degree', '')} {g.get('institution', '')}" for g in generated if isinstance(g, dict)
+    )}) != "he":
+        return canonical
+    out = []
+    for fact, gen in zip(canonical, generated):
+        entry = dict(fact)
+        if isinstance(gen, dict):
+            for key in ("degree", "institution"):
+                text = str(gen.get(key) or "").strip()
+                if text and _HEBREW_LETTER.search(text):
+                    entry[key] = text
+        out.append(entry)
+    return out
+
+
 def _inject_static_sections(
     data: dict,
     respect_deletions: bool = False,
@@ -1236,7 +1272,7 @@ def _inject_static_sections(
                         "coursework":  e.get("details") or e.get("coursework", ""),
                     })
             if canonical_edu:
-                data["education"] = canonical_edu
+                data["education"] = _localized_education(canonical_edu, data.get("education"))
         else:
             logger.info(
                 "[tailor] user=%s has no education in their DB profile — leaving the "
@@ -1546,6 +1582,12 @@ def _output_language_directive(cv_locale: str) -> str:
         f"A role title stays in English ONLY when the job description itself names "
         f"that role in English; otherwise write the {language} title used in the "
         f"local job market.\n"
+        f"EDUCATION: write each degree name in {language} and each institution by "
+        f"its local {language} name when it has one (a foreign university keeps its "
+        f"own name). Keep every education entry from the profile, in the same "
+        f"order, with dates and honors exactly as given — only the wording of the "
+        f"degree and institution changes. This overrides 'copy exactly from "
+        f"profile' for those two fields.\n"
         f"KEEP IN THEIR ORIGINAL FORM, untranslated and untransliterated: company "
         f"and employer names, product and project names, technology and tool names "
         f"(Jira, Salesforce, SQL), certification names, and the contact block. "

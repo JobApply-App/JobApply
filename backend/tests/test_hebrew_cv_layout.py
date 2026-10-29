@@ -71,3 +71,29 @@ def test_hebrew_directive_translates_titles_and_keeps_proper_nouns():
     assert "every role title" in d and "skill category label" in d
     assert "Jira" in d and "company" in d          # proper nouns stay as they are
     assert _output_language_directive("en") == ""
+
+
+PROFILE_EDU = [{"degree": "B.A. Business Administration & Digital Innovation",
+                "institution": "Reichman University", "dates": "2020 - 2023", "honors": "", "coursework": ""}]
+
+
+def test_hebrew_cv_keeps_the_models_hebrew_education_wording():
+    from backend.agents.tailor import _localized_education
+    gen = [{"degree": "תואר ראשון במנהל עסקים וחדשנות דיגיטלית", "institution": "אוניברסיטת רייכמן",
+            "dates": "2019 - 2024"}]
+    out = _localized_education(PROFILE_EDU, gen)
+    assert out[0]["degree"].startswith("תואר ראשון") and out[0]["institution"] == "אוניברסיטת רייכמן"
+    assert out[0]["dates"] == "2020 - 2023", "dates always come from the profile"
+
+
+def test_english_or_mismatched_education_keeps_the_profile():
+    from backend.agents.tailor import _localized_education
+    english = [{"degree": "BA in Business", "institution": "Reichman", "dates": "2020 - 2023"}]
+    assert _localized_education(PROFILE_EDU, english) == PROFILE_EDU
+    extra = [{"degree": "תואר ראשון", "institution": "רייכמן"}, {"degree": "תואר שני", "institution": "הרווארד"}]
+    assert _localized_education(PROFILE_EDU, extra) == PROFILE_EDU, "an invented extra degree is never used"
+
+
+def test_hebrew_directive_covers_education():
+    from backend.agents.tailor import _output_language_directive
+    assert "EDUCATION" in _output_language_directive("he")
