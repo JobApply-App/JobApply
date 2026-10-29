@@ -64,7 +64,7 @@ LIMITS: dict[str, int] = {
     "exp_dates":      22,
     "exp_bullet":    240,
     "edu_degree":     60,
-    "edu_inst":       35,
+    "edu_inst":       60,   # raised from 35 — "IDF School of Computer Professions" is 34, "Reichman University (IDC Herzliya)" 34, longer names were cut mid-word
     "edu_dates":      20,
     "edu_honors":     60,
     "edu_course":     80,
