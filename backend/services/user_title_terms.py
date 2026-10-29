@@ -52,6 +52,32 @@ _MODEL           = "claude-haiku-4-5"
 _MAX_TERMS       = 40
 _CV_TITLES_USED  = 3      # most recent CV roles, when the user picked none
 
+# CV entries that are not a job to search for. The CV parser has no separate
+# military or education slot in "experiences", so a degree or army service can
+# land there — the founder's own account searched for "B.A. Business
+# Administration & Digital Innovation" and "Clerk to Lieutenant Colonel"
+# (production, 2026-10-28). Only the search terms skip them; the CV and scoring
+# still see the full history (CLAUDE.md principle 1).
+_DEGREE = re.compile(
+    r"^\s*(b\.?\s?a|b\.?\s?sc|b\.?\s?ed|m\.?\s?a|m\.?\s?sc|mba|ph\.?\s?d|ll\.?\s?b|ll\.?\s?m)\b\.?"
+    r"|\b(bachelor|master)('?s)? (of|degree|in)\b|\bdegree\b|תואר",
+    re.IGNORECASE,
+)
+_MILITARY = re.compile(
+    r"\b(idf|i\.d\.f|israel defen[cs]e forces?|military|army|air force|"
+    r"lieutenant|colonel|sergeant|corporal|brigadier)\b"
+    r"|צה[\"״']?ל|צבא|שירות סדיר|סא[\"״]ל|אל[\"״]ם|רס[\"״]ן|תא[\"״]ל",
+    re.IGNORECASE,
+)
+
+
+def _is_job_entry(exp: dict, title: str) -> bool:
+    """False for a degree or military service filed under experiences."""
+    if _DEGREE.search(title):
+        return False
+    return not _MILITARY.search(f"{title} {exp.get('company') or ''}")
+
+
 # Leading/trailing words that make a title more specific without changing the
 # profession. Stripping them is the deterministic fallback expansion.
 _SENIORITY_WORDS = re.compile(
@@ -126,7 +152,7 @@ def source_titles(profile: dict) -> list[str]:
         if not isinstance(exp, dict):
             continue
         t = str(exp.get("title") or exp.get("role") or "").strip()
-        if t and t.lower() not in {x.lower() for x in titles}:
+        if t and _is_job_entry(exp, t) and t.lower() not in {x.lower() for x in titles}:
             titles.append(t)
         if len(titles) >= _CV_TITLES_USED:
             break
