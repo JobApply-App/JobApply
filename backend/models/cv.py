@@ -72,8 +72,8 @@ LIMITS: dict[str, int] = {
     "mil_unit":       60,
     "mil_dates":      20,
     "mil_resp":      200,
-    "skill_label":    20,
-    "skill_item":     25,
+    "skill_label":    40,   # raised from 20 — "Methodologies & Operations" (26) was cut mid-word in production
+    "skill_item":     35,   # raised from 25
     "lang_name":      20,
     "lang_level":     35,
     "volunteering":  120,

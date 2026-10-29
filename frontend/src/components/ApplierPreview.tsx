@@ -40,6 +40,8 @@ function CheckIcon({ s = 16 }: { s?: number }) {
   )
 }
 
+const asLocale = (v: unknown): Locale => (LOCALES.some(l => l.code === v) ? v as Locale : 'en')
+
 /** A language's name in the interface language: "Hebrew" / "אנגלית". */
 function languageName(code: string, uiLocale: string): string {
   try {
@@ -416,7 +418,10 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   // version — picking it used to do nothing until the user also found the
   // small "regenerate" link, so an English CV could not become a Hebrew one.
   const [shownLang, setShownLang] = useState<Locale | null>(null)
-  const asLocale = (v: unknown): Locale => (LOCALES.some(l => l.code === v) ? v as Locale : 'en')
+  // Languages this job already has a saved CV in: picking one of them loads
+  // it (no generation); only a language without one offers "Create".
+  const [availableLangs, setAvailableLangs] = useState<string[]>([])
+  const [switchingLang, setSwitchingLang] = useState(false)
 
   /**
    * Output-language picker, rendered wherever a generation can be started.
@@ -515,18 +520,38 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     fetchTemplates().then(setTemplates).catch(() => {})
   }, [])
 
+  // A saved CV (on open, or when switching to a language that has one).
+  const showSavedCv = useCallback((data: Awaited<ReturnType<typeof fetchCachedCV>>) => {
+    if (!data || !data.cv_data) return
+    setCvState({ cvData: data.cv_data, pdfB64: data.pdf_b64 ?? '' })
+    setParsedCv(parseCv(data.cv_data).data)
+    setIsDirty(false)
+    setIsEditMode(false)
+    setShownLang(asLocale(data.cv_locale))
+    setAvailableLangs(data.available_locales ?? [])
+    if (data.match_score)        setMatchScore(data.match_score)
+    if (data.preferred_template) setSelectedTemplate(data.preferred_template)
+    setPhase('preview')
+  }, [])
+
+  // Picking a language that already has a saved version shows it right away.
+  useEffect(() => {
+    if (phase !== 'preview' || !shownLang || cvLang === shownLang || !availableLangs.includes(cvLang)) return
+    let alive = true
+    setSwitchingLang(true)
+    fetchCachedCV(job.id, cvLang)
+      .then(data => { if (alive && data?.cv_data) showSavedCv(data) })
+      .catch(err => console.error('[ApplierPreview] saved CV in other language failed to load:', err))
+      .finally(() => { if (alive) setSwitchingLang(false) })
+    return () => { alive = false }
+  }, [cvLang, shownLang, availableLangs, phase, job.id, showSavedCv])
+
   // ── Auto-load cached CV on mount ──────────────────────────────────────────
   useEffect(() => {
     fetchCachedCV(job.id).then(data => {
       if (!data || !data.cv_data) return
-      setCvState({ cvData: data.cv_data, pdfB64: data.pdf_b64 ?? '' })
-      setParsedCv(parseCv(data.cv_data).data)
-      const lang = asLocale(data.cv_locale)
-      setShownLang(lang)
-      if (!cvLangTouched.current) setCvLang(lang)
-      if (data.match_score)        setMatchScore(data.match_score)
-      if (data.preferred_template) setSelectedTemplate(data.preferred_template)
-      setPhase('preview')
+      showSavedCv(data)
+      if (!cvLangTouched.current) setCvLang(asLocale(data.cv_locale))
     }).catch(err => {
       // Never swallow this. A cached CV that fails to load leaves the user on
       // the "no CV generated yet" empty state with no indication anything went
@@ -535,7 +560,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       // exists. Failing quietly here is what makes that bill invisible.
       console.error('[ApplierPreview] cached CV failed to load:', err)
     })
-  }, [job.id])
+  }, [job.id, showSavedCv])
 
   // ── Core fetch helper ─────────────────────────────────────────────────────
   const callTailor = useCallback(async (
@@ -593,7 +618,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       // succeeded. Reporting an error over a finished CV is the worse mistake
       // — it is what the original bug did.
       const cachedOrThrow = async (): Promise<TailorApiResponse> => {
-        const cached = await fetchCachedCV(job.id)
+        const cached = await fetchCachedCV(job.id, cvLang)
         if (cached?.cv_data) return cached as unknown as TailorApiResponse
         throw new Error(A.errors.timeout)
       }
@@ -646,6 +671,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       // status === "ok"
       setCvState({ cvData: data.cv_data, pdfB64: data.pdf_b64 })
       setShownLang(asLocale(data.cv_locale ?? cvLang))
+      setAvailableLangs(data.available_locales ?? [])
       setParsedCv(parseCv(data.cv_data).data)
       setIsDirty(false)
       setIsEditMode(false)
@@ -1271,7 +1297,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
               {/* Language first: the CV on screen is in one language, and the
                   other is one tap away as a new version. */}
               {cvLanguagePicker(A.cv_language, A.cv_language_regen_hint)}
-              {shownLang && cvLang !== shownLang && (
+              {shownLang && cvLang !== shownLang && !availableLangs.includes(cvLang) && (
                 <button onClick={handleRegenerate} disabled={isLoading || isCopilotBusy}
                   className="w-full h-10 rounded-full text-[13.5px] font-semibold text-white flex items-center justify-center gap-2 transition disabled:opacity-60 active:scale-[0.98]"
                   style={{ background: TOKENS.color.primary }}>
@@ -1397,7 +1423,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
               {/* Mobile browsers don't render a PDF inside an iframe (Android
                   Chrome shows nothing, iOS only the first page), so phones get
                   a download card instead of a blank preview. */}
-              {renderingTemplate && (
+              {(renderingTemplate || switchingLang) && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/75 backdrop-blur-[1px]">
                   <span className="flex items-center gap-2 text-[13px] font-medium text-slate-600">
                     <Spinner size={16} /> {C.applying_template}

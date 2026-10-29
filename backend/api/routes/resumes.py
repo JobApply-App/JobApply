@@ -31,7 +31,9 @@ from backend.api.deps import (
     CurrentUser, daily_generation_limit, get_current_user, llm_rate_limit, pdf_rate_limit, standard_rate_limit,
 )
 from backend.services.master_profile_service import get_cached_answer, merge_answers
-from backend.repositories.job_repository import clear_tailored_cv, get_tailored_cv, save_tailored_cv
+from backend.repositories.job_repository import (
+    clear_tailored_cv, get_tailored_cv, save_tailored_cv, tailored_cv_locales,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +258,9 @@ class TailorResponse(BaseModel):
     # Language the returned CV is written in — the client shows it on the
     # language picker and offers the other language as a new version.
     cv_locale:             str            = "en"
+    # Every language this job has a saved CV in: switching to one of these
+    # loads it instead of generating it again.
+    available_locales:     list[str]      = []
 
 
 def _build_jd_proxy(job) -> str:
@@ -569,19 +574,21 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
     # the exact "loads a previously generated draft instead of fresh content"
     # symptom. Purging here makes a failure surface as "no draft" (which
     # correctly re-runs generation) rather than as stale content.
-    if req.force:
-        purged = clear_tailored_cv(req.job_id, user.user_id)
-        logger.info(
-            "[resumes/tailor] force=True for job %s — purged cached draft: %s",
-            req.job_id, purged,
-        )
-
     # An explicit cv_locale on the request wins (generating one CV in another
     # language without changing the standing preference); otherwise use the
     # user's stored default. Resolved before the cache lookup because the
     # cache is language-specific — a draft written in the other language is a
     # miss, not a hit.
     cv_locale = req.cv_locale or _stored_cv_locale(user.user_id)
+
+    if req.force:
+        # Only this language's version: regenerating the Hebrew CV must not
+        # throw away the English one.
+        purged = clear_tailored_cv(req.job_id, user.user_id, cv_locale=cv_locale)
+        logger.info(
+            "[resumes/tailor] force=True for job %s — purged cached %s draft: %s",
+            req.job_id, cv_locale, purged,
+        )
 
     # ── Return cached CV if available and force=False ─────────────────────────
     if not req.force and not req.supplemental_answers:
@@ -604,6 +611,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                 match_score        = cached.get("match_score"),
                 preferred_template = "t2_modern",
                 cv_locale          = cv_locale,
+                available_locales  = tailored_cv_locales(req.job_id, user.user_id),
             )
 
     # Persist answers before calling the agent so that even if generation fails
@@ -848,6 +856,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
         match_score        = match_score_dict,
         preferred_template = "t2_modern",
         cv_locale          = cv_locale,
+        available_locales  = tailored_cv_locales(req.job_id, user.user_id),
     )
 
 
@@ -976,12 +985,17 @@ async def get_tailor_status(task_id: str, user: CurrentUser = Depends(get_curren
 
 
 @router.get("/cached/{job_id}")
-async def get_cached_resume(job_id: str, user: CurrentUser = Depends(get_current_user)):
+async def get_cached_resume(
+    job_id: str,
+    cv_locale: Optional[str] = None,
+    user: CurrentUser = Depends(get_current_user),
+):
     """
-    Return the cached tailored CV for a job without calling the LLM.
-    Returns 204 No Content if no CV has been generated yet.
+    Return the cached tailored CV for a job without calling the LLM — the
+    version in cv_locale when given, else the most recent one.
+    Returns 204 No Content if there is none.
     """
-    cached = get_tailored_cv(job_id, user.user_id)
+    cached = get_tailored_cv(job_id, user.user_id, cv_locale=cv_locale)
     if not cached or not cached.get("cv_data"):
         return _FastAPIResponse(status_code=204)
 
@@ -1000,6 +1014,7 @@ async def get_cached_resume(job_id: str, user: CurrentUser = Depends(get_current
         match_score        = cached.get("match_score"),
         preferred_template = "t2_modern",
         cv_locale          = cached.get("cv_locale") or "en",
+        available_locales  = tailored_cv_locales(job_id, user.user_id),
     )
 
 

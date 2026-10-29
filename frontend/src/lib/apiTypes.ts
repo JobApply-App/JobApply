@@ -53,6 +53,7 @@ export interface TailorOkResponse {
   match_score:        MatchScoreResult | null
   preferred_template: string
   cv_locale?:          string   // language the CV is written in
+  available_locales?:  string[] // languages this job has a saved CV in
 }
 
 export interface TailorMissingResponse {

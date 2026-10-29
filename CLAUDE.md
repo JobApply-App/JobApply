@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project: JobApply_Venture (B2C Upgrade)
 
-B2C, ATS-optimized job-application platform. Backend is FastAPI (Python); frontend is Next.js. Four core B2C features under active development: Master Profile (persistent supplemental-answer storage), Match Score (0-100% JD match algorithm + UI), Template Engine (3 ATS-safe HTML/CSS resume templates), Live Editor (manual CV text editing before PDF export).
+B2C, ATS-optimized job-application platform. Backend is FastAPI (Python); frontend is Next.js. Four core B2C features under active development: Master Profile (persistent supplemental-answer storage), Match Score (0-100% JD match algorithm + UI), Template Engine (5 ATS-safe HTML/CSS resume templates, English and right-to-left Hebrew), Live Editor (manual CV text editing before PDF export).
 
 ## Commands
 
@@ -12,7 +12,7 @@ B2C, ATS-optimized job-application platform. Backend is FastAPI (Python); fronte
 ```bash
 uvicorn backend.main:app --reload
 ```
-- All intra-backend imports must use the `backend.` prefix (e.g. `from backend.services import db`) — bare `api.*`/`services.*`/`config` imports load a second, independent module instance (duplicated rate-limit buckets, JWKS caches, DB engines). `backend/main.py` enforces this by inserting the project root onto `sys.path`.
+- All intra-backend imports must use the `backend.` prefix (e.g. `from backend.services import pdf_builder`) — bare `api.*`/`services.*`/`config` imports load a second, independent module instance (duplicated rate-limit buckets, JWKS caches, DB engines). `backend/main.py` enforces this by inserting the project root onto `sys.path`.
 - Env vars come from `backend/.env` (not root `.env`): `ANTHROPIC_API_KEY`, `DATABASE_URL`, `REDIS_URL`, `SUPABASE_URL`, `SUPABASE_JWT_SECRET`.
 - Single test: `pytest backend/tests/test_profile_trust.py`. Test-only deps (`pytest`, `pytest-asyncio`) live in `backend/requirements-dev.txt`, not `backend/requirements.txt` — install with `pip install -r backend/requirements-dev.txt` (this also pulls in `requirements.txt` via `-r`). `backend/pytest.ini` sets `asyncio_mode = auto`; a venv missing `pytest-asyncio` will fail every `@pytest.mark.asyncio` test with "Unknown pytest.mark.asyncio" rather than skip cleanly, so this step is easy to silently miss — see `docs/environment-setup.md`.
 
@@ -21,21 +21,23 @@ uvicorn backend.main:app --reload
 npm run dev      # next dev
 npm run build     # next build
 npm run lint      # next lint
+npm test          # vitest run (unit tests: src/**/*.test.ts)
 ```
-No test framework is configured for the frontend.
 
 ## Architecture
 
 ### Backend (`backend/`)
 - `main.py` — FastAPI app entry point; wires all routers.
-- `api/routes/` — one router per domain: `agents`, `analytics`, `applications`, `ariel` (AI assistant/copilot), `auth`, `chat`, `crm`, `history`, `jobs`, `outreach`, `profile`, `resumes`, `settings`, `webhooks`.
-- `agents/` — LLM agent classes (applier, matcher, resume, scraper, tailor, copilot, gatekeeper, truth_check, ariel_tools).
-- `engines/` — core scoring logic: master_profile, matching_engine, optimization_engine.
-- `services/` — bulk of business logic: `db.py`, feed/job/match_score/confidence_matrix/master_profile/cv_assembly/pdf_builder/outreach/ats_match_engine services.
+- `api/routes/` — one router per domain: `agents`, `all_jobs`, `analytics`, `applications`, `ariel` (AI assistant/copilot), `auth`, `chat`, `crm`, `dashboard`, `history`, `jobs`, `linkedin_jobs`, `outreach`, `profile`, `resumes`, `scraper`, `settings`, `webhooks`.
+- `agents/` — LLM agent classes (applier, ariel_tools, company_culture, copilot, gatekeeper, jd_parser, matcher, profile_analyzer, profile_interviewer, researcher, resume, scraper, tailor, truth_check).
+- `engines/` — `master_profile.py` only (the bullet-improvement placeholder system).
+- `services/` — bulk of business logic: feed/job/match_score/confidence_matrix/master_profile/cv_assembly/pdf_builder/outreach/ats_match_engine services. There is no `db.py`; the engines live in `backend/core/database.py` and `backend/core/postgres.py` (see Database below).
+- `repositories/` — SQL access per table group (`profile_repository`, `job_repository`, `all_jobs_repository`, ...).
+- `models/` — SQLAlchemy ORM models and the CV schema (`cv.py`, whose `LIMITS` is the single source for CV field lengths).
 - `scrapers/` — per-site job scrapers (LinkedIn, AllJobs, Drushim, Comeet, Gotfriends, Nisha, etc.) plus `relevancy.py`, `scraper_manager.py`.
 - `integrations/` — external service glue (`job_scraper.py`, `oauth_integrations.py`).
 - `logic/` — legacy modules (`outreach_engine.py`, `verifier.py`) used only by the root Streamlit app, not the FastAPI app.
-- `templates/` — resume HTML templates (`cv_template.html`, `cv/`).
+- `templates/` — resume HTML templates: `cv/t1`–`t5` plus the legacy fallback `cv_template.html`. Each takes `lang`/`dir` and its section headings from `pdf_builder` and uses logical CSS (`inline-start`/`end`), so a Hebrew CV renders right-to-left.
 
 **Database** (corrected 2026-08-16 — the previous description of this section was wrong in every particular, see below): Postgres on Supabase is the active primary datastore. `backend/core/database.py` builds `ENGINE` from `backend.config.DATABASE_URL` and only falls back to `sqlite:///backend/jobs.db` when that variable is unset. `backend/core/postgres.py` builds a second engine (`PG_ENGINE`) from the same URL for the `all_jobs`/LinkedIn tables. `backend/services/db.py` does not exist.
 
@@ -55,11 +57,11 @@ App root is `frontend/`; the package name is `job-apply-web` (the two differ —
 
 There is no `web_dashboard/` directory. Earlier revisions of this file said there was, which is worse than saying nothing: a `grep` scoped to a path that doesn't exist returns empty and reads exactly like "this symbol is unused." That misread once cost a full-stack rename being scoped as backend-only. When checking whether the frontend uses something, scope the search with `git ls-files` rather than a hardcoded directory.
 
-### Shared Pydantic models (`models/`)
+### Shared Pydantic schemas (`backend/schemas/`)
+Moved here from a repo-root `models/` package, which no longer exists.
 - `agent.py` — agent state/stats for UI agent cards.
 - `application.py` — `ApplicationStatus` enum (submitted → offer/rejected).
 - `job.py` — `RawJobPosting` and job source/status/locale literals.
-- `matching.py` — `ScoringBreakdown`/`MatchAnalysis` for the matching engine.
 - `optimization.py` — `CVImprovement`/`OptimizationReport` for CV rewrite suggestions.
 - `profile.py` — deep profile including `ProfessionalRole`.
 - `user.py` — `UserProfile` (skills, seniority, salary targets).
