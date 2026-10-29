@@ -427,11 +427,33 @@ def test_degree_and_military_entries_are_skipped_for_search_terms():
 @pytest.mark.parametrize("title,company", [
     ("BSc Computer Science", ""), ("MBA", "Tel Aviv University"), ("Master of Laws", ""),
     ("תואר ראשון במנהל עסקים", ""), ("Bachelor's degree in Economics", ""),
+])
+def test_a_degree_is_never_a_job(title, company):
+    assert utt.source_titles({"experience": [{"role": title, "company": company}]}) == []
+
+
+MILITARY_ROLES = [
     ("Logistics NCO", "IDF"), ("Clerk", 'צה"ל'), ("Operations Sergeant", ""),
     ("פקידת לשכה", "צה״ל"), ("מש\"קית ת\"ש", "שירות סדיר"), ("Instructor", "Israeli Air Force"),
-])
-def test_not_a_job(title, company):
-    assert utt.source_titles({"experience": [{"role": title, "company": company}]}) == []
+]
+
+
+@pytest.mark.parametrize("title,company", MILITARY_ROLES)
+def test_military_service_gives_way_to_civilian_jobs(title, company):
+    profile = {"experience": [{"role": title, "company": company},
+                              {"role": "Customer Success Manager", "company": "Monday"}]}
+    assert utt.source_titles(profile) == ["Customer Success Manager", title]
+
+
+def test_army_tech_career_still_gets_search_terms():
+    """A developer whose roles so far were in an army tech unit: those roles are
+    the career. With nothing civilian, military roles are used (they used to be
+    dropped, leaving such a user with no search terms at all)."""
+    profile = {"experience": [
+        {"role": "Development Team Lead", "company": "Ofek unit, IAF", "kind": "military"},
+        {"role": "DB And BI Developer", "company": "Ofek unit, IAF", "kind": "military"},
+    ]}
+    assert utt.source_titles(profile) == ["Development Team Lead", "DB And BI Developer"]
 
 
 @pytest.mark.parametrize("title,company", [

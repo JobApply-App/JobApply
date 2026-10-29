@@ -410,6 +410,12 @@ ABSOLUTE RULES:
   emit every distinct domain the candidate has operated in (Ops, Finance,
   Legal, Product, Insurance, SaaS, etc. are all valid separate domains).
 - Extract ALL experiences, including cross-functional roles and secondments.
+- A degree, diploma, course or certification is EDUCATION, never an
+  experience — even when the CV lists it among the jobs.
+- Military / national service (IDF, צה"ל, שירות לאומי) IS an experience,
+  with "kind": "military". Use the actual role as "role" (e.g. "Software
+  Developer", "Operations Clerk") and the unit as "company"; never a rank
+  alone. Every other experience has "kind": "job".
 
 DATE-ANCHOR OVERRIDES TEXT RULE (critical):
 - When writing the "summary" field, cross-validate any generic "X+ years of
@@ -479,7 +485,8 @@ are genuinely present. These are overarching knowledge domains, NOT individual s
       "role":     "exact job title",
       "start":    "YYYY or YYYY-MM or empty string",
       "end":      "YYYY or YYYY-MM or 'present' or empty string",
-      "summary":  "1-2 sentence description of responsibilities/achievements"
+      "summary":  "1-2 sentence description of responsibilities/achievements",
+      "kind":     "job | military"
     }
   ],
   "education": [
@@ -547,6 +554,13 @@ async def aggregate_cv_claims(texts: list[str], user_id: str) -> dict:
         # Apply the Date-Anchor Overrides Text rule as a deterministic
         # post-processing pass — catches any inflation the LLM missed.
         claims = _cross_validate_experience_claims(claims)
+        # Degrees the model still filed as jobs move to education; army
+        # service is tagged (services/cv_entry_kind.py). Deterministic, so it
+        # holds even when the model ignores the prompt rule.
+        from backend.services.cv_entry_kind import separate_degrees
+        claims["experiences"], claims["education"] = separate_degrees(
+            claims.get("experiences") or [], claims.get("education") or [],
+        )
         # Contact block is normalized deterministically rather than trusted
         # as-emitted — the prompt asks for a canonical shape, this guarantees
         # it (and guarantees the key exists at all for older/partial output).

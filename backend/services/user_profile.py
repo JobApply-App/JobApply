@@ -877,6 +877,7 @@ def _merged_experience(onboarding: dict) -> list[dict]:
             "start":   c.get("start", ""),
             "end":     c.get("end", ""),
             "bullets": [summary] if summary else [],
+            "kind":    c.get("kind", ""),
         })
     merged.sort(key=lambda e: _span(e.get("start"), e.get("end")), reverse=True)
     return merged
@@ -923,8 +924,14 @@ def get_profile(user_id: str) -> dict:
     the legacy USER_PROFILE shape ({company, role, period, details}).
     """
     onboarding = _onboarding_row_profile(user_id)
+    cv = onboarding.get("cv_data") if isinstance(onboarding.get("cv_data"), dict) else {}
+    # A degree the CV extraction filed as a job (stored CVs predate the fix in
+    # cv_aggregator_service) is shown as education, not work experience
+    # (services/cv_entry_kind.py). Army service stays in the history.
+    from backend.services.cv_entry_kind import separate_degrees
+    merged_jobs, moved_education = separate_degrees(_merged_experience(onboarding), [])
     experience = []
-    for e in _merged_experience(onboarding):
+    for e in merged_jobs:
         experience.append({
             "company": e.get("company", ""),
             "role":    e.get("role", ""),
@@ -932,6 +939,7 @@ def get_profile(user_id: str) -> dict:
             "start":   e.get("start", ""),
             "end":     e.get("end", ""),
             "details": " ".join(str(b) for b in e.get("bullets", [])),
+            "kind":    e.get("kind", ""),
         })
     # Real per-user contact data, resolved with a fallback chain across every
     # place this app can have written it — previously hardcoded to "" for
@@ -991,11 +999,15 @@ def get_profile(user_id: str) -> dict:
             user_id, missing,
         )
 
-    cv = onboarding.get("cv_data") if isinstance(onboarding.get("cv_data"), dict) else {}
+    education = list(onboarding.get("education") or _cv_education(cv))
+    have = {str((e.get("degree") if isinstance(e, dict) else e) or "").strip().lower() for e in education}
+    for m in moved_education:
+        if m["degree"].lower() not in have:
+            education.append({"degree": m["degree"], "school": m["institution"], "period": m["years"], "status": ""})
     return {
         "personal":       personal,
         "summary":        onboarding.get("professional_summary", "") or str(cv.get("summary") or ""),
-        "education":      onboarding.get("education") or _cv_education(cv),
+        "education":      education,
         "experience":     experience,
         "skills":         _merged_skills(onboarding.get("skills") or [], cv.get("skills") or []),
         "career_goals":   onboarding.get("career_goals", {}),
