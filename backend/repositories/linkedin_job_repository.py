@@ -368,8 +368,15 @@ def get_paginated_jobs(
     columns = [_TABLE.c[name] for name in _LIST_VIEW_COLUMNS]
     total_count_col = func.count().over().label("total_count")
 
+    # Jobs first seen more than config.JOB_MAX_AGE_DAYS ago are hidden, not
+    # deleted (services/job_freshness.py). This table has no parsed posting
+    # date, only LinkedIn's relative text, so first_seen_at is the date.
+    from backend.services.job_freshness import fresh_condition
+    fresh = fresh_condition(_TABLE.c.first_seen_at, _TABLE.c.first_seen_at)
+
     stmt = (
         select(*columns, total_count_col)
+        .where(fresh)
         .order_by(_TABLE.c.insertion_time.desc(), _TABLE.c.id.desc())
         .limit(page_size)
         .offset(offset)
@@ -387,7 +394,7 @@ def get_paginated_jobs(
             ]
         else:
             total_items = session.execute(
-                select(func.count()).select_from(_TABLE)
+                select(func.count()).select_from(_TABLE).where(fresh)
             ).scalar_one()
             items = []
     finally:

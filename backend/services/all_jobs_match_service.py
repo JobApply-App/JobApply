@@ -158,6 +158,7 @@ def _catalog_index():
     import time
     from backend.core.postgres import get_pg_session
     from backend.models.all_jobs import AllJobRow
+    from backend.services.job_freshness import fresh_condition
 
     now = time.monotonic()
     if _INDEX_CACHE["rows"] is not None and now - _INDEX_CACHE["at"] < _INDEX_TTL_S:
@@ -168,6 +169,8 @@ def _catalog_index():
                 AllJobRow.id, AllJobRow.job_title, AllJobRow.job_url,
                 AllJobRow.company_name, AllJobRow.location, AllJobRow.seniority_level,
             )
+            # Old jobs are never matched (services/job_freshness.py).
+            .filter(fresh_condition(AllJobRow.posted_at, AllJobRow.first_seen_at))
             .order_by(AllJobRow.last_seen_at.desc())
             .limit(_CANDIDATE_POOL_SIZE)
             .all()

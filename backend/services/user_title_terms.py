@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 _ANSWER_KEY      = "title_search_terms"
 _MODEL           = "claude-haiku-4-5"
-_MAX_TERMS       = 40
+_MAX_TERMS       = 60
 _CV_TITLES_USED  = 3      # most recent CV roles, when the user picked none
 
 # CV entries that are not a job to search for. The CV parser has no separate
@@ -89,13 +89,23 @@ _SENIORITY_WORDS = re.compile(
 _SYSTEM = (
     "You generate job-title search terms for a job board filter. Given a "
     "person's target job titles, return the titles and phrases that real job "
-    "postings use for the SAME profession: the titles themselves, common "
-    "synonyms and variants, abbreviations used in titles, and Hebrew "
-    "equivalents (Israeli job boards post in Hebrew; include both masculine "
-    "and feminine forms where they differ). Stay inside the profession — do "
-    "not drift to adjacent careers. Prefer phrases of 1-4 words that would "
-    "appear inside a posting title. Return ONLY a JSON array of strings."
+    "postings use for them: the titles themselves, common synonyms and "
+    "variants, abbreviations used in titles, and Hebrew equivalents (Israeli "
+    "job boards post in Hebrew; include both masculine and feminine forms "
+    "where they differ). Then add closely related titles in the SAME "
+    "functional area that this person would realistically also apply for — "
+    "for example 'Supply Manager' -> 'Logistics Manager', 'Procurement "
+    "Manager', 'Supply Chain Manager', 'Purchasing Manager', 'מנהל לוגיסטיקה', "
+    "'מנהל רכש'. Do not drift to a different function (a Supply Manager is "
+    "not a Sales Manager). Prefer phrases of 1-4 words that would appear "
+    "inside a posting title. Return ONLY a JSON array of strings."
 )
+
+# Bumped whenever _SYSTEM changes what it returns, so every cached term list
+# is regenerated once on the next cycle (one cheap LLM call per user).
+# v2 (2026-10-29): related titles in the same function, not only synonyms —
+# users typing a role with few postings ("מנהל אספקה") saw almost nothing.
+_PROMPT_VERSION = "v2"
 
 
 # ── Sources ───────────────────────────────────────────────────────────────────
@@ -160,7 +170,8 @@ def source_titles(profile: dict) -> list[str]:
 
 
 def _hash(titles: list[str]) -> str:
-    return hashlib.sha256(json.dumps(sorted(t.lower() for t in titles)).encode()).hexdigest()[:16]
+    payload = json.dumps([_PROMPT_VERSION, sorted(t.lower() for t in titles)])
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
 # ── Expansion ────────────────────────────────────────────────────────────────
@@ -193,7 +204,7 @@ async def expand_titles(titles: list[str], user_id: str) -> list[str]:
             system     = _SYSTEM,
             messages   = [{"role": "user", "content": "Target titles:\n" + "\n".join(f"- {t}" for t in titles)}],
             model      = _MODEL,
-            max_tokens = 800,
+            max_tokens = 1500,
             purpose    = "title_search_terms",
             user_id    = user_id,
         )
