@@ -1056,6 +1056,7 @@ export interface AllJobsFilters {
   industry?:            string[]
   company?:             string
   title?:               string
+  q?:                   string   // one box: job title OR company
   min_applicants?:      number
   max_applicants?:      number
   posted_within_hours?: number

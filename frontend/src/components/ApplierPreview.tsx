@@ -955,6 +955,19 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     callTailor(undefined, true)  // force=true bypasses the persisted cache
   }, [callTailor])
 
+  // Escape leaves the preview, like any dialog — but not while typing: in the
+  // live editor or the copilot box it would throw away the edit in progress.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return
+      onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center md:p-4"
@@ -968,11 +981,15 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
           boxShadow:  '0 24px 64px rgba(15,23,42,0.22)',
         }}>
 
-        {/* Close */}
+        {/* Close. Testers had to refresh the page to leave: once the CV
+            rendered, the Download PDF button was drawn over this corner, and
+            on phones the button scrolled away with the sheet. It is now fixed
+            on phones, sits above everything, and Download moved aside. */}
         <button onClick={onClose}
-          className="absolute top-3 end-3 z-10 w-9 h-9 md:w-7 md:h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+          className="fixed md:absolute top-3 end-3 z-30 w-10 h-10 md:w-8 md:h-8 rounded-full flex items-center justify-center bg-white/95 backdrop-blur border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white transition"
+          style={{ boxShadow: '0 1px 2px rgba(15,23,42,.08), 0 4px 12px rgba(15,23,42,.08)' }}
           aria-label={A.close_preview}>
-          <XIcon s={14} />
+          <XIcon s={16} />
         </button>
 
         {/* ═══ LEFT PANE — 38% ═══════════════════════════════════════════════ */}
@@ -985,7 +1002,11 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
         <div className="flex flex-col w-full md:w-[38%] min-w-0 shrink-0 md:overflow-y-auto overflow-x-hidden border-b md:border-b-0 md:border-r"
           style={{ borderColor: TOKENS.color.line, padding: '24px 20px 24px 24px' }}>
 
-          <div className="mb-1">
+          <button onClick={onClose}
+            className="self-start -ms-1 mb-3 flex items-center gap-1 min-h-[36px] px-1 rounded-lg text-[12.5px] font-medium text-slate-500 hover:text-teal-700 transition">
+            <span aria-hidden="true" className="rtl:rotate-180">←</span> {A.back_to_jobs}
+          </button>
+          <div className="mb-1 pe-10 md:pe-0">
             <h2 className="text-[16px] font-semibold text-slate-900 tracking-tight">
               {A.title}
             </h2>
@@ -1305,7 +1326,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
           )}
 
           {cvState && !isEditMode && (
-            <div className="absolute top-3 right-3 z-10 hidden md:flex flex-col items-end gap-1.5">
+            <div className="absolute top-3 end-14 z-10 hidden md:flex flex-col items-end gap-1.5">
               <button
                 onClick={handleDownloadPdf}
                 disabled={isDownloading}

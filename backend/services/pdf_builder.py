@@ -218,10 +218,12 @@ def _build_experience(entries: list[dict]) -> str:
 
 
 def _build_education(entries: list[dict]) -> str:
+    from backend.models.cv import LIMITS
+
     parts: list[str] = []
     for edu in entries[:3]:
         degree      = _t(edu.get("degree",      ""), 60)
-        institution = _t(edu.get("institution", ""), 35)
+        institution = _t(edu.get("institution", ""), LIMITS["edu_inst"])
         dates       = _t(_format_year_range(edu.get("dates", "")), 20)
         honors      = _t(edu.get("honors",      ""), 60)
         coursework  = _t(edu.get("coursework",  ""), 80)

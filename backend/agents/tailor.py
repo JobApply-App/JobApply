@@ -55,7 +55,7 @@ _LIM = {
     "exp_dates":     22,
     "exp_bullet":   240,
     "edu_degree":    60,
-    "edu_inst":      35,
+    "edu_inst":      60,   # mirrors backend/models/cv.py LIMITS
     "edu_dates":     20,
     "edu_honors":    60,
     "edu_course":    80,

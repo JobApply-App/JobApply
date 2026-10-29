@@ -364,6 +364,7 @@ export interface Dict {
   }
   applier: {
     close_preview:    string
+    back_to_jobs:     string
     cv_language:      string
     cv_language_regen_hint: string
     edit_cv:          string
@@ -1339,8 +1340,7 @@ export interface Dict {
     retry: string
     empty: string
     no_options: string
-    ph_company: string
-    ph_title: string
+    ph_search: string
     f_seniority: string
     f_employment: string
     f_function: string
@@ -1360,8 +1360,7 @@ export interface Dict {
     sort_app_desc: string
     sort_app_asc: string
     sort_company: string
-    chip_company: string
-    chip_title: string
+    chip_search: string
     chip_applicants: string
     remove_filter: string
     showing: string

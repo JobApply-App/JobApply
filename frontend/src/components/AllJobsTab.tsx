@@ -252,8 +252,7 @@ interface FilterInputs {
   employment_type:     string[]
   job_function:        string[]
   industry:            string[]
-  company:             string
-  title:               string
+  q:                   string
   min_applicants:      string
   max_applicants:      string
   posted_within_hours: string
@@ -261,7 +260,7 @@ interface FilterInputs {
 
 const EMPTY_FILTER_INPUTS: FilterInputs = {
   seniority_level: [], employment_type: [], job_function: [], industry: [],
-  company: '', title: '', min_applicants: '', max_applicants: '', posted_within_hours: '',
+  q: '', min_applicants: '', max_applicants: '', posted_within_hours: '',
 }
 
 // Labels are dictionary keys (all_jobs.*), resolved where rendered.
@@ -363,7 +362,7 @@ function FilterBar({
   inputs, onChange, onMultiChange, onClear, hasActiveFilters, options, sortBy, onSortChange,
 }: {
   inputs: FilterInputs
-  onChange: (field: 'company' | 'title' | 'min_applicants' | 'max_applicants' | 'posted_within_hours', value: string) => void
+  onChange: (field: 'q' | 'min_applicants' | 'max_applicants' | 'posted_within_hours', value: string) => void
   onMultiChange: (field: 'seniority_level' | 'employment_type' | 'job_function' | 'industry', value: string[]) => void
   onClear: () => void
   hasActiveFilters: boolean
@@ -380,20 +379,22 @@ function FilterBar({
   const AJ = useI18n().t.all_jobs
   return (
     <div className="flex flex-wrap items-center gap-2 pb-1">
-      <input
-        type="text"
-        value={inputs.company}
-        onChange={(e) => onChange('company', e.target.value)}
-        placeholder={AJ.ph_company}
-        className="h-8 w-32 rounded-lg border border-slate-200 bg-white text-[12px] px-2.5 placeholder:text-slate-400"
-      />
-      <input
-        type="text"
-        value={inputs.title}
-        onChange={(e) => onChange('title', e.target.value)}
-        placeholder={AJ.ph_title}
-        className="h-8 w-36 rounded-lg border border-slate-200 bg-white text-[12px] px-2.5 placeholder:text-slate-400"
-      />
+      {/* One box for role or company. There used to be two, Company first:
+          people typed a role into it and found nothing. */}
+      <label className="relative flex-1 min-w-[220px] max-w-[340px]">
+        <span className="sr-only">{AJ.ph_search}</span>
+        <svg className="pointer-events-none absolute top-1/2 -translate-y-1/2 start-2.5 text-slate-400" width={14} height={14}
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+          <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" strokeLinecap="round" />
+        </svg>
+        <input
+          type="search"
+          value={inputs.q}
+          onChange={(e) => onChange('q', e.target.value)}
+          placeholder={AJ.ph_search}
+          className="h-9 w-full rounded-lg border border-slate-200 bg-white text-[13px] ps-8 pe-2.5 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+        />
+      </label>
 
       <MultiSelectDropdown
         label={AJ.f_seniority}
@@ -489,14 +490,13 @@ function ActiveFilterChips({
   inputs, onChange, onMultiChange,
 }: {
   inputs: FilterInputs
-  onChange: (field: 'company' | 'title' | 'min_applicants' | 'max_applicants' | 'posted_within_hours', value: string) => void
+  onChange: (field: 'q' | 'min_applicants' | 'max_applicants' | 'posted_within_hours', value: string) => void
   onMultiChange: (field: 'seniority_level' | 'employment_type' | 'job_function' | 'industry', value: string[]) => void
 }) {
   const AJ = useI18n().t.all_jobs
   const chips: { key: string; label: string; onRemove: () => void }[] = []
 
-  if (inputs.company) chips.push({ key: 'company', label: AJ.chip_company.replace('{v}', inputs.company), onRemove: () => onChange('company', '') })
-  if (inputs.title) chips.push({ key: 'title', label: AJ.chip_title.replace('{v}', inputs.title), onRemove: () => onChange('title', '') })
+  if (inputs.q) chips.push({ key: 'q', label: AJ.chip_search.replace('{v}', inputs.q), onRemove: () => onChange('q', '') })
 
   ;(['seniority_level', 'employment_type', 'job_function', 'industry'] as const).forEach((field) => {
     const values = inputs[field]
@@ -693,8 +693,7 @@ export function AllJobsTab() {
     employment_type:     committedFilters.employment_type.length ? committedFilters.employment_type : undefined,
     job_function:        committedFilters.job_function.length ? committedFilters.job_function : undefined,
     industry:            committedFilters.industry.length ? committedFilters.industry : undefined,
-    company:             committedFilters.company || undefined,
-    title:               committedFilters.title || undefined,
+    q:                   committedFilters.q.trim() || undefined,
     min_applicants:      committedFilters.min_applicants !== '' ? Number(committedFilters.min_applicants) : undefined,
     max_applicants:      committedFilters.max_applicants !== '' ? Number(committedFilters.max_applicants) : undefined,
     posted_within_hours: committedFilters.posted_within_hours !== '' ? Number(committedFilters.posted_within_hours) : undefined,
@@ -751,7 +750,7 @@ export function AllJobsTab() {
   }, [committedFilters, sortBy])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateFilter = (
-    field: 'company' | 'title' | 'min_applicants' | 'max_applicants' | 'posted_within_hours', value: string,
+    field: 'q' | 'min_applicants' | 'max_applicants' | 'posted_within_hours', value: string,
   ) => {
     setFilterInputs((prev) => ({ ...prev, [field]: value }))
   }

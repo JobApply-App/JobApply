@@ -112,3 +112,44 @@ def test_search_against_postgres_ranks_query_language_first(db_available):
     finally:
         with PG_ENGINE.begin() as c:
             c.execute(text("DELETE FROM public.all_jobs WHERE job_url = ANY(:u)"), {"u": urls})
+
+
+def test_the_word_being_typed_matches_as_a_prefix():
+    from backend.services.title_search import title_matches
+    assert title_matches("Android Vulnerability Researcher", "androi")
+    assert title_matches("Senior Product Manager", "product manag")
+    # Only the last word: a finished word stays whole.
+    assert not title_matches("Production Manager", "product manager")
+    # Short words stay whole even when typed last.
+    assert not title_matches("Italian Teacher", "it")
+
+
+def test_one_box_finds_role_or_company_against_postgres(db_available):
+    import uuid
+    from datetime import datetime, timezone
+    from sqlalchemy import text
+    from backend.core.postgres import PG_ENGINE
+    from backend.repositories.all_jobs_repository import AllJobsFilters, get_paginated_all_jobs
+
+    tag = uuid.uuid4().hex[:6]
+    rows = [(f"Android Vulnerability Researcher {tag}", "Acme"), (f"Office Manager {tag}", f"Androidia {tag}"),
+            (f"Chef {tag}", "Kitchen")]
+    now, urls = datetime.now(timezone.utc), []
+    with PG_ENGINE.begin() as c:
+        for t, co in rows:
+            u = f"https://example.com/q-search/{uuid.uuid4().hex}"
+            urls.append(u)
+            c.execute(text("""
+                INSERT INTO public.all_jobs (id, source, canonical_job_key, first_seen_at, last_seen_at,
+                    insertion_time, updated_at, created_at, job_title, company_name, company_name_normalized,
+                    job_url, normalized_job_url)
+                VALUES (CAST(:id AS uuid), 'linkedin', :k, :n, :n, :n, :n, :n, :t, :co, lower(:co), :u, :u)
+            """), {"id": str(uuid.uuid4()), "k": u, "n": now, "t": t, "co": co, "u": u})
+    try:
+        page = get_paginated_all_jobs(page=1, page_size=100, filters=AllJobsFilters(q="androi"))
+        got = [i["job_title"] for i in page.items if i["job_url"] in urls]
+        # Title match (prefix, still typing) first, then the company match.
+        assert got == [f"Android Vulnerability Researcher {tag}", f"Office Manager {tag}"]
+    finally:
+        with PG_ENGINE.begin() as c:
+            c.execute(text("DELETE FROM public.all_jobs WHERE job_url = ANY(:u)"), {"u": urls})
