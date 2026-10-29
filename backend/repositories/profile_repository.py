@@ -42,6 +42,7 @@ handling/ProfileHandle handling/ — the mutation logic inside each handler
 """
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import uuid as _uuid
@@ -71,6 +72,9 @@ class ProfileHandle:
     onboarding_status: str = "incomplete"
     master_profile: dict = field(default_factory=dict)
     updated_at: str = ""
+    # The document as it was read. save() writes only the keys that differ
+    # from it; None (a handle built by hand) means "write everything".
+    loaded: Optional[dict] = field(default=None, repr=False, compare=False)
 
 
 def _is_valid_uuid(value) -> bool:
@@ -189,6 +193,7 @@ def _row_to_handle(row, user_id: str, mp: dict) -> ProfileHandle:
         onboarding_status=row.onboarding_status,
         master_profile=mp,
         updated_at=str(row.updated_at) if row.updated_at is not None else "",
+        loaded=copy.deepcopy(mp),
     )
 
 
@@ -298,7 +303,7 @@ def get_or_create(session: Session, user_id: str, *, now: str) -> tuple[ProfileH
         text("INSERT INTO public.profiles (id, onboarding_status, updated_at) VALUES (CAST(:uid AS uuid), 'incomplete', now())"),
         {"uid": user_id},
     )
-    handle = ProfileHandle(user_id=user_id, onboarding_status="incomplete", master_profile={}, updated_at=now)
+    handle = ProfileHandle(user_id=user_id, onboarding_status="incomplete", master_profile={}, updated_at=now, loaded={})
     return handle, True
 
 
@@ -455,6 +460,25 @@ def _write_cv(session: Session, user_id: str, *, skills, experience, education, 
         )
 
 
+def _upsert_generic(session: Session, user_id: str, data: dict, removed: set) -> None:
+    """Write only these profile_answers keys (and delete `removed`), leaving every other row alone."""
+    for question_id in removed:
+        session.execute(
+            text("DELETE FROM public.profile_answers WHERE user_id = CAST(:uid AS uuid) AND question_id = :qid"),
+            {"uid": user_id, "qid": question_id},
+        )
+    for question_id, value in data.items():
+        session.execute(
+            text("""
+                INSERT INTO public.profile_answers (user_id, question_id, answer, updated_at)
+                VALUES (CAST(:uid AS uuid), :qid, CAST(:answer AS jsonb), now())
+                ON CONFLICT (user_id, question_id)
+                DO UPDATE SET answer = EXCLUDED.answer, updated_at = now()
+            """),
+            {"uid": user_id, "qid": question_id, "answer": json.dumps(value)},
+        )
+
+
 def _write_generic(session: Session, user_id: str, data: dict) -> None:
     """Wholesale replace every profile_answers row for user_id with `data`."""
     session.execute(text("DELETE FROM public.profile_answers WHERE user_id = CAST(:uid AS uuid)"), {"uid": user_id})
@@ -474,9 +498,24 @@ def save(session: Session, handle: ProfileHandle) -> None:
     """
     Persist handle back to the relational schema. Does NOT commit — same
     contract as mutating a MasterProfileRow and letting the caller commit.
+
+    Writes only what changed since the handle was read (handle.loaded): the
+    keys that differ are upserted one by one, the CV tables are rewritten
+    only when a CV key changed, and user_preferences only when a preference
+    did. It used to delete and re-insert every profile_answers row and every
+    CV claim on each save — a role change rewrote the whole CV, costing
+    database egress (the Supabase free plan's binding limit), and a row that
+    another writer added between this read and this save (the cached title
+    search terms, say) was deleted. A handle without a snapshot (built by
+    hand) is still written in full.
     """
     user_id = handle.user_id
     mp = dict(handle.master_profile or {})
+    base = handle.loaded
+    if base is None:
+        changed = set(mp)
+    else:
+        changed = {k for k in set(mp) | set(base) if mp.get(k) != base.get(k)}
     personal = mp.get("personal") or {}
     if not isinstance(personal, dict):
         personal = {}
@@ -505,6 +544,9 @@ def save(session: Session, handle: ProfileHandle) -> None:
         },
     )
 
+    prefs_changed = base is None or not base or bool(
+        changed & {"role_preferences", "career_goals", "communication_style"}
+    )
     role_prefs = mp.get("role_preferences") or {}
     career_goals = mp.get("career_goals") or {}
     if not isinstance(role_prefs, dict):
@@ -522,38 +564,48 @@ def save(session: Session, handle: ProfileHandle) -> None:
     if not isinstance(communication_style, dict):
         communication_style = {}
 
-    session.execute(
-        text("""
-            INSERT INTO public.user_preferences
-                (user_id, target_titles, preferred_locations, work_type, salary_min_usd,
-                 communication_style, updated_at)
-            VALUES
-                (CAST(:uid AS uuid), CAST(:target_titles AS jsonb), CAST(:preferred_locations AS jsonb),
-                 :work_type, :salary_min_usd, CAST(:communication_style AS jsonb), now())
-            ON CONFLICT (user_id) DO UPDATE SET
-                target_titles = EXCLUDED.target_titles, preferred_locations = EXCLUDED.preferred_locations,
-                work_type = EXCLUDED.work_type, salary_min_usd = EXCLUDED.salary_min_usd,
-                communication_style = EXCLUDED.communication_style, updated_at = now()
-        """),
-        {
-            "uid": user_id,
-            "target_titles": json.dumps(target_titles),
-            "preferred_locations": json.dumps(preferred_locations),
-            "work_type": work_type,
-            "salary_min_usd": salary_min_usd,
-            "communication_style": json.dumps(communication_style),
-        },
-    )
+    if prefs_changed:
+        session.execute(
+            text("""
+                INSERT INTO public.user_preferences
+                    (user_id, target_titles, preferred_locations, work_type, salary_min_usd,
+                     communication_style, updated_at)
+                VALUES
+                    (CAST(:uid AS uuid), CAST(:target_titles AS jsonb), CAST(:preferred_locations AS jsonb),
+                     :work_type, :salary_min_usd, CAST(:communication_style AS jsonb), now())
+                ON CONFLICT (user_id) DO UPDATE SET
+                    target_titles = EXCLUDED.target_titles, preferred_locations = EXCLUDED.preferred_locations,
+                    work_type = EXCLUDED.work_type, salary_min_usd = EXCLUDED.salary_min_usd,
+                    communication_style = EXCLUDED.communication_style, updated_at = now()
+            """),
+            {
+                "uid": user_id,
+                "target_titles": json.dumps(target_titles),
+                "preferred_locations": json.dumps(preferred_locations),
+                "work_type": work_type,
+                "salary_min_usd": salary_min_usd,
+                "communication_style": json.dumps(communication_style),
+            },
+        )
 
-    if any(k in mp for k in _CV_KEYS):
+    if any(k in mp for k in _CV_KEYS) and changed & set(_CV_KEYS):
         _write_cv(
             session, user_id,
             skills=mp.get("skills"), experience=mp.get("experience"), education=mp.get("education"),
             professional_summary=mp.get("professional_summary"), cv_imported_at=mp.get("cv_imported_at"),
         )
 
-    generic = {k: v for k, v in mp.items() if k not in _CV_KEYS}
-    _write_generic(session, user_id, generic)
+    if base is None:
+        _write_generic(session, user_id, {k: v for k, v in mp.items() if k not in _CV_KEYS})
+    else:
+        generic_changed = changed - set(_CV_KEYS)
+        _upsert_generic(
+            session, user_id,
+            {k: mp[k] for k in generic_changed if mp.get(k) is not None},
+            {k for k in generic_changed if mp.get(k) is None},
+        )
+    # The handle now matches the database; a second save diffs from here.
+    handle.loaded = copy.deepcopy(mp)
 
 
 def reassign_user(session: Session, old_uid: str, new_uid: str) -> None:
