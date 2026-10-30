@@ -72,7 +72,7 @@ function ClaimsSummary({ claims }: { claims: CvClaimsResult }) {
       style={{ fontSize: 12.5 }}
     >
       <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">
-        CV Claims Extracted — Jonathan will probe these
+        CV claims extracted. Jonathan will ask about these
       </p>
 
       {claims.summary && (
@@ -127,7 +127,7 @@ function ClaimsSummary({ claims }: { claims: CvClaimsResult }) {
             {claims.education.map((e, i) => (
               <div key={i} className="text-slate-700">
                 {e.degree}
-                {e.institution && <span className="text-slate-400"> — {e.institution}</span>}
+                {e.institution && <span className="text-slate-400">, {e.institution}</span>}
                 {e.years && <span className="text-slate-400 text-[11px]"> ({e.years})</span>}
               </div>
             ))}
@@ -258,7 +258,7 @@ export function CvUploadPanel({ onUploaded }: CvUploadPanelProps) {
             Drop PDF or DOCX files here
           </p>
           <p className="text-[11px] text-slate-400 text-center">
-            or click to select — up to 10 files, 10 MB each
+            or click to select. Up to 10 files, 10 MB each
           </p>
           <input
             ref={inputRef}
@@ -331,8 +331,8 @@ export function CvUploadPanel({ onUploaded }: CvUploadPanelProps) {
             <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
               <span className="text-emerald-600 text-[13px]">✓</span>
               <p className="text-[12.5px] font-semibold text-emerald-800 flex-1">
-                {files.length} CV{files.length > 1 ? 's' : ''} processed —
-                Jonathan will probe these claims in your next interview.
+                {files.length} CV{files.length > 1 ? 's' : ''} processed.
+                Jonathan will ask about these claims in your next interview.
               </p>
               <button
                 onClick={() => { setFiles([]); setResult(null); setErrors([]) }}

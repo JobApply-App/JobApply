@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation'
 import { Header }    from '@/components/Header'
-import { Footer }    from '@/components/Footer'
 import { AnalyticsDashboard } from '@/components/AnalyticsDashboard'
 import AuthGuard from '@/components/AuthGuard'
 import type { Tab } from '@/components/Header'
@@ -28,7 +27,6 @@ function AnalyticsContent() {
         <AnalyticsDashboard onGoToMatches={() => router.push('/?tab=feed')} />
       </main>
 
-      <Footer />
     </div>
   )
 }

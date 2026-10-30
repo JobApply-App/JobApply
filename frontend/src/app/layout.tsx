@@ -10,6 +10,7 @@ import { OnboardingProvider }  from '@/contexts/OnboardingContext'
 import { ChatOverlay }         from '@/components/ChatOverlay'
 import { ChatLauncher }        from '@/components/ChatLauncher'
 import { AccessibilityMenu }   from '@/components/AccessibilityMenu'
+import { Footer }              from '@/components/Footer'
 import type { Locale }         from '@/locales'
 
 const inter = Inter({ subsets: ['latin', 'latin-ext'], variable: '--font-latin' })
@@ -53,6 +54,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <OnboardingProvider>
               <ChatProvider>
                 {children}
+                {/* One footer, the same on every page. */}
+                <Footer />
                 <ChatOverlay />
                 <ChatLauncher />
                 {/* Every page, signed in or not, desktop and mobile: the

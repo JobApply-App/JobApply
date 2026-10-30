@@ -229,7 +229,7 @@ export function OutreachModal({ job, onClose }: Props) {
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                 }`}
               >
-                {O.tabs[`${tab.key}_label`].split(' — ')[0]}
+                {O.tabs[`${tab.key}_label`].split(': ')[0]}
                 {tab.id !== activeTab && (
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${tab.badgeColor}`}>
                     {O.tabs[`${tab.key}_badge`]}
@@ -433,18 +433,18 @@ export function OutreachModal({ job, onClose }: Props) {
               </p>
               <ul className="space-y-1 text-[12px] text-slate-500">
                 {activeTab === 'consultation' && <>
-                  <li>• Target Directors and VPs — they make hiring decisions, not HR</li>
+                  <li>• Target Directors and VPs. They make hiring decisions, not HR</li>
                   <li>• Send Monday–Wednesday, 9–11am local time for best open rates</li>
-                  <li>• Never mention the job opening — just ask for perspective</li>
+                  <li>• Never mention the job opening. Just ask for perspective</li>
                 </>}
                 {activeTab === 'escalation' && <>
                   <li>• Only send this after a positive reply (a like counts, a reply is better)</li>
                   <li>• The 3rd-person summary is designed to be forwarded verbatim to the hiring team</li>
-                  <li>• Keep the transition natural — reference the prior conversation specifically</li>
+                  <li>• Keep the transition natural and refer to the earlier conversation specifically</li>
                 </>}
                 {activeTab === 'headhunter' && <>
                   <li>• Target Gotfriends, Nisha, SQLink, Experis, Michael Page (Israel)</li>
-                  <li>• Recruiters forward candidates who make their job easy — lead with value</li>
+                  <li>• Recruiters forward candidates who make their job easy, so lead with value</li>
                   <li>• Specify your target role and availability clearly in the opening</li>
                 </>}
               </ul>

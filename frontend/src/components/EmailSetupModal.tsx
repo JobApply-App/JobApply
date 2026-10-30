@@ -147,7 +147,7 @@ function GmailMock() {
         </div>
         <p className="text-[11px] text-slate-400 leading-snug">
           Paste your JobApply address from Step 1 here, then click the verification link
-          Gmail sends — the code will appear below automatically.
+          Gmail sends. The code will appear below automatically.
         </p>
       </div>
     </div>
@@ -230,7 +230,7 @@ function VerificationCodePanel({ code }: { code: string | null }) {
         Waiting for Gmail verification email…
       </p>
       <p className="text-[11px] text-slate-400 text-center leading-snug max-w-[280px]">
-        Click <strong className="text-slate-600">&quot;Send verification&quot;</strong> in Gmail — the
+        Click <strong className="text-slate-600">&quot;Send verification&quot;</strong> in Gmail. The
         9-digit code will appear here automatically within seconds.
       </p>
       <style>{`
@@ -421,8 +421,8 @@ export function EmailSetupModal({ open, onClose }: EmailSetupModalProps) {
 
           <p className="text-[13px] text-slate-600 leading-relaxed">
             Forward recruiter emails to your personal JobApply address and the AI will
-            automatically detect status updates —{' '}
-            <em>phone screens, interview invites, offers, rejections</em> — and move your
+            automatically detect status updates{' '}
+            (<em>phone screens, interview invites, offers, rejections</em>) and move your
             cards in real time.
           </p>
 
@@ -509,7 +509,7 @@ export function EmailSetupModal({ open, onClose }: EmailSetupModalProps) {
                       )}
                       {simState === 'idle'    && 'Simulate Gmail Verification'}
                       {simState === 'sending' && 'Sending…'}
-                      {simState === 'sent'    && '✓ Sent — polling…'}
+                      {simState === 'sent'    && '✓ Sent. Polling…'}
                       {simState === 'error'   && '✗ Backend unreachable'}
                     </button>
                   </div>

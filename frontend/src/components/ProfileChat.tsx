@@ -584,7 +584,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
         // Replace the last system message with the result
         const msgs = [...(prev?.messages ?? base.messages).slice(0, -1), {
           role: 'system' as any,
-          content: `📄 Document received — verifying your "${claim}"… ${statusText}. ${v.match_notes}`,
+          content: `📄 Document received. Verifying your "${claim}"… ${statusText}. ${v.match_notes}`,
           ts: new Date().toISOString(),
         }]
         return { ...base, messages: msgs }

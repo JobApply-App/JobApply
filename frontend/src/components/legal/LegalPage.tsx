@@ -59,14 +59,6 @@ export function LegalPage({
         <div className="prose-legal">{children}</div>
       </main>
 
-      <footer className="border-t mt-16" style={{ borderColor: TOKENS.color.line }}>
-        <div className="max-w-2xl mx-auto px-6 py-6 flex items-center justify-between text-[12px]"
-          style={{ color: TOKENS.color.muted }}>
-          <span>&copy; {new Date().getFullYear()} JobApply</span>
-          <a href="mailto:support@jobapply.ai" className="hover:underline">{L.contact}</a>
-        </div>
-      </footer>
-
       <style>{`
         .prose-legal h2 {
           font-size: 1.05rem; font-weight: 700; margin: 2rem 0 0.6rem;
@@ -75,7 +67,7 @@ export function LegalPage({
         .prose-legal p, .prose-legal li {
           font-size: 14px; line-height: 1.7; color: ${TOKENS.color.ink2};
         }
-        .prose-legal ul { margin: 0.5rem 0 1rem; padding-inline-start: 1.25rem; }
+        .prose-legal ul { margin: 0.5rem 0 1rem; padding-inline-start: 1.25rem; list-style: disc; }
         .prose-legal li { margin-bottom: 0.35rem; }
         .prose-legal strong { color: ${TOKENS.color.ink}; }
       `}</style>

@@ -910,7 +910,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
         parts.push(`limit is ${MAX_ATTACHMENTS} files / ${MAX_TOTAL_SIZE_MB}MB total`)
       }
       const skipped = rejectedOversize + rejectedCapacity
-      setAttachError(`${skipped} file${skipped > 1 ? 's' : ''} skipped — ${parts.join(', ')}.`)
+      setAttachError(`${skipped} file${skipped > 1 ? 's' : ''} skipped: ${parts.join(', ')}.`)
     }
 
     if (!accepted.length) return
@@ -1268,7 +1268,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          title={`Attach files (images, PDFs, videos, Word docs) — max ${MAX_ATTACHMENTS} files, up to ${MAX_TOTAL_SIZE_MB}MB total${
+          title={`Attach files (images, PDFs, videos, Word docs). Max ${MAX_ATTACHMENTS} files, up to ${MAX_TOTAL_SIZE_MB}MB total${
             attachments.length > 0 ? ` (${attachments.length}/${MAX_ATTACHMENTS} attached)` : ''
           }`}
           aria-label={A.attach}

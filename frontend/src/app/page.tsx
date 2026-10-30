@@ -7,7 +7,7 @@ import { DEFAULT_SETTINGS, type AutomationSettings } from '@/lib/data'
 import { useJobMatches }        from '@/hooks/useJobMatches'
 import { Header }               from '@/components/Header'
 import type { Tab }             from '@/components/Header'
-import { Footer }               from '@/components/Footer'
+import { RequiredDetailsGate }  from '@/components/RequiredDetailsGate'
 import { ControlsSheet }        from '@/components/ControlsSheet'
 import { Overview }             from '@/components/Overview'
 import { JobFeed }              from '@/components/JobFeed'
@@ -374,7 +374,7 @@ function HomePageContent() {
         {tab === 'all-jobs' && <AllJobsTab />}
       </main>
 
-      <Footer />
+      <RequiredDetailsGate />
 
       <ControlsSheet
         open={controlsOpen} onClose={() => setControlsOpen(false)}
@@ -1044,32 +1044,6 @@ function LandingPage() {
           </svg>
         </button>
       </section>
-
-      {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <footer className="bg-slate-900 py-14 px-6 sm:px-12 relative z-10">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
-            {l.footer.cols.map(col => (
-              <div key={col.heading}>
-                <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400 mb-4">{col.heading}</p>
-                <ul className="space-y-2.5">
-                  {col.links.map(link => (
-                    <li key={link}>
-                      <span className="text-[13px] text-slate-500 hover:text-slate-300 cursor-pointer transition-colors">{link}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-slate-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <span className="text-lg font-bold tracking-tight text-white">JobApply</span>
-            <p className="text-[12px] text-slate-500">
-              &copy; {new Date().getFullYear()} JobApply. {l.footer.copyright}
-            </p>
-          </div>
-        </div>
-      </footer>
 
       </div>{/* /relative z-10 */}
     </div>

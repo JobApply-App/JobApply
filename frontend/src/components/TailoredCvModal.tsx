@@ -299,7 +299,7 @@ function CvCopilot({ jobId, sections, onUpdate }: CvCopilotProps) {
         <p className="text-[11.5px] font-semibold text-slate-600 uppercase tracking-wider">
           CV Copilot
         </p>
-        <p className="text-[11px] text-slate-400 ml-1">— edit these bullets with plain English</p>
+        <p className="text-[11px] text-slate-400 ml-1">Edit these bullets in plain English</p>
       </div>
 
       {/* Hint chips — only when no messages yet */}
@@ -521,7 +521,7 @@ export function TailoredCvModal({ job, onClose, onGeneratePdf }: TailoredCvModal
                     style={{ background: 'oklch(0.97 0.03 75)', borderColor: 'oklch(0.88 0.08 75)' }}
                   >
                     <p className="text-[11.5px] text-amber-700">
-                      <strong>Note:</strong> The full job description hasn&apos;t been fetched yet — this
+                      <strong>Note:</strong> The full job description hasn&apos;t been fetched yet, so this
                       brief is based on available metadata. Fetch the JD first for a more precise
                       tailoring.
                     </p>
