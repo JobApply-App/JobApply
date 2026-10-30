@@ -479,6 +479,22 @@ def _upsert_generic(session: Session, user_id: str, data: dict, removed: set) ->
         )
 
 
+def get_answer(user_id: str, key: str):
+    """One profile_answers value (None when absent) — a single-row read."""
+    with ENGINE.connect() as conn:
+        return conn.execute(
+            text("SELECT answer FROM public.profile_answers WHERE user_id = CAST(:uid AS uuid) AND question_id = :q"),
+            {"uid": user_id, "q": key},
+        ).scalar()
+
+
+def set_answer(user_id: str, key: str, value) -> None:
+    """Upsert one profile_answers value without touching any other row."""
+    with Session(ENGINE) as session:
+        _upsert_generic(session, user_id, {key: value}, set())
+        session.commit()
+
+
 def _write_generic(session: Session, user_id: str, data: dict) -> None:
     """Wholesale replace every profile_answers row for user_id with `data`."""
     session.execute(text("DELETE FROM public.profile_answers WHERE user_id = CAST(:uid AS uuid)"), {"uid": user_id})

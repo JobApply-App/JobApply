@@ -310,9 +310,15 @@ export async function startAnalysis(url: string): Promise<ApiFeedJob> {
   throw new ApiError('timeout')
 }
 
-export async function fetchTemplates(): Promise<import('./apiTypes').TemplateInfo[]> {
-  const data = await get<{ templates: import('./apiTypes').TemplateInfo[] }>('/api/resumes/templates')
-  return data.templates
+/** The CV designs, and the one this user opens new CVs in. */
+export async function fetchTemplates(): Promise<{ templates: import('./apiTypes').TemplateInfo[]; defaultTemplate: string }> {
+  const data = await get<{ templates: import('./apiTypes').TemplateInfo[]; default_template?: string }>('/api/resumes/templates')
+  return { templates: data.templates, defaultTemplate: data.default_template ?? 't2_modern' }
+}
+
+/** Make this design the one every new CV opens in. */
+export async function setDefaultTemplate(templateId: string): Promise<void> {
+  await post('/api/resumes/default-template', { template_id: templateId })
 }
 
 export interface RenderQueueStatus {
@@ -446,9 +452,13 @@ export async function saveCv(
   jobId: string,
   cvData: Record<string, unknown>,
   matchScore: Record<string, unknown> | null,
+  cvLocale: string,
 ): Promise<void> {
+  // cv_locale is required: the server keeps one CV per language, and an edit
+  // saved without it was filed under the user's default language — a Hebrew
+  // edit overwrote the English version.
   await post('/api/resumes/save-cv', {
-    job_id: jobId, cv_data: cvData, match_score: matchScore,
+    job_id: jobId, cv_data: cvData, match_score: matchScore, cv_locale: cvLocale,
   })
 }
 

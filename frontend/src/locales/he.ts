@@ -57,6 +57,8 @@ export const he = {
       match_scoring: 'חישוב ההתאמה', analysis: 'הניתוח',
     },
   },  common: {
+    template_is_default: 'עיצוב ברירת המחדל שלך',
+    template_set_default: 'הגדרה כעיצוב ברירת מחדל',
     applying_template: 'מחילים את העיצוב…',
     ats_info_label: 'מה זה ATS?',
     skills_gap_info_label: 'מה זה ניתוח פערי כישורים?',
@@ -425,6 +427,11 @@ export const he = {
     back_to_jobs:       'חזרה למשרות',
     cv_language:        'שפת קורות החיים',
     cv_language_regen_hint: 'בחרו את השפה השנייה כדי ליצור גרסה בה.',
+    cv_gender_label: 'ניסוח בלשון:',
+    cv_gender_f: 'נקבה',
+    cv_gender_m: 'זכר',
+    cv_lang_hint_en: 'המשרה מפורסמת באנגלית — לרוב עדיף לשלוח אליה קורות חיים באנגלית.',
+    cv_lang_hint_he: 'המשרה מפורסמת בעברית — לרוב עדיף לשלוח אליה קורות חיים בעברית.',
     create_lang_version: 'יצירת גרסה ב{lang}',
     edit_cv:         '✎ עריכת קורות החיים',
     back_to_preview: '→ חזרה לתצוגה המקדימה',
@@ -1123,8 +1130,9 @@ export const he = {
 
   match_score: {
     band_suffix:       'התאמה {band}',
-    optimized_ats:     'ציון ATS לאחר אופטימיזציה',
+    optimized_ats:     'ציון ATS של קורות החיים האלה',
     boosted_from:      'עלה מהתאמת בסיס של {score}%',
+    job_fit_before:    'התאמה למשרה לפני עיבוד קורות החיים: {score}%',
     ai_validated:      'אומת ב-AI',
     keyword_overlap:   'חפיפת מילות מפתח',
     skills_alignment:  'התאמת מיומנויות',

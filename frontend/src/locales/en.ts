@@ -57,6 +57,8 @@ export const en = {
       match_scoring: 'Scoring the match', analysis: 'The analysis',
     },
   },  common: {
+    template_is_default: 'Your default design',
+    template_set_default: 'Make this my default design',
     applying_template: 'Applying the design…',
     ats_info_label: 'What is ATS?',
     skills_gap_info_label: 'What is the Skills Gap Analysis?',
@@ -428,6 +430,11 @@ export const en = {
     back_to_jobs:       'Back to jobs',
     cv_language:        'CV language',
     cv_language_regen_hint: 'Pick the other language to create a version in it.',
+    cv_gender_label: 'Hebrew wording:',
+    cv_gender_f: 'Feminine',
+    cv_gender_m: 'Masculine',
+    cv_lang_hint_en: 'This job is posted in English — an English CV usually fits it better.',
+    cv_lang_hint_he: 'This job is posted in Hebrew — a Hebrew CV usually fits it better.',
     create_lang_version: 'Create the {lang} version',
     edit_cv:         '✎ Edit CV',
     back_to_preview: '← Back to Preview',
@@ -1086,8 +1093,9 @@ export const en = {
 
   match_score: {
     band_suffix:       '{band} match',
-    optimized_ats:     'Optimized ATS score',
+    optimized_ats:     'ATS score for this CV',
     boosted_from:      'Boosted from your {score}% baseline fit',
+    job_fit_before:    'Job fit before tailoring: {score}%',
     ai_validated:      'AI-validated',
     keyword_overlap:   'Keyword overlap',
     skills_alignment:  'Skills alignment',

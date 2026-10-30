@@ -561,6 +561,17 @@ Never write a bullet that begins with or relies on:
 These phrases describe a job description, not an achievement.
 Every bullet must begin with an active verb that names the candidate's direct action.
 
+BULLET ORDER — recruiters scan in seconds, top-down:
+Within each role, the FIRST bullet is the one most relevant to THIS job and
+with the strongest measured result; the rest follow in falling relevance.
+The most recent role carries the most bullets.
+
+KEYWORD PLACEMENT — where an ATS and a recruiter look first:
+The target title and the summary carry the job description's core terms
+(its role title words and its 3-5 most important skills), stated truthfully.
+Every keyword used in the summary or skills must also be backed by a bullet
+— a keyword that appears only in a list reads as unsupported.
+
 SUMMARY RULES — same standards apply:
 The professional summary is not exempt from the XYZ discipline.
 It must contain at least one concrete number from the metrics table.
@@ -1579,9 +1590,10 @@ def _output_language_directive(cv_locale: str) -> str:
         f"title, the professional summary, every bullet point, every role title, "
         f"every skill category label and every generic skill (\"customer "
         f"onboarding\", \"stakeholder management\").\n"
-        f"A role title stays in English ONLY when the job description itself names "
-        f"that role in English; otherwise write the {language} title used in the "
-        f"local job market.\n"
+        f"Write role titles as the local job market does: in {language}, keeping "
+        f"an industry term that market uses in English inside the title (for "
+        f"Hebrew: \"ראש צוות Customer Success\"). Keep the job description's own "
+        f"keywords in their original form inside the {language} sentences.\n"
         f"EDUCATION: write each degree name in {language} and each institution by "
         f"its local {language} name when it has one (a foreign university keeps its "
         f"own name). Keep every education entry from the profile, in the same "
@@ -1618,6 +1630,20 @@ def _core_profile_gaps(user_id: str) -> list[dict]:
     return gaps
 
 
+async def _localize_hebrew(cv_data: dict, jd_text: str, user_id: str, gender: Optional[str]) -> dict:
+    """
+    Run the Hebrew localization pass. The job description's keywords that the
+    generated CV already contains are passed as terms to keep in English, so
+    localizing never costs the CV a keyword it had.
+    """
+    from backend.services.cv_localize import localize_cv_to_hebrew
+    from backend.services.match_score_service import _extract_jd_keywords
+
+    cv_text = json.dumps(cv_data, ensure_ascii=False).lower()
+    key_terms = sorted(kw for kw in _extract_jd_keywords(jd_text) if kw and kw.lower() in cv_text)
+    return await localize_cv_to_hebrew(cv_data, jd_text, key_terms, gender=gender, user_id=user_id)
+
+
 # ── Agent ─────────────────────────────────────────────────────────────────────
 
 class TailorAgent:
@@ -1636,6 +1662,7 @@ class TailorAgent:
         job: JobMatch,
         supplemental_answers: Optional[dict] = None,
         cv_locale: str = "en",
+        cv_gender: Optional[str] = None,
     ) -> dict:
         """
         Produce a tailored CV or a missing-data request for the given JobMatch.
@@ -1861,6 +1888,12 @@ class TailorAgent:
         except Exception as exc:
             logger.error("[grounding:tailor] gate failed for user=%s, CV left unchecked: %s",
                           self.user_id, exc)
+
+        # Hebrew: a dedicated localization pass. The main prompt mirrors the
+        # job description, and an English JD pulled titles, skills and
+        # education back to English (services/cv_localize.py).
+        if cv_locale == "he":
+            cv_data = await _localize_hebrew(cv_data, job.jd_text or "", self.user_id, cv_gender)
 
         logger.info(
             "TailorAgent OK  title='%s'  exps=%d  edu=%d  cats=%d",

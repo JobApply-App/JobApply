@@ -10,11 +10,12 @@ import type { ApiFeedJob, CopilotResponse, MatchScoreResult, TailorApiResponse, 
 import type { ParsedCV } from '@/lib/cv'
 import { parseCv, toLiveEditorCvData, resetToOriginal } from '@/lib/cvParser'
 import { applyCvPatch, jsonEqual } from '@/lib/cvPatch'
-import { fetchTemplates, renderPdf, downloadCvPdf, fetchMatchScore, fetchCachedCV, markJobApplied, ensureFreshToken, getAuthHeaders, saveCv } from '@/lib/api'
+import { fetchTemplates, setDefaultTemplate, renderPdf, downloadCvPdf, fetchMatchScore, fetchCachedCV, markJobApplied, ensureFreshToken, getAuthHeaders, saveCv } from '@/lib/api'
 import { MatchScorePanel } from './MatchScorePanel'
 import { TemplateSelectorBar } from './TemplateSelectorBar'
 import { LiveEditor } from './LiveEditor'
 import { RenderWait } from './RenderWait'
+import { dominantLanguage } from '@/lib/textLanguage'
 import type { CvData } from './LiveEditor'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -421,6 +422,10 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   // Languages this job already has a saved CV in: picking one of them loads
   // it (no generation); only a language without one offers "Create".
   const [availableLangs, setAvailableLangs] = useState<string[]>([])
+  // Hebrew titles are gendered (מנהל / מנהלת) and a name says nothing
+  // reliable about it, so the user picks. Saved to the profile server-side.
+  const [cvGender, setCvGender] = useState<'m' | 'f' | null>(null)
+  const jdLang = dominantLanguage(feedJob?.jd_text)
   const [switchingLang, setSwitchingLang] = useState(false)
 
   /**
@@ -459,6 +464,27 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
           )
         })}
       </div>
+      {cvLang === 'he' && (
+        <div className="mt-2 flex items-center gap-1.5" role="group" aria-label={A.cv_gender_label}>
+          <span className="text-[11px] text-slate-500">{A.cv_gender_label}</span>
+          {(['f', 'm'] as const).map(g => (
+            <button key={g} type="button" aria-pressed={cvGender === g}
+              onClick={() => setCvGender(cur => (cur === g ? null : g))}
+              className={`h-7 px-2.5 rounded-lg text-[11.5px] font-medium border transition-colors ${
+                cvGender === g ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700'}`}
+              style={cvGender === g ? { background: TOKENS.color.primary } : undefined}>
+              {g === 'f' ? A.cv_gender_f : A.cv_gender_m}
+            </button>
+          ))}
+        </div>
+      )}
+      {jdLang && cvLang !== jdLang && (
+        // Recruiters screen in the posting's language: an English posting
+        // searched for English keywords. A nudge, never a block.
+        <p className="text-[11px] text-amber-700 mt-1.5">
+          {(jdLang === 'en' ? A.cv_lang_hint_en : A.cv_lang_hint_he)}
+        </p>
+      )}
       {hint && <p className="text-[10.5px] text-slate-400 mt-1.5">{hint}</p>}
     </div>
   )
@@ -472,6 +498,14 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   // B2C feature state
   const [matchScore,       setMatchScore]       = useState<MatchScoreResult | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState('t2_modern')
+  // Every new CV opens in the user's default design (the server renders it
+  // there too); the user changes the default from the picker.
+  const [defaultTemplateId, setDefaultTemplateId] = useState('t2_modern')
+  const handleSetDefaultTemplate = useCallback((id: string) => {
+    const previous = defaultTemplateId
+    setDefaultTemplateId(id)
+    setDefaultTemplate(id).catch(() => setDefaultTemplateId(previous))
+  }, [defaultTemplateId])
   const [templates,        setTemplates]        = useState<TemplateInfo[]>([])
   const [isEditMode,       setIsEditMode]       = useState(false)
   // LiveEditor's edit state — ID-stable ParsedCV (lib/cv.ts), not raw CvData.
@@ -517,7 +551,10 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
   // ── Fetch templates on mount ──────────────────────────────────────────────
   useEffect(() => {
-    fetchTemplates().then(setTemplates).catch(() => {})
+    fetchTemplates().then(({ templates, defaultTemplate }) => {
+      setTemplates(templates)
+      setDefaultTemplateId(defaultTemplate)
+    }).catch(() => {})
   }, [])
 
   // A saved CV (on open, or when switching to a language that has one).
@@ -595,6 +632,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
           job_id:               job.id,
           supplemental_answers: supplementalAnswers ?? null,
           cv_locale:            cvLang,
+          cv_gender:            cvLang === 'he' ? cvGender : null,
           force,
         }),
       })
@@ -699,7 +737,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       )
       setPhase('idle')
     }
-  }, [job.id, A.errors.timeout, cvLang])
+  }, [job.id, A.errors.timeout, cvLang, cvGender])
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -794,7 +832,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     setIsSavingDraft(true)
     setSaveDraftError(null)
     try {
-      await saveCv(job.id, cvState.cvData, matchScore as unknown as Record<string, unknown> | null)
+      await saveCv(job.id, cvState.cvData, matchScore as unknown as Record<string, unknown> | null, shownLang ?? cvLang)
       setHasUnsavedDraft(false)
     } catch (e: unknown) {
       // hasUnsavedDraft stays true — the banner (and this message) remain
@@ -803,7 +841,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     } finally {
       setIsSavingDraft(false)
     }
-  }, [cvState, isSavingDraft, job.id, matchScore, A.errors.save_draft_failed])
+  }, [cvState, isSavingDraft, job.id, matchScore, shownLang, cvLang, A.errors.save_draft_failed])
 
   // ── PDF download ─────────────────────────────────────────────────────────
   // Streams the binary from the server and saves it directly. The embedded
@@ -864,6 +902,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
           cv_data:      cvState.cvData,
           user_prompt:  promptToSend,
           chat_history: chatHistory.length > 0 ? chatHistory : null,
+          template_id:  selectedTemplate,
         }),
       })
       if (!res.ok) {
@@ -958,7 +997,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     // async fetchMatchScore below. So the closure kept the score from one edit
     // earlier: edit twice and Undo restored the right CV with the previous
     // edit's score.
-  }, [cvState, isCopilotBusy, job.id, chatHistory, matchScore, A.errors.copilot_failed, A.errors.edit_applied])
+  }, [cvState, isCopilotBusy, job.id, chatHistory, matchScore, selectedTemplate, A.errors.copilot_failed, A.errors.edit_applied])
 
   const handleUndo = useCallback(() => {
     setEditHistory(prev => {
@@ -1079,6 +1118,8 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                   onSelect={handleSelectTemplate}
                   isLoading={isLoading}
                   renderingId={renderingTemplate}
+                  defaultId={defaultTemplateId}
+                  onSetDefault={handleSetDefaultTemplate}
                 />
               )}
 

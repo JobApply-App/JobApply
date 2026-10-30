@@ -144,10 +144,13 @@ export interface TemplateSelectorBarProps {
   isLoading?:       boolean
   /** Template whose preview is being rendered right now (spinner on its tile). */
   renderingId?:     string | null
+  /** The user's default design (every new CV opens in it). */
+  defaultId?:       string
+  onSetDefault?:    (id: string) => void
 }
 
 export function TemplateSelectorBar({
-  templates, selectedId, onSelect, isLoading, renderingId = null,
+  templates, selectedId, onSelect, isLoading, renderingId = null, defaultId, onSetDefault,
 }: TemplateSelectorBarProps) {
   const C = useI18n().t.common
   return (
@@ -217,6 +220,18 @@ export function TemplateSelectorBar({
           )
         })}
       </div>
+      {onSetDefault && defaultId && (
+        <p style={{ marginTop: 7, fontSize: 11, color: TOKENS.color.muted }}>
+          {selectedId === defaultId ? (
+            <>★ {C.template_is_default}</>
+          ) : (
+            <button type="button" onClick={() => onSetDefault(selectedId)}
+              style={{ color: TOKENS.color.primary, fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 2 }}>
+              {C.template_set_default}
+            </button>
+          )}
+        </p>
+      )}
     </div>
   )
 }

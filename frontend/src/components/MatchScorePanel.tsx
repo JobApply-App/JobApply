@@ -136,9 +136,8 @@ export interface MatchScorePanelProps {
   score:          MatchScoreResult
   isLoading?:     boolean
   /**
-   * Pre-tailoring baseline job score (0-100).
-   * The panel will never display a total lower than this value — tailoring
-   * an optimized CV cannot logically score below the raw baseline.
+   * The job's fit score from the feed, before tailoring (0-100). Shown as
+   * its own line for context — never as this CV's score.
    */
   baselineScore?: number
 }
@@ -146,9 +145,12 @@ export interface MatchScorePanelProps {
 export function MatchScorePanel({ score, isLoading, baselineScore }: MatchScorePanelProps) {
   const { t } = useI18n()
   const M = t.match_score
-  // Floor the displayed total at the baseline: the tailored CV is always at
-  // least as strong as the candidate's raw profile for this role.
-  const displayTotal = Math.max(score.total, baselineScore ?? 0)
+  // This CV's own score. It used to be floored at the job's feed score, so a
+  // CV scoring 12 (keywords 2/40, skills 0/35, seniority 10/25) showed
+  // "46.7% — boosted from your 46.7% baseline": a number the bars below
+  // could not add up to, and a claim of improvement that never happened.
+  const displayTotal = score.total
+  const improved = baselineScore != null && baselineScore > 0 && score.total > baselineScore + 0.05
   const band = getScoreBand(displayTotal)
   const fg   = band.hexFg
   const bg   = band.hexBg
@@ -177,7 +179,7 @@ export function MatchScorePanel({ score, isLoading, baselineScore }: MatchScoreP
           </p>
           {baselineScore != null && baselineScore > 0 && (
             <p style={{ fontSize: 10, color: TOKENS.color.muted, marginTop: 3, opacity: 0.8 }}>
-              {M.boosted_from.replace('{score}', baselineScore.toFixed(1))}
+              {(improved ? M.boosted_from : M.job_fit_before).replace('{score}', baselineScore.toFixed(1))}
             </p>
           )}
           {score.llm_validated && (

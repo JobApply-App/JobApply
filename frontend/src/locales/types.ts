@@ -45,6 +45,8 @@ export interface Dict {
     features: Record<ErrorFeature, string>
   }
   common: {
+    template_is_default: string
+    template_set_default: string
     applying_template: string
     ats_info_label: string
     ats_info: string
@@ -368,6 +370,11 @@ export interface Dict {
     cv_language:      string
     cv_language_regen_hint: string
     create_lang_version:    string   // takes {lang}
+    cv_gender_label:        string
+    cv_lang_hint_en:        string
+    cv_lang_hint_he:        string
+    cv_gender_f:            string
+    cv_gender_m:            string
     edit_cv:          string
     back_to_preview:  string
     approve_apply:    string
@@ -997,6 +1004,7 @@ export interface Dict {
   match_score: {
     band_suffix:      string   // "{band} match"
     optimized_ats:    string
+    job_fit_before:    string   // takes {score}
     boosted_from:     string   // takes {score}
     ai_validated:     string
     keyword_overlap:  string
