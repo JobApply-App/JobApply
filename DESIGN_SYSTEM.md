@@ -1,5 +1,7 @@
 # JobApply Design System: 'Editorial Intercom'
 
+> **Being redesigned (November 2026).** `docs/design-redesign.md` holds the motion, material and layout rules every screen is moving to, and the order of the phases. Where the two disagree, that file wins: for example, section labels in tracked capitals are no longer used.
+
 ## 1. Core Philosophy
 
 **Boxless UI:** Avoid wrapping inner content in nested boxes/cards. Rely on generous whitespace (`gap-8`, `mb-12`), typography hierarchy, and subtle bottom-borders for separation.
