@@ -1606,6 +1606,11 @@ def _output_language_directive(cv_locale: str) -> str:
         f"These are proper nouns an applicant tracking system matches literally.\n"
         f"Keep the JSON structure, all field names and all field-length limits "
         f"exactly as specified — only the human-readable values change language.\n"
+        + (
+            "Write Hebrew acronyms with the Hebrew gershayim ״ (צה״ל, בע״מ, "
+            "מנכ״ל), never a plain double quote, which breaks the JSON.\n"
+            if language == "Hebrew" else ""
+        )
     )
 
 
