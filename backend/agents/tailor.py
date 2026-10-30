@@ -561,6 +561,17 @@ Never write a bullet that begins with or relies on:
 These phrases describe a job description, not an achievement.
 Every bullet must begin with an active verb that names the candidate's direct action.
 
+BULLET ORDER — recruiters scan in seconds, top-down:
+Within each role, the FIRST bullet is the one most relevant to THIS job and
+with the strongest measured result; the rest follow in falling relevance.
+The most recent role carries the most bullets.
+
+KEYWORD PLACEMENT — where an ATS and a recruiter look first:
+The target title and the summary carry the job description's core terms
+(its role title words and its 3-5 most important skills), stated truthfully.
+Every keyword used in the summary or skills must also be backed by a bullet
+— a keyword that appears only in a list reads as unsupported.
+
 SUMMARY RULES — same standards apply:
 The professional summary is not exempt from the XYZ discipline.
 It must contain at least one concrete number from the metrics table.

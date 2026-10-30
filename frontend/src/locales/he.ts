@@ -430,6 +430,8 @@ export const he = {
     cv_gender_label: 'ניסוח בלשון:',
     cv_gender_f: 'נקבה',
     cv_gender_m: 'זכר',
+    cv_lang_hint_en: 'המשרה מפורסמת באנגלית — לרוב עדיף לשלוח אליה קורות חיים באנגלית.',
+    cv_lang_hint_he: 'המשרה מפורסמת בעברית — לרוב עדיף לשלוח אליה קורות חיים בעברית.',
     create_lang_version: 'יצירת גרסה ב{lang}',
     edit_cv:         '✎ עריכת קורות החיים',
     back_to_preview: '→ חזרה לתצוגה המקדימה',

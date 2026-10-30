@@ -433,6 +433,8 @@ export const en = {
     cv_gender_label: 'Hebrew wording:',
     cv_gender_f: 'Feminine',
     cv_gender_m: 'Masculine',
+    cv_lang_hint_en: 'This job is posted in English — an English CV usually fits it better.',
+    cv_lang_hint_he: 'This job is posted in Hebrew — a Hebrew CV usually fits it better.',
     create_lang_version: 'Create the {lang} version',
     edit_cv:         '✎ Edit CV',
     back_to_preview: '← Back to Preview',

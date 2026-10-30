@@ -371,6 +371,8 @@ export interface Dict {
     cv_language_regen_hint: string
     create_lang_version:    string   // takes {lang}
     cv_gender_label:        string
+    cv_lang_hint_en:        string
+    cv_lang_hint_he:        string
     cv_gender_f:            string
     cv_gender_m:            string
     edit_cv:          string

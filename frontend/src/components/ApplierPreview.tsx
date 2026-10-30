@@ -15,6 +15,7 @@ import { MatchScorePanel } from './MatchScorePanel'
 import { TemplateSelectorBar } from './TemplateSelectorBar'
 import { LiveEditor } from './LiveEditor'
 import { RenderWait } from './RenderWait'
+import { dominantLanguage } from '@/lib/textLanguage'
 import type { CvData } from './LiveEditor'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -424,6 +425,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   // Hebrew titles are gendered (מנהל / מנהלת) and a name says nothing
   // reliable about it, so the user picks. Saved to the profile server-side.
   const [cvGender, setCvGender] = useState<'m' | 'f' | null>(null)
+  const jdLang = dominantLanguage(feedJob?.jd_text)
   const [switchingLang, setSwitchingLang] = useState(false)
 
   /**
@@ -475,6 +477,13 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
             </button>
           ))}
         </div>
+      )}
+      {jdLang && cvLang !== jdLang && (
+        // Recruiters screen in the posting's language: an English posting
+        // searched for English keywords. A nudge, never a block.
+        <p className="text-[11px] text-amber-700 mt-1.5">
+          {(jdLang === 'en' ? A.cv_lang_hint_en : A.cv_lang_hint_he)}
+        </p>
       )}
       {hint && <p className="text-[10.5px] text-slate-400 mt-1.5">{hint}</p>}
     </div>
