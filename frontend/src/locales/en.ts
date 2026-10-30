@@ -1089,8 +1089,9 @@ export const en = {
 
   match_score: {
     band_suffix:       '{band} match',
-    optimized_ats:     'Optimized ATS score',
+    optimized_ats:     'ATS score for this CV',
     boosted_from:      'Boosted from your {score}% baseline fit',
+    job_fit_before:    'Job fit before tailoring: {score}%',
     ai_validated:      'AI-validated',
     keyword_overlap:   'Keyword overlap',
     skills_alignment:  'Skills alignment',

@@ -152,6 +152,12 @@ _AI_META_PREFIXES: tuple[str, ...] = (
 
 # ── Noise words ───────────────────────────────────────────────────────────────
 _NOISE_WORDS = frozenset({
+    # Regions and markets: a CV is not expected to contain them, and counting
+    # them as missing keywords lowered every score (production panel,
+    # 2026-10-29, listed "us" and "apac" among a CV's gaps).
+    "us", "usa", "uk", "eu", "emea", "apac", "latam", "na", "il", "israel",
+    # Soft adjectives the frequency rule picked up ("clearly", "collaborative").
+    "collaborative", "collaboration", "excellent", "strong", "ability", "able",
     "culture", "confidence", "passion", "passionate", "driven", "drive",
     "impact", "impactful", "ownership", "mindset", "attitude", "mission",
     "vision", "values", "diversity", "inclusion", "inclusive",
@@ -570,7 +576,8 @@ def _extract_jd_keywords(jd_text: str) -> set[str]:
         if _is_clean(w):
             freq[w] = freq.get(w, 0) + 1
     for w, count in freq.items():
-        if count >= 3:
+        # Adverbs ("clearly", "quickly") are never skills.
+        if count >= 3 and not w.endswith("ly"):
             keywords.add(w)
 
     return keywords

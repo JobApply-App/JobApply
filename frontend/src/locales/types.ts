@@ -1000,6 +1000,7 @@ export interface Dict {
   match_score: {
     band_suffix:      string   // "{band} match"
     optimized_ats:    string
+    job_fit_before:    string   // takes {score}
     boosted_from:     string   // takes {score}
     ai_validated:     string
     keyword_overlap:  string

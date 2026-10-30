@@ -1126,8 +1126,9 @@ export const he = {
 
   match_score: {
     band_suffix:       'התאמה {band}',
-    optimized_ats:     'ציון ATS לאחר אופטימיזציה',
+    optimized_ats:     'ציון ATS של קורות החיים האלה',
     boosted_from:      'עלה מהתאמת בסיס של {score}%',
+    job_fit_before:    'התאמה למשרה לפני עיבוד קורות החיים: {score}%',
     ai_validated:      'אומת ב-AI',
     keyword_overlap:   'חפיפת מילות מפתח',
     skills_alignment:  'התאמת מיומנויות',
