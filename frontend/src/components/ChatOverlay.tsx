@@ -410,7 +410,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
       if (rejectedCapacity) parts.push(`limit is ${MAX_ATTACHMENTS} files / ${MAX_TOTAL_SIZE_MB}MB total`)
       const skipped = rejectedOversize + rejectedCapacity
       if (attachErrorTimerRef.current) clearTimeout(attachErrorTimerRef.current)
-      setAttachError(`${skipped} file${skipped > 1 ? 's' : ''} skipped — ${parts.join(', ')}.`)
+      setAttachError(`${skipped} file${skipped > 1 ? 's' : ''} skipped: ${parts.join(', ')}.`)
       attachErrorTimerRef.current = setTimeout(() => setAttachError(null), 4000)
     }
 
@@ -481,7 +481,7 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
         // Rate limited — show a polite "busy" notice instead of a raw error.
         setMessages(prev => [...prev, {
           role:    'assistant',
-          content: "I'm helping a lot of visitors right now — please give me a moment and try again shortly. 🙏",
+          content: "I'm helping a lot of visitors right now. Please give me a moment and try again shortly. 🙏",
           ts:      Date.now(),
         }])
         return
@@ -1033,7 +1033,7 @@ export function ChatOverlay() {
         <OverlayShell
           isOpen={isOpen}
           onBackdropClick={closeChat}
-          ariaLabel="Ask Ariel — Career Agent"
+          ariaLabel="Ask Ariel, your career agent"
           shadowColor="rgba(124,58,237,0.18)"
           handleVariant="onLight"
         >

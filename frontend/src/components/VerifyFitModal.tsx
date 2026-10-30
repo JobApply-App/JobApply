@@ -427,7 +427,7 @@ export function VerifyFitModal({
               <textarea
                 ref={textareaRef}
                 rows={1}
-                placeholder={thinking ? 'Waiting for next question…' : 'Answer specifically — include role, metrics, or project details…'}
+                placeholder={thinking ? 'Waiting for next question…' : 'Answer specifically: include role, metrics, or project details…'}
                 value={draft}
                 onChange={handleTextareaChange}
                 onKeyDown={handleKeyDown}

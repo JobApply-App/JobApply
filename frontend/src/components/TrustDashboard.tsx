@@ -1490,7 +1490,7 @@ function AuthWallCallout() {
           {T.linkedin_expired}
         </p>
         <p className="text-[12px] text-slate-500 leading-relaxed">
-          The scraper hit a LinkedIn login wall — the{' '}
+          The scraper hit a LinkedIn login wall: the{' '}
           <code className="font-mono text-[11px]">li_at</code> cookie needs refreshing.
           Update <code className="font-mono text-[11px]">LINKEDIN_LI_AT</code> in{' '}
           <code className="font-mono text-[11px]">backend/.env</code>, delete the browser

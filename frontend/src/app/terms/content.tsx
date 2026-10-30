@@ -2,75 +2,70 @@
 
 import { LegalPage } from '@/components/legal/LegalPage'
 import { useI18n } from '@/contexts/I18nContext'
+import { CONTACT_EMAIL } from '@/lib/contact'
 
 /** See content.tsx under /privacy for why the prose lives here rather than in
  *  the locale dictionaries, and why English is the governing version. */
 export function TermsContent() {
   const { locale, t } = useI18n()
   const L = t.legal
+  const mail = <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
 
   if (locale === 'he') {
     return (
       <LegalPage title={L.terms_title} updated={L.updated_date}>
         <h2>מה JobApply עושה</h2>
         <p>
-          JobApply עוזר לכם להגיש מועמדות למשרות. אתם מספקים את ההיסטוריה התעסוקתית שלכם ותפקיד או
-          מודעת משרה; המערכת מפיקה קורות חיים מותאמים, ציון התאמה מול המשרה, וכלים למעקב ולהמשך
-          טיפול בהגשות (לוח בסגנון קנבן, הודעות פנייה שנוסחו ב-AI, ועוזר AI שיכול לענות על שאלות
-          לגבי הפרופיל שלכם או לגבי משרה).
+          JobApply עוזרת לכם להגיש מועמדות למשרות. אתם מוסרים את הניסיון שלכם ובוחרים משרה,
+          והמערכת מכינה קורות חיים מותאמים, ציון התאמה למשרה וכלים למעקב אחרי ההגשות. אריאל,
+          העוזרת באתר, עונה על שאלות לגבי הפרופיל שלכם ולגבי משרות.
         </p>
 
         <h2>החשבון שלכם</h2>
         <ul>
-          <li>נדרש חשבון כדי להשתמש ב-JobApply, שנוצר באמצעות מייל וסיסמה או כניסה עם Google.</li>
-          <li>אתם אחראים לשמור על פרטי הגישה שלכם ולמה שקורה תחת החשבון שלכם.</li>
-          <li>עליכם לדייק בהיסטוריה התעסוקתית שלכם — המוצר קיים כדי לעזור לכם להגיש מועמדות למשרות
-            אמיתיות, וקורות חיים מפוברקים הם סיכון עבורכם, לא עבורנו.</li>
+          <li>כדי להשתמש באתר צריך חשבון, במייל וסיסמה או בכניסה עם Google.</li>
+          <li>אתם אחראים לשמור על פרטי הכניסה ועל מה שנעשה בחשבון שלכם.</li>
+          <li>הפרטים שאתם מוסרים על הניסיון שלכם צריכים להיות נכונים. קורות חיים עם מידע לא נכון
+            עלולים לפגוע בכם מול מעסיקים.</li>
         </ul>
 
         <h2>תוכן שנוצר ב-AI</h2>
         <ul>
-          <li>קורות חיים מותאמים, ציוני התאמה, הודעות פנייה ותשובות צ׳אט נוצרים על ידי מודלי AI —
-            כיום Anthropic Claude, ו-Google במקומות שבהם הספק מופעל — על בסיס המידע שאתם מספקים.</li>
-          <li>פלט של AI יכול להיות שגוי. בדקו כל מסמך לפני שאתם שולחים אותו למעסיק — אתם אלה
-            שמגישים אותו, ואתם אחראים לדיוק שלו.</li>
-          <li>JobApply מפעיל בדיקות אוטומטיות שנועדו להשאיר את התוכן שנוצר מעוגן במה שמסרתם, אך
-            הבדיקות הללו אינן מושלמות ואינן מבטיחות שכל טענה במסמך שנוצר מדויקת.</li>
+          <li>קורות חיים, ציוני התאמה, הודעות פנייה ותשובות של אריאל נוצרים על ידי מודלי AI של
+            Google ו-Anthropic, על סמך מה שמסרתם.</li>
+          <li>תוכן כזה יכול לטעות. קראו כל מסמך לפני ששולחים אותו למעסיק: אתם מגישים אותו, ואתם
+            אחראים לנכונות שלו.</li>
+          <li>האתר בודק אוטומטית שהתוכן נשען על מה שמסרתם, אבל הבדיקות האלה לא מושלמות.</li>
         </ul>
 
-        <h2>שימוש מקובל</h2>
-        <p>אין להשתמש ב-JobApply כדי:</p>
+        <h2>שימוש מותר</h2>
+        <p>אסור להשתמש ב-JobApply כדי:</p>
         <ul>
-          <li>להגיש למעסיק מידע שאתם יודעים שאינו נכון לגביכם.</li>
-          <li>לנסות לשבש את השירות, להעמיס עליו או להשיג אליו גישה בלתי מורשית.</li>
-          <li>לגרד, למכור מחדש או להפיץ נתוני משרות או פלט AI בהיקף החורג משימוש אישי רגיל.</li>
+          <li>למסור למעסיק מידע שאתם יודעים שאינו נכון.</li>
+          <li>לשבש את השירות, להעמיס עליו או להשיג אליו גישה בלי הרשאה.</li>
+          <li>לאסוף, למכור או להפיץ נתוני משרות או תוכן שנוצר באתר, מעבר לשימוש אישי.</li>
         </ul>
 
-        <h2>נתוני משרות וחברות</h2>
+        <h2>מידע על משרות וחברות</h2>
         <p>
-          JobApply מרכז מודעות משרה מלוחות דרושים ציבוריים וממקורות נוספים. איננו שולטים בדיוק
-          הנתונים הללו, והופעת משרה בפיד שלכם אינה ערובה לכך שהיא עדיין פתוחה או מתוארת נכון במקור.
+          המשרות באתר נאספות מלוחות דרושים ציבוריים וממקורות נוספים. אנחנו לא שולטים בדיוק שלהן,
+          ומשרה שמופיעה אצלכם לא בהכרח עדיין פתוחה או מתוארת נכון במקור.
         </p>
 
-        <h2>ללא אחריות</h2>
+        <h2>ללא התחייבות</h2>
         <p>
-          JobApply ניתן כמות שהוא. איננו מתחייבים שתקבלו ראיונות או הצעות, שהשירות יפעל ללא הפרעה,
-          או שתוכן שנוצר ב-AI יהיה נקי משגיאות.
+          השירות ניתן כמו שהוא. אנחנו לא מתחייבים שתקבלו ראיונות או הצעות, שהשירות יפעל בלי
+          הפסקות, או שתוכן שנוצר ב-AI יהיה בלי טעויות.
         </p>
 
-        <h2>שינויים</h2>
-        <p>
-          ייתכן שנעדכן את התנאים הללו ככל שהמוצר משתנה. שינויים מהותיים יופיעו כאן עם תאריך מעודכן.
-        </p>
+        <h2>עדכונים לתנאים</h2>
+        <p>כשנשנה משהו מהותי, הוא יופיע כאן עם תאריך עדכון חדש.</p>
 
         <h2>יצירת קשר</h2>
-        <p>שאלות על התנאים הללו: <a href="mailto:support@jobapply.ai">support@jobapply.ai</a>.</p>
+        <p>שאלות על התנאים: {mail}</p>
 
-        <h2>שפה מחייבת</h2>
-        <p>
-          הנוסח האנגלי של תנאים אלה הוא הנוסח המחייב. התרגום לעברית ניתן לנוחותכם, ובמקרה של סתירה
-          בין הנוסחים — הנוסח האנגלי גובר.
-        </p>
+        <h2>הנוסח המחייב</h2>
+        <p>הנוסח באנגלית הוא המחייב. אם יש סתירה בינו לבין התרגום הזה, הנוסח באנגלית קובע.</p>
       </LegalPage>
     )
   }
@@ -79,61 +74,57 @@ export function TermsContent() {
     <LegalPage title={L.terms_title} updated={L.updated_date}>
       <h2>What JobApply does</h2>
       <p>
-        JobApply helps you apply to jobs. You give it your work history and a target role or job
-        posting; it produces a tailored CV, a fit score against the job, and tools to track and
-        follow up on applications (a Kanban-style board, AI-drafted outreach messages, and an
-        AI assistant that can answer questions about your profile or a job).
+        JobApply helps you apply for jobs. You give it your experience and pick a job, and it
+        prepares a tailored CV, a fit score for the job and tools to track your applications.
+        Ariel, the assistant on the site, answers questions about your profile and about jobs.
       </p>
 
       <h2>Your account</h2>
       <ul>
-        <li>You need an account to use JobApply, created via email/password or Google sign-in.</li>
-        <li>You&apos;re responsible for keeping your credentials secure and for what happens under your account.</li>
-        <li>You must be accurate about your own work history — the product exists to help you
-          apply for real jobs, and a fabricated CV is a risk to you, not to us.</li>
+        <li>You need an account to use the site, with email and password or Google sign-in.</li>
+        <li>You are responsible for keeping your sign-in details safe and for what is done in
+          your account.</li>
+        <li>What you tell us about your experience must be true. A CV with false information can
+          hurt you with employers.</li>
       </ul>
 
       <h2>AI-generated content</h2>
       <ul>
-        <li>Tailored CVs, fit scores, outreach messages, and chat replies are generated by AI
-          models — currently Anthropic Claude, and Google where that provider is enabled —
-          based on the information you provide.</li>
-        <li>AI output can be wrong. Review every document before you send it to an employer —
-          you are the one submitting it, and you&apos;re responsible for its accuracy.</li>
-        <li>JobApply applies automated checks intended to keep generated content grounded in
-          what you told it, but these checks are not perfect and do not guarantee every claim in
-          a generated document is accurate.</li>
+        <li>CVs, fit scores, outreach messages and replies from Ariel are written by AI models
+          from Google and Anthropic, based on what you gave us.</li>
+        <li>This content can be wrong. Read every document before you send it to an employer: you
+          are the one submitting it, and you are responsible for its accuracy.</li>
+        <li>The site checks automatically that generated content rests on what you told us, but
+          those checks are not perfect.</li>
       </ul>
 
       <h2>Acceptable use</h2>
-      <p>Don&apos;t use JobApply to:</p>
+      <p>Do not use JobApply to:</p>
       <ul>
-        <li>Submit knowingly false information about yourself to an employer.</li>
-        <li>Attempt to disrupt, overload, or gain unauthorized access to the service.</li>
-        <li>Scrape, resell, or redistribute job data or AI output at scale outside normal personal use.</li>
+        <li>Give an employer information you know is false.</li>
+        <li>Disrupt or overload the service, or access it without permission.</li>
+        <li>Collect, sell or redistribute job data or generated content beyond personal use.</li>
       </ul>
 
-      <h2>Job and company data</h2>
+      <h2>Job and company information</h2>
       <p>
-        JobApply aggregates job postings from public job boards and other sources. We don&apos;t
-        control the accuracy of that data, and a listing appearing in your feed isn&apos;t a
-        guarantee it&apos;s still open or accurately described by the source.
+        Jobs on the site are collected from public job boards and other sources. We do not control
+        their accuracy, and a job in your feed may no longer be open or may be described
+        differently at the source.
       </p>
 
       <h2>No warranty</h2>
       <p>
-        JobApply is provided as-is. We don&apos;t guarantee you&apos;ll get interviews or offers,
-        that the service will be uninterrupted, or that AI-generated content will be error-free.
+        The service is provided as is. We do not promise that you will get interviews or offers,
+        that the service will run without interruption, or that AI-generated content will be free
+        of mistakes.
       </p>
 
-      <h2>Changes</h2>
-      <p>
-        We may update these terms as the product changes. Material changes will be reflected here
-        with an updated date.
-      </p>
+      <h2>Changes to these terms</h2>
+      <p>When we change something material, it will appear here with a new date.</p>
 
       <h2>Contact</h2>
-      <p>Questions about these terms: <a href="mailto:support@jobapply.ai">support@jobapply.ai</a>.</p>
+      <p>Questions about these terms: {mail}</p>
     </LegalPage>
   )
 }

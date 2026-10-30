@@ -322,6 +322,48 @@ async def save_role_preferences(
     return {"status": "ok", "roles": roles}
 
 
+# ── Required details ──────────────────────────────────────────────────────────
+# What the product needs from every user before they use it: target roles,
+# each with a level, and how Hebrew text should refer to them (Hebrew titles
+# are gendered: מנהל / מנהלת). New users answer these during onboarding;
+# anyone who skipped them, or signed up before they were asked, is asked once
+# at login by the frontend's required-details step, which reads this list.
+
+HEBREW_FORMS = {"m", "f", "n"}   # he / she / neutral wording (מנהל/ת)
+
+
+def missing_required_details(user_id: str) -> list[str]:
+    missing: list[str] = []
+    roles = (profile_repository.get_profile_json(user_id).get("role_preferences") or {}).get("roles") or []
+    if not roles or any(not (r.get("seniority") or "").strip() for r in roles if isinstance(r, dict)):
+        missing.append("roles")
+    if profile_repository.get_answer(user_id, "cv_hebrew_gender") not in HEBREW_FORMS:
+        missing.append("hebrew_form")
+    return missing
+
+
+@router.get("/required")
+async def get_required_details(user: CurrentUser = Depends(get_current_user)) -> dict:
+    """The required details this user has not given yet (empty when none)."""
+    return {"missing": missing_required_details(user.user_id)}
+
+
+class HebrewFormPayload(BaseModel):
+    value: str
+
+
+@router.post("/hebrew-form")
+async def set_hebrew_form(
+    body: HebrewFormPayload,
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    """How Hebrew text refers to the user: "m", "f" or "n" (neutral)."""
+    if body.value not in HEBREW_FORMS:
+        raise HTTPException(status_code=422, detail=f"value must be one of {sorted(HEBREW_FORMS)}")
+    profile_repository.set_answer(user.user_id, "cv_hebrew_gender", body.value)
+    return {"status": "ok", "value": body.value}
+
+
 # ── POST /api/profile/linkedin-import ─────────────────────────────────────────
 # Phase 8 stub: accepts a LinkedIn profile URL and returns a mock success after
 # a short delay. Real scraping is intentionally NOT implemented (LinkedIn's

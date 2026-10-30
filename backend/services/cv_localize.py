@@ -87,7 +87,9 @@ GENDER
 OUTPUT
 Return ONLY the same JSON object with the same keys, the same number of \
 roles, bullets, degrees and skill groups, in the same order. Change wording \
-only: every number, date, company name and URL stays exactly as it is.\
+only: every number, date, company name and URL stays exactly as it is. \
+Write Hebrew acronyms with the gershayim ״ (צה״ל, בע״מ), never a plain \
+double quote, which breaks the JSON.\
 """
 
 _GENDER_RULES = {

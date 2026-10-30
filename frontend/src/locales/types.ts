@@ -120,10 +120,6 @@ export interface Dict {
       body:   string
       button: string
     }
-    footer: {
-      cols: ReadonlyArray<{ heading: string; links: readonly string[] }>
-      copyright: string
-    }
   }
   login: {
     left: {
@@ -240,17 +236,25 @@ export interface Dict {
     mobile_tabs_label: string
   }
   footer: {
-    coming_soon:  string
-    operational:  string
-    help:         string
-    privacy:      string
-    contact:      string
-    accessibility:string
+    help:          string
+    privacy:       string
+    terms:         string
+    cookies:       string
+    contact:       string
+    accessibility: string
+    rights:        string
+    nav_label:     string
     contact_title: string
     contact_body:  string
     contact_email: string
     contact_phone: string
     contact_close: string
+    cookies_title: string
+    cookies_body:  string
+    cookies_items: ReadonlyArray<{ name: string; purpose: string }>
+    cookies_always_on:     string
+    cookies_none_optional: string
+    cookies_close: string
   }
   a11y_menu: {
     open: string
@@ -370,11 +374,8 @@ export interface Dict {
     cv_language:      string
     cv_language_regen_hint: string
     create_lang_version:    string   // takes {lang}
-    cv_gender_label:        string
     cv_lang_hint_en:        string
     cv_lang_hint_he:        string
-    cv_gender_f:            string
-    cv_gender_m:            string
     edit_cv:          string
     back_to_preview:  string
     approve_apply:    string
@@ -1429,5 +1430,19 @@ export interface Dict {
     step_reading: string
     step_analyzing: string
     hint: string
+  }
+  required_details: {
+    title:            string
+    intro:            string
+    roles_heading:    string
+    roles_hint:       string
+    hebrew_heading:   string
+    hebrew_hint:      string
+    hebrew_m:         string
+    hebrew_f:         string
+    hebrew_n:         string
+    save:             string
+    saving:           string
+    save_failed:      string
   }
 }

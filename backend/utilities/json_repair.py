@@ -87,6 +87,21 @@ def _escape_raw_newlines_in_strings(text: str) -> str:
     return "".join(out)
 
 
+_HEBREW_GERSHAYIM = re.compile(r'(?<=[\u05D0-\u05EA])"(?=[\u05D0-\u05EA])')
+
+
+def _hebrew_gershayim(text: str) -> str:
+    """
+    צה"ל, בע"מ, מנכ"ל: Hebrew acronyms are written with a double quote
+    between letters, and a model writing Hebrew inside JSON emits it bare,
+    which ends the string early. Every Hebrew CV that mentioned the army
+    failed to parse (2026-10-30). A JSON delimiter quote never sits between
+    two Hebrew letters, so those are replaced with the Hebrew gershayim (״),
+    which is also the typographically correct mark.
+    """
+    return _HEBREW_GERSHAYIM.sub("\u05F4", text)
+
+
 def parse_json_robust(raw: str, *, context: str = "llm") -> Optional[Any]:
     """
     Parse LLM JSON, repairing progressively. None when nothing works.
@@ -95,7 +110,8 @@ def parse_json_robust(raw: str, *, context: str = "llm") -> Optional[Any]:
       1. direct parse (well-formed responses never get modified)
       2. strip fences / surrounding prose
       3. drop trailing commas
-      4. escape raw newlines and tabs inside string values
+      4. escape raw newlines and tabs inside string values, and replace
+         bare quotes inside Hebrew acronyms (צה"ל) with ״
       5. close an unterminated string and object (truncated output)
       6. close an unterminated object
     """
@@ -115,20 +131,27 @@ def parse_json_robust(raw: str, *, context: str = "llm") -> Optional[Any]:
     attempts.append(("escaped-newlines", _escape_raw_newlines_in_strings(cleaned)))
     attempts.append(("escaped+no-trailing-commas",
                      _drop_trailing_commas(_escape_raw_newlines_in_strings(cleaned))))
+    hebrew = _hebrew_gershayim(cleaned)
+    if hebrew != cleaned:
+        attempts.append(("hebrew-gershayim", hebrew))
+        attempts.append(("hebrew-gershayim+escaped+no-trailing-commas",
+                         _drop_trailing_commas(_escape_raw_newlines_in_strings(hebrew))))
     attempts.append(("closed-string-and-object", cleaned + '"}'))
     attempts.append(("closed-object", cleaned + "}"))
 
+    first_error = ""
     for name, candidate in attempts:
         try:
             parsed = json.loads(candidate)
-        except (json.JSONDecodeError, TypeError):
+        except (json.JSONDecodeError, TypeError) as exc:
+            first_error = first_error or str(exc)
             continue
         if name != "fences-stripped":
             logger.warning("[json-repair:%s] recovered malformed LLM JSON via '%s'", context, name)
         return parsed
 
     logger.error(
-        "[json-repair:%s] every repair strategy failed — raw length %d, first 200 chars: %r",
-        context, len(raw), raw[:200],
+        "[json-repair:%s] every repair strategy failed (%s) — raw length %d, first 200 chars: %r",
+        context, first_error, len(raw), raw[:200],
     )
     return None

@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation'
 import { Header }    from '@/components/Header'
-import { Footer }    from '@/components/Footer'
 import { ScraperPreview } from '@/components/ScraperPreview'
 import AuthGuard from '@/components/AuthGuard'
 import type { Tab } from '@/components/Header'
@@ -27,7 +26,6 @@ function AtsPreviewContent() {
         <ScraperPreview />
       </main>
 
-      <Footer />
     </div>
   )
 }

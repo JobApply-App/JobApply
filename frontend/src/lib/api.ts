@@ -717,6 +717,21 @@ export async function fetchRolePreferences(): Promise<RolePreferences & { cvUnre
   return { roles, cvUnreadable: data.cv_unreadable === true }
 }
 
+// ── Required details (asked at onboarding, or at login when missing) ─────────
+
+/** How Hebrew text refers to the user: he, she, or neutral slash forms (מנהל/ת). */
+export type HebrewForm = 'm' | 'f' | 'n'
+export type RequiredDetail = 'roles' | 'hebrew_form'
+
+export async function fetchMissingRequiredDetails(): Promise<RequiredDetail[]> {
+  const data = await get<{ missing: RequiredDetail[] }>('/api/profile/required')
+  return data.missing ?? []
+}
+
+export async function saveHebrewForm(value: HebrewForm): Promise<void> {
+  await post<{ value: HebrewForm }, { status: string }>('/api/profile/hebrew-form', { value })
+}
+
 export interface LinkedInImportResponse {
   status:   string
   imported: boolean

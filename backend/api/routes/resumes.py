@@ -283,6 +283,7 @@ def _resolve_cv_gender(user_id: str, requested: Optional[str]) -> Optional[str]:
         stored = profile_repository.get_answer(user_id, "cv_hebrew_gender")
     except Exception:
         stored = None
+    # "n" (neutral wording) is a real answer that maps to the slash forms.
     return stored if stored in ("m", "f") else None
 
 

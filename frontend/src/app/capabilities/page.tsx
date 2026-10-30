@@ -8,47 +8,6 @@ import { useChat } from '@/contexts/ChatContext'
 import { Header } from '@/components/Header'
 import { CapabilitiesList } from '@/components/TrustDashboard'
 
-function CapabilitiesFooter() {
-  const C = useI18n().t.common
-  const { openEliya } = useChat()
-
-  return (
-    <footer className="border-t border-slate-800 mt-16">
-      <div className="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between gap-4 flex-wrap">
-        <span className="text-[11px] text-slate-500">
-          © {new Date().getFullYear()} JobApply
-        </span>
-        <nav className="flex items-center gap-5 text-[11.5px] text-slate-400">
-          <a
-            href="mailto:support@jobapply.ai"
-            className="hover:text-slate-200 transition-colors"
-          >
-            {C.support}
-          </a>
-          <a
-            href="/terms"
-            className="hover:text-slate-200 transition-colors"
-          >
-            {C.terms}
-          </a>
-          <a
-            href="/privacy"
-            className="hover:text-slate-200 transition-colors"
-          >
-            {C.privacy}
-          </a>
-          <button
-            onClick={openEliya}
-            className="hover:text-indigo-400 transition-colors font-medium"
-          >
-            Help &amp; Support
-          </button>
-        </nav>
-      </div>
-    </footer>
-  )
-}
-
 export default function CapabilitiesPage() {
   const T = useI18n().t.trust
   const { user, loading } = useAuth()
@@ -85,10 +44,6 @@ export default function CapabilitiesPage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <div className="bg-slate-900">
-        <CapabilitiesFooter />
-      </div>
     </div>
   )
 }
