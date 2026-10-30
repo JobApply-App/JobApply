@@ -57,6 +57,8 @@ export const he = {
       match_scoring: 'חישוב ההתאמה', analysis: 'הניתוח',
     },
   },  common: {
+    template_is_default: 'עיצוב ברירת המחדל שלך',
+    template_set_default: 'הגדרה כעיצוב ברירת מחדל',
     applying_template: 'מחילים את העיצוב…',
     ats_info_label: 'מה זה ATS?',
     skills_gap_info_label: 'מה זה ניתוח פערי כישורים?',

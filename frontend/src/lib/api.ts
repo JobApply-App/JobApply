@@ -310,9 +310,15 @@ export async function startAnalysis(url: string): Promise<ApiFeedJob> {
   throw new ApiError('timeout')
 }
 
-export async function fetchTemplates(): Promise<import('./apiTypes').TemplateInfo[]> {
-  const data = await get<{ templates: import('./apiTypes').TemplateInfo[] }>('/api/resumes/templates')
-  return data.templates
+/** The CV designs, and the one this user opens new CVs in. */
+export async function fetchTemplates(): Promise<{ templates: import('./apiTypes').TemplateInfo[]; defaultTemplate: string }> {
+  const data = await get<{ templates: import('./apiTypes').TemplateInfo[]; default_template?: string }>('/api/resumes/templates')
+  return { templates: data.templates, defaultTemplate: data.default_template ?? 't2_modern' }
+}
+
+/** Make this design the one every new CV opens in. */
+export async function setDefaultTemplate(templateId: string): Promise<void> {
+  await post('/api/resumes/default-template', { template_id: templateId })
 }
 
 export interface RenderQueueStatus {

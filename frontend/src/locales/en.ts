@@ -57,6 +57,8 @@ export const en = {
       match_scoring: 'Scoring the match', analysis: 'The analysis',
     },
   },  common: {
+    template_is_default: 'Your default design',
+    template_set_default: 'Make this my default design',
     applying_template: 'Applying the design…',
     ats_info_label: 'What is ATS?',
     skills_gap_info_label: 'What is the Skills Gap Analysis?',

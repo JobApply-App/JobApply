@@ -10,7 +10,7 @@ import type { ApiFeedJob, CopilotResponse, MatchScoreResult, TailorApiResponse, 
 import type { ParsedCV } from '@/lib/cv'
 import { parseCv, toLiveEditorCvData, resetToOriginal } from '@/lib/cvParser'
 import { applyCvPatch, jsonEqual } from '@/lib/cvPatch'
-import { fetchTemplates, renderPdf, downloadCvPdf, fetchMatchScore, fetchCachedCV, markJobApplied, ensureFreshToken, getAuthHeaders, saveCv } from '@/lib/api'
+import { fetchTemplates, setDefaultTemplate, renderPdf, downloadCvPdf, fetchMatchScore, fetchCachedCV, markJobApplied, ensureFreshToken, getAuthHeaders, saveCv } from '@/lib/api'
 import { MatchScorePanel } from './MatchScorePanel'
 import { TemplateSelectorBar } from './TemplateSelectorBar'
 import { LiveEditor } from './LiveEditor'
@@ -489,6 +489,14 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   // B2C feature state
   const [matchScore,       setMatchScore]       = useState<MatchScoreResult | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState('t2_modern')
+  // Every new CV opens in the user's default design (the server renders it
+  // there too); the user changes the default from the picker.
+  const [defaultTemplateId, setDefaultTemplateId] = useState('t2_modern')
+  const handleSetDefaultTemplate = useCallback((id: string) => {
+    const previous = defaultTemplateId
+    setDefaultTemplateId(id)
+    setDefaultTemplate(id).catch(() => setDefaultTemplateId(previous))
+  }, [defaultTemplateId])
   const [templates,        setTemplates]        = useState<TemplateInfo[]>([])
   const [isEditMode,       setIsEditMode]       = useState(false)
   // LiveEditor's edit state — ID-stable ParsedCV (lib/cv.ts), not raw CvData.
@@ -534,7 +542,10 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
 
   // ── Fetch templates on mount ──────────────────────────────────────────────
   useEffect(() => {
-    fetchTemplates().then(setTemplates).catch(() => {})
+    fetchTemplates().then(({ templates, defaultTemplate }) => {
+      setTemplates(templates)
+      setDefaultTemplateId(defaultTemplate)
+    }).catch(() => {})
   }, [])
 
   // A saved CV (on open, or when switching to a language that has one).
@@ -882,6 +893,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
           cv_data:      cvState.cvData,
           user_prompt:  promptToSend,
           chat_history: chatHistory.length > 0 ? chatHistory : null,
+          template_id:  selectedTemplate,
         }),
       })
       if (!res.ok) {
@@ -976,7 +988,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     // async fetchMatchScore below. So the closure kept the score from one edit
     // earlier: edit twice and Undo restored the right CV with the previous
     // edit's score.
-  }, [cvState, isCopilotBusy, job.id, chatHistory, matchScore, A.errors.copilot_failed, A.errors.edit_applied])
+  }, [cvState, isCopilotBusy, job.id, chatHistory, matchScore, selectedTemplate, A.errors.copilot_failed, A.errors.edit_applied])
 
   const handleUndo = useCallback(() => {
     setEditHistory(prev => {
@@ -1097,6 +1109,8 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                   onSelect={handleSelectTemplate}
                   isLoading={isLoading}
                   renderingId={renderingTemplate}
+                  defaultId={defaultTemplateId}
+                  onSetDefault={handleSetDefaultTemplate}
                 />
               )}
 

@@ -20,6 +20,8 @@ from backend.agents.tailor import TailorAgent, _inject_static_sections
 from backend.agents.gatekeeper import RevisionGatekeeper
 from backend.agents.copilot import CopilotAgent
 from backend.services.pdf_builder import build_pdf, PdfEngineUnavailable, TEMPLATE_REGISTRY
+
+TEMPLATE_IDS = frozenset(t["id"] for t in TEMPLATE_REGISTRY)
 from backend.models.cv import normalize_cv
 from backend.services.user_profile import get_profile, save_user_personal_field
 from backend.services.match_score_service import (
@@ -248,6 +250,26 @@ class TailorRequest(BaseModel):
     # gendered and a name says nothing reliable about it, so the user picks.
     # Saved to the profile and reused; None = use the saved choice, if any.
     cv_gender: Optional[str] = None
+
+
+def _default_template(user_id: str) -> str:
+    """
+    The design every new CV opens in: the user's chosen default, else Modern.
+    It used to be Modern always, with no way to choose — so a user who
+    preferred another design re-picked it on every CV.
+    """
+    try:
+        chosen = profile_repository.get_answer(user_id, "cv_default_template")
+    except Exception as exc:
+        logger.warning("[resumes] default template unreadable for user=%s: %s", user_id, exc)
+        chosen = None
+    return chosen if chosen in TEMPLATE_IDS else "t2_modern"
+
+
+def _cv_template(user_id: str, req) -> str:
+    """The design a request asked for (the one on screen), else the user's default."""
+    asked = getattr(req, "template_id", None)
+    return asked if asked in TEMPLATE_IDS else _default_template(user_id)
 
 
 def _resolve_cv_gender(user_id: str, requested: Optional[str]) -> Optional[str]:
@@ -618,7 +640,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
             # Stored CVs may predate the schema unification.
             cached_cv_data = normalize_cv(cached["cv_data"], context="resumes/tailor:cache")
             try:
-                cached_pdf = await build_pdf(cached_cv_data, template_id="t2_modern", user_id=user.user_id)
+                cached_pdf = await build_pdf(cached_cv_data, template_id=_default_template(user.user_id), user_id=user.user_id)
             except Exception as exc:
                 logger.warning("[resumes/tailor] PDF rebuild from cache failed: %s", exc)
                 cached_pdf = None
@@ -627,7 +649,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                 cv_data            = cached_cv_data,
                 pdf_b64            = base64.b64encode(cached_pdf).decode() if cached_pdf else None,
                 match_score        = cached.get("match_score"),
-                preferred_template = "t2_modern",
+                preferred_template = _default_template(user.user_id),
                 cv_locale          = cv_locale,
                 available_locales  = tailored_cv_locales(req.job_id, user.user_id),
             )
@@ -743,7 +765,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
             logger.warning("[resumes/tailor] merge_answers failed (non-fatal): %s", exc)
 
     try:
-        pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
+        pdf_bytes = await build_pdf(cv_data, template_id=_cv_template(user.user_id, req), user_id=user.user_id)
     except Exception as exc:
         raise _pdf_http_error(exc, context=f"resumes/tailor job={req.job_id}") from exc
 
@@ -819,7 +841,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                 score_result     = refined_score
                 match_score_dict = refined_score.as_dict()
                 try:
-                    pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
+                    pdf_bytes = await build_pdf(cv_data, template_id=_cv_template(user.user_id, req), user_id=user.user_id)
                     logger.info(
                         "[resumes/tailor] Refined PDF rebuilt for job %s", req.job_id
                     )
@@ -874,7 +896,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
         cv_data            = cv_data,
         pdf_b64            = base64.b64encode(pdf_bytes).decode(),
         match_score        = match_score_dict,
-        preferred_template = "t2_modern",
+        preferred_template = _default_template(user.user_id),
         cv_locale          = cv_locale,
         available_locales  = tailored_cv_locales(req.job_id, user.user_id),
     )
@@ -1021,7 +1043,7 @@ async def get_cached_resume(
 
     cv_data = normalize_cv(cached["cv_data"], context="resumes/cached")
     try:
-        pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
+        pdf_bytes = await build_pdf(cv_data, template_id=_default_template(user.user_id), user_id=user.user_id)
         pdf_b64   = base64.b64encode(pdf_bytes).decode()
     except Exception as exc:
         logger.warning("[resumes/cached] PDF rebuild failed for job %s: %s", job_id, exc)
@@ -1032,7 +1054,7 @@ async def get_cached_resume(
         cv_data            = cv_data,
         pdf_b64            = pdf_b64,
         match_score        = cached.get("match_score"),
-        preferred_template = "t2_modern",
+        preferred_template = _default_template(user.user_id),
         cv_locale          = cached.get("cv_locale") or "en",
         available_locales  = tailored_cv_locales(job_id, user.user_id),
     )
@@ -1045,6 +1067,8 @@ class CopilotRequest(BaseModel):
     cv_data:      dict
     user_prompt:  str = Field(..., max_length=10_000)
     chat_history: Optional[list[dict]] = None
+    # The design on screen: the edited PDF comes back in it, not in Modern.
+    template_id:  Optional[str] = None
 
 
 class CopilotResponse(BaseModel):
@@ -1123,7 +1147,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
     )
 
     try:
-        pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
+        pdf_bytes = await build_pdf(cv_data, template_id=_cv_template(user.user_id, req), user_id=user.user_id)
     except Exception as exc:
         raise _pdf_http_error(exc, context=f"resumes/copilot job={req.job_id}") from exc
 
@@ -1217,7 +1241,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
                 score_result     = refined_score
                 match_score_dict = refined_score.as_dict()
                 try:
-                    pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
+                    pdf_bytes = await build_pdf(cv_data, template_id=_cv_template(user.user_id, req), user_id=user.user_id)
                     logger.info(
                         "[resumes/copilot] Refined PDF rebuilt for job %s", req.job_id
                     )
@@ -1261,7 +1285,7 @@ async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_curr
             cv_data = {**cv_data, "skills": {"categories": pruned_cats}}
             # Rebuild PDF so the visual skills sidebar reflects the pruned list
             try:
-                pdf_bytes = await build_pdf(cv_data, template_id="t2_modern", user_id=user.user_id)
+                pdf_bytes = await build_pdf(cv_data, template_id=_cv_template(user.user_id, req), user_id=user.user_id)
             except Exception as pdf_exc:
                 logger.warning(
                     "[resumes/copilot] PDF rebuild after skills pruning failed: %s", pdf_exc
@@ -1413,8 +1437,21 @@ async def revise_resume(req: ReviseRequest, user: CurrentUser = Depends(get_curr
 
 @router.get("/templates")
 async def list_templates(user: CurrentUser = Depends(get_current_user)):
-    """Return the static list of available CV templates."""
-    return {"templates": TEMPLATE_REGISTRY}
+    """The available CV designs and the one this user opens new CVs in."""
+    return {"templates": TEMPLATE_REGISTRY, "default_template": _default_template(user.user_id)}
+
+
+class DefaultTemplateRequest(BaseModel):
+    template_id: str
+
+
+@router.post("/default-template")
+async def set_default_template(req: DefaultTemplateRequest, user: CurrentUser = Depends(get_current_user)):
+    """Make this design the one every new CV opens in."""
+    if req.template_id not in TEMPLATE_IDS:
+        raise AppError("invalid_input", status_code=422, detail=f"Unknown template '{req.template_id}'.")
+    profile_repository.set_answer(user.user_id, "cv_default_template", req.template_id)
+    return {"default_template": req.template_id}
 
 
 # ── Render PDF (Live Editor + template switching) ─────────────────────────────

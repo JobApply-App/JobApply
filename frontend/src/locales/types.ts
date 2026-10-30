@@ -45,6 +45,8 @@ export interface Dict {
     features: Record<ErrorFeature, string>
   }
   common: {
+    template_is_default: string
+    template_set_default: string
     applying_template: string
     ats_info_label: string
     ats_info: string
