@@ -519,7 +519,55 @@ def render_html(cv_data: dict, template_id: str | None = None, *, user_id: str,
     pass the real caller's user_id.
     """
     template = _resolve_template(template_id).read_text(encoding="utf-8")
-    return _inject(template, _flatten(cv_data, user_id, contact, cv_locale))
+    flat = _flatten(cv_data, user_id, contact, cv_locale)
+    html = _inject(template, flat)
+    if flat.get("dir") == "rtl":
+        html = html.replace("</head>", _rtl_typography() + "</head>", 1)
+    return html
+
+
+# ── Hebrew typography ─────────────────────────────────────────────────────────
+# The templates' fonts (Inter, Source Serif, Georgia...) have no Hebrew
+# letters, so Chromium fell back to FreeSans for every Hebrew word while
+# English terms stayed in the template font — two typefaces in every line,
+# plus italic company names that Hebrew typography does not use. RTL pages
+# now set everything in Heebo (Hebrew + Latin, SIL OFL), embedded from
+# backend/templates/fonts/heebo so rendering never depends on the network.
+
+_HEEBO_DIR = Path(__file__).resolve().parent.parent / "templates" / "fonts" / "heebo"
+_HEBREW_RANGE = "U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F"
+_RTL_STYLE_CACHE: dict[str, str] = {}
+
+
+def _rtl_typography() -> str:
+    if "style" in _RTL_STYLE_CACHE:
+        return _RTL_STYLE_CACHE["style"]
+    import base64
+
+    faces = []
+    for weight in (400, 500, 700):
+        for subset, rng in (("latin", None), ("hebrew", _HEBREW_RANGE)):
+            path = _HEEBO_DIR / f"heebo-{subset}-{weight}-normal.woff2"
+            if not path.exists():
+                logger.error("[pdf_builder] Hebrew font missing: %s — falling back to system fonts", path)
+                continue
+            data = base64.b64encode(path.read_bytes()).decode()
+            unicode_range = f" unicode-range: {rng};" if rng else ""
+            faces.append(
+                f"@font-face {{ font-family: 'Heebo'; font-style: normal; font-weight: {weight};"
+                f" font-display: block; src: url(data:font/woff2;base64,{data}) format('woff2');{unicode_range} }}"
+            )
+    # 600 is used by several templates; map it to the 700 face rather than
+    # letting Chromium synthesise a fake bold.
+    style = (
+        "<style>\n" + "\n".join(faces) + "\n"
+        "html[dir=\"rtl\"] body, html[dir=\"rtl\"] body * {"
+        " font-family: 'Heebo', Arial, sans-serif !important; font-style: normal !important; }\n"
+        "html[dir=\"rtl\"] body { line-height: 1.45; }\n"
+        "</style>\n"
+    )
+    _RTL_STYLE_CACHE["style"] = style
+    return style
 
 
 async def build_pdf(cv_data: dict, output_path: str | Path | None = None,

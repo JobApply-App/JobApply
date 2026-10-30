@@ -97,3 +97,10 @@ def test_english_or_mismatched_education_keeps_the_profile():
 def test_hebrew_directive_covers_education():
     from backend.agents.tailor import _output_language_directive
     assert "EDUCATION" in _output_language_directive("he")
+
+
+def test_hebrew_pages_embed_one_hebrew_font_and_no_italics():
+    html = render_html(HE_CV, "t2_modern", user_id="u")
+    assert "font-family: 'Heebo'" in html and "data:font/woff2;base64," in html
+    assert "font-style: normal !important" in html
+    assert "Heebo" not in render_html(EN_CV, "t2_modern", user_id="u"), "English CVs keep their template fonts"
