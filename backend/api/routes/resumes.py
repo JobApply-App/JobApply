@@ -244,6 +244,24 @@ class TailorRequest(BaseModel):
     # Lets someone reading the site in Hebrew generate one English CV for a
     # specific job without changing their standing preference.
     cv_locale: Optional[str] = None
+    # Grammatical gender for a Hebrew CV ("m" / "f"): Hebrew titles are
+    # gendered and a name says nothing reliable about it, so the user picks.
+    # Saved to the profile and reused; None = use the saved choice, if any.
+    cv_gender: Optional[str] = None
+
+
+def _resolve_cv_gender(user_id: str, requested: Optional[str]) -> Optional[str]:
+    if requested in ("m", "f"):
+        try:
+            profile_repository.set_answer(user_id, "cv_hebrew_gender", requested)
+        except Exception as exc:
+            logger.warning("[resumes] could not save cv_hebrew_gender for user=%s: %s", user_id, exc)
+        return requested
+    try:
+        stored = profile_repository.get_answer(user_id, "cv_hebrew_gender")
+    except Exception:
+        stored = None
+    return stored if stored in ("m", "f") else None
 
 
 class TailorResponse(BaseModel):
@@ -657,8 +675,9 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
 
     try:
         agent  = TailorAgent(user.user_id)
+        cv_gender = _resolve_cv_gender(user.user_id, req.cv_gender) if cv_locale == "he" else None
         result = await agent.tailor(
-            job, supplemental_answers=jd_answers or None, cv_locale=cv_locale,
+            job, supplemental_answers=jd_answers or None, cv_locale=cv_locale, cv_gender=cv_gender,
         )
     except Exception as exc:
         logger.exception("[resumes/tailor] TailorAgent failed for job %s", req.job_id)
@@ -686,6 +705,7 @@ async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_curr
                     job,
                     supplemental_answers={**jd_answers, **auto_filled},
                     cv_locale=cv_locale,
+                    cv_gender=cv_gender,
                 )
             except Exception as exc:
                 logger.exception(

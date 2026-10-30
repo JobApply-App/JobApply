@@ -421,6 +421,9 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   // Languages this job already has a saved CV in: picking one of them loads
   // it (no generation); only a language without one offers "Create".
   const [availableLangs, setAvailableLangs] = useState<string[]>([])
+  // Hebrew titles are gendered (מנהל / מנהלת) and a name says nothing
+  // reliable about it, so the user picks. Saved to the profile server-side.
+  const [cvGender, setCvGender] = useState<'m' | 'f' | null>(null)
   const [switchingLang, setSwitchingLang] = useState(false)
 
   /**
@@ -459,6 +462,20 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
           )
         })}
       </div>
+      {cvLang === 'he' && (
+        <div className="mt-2 flex items-center gap-1.5" role="group" aria-label={A.cv_gender_label}>
+          <span className="text-[11px] text-slate-500">{A.cv_gender_label}</span>
+          {(['f', 'm'] as const).map(g => (
+            <button key={g} type="button" aria-pressed={cvGender === g}
+              onClick={() => setCvGender(cur => (cur === g ? null : g))}
+              className={`h-7 px-2.5 rounded-lg text-[11.5px] font-medium border transition-colors ${
+                cvGender === g ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700'}`}
+              style={cvGender === g ? { background: TOKENS.color.primary } : undefined}>
+              {g === 'f' ? A.cv_gender_f : A.cv_gender_m}
+            </button>
+          ))}
+        </div>
+      )}
       {hint && <p className="text-[10.5px] text-slate-400 mt-1.5">{hint}</p>}
     </div>
   )
@@ -595,6 +612,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
           job_id:               job.id,
           supplemental_answers: supplementalAnswers ?? null,
           cv_locale:            cvLang,
+          cv_gender:            cvLang === 'he' ? cvGender : null,
           force,
         }),
       })
@@ -699,7 +717,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       )
       setPhase('idle')
     }
-  }, [job.id, A.errors.timeout, cvLang])
+  }, [job.id, A.errors.timeout, cvLang, cvGender])
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 

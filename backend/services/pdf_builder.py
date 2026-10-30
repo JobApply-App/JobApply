@@ -204,7 +204,9 @@ _LABELS: dict[str, dict[str, str]] = {
         "volunteering": "Volunteering", "relevant": "Relevant:",
     },
     "he": {
-        "summary": "תקציר מקצועי", "summary_short": "תקציר",
+        # "תמצית" is the Israeli CV term for the summary; "תקציר מקצועי" is a
+        # calque of "Professional Summary".
+        "summary": "תמצית", "summary_short": "תמצית",
         "experience": "ניסיון תעסוקתי", "education": "השכלה", "skills": "כישורים",
         "languages": "שפות", "military": "שירות צבאי",
         "volunteering": "התנדבות", "relevant": "קורסים רלוונטיים:",
