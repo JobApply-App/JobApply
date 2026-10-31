@@ -72,53 +72,64 @@ export interface Dict {
   }
   landing: {
     nav: {
-      sign_in:     string
-      get_started: string
+      skip:      string
+      home:      string
+      links:     { how: string; ariel: string; faq: string }
+      sign_in:   string
+      sign_up:   string
     }
     hero: {
-      eyebrow:        string
-      h1_line1:       string
-      h1_line2:       string
-      sub:            string
-      cta_primary:    string
-      cta_secondary:  string
-      no_credit_card: string
+      h1:        string
+      sub:       string
+      cta:       string
+      link:      string
+      fact:      string
+      feed_label: string
+      example:   string
+      band:      string
+      reasons:   readonly string[]
+      gap:       string
+      tailor:    string
+      ask:       string
+      score_up:  string   // "{n}" = points gained
     }
-    social_proof: {
-      heading: string
-      stats: ReadonlyArray<{ num: string; label: string }>
+    // Example jobs on the hero cards and the story feed. Titles stay in
+    // English in both languages: that is how they arrive from LinkedIn.
+    jobs: readonly { title: string; place: string }[]
+    hybrid: string
+    story: {
+      h2:        string
+      steps:     readonly { title: string; body: string }[]
+      parts:     readonly { label: string; weight: string }[]
+      note:      string
+      original:  string
+      tailored:  string
+      source:    string
     }
-    section_a: {
-      step:    string
-      h2_l1:   string
-      h2_l2:   string
-      body:    string
-      bullets: readonly [string, string, string]
+    ariel: {
+      h2:          string
+      lead:        string
+      name:        string
+      placeholder: string
+      typing:      string
+      chips_label: string
+      intro:       readonly { from: 'ai' | 'me'; text: string }[]
+      chips:       readonly { q: string; a: string }[]
     }
-    section_b: {
-      step:    string
-      h2_l1:   string
-      h2_l2:   string
-      body:    string
-      bullets: readonly [string, string, string]
+    facts: {
+      h2:    string
+      lead:  string
+      items: readonly { n: number; prefix: string; label: string }[]
     }
-    section_c: {
-      step:    string
-      h2_l1:   string
-      h2_l2:   string
-      body:    string
-      bullets: readonly [string, string, string]
+    faq: {
+      h2:    string
+      lead:  string
+      items: readonly { q: string; a: string }[]
     }
-    bento: {
-      eyebrow: string
-      h2_l1:   string
-      h2_l2:   string
-      cards: ReadonlyArray<{ title: string; body: string }>
-    }
-    cta_final: {
-      h2:     string
-      body:   string
-      button: string
+    close: {
+      h2:   string
+      body: string
+      cta:  string
     }
   }
   login: {
@@ -1214,41 +1225,6 @@ export interface Dict {
       loading:         string
     }
   }
-  // Static labels used inside the landing-page UI mockups
-  mockup: {
-    strong_match:    string
-    ats_gap_title:   string
-    missing_label:   string   // "{n}" = count of missing keywords
-    present_label:   string   // "{n}" = count already in the profile
-    coverage_hint:   string   // "{pct}" = share of the job's keywords already present
-    sample_caption:  string
-    score_hint:      string
-    tailored_title:  string
-    ai_written_sub:  string
-    missing_kw:      string
-    cv_copilot:      string
-    auto_refreshes:  string
-    coverage_label:  string   // role · company label inside keyword panel
-    kpi_scanned: string
-    kpi_scanned_sub: string
-    kpi_high: string
-    kpi_high_sub: string
-    kpi_tailored: string
-    kpi_tailored_sub: string
-    sample_title: string
-    sample_meta: string
-    sample_loc: string
-    feed_head: string
-    feed_growth: string
-    feed_lead: string
-    remote: string
-    match_pct: string
-    tpl_classic: string
-    tpl_modern: string
-    tpl_compact: string
-  }
-  // Why a CV upload failed, keyed by the backend's stable error code
-  // (backend/api/routes/profile.py _cv_error). Shared by every upload surface.
   cv_upload_errors: {
     no_text:            string   // scanned / image-only PDF
     unsupported_format: string
