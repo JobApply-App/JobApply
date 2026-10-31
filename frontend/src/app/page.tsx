@@ -329,6 +329,9 @@ function HomePageContent() {
         {/* Overview/JobFeed render their own visible <h1> internally; ApplicationsTab
             and AllJobsTab don't, so this covers those two tabs without duplicating
             a heading on the tabs that already have one. */}
+        {/* Keyed by tab so each switch replays a short rise: the new tab
+            arrives instead of the old one being swapped out under the user. */}
+        <div key={tab} className="animate-ja-tab-in">
         {tab === 'apps' && <h1 className="sr-only">{t.header.nav.apps}</h1>}
         {tab === 'all-jobs' && <h1 className="sr-only">{t.header.nav.all_jobs}</h1>}
 
@@ -371,6 +374,7 @@ function HomePageContent() {
         {tab === 'apps'  && <ApplicationsTab />}
 
         {tab === 'all-jobs' && <AllJobsTab />}
+        </div>
       </main>
 
       <RequiredDetailsGate />

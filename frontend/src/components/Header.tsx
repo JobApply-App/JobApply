@@ -1,12 +1,12 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import { Logo } from './ui/Logo'
 import { StatusDot } from './ui/StatusDot'
-import { BellIcon, SlidersIcon, ChevIcon, MenuIcon, XIcon } from './icons'
+import { BellIcon, SlidersIcon, ChevIcon, MenuIcon, XIcon, SparkIcon } from './icons'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { MobileTabBar } from './MobileTabBar'
 import { TOUR_DONE_KEY, TOUR_REPLAY_EVENT } from './ProductTour'
@@ -72,8 +72,13 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
         setBellOpen(false)
       }
     }
+    function handleEscape(e: KeyboardEvent) { if (e.key === 'Escape') setBellOpen(false) }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
   }, [bellOpen])
 
   // Close user menu on outside tap/click. Previously this used onMouseLeave,
@@ -86,8 +91,13 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
         setMenuOpen(false)
       }
     }
+    function handleEscape(e: KeyboardEvent) { if (e.key === 'Escape') setMenuOpen(false) }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
   }, [menuOpen])
 
   // Close the mobile nav panel on route/tab change so it never lingers open
@@ -115,6 +125,32 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
   const onAnalytics       = pathname === '/analytics'    || pendingNav === 'analytics'
   const onCapabilities    = pathname === '/capabilities' || pendingNav === 'capabilities'
   const activeTab         = onMainDashboard ? (tab ?? null) : null
+
+  // One underline that slides to the active item, instead of a border that
+  // blinks off one item and on another. Measured from the items themselves,
+  // so it fits each label in either language; moved with transform only.
+  const navRef = useRef<HTMLElement>(null)
+  const activeNav = onCapabilities ? 'capabilities' : onAnalytics ? 'analytics' : activeTab
+  const [bar, setBar] = useState<{ x: number; w: number } | null>(null)
+  useLayoutEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+    const place = () => {
+      const el = activeNav ? nav.querySelector<HTMLElement>(`[data-nav="${activeNav}"]`) : null
+      if (!el) { setBar(null); return }
+      const n = nav.getBoundingClientRect(), r = el.getBoundingClientRect()
+      setBar({ x: r.left - n.left, w: r.width })
+    }
+    place()
+    const ro = new ResizeObserver(place)
+    ro.observe(nav)
+    return () => ro.disconnect()
+  }, [activeNav, H])
+
+  const navItem = (active: boolean) =>
+    `ja-press h-full inline-flex items-center transition-colors duration-ja-ui ${
+      active ? 'text-slate-900' : 'hover:text-slate-900'
+    }`
 
   const goToTab = (t: Tab) => {
     // Encode the tab in the URL so it survives any auth-cycle redirect.
@@ -144,38 +180,44 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
       </div>
 
       {/* Primary nav — desktop/tablet only, centered, text-only with bottom-border active indicator */}
-      <nav className="hidden md:flex items-center justify-center space-x-10 text-sm font-medium text-slate-400 h-full">
+      <nav ref={navRef} className="relative hidden md:flex items-center justify-center gap-10 text-sm font-medium text-slate-500 h-full">
         {TABS.map(t => (
           <button
             key={t.id}
+            data-nav={t.id}
             onClick={() => goToTab(t.id)}
-            className={`h-full pb-0 border-b-2 transition-colors ${
-              activeTab === t.id
-                ? 'text-slate-900 border-slate-900'
-                : 'border-transparent hover:text-slate-900'
-            }`}
+            aria-current={activeTab === t.id ? 'page' : undefined}
+            className={navItem(activeTab === t.id)}
           >
             {H.nav[t.id === 'all-jobs' ? 'all_jobs' : t.id]}
           </button>
         ))}
         <Link
           href="/capabilities"
+          data-nav="capabilities"
           onClick={() => setPendingNav('capabilities')}
-          className={`h-full inline-flex items-center border-b-2 transition-colors ${
-            onCapabilities ? 'text-slate-900 border-slate-900' : 'border-transparent hover:text-slate-900'
-          }`}
+          aria-current={onCapabilities ? 'page' : undefined}
+          className={navItem(onCapabilities)}
         >
           {H.nav.capabilities}
         </Link>
         <Link
           href="/analytics"
+          data-nav="analytics"
           onClick={() => setPendingNav('analytics')}
-          className={`h-full inline-flex items-center border-b-2 transition-colors ${
-            onAnalytics ? 'text-slate-900 border-slate-900' : 'border-transparent hover:text-slate-900'
-          }`}
+          aria-current={onAnalytics ? 'page' : undefined}
+          className={navItem(onAnalytics)}
         >
           {H.nav.analytics}
         </Link>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute bottom-0 left-0 h-0.5 w-px origin-left rounded-full bg-slate-900 transition-[transform,opacity] duration-ja-ui"
+          style={{
+            transform: `translateX(${bar?.x ?? 0}px) scaleX(${bar?.w ?? 0})`,
+            opacity: bar ? 1 : 0,
+          }}
+        />
       </nav>
 
       {/* Right-side utility cluster */}
@@ -219,7 +261,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
           onClick={openEliya}
           title={H.help_title}
           aria-label={H.help_label}
-          className={`inline-flex items-center justify-center w-11 h-11 sm:w-8 sm:h-8 rounded-md transition-colors ${
+          className={`ja-press inline-flex items-center justify-center w-11 h-11 sm:w-8 sm:h-8 rounded-md transition-colors ${
             isEliyaOpen
               ? 'text-indigo-600 bg-indigo-50'
               : 'text-slate-400 active:bg-slate-100 sm:hover:text-indigo-600 sm:hover:bg-indigo-50'
@@ -236,17 +278,17 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
             aria-label={H.notifications}
             aria-haspopup="true"
             aria-expanded={bellOpen}
-            className="inline-flex items-center justify-center w-11 h-11 sm:w-8 sm:h-8 rounded-md text-slate-400 active:bg-slate-100 sm:hover:text-slate-700 sm:hover:bg-slate-50 transition-colors"
+            className="ja-press inline-flex items-center justify-center w-11 h-11 sm:w-8 sm:h-8 rounded-md text-slate-500 active:bg-slate-100 sm:hover:text-slate-700 sm:hover:bg-slate-50 transition-colors"
           >
             <BellIcon s={16} />
           </button>
           {hasHighMatch && (
-            <span className="absolute top-1.5 right-1.5 sm:top-1 sm:right-1 w-1.5 h-1.5 rounded-full bg-rose-500 ring-2 ring-white pointer-events-none" />
+            <span className="absolute top-1.5 end-1.5 sm:top-1 sm:end-1 w-1.5 h-1.5 rounded-full bg-rose-500 ring-2 ring-white pointer-events-none" />
           )}
 
           {bellOpen && (
             <div
-              className="absolute end-0 top-12 sm:top-11 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-floating overflow-hidden z-50"
+              className="absolute end-0 top-12 sm:top-11 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-floating overflow-hidden z-50 animate-ja-menu-in origin-top-right rtl:origin-top-left"
             >
               <div className="px-3 py-2.5 border-b border-slate-50 flex items-center justify-between">
                 <span className="text-[12px] font-semibold text-slate-700">{H.alerts_title}</span>
@@ -257,7 +299,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                 )}
               </div>
               {highMatchJobs.length === 0 ? (
-                <p className="px-3 py-4 text-[12.5px] text-slate-400 text-center">
+                <p className="px-3 py-4 text-[12.5px] text-slate-500 text-center">
                   {H.alerts_empty}
                 </p>
               ) : (
@@ -266,7 +308,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                     <li key={job.id}>
                       <button
                         onClick={() => setBellOpen(false)}
-                        className="w-full text-left px-3 py-2.5 active:bg-slate-100 sm:hover:bg-slate-50 transition-colors flex items-center justify-between gap-3"
+                        className="w-full text-start px-3 py-2.5 active:bg-slate-100 sm:hover:bg-slate-50 transition-colors flex items-center justify-between gap-3"
                       >
                         <div className="min-w-0">
                           <p className="text-[12.5px] font-semibold text-slate-900 truncate">{job.title}</p>
@@ -288,24 +330,27 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => { setBellOpen(false); setMenuOpen(v => !v) }}
-            className="w-11 h-11 sm:w-8 sm:h-8 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold active:bg-slate-200 sm:hover:bg-slate-200 transition-colors"
+            aria-label={displayName}
+            aria-haspopup="true"
+            aria-expanded={menuOpen}
+            className="ja-press w-11 h-11 sm:w-8 sm:h-8 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold active:bg-slate-200 sm:hover:bg-slate-200 transition-colors"
           >
             {initials}
           </button>
 
           {menuOpen && (
             <div
-              className="absolute end-0 top-12 sm:top-10 w-56 rounded-xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-floating overflow-hidden z-50"
+              className="absolute end-0 top-12 sm:top-10 w-56 rounded-xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-floating overflow-hidden z-50 animate-ja-menu-in origin-top-right rtl:origin-top-left"
             >
               <div className="px-3 py-3 border-b border-slate-50">
                 <div className="text-[13px] font-semibold text-slate-900">{displayName}</div>
-                <div className="text-[12px] text-slate-400">{user?.email ?? ''}</div>
+                <div className="text-[12px] text-slate-500 truncate">{user?.email ?? ''}</div>
               </div>
               <button
                 onClick={() => { setMenuOpen(false); router.push('/profile-builder') }}
-                className="w-full text-left px-3 py-2.5 text-[13px] font-semibold flex items-center gap-2 active:bg-violet-100 sm:hover:bg-violet-50 text-violet-700 border-b border-slate-50 transition-colors"
+                className="w-full text-start px-3 py-2.5 text-[13px] font-semibold flex items-center gap-2 active:bg-violet-100 sm:hover:bg-violet-50 text-violet-700 border-b border-slate-50 transition-colors"
               >
-                <span className="text-base leading-none">✦</span>
+                <SparkIcon s={15} />
                 {H.profile_builder}
               </button>
               {/* Had no onClick — tapping it did nothing. Preferences live in
@@ -338,7 +383,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
                     setMenuOpen(false)
                     await signOut()
                   }}
-                  className="w-full text-left px-3 py-2 text-[11.5px] font-mono text-amber-700 active:bg-amber-100 sm:hover:bg-amber-50 transition-colors flex items-center gap-1.5"
+                  className="w-full text-start px-3 py-2 text-[11.5px] font-mono text-amber-700 active:bg-amber-100 sm:hover:bg-amber-50 transition-colors flex items-center gap-1.5"
                   title={H.force_reset_title}
                 >
                   <span className="text-[10px] bg-amber-100 text-amber-600 font-bold px-1 rounded">DEV</span>
@@ -347,7 +392,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
               )}
               <button
                 onClick={() => { setMenuOpen(false); void signOut() }}
-                className="w-full text-left px-3 py-2 text-[13px] text-rose-600 active:bg-rose-100 sm:hover:bg-rose-50 transition-colors"
+                className="w-full text-start px-3 py-2 text-[13px] text-rose-600 active:bg-rose-100 sm:hover:bg-rose-50 transition-colors"
               >
                 {H.sign_out}
               </button>
@@ -361,12 +406,12 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
       {/* ── Mobile nav panel — boxless stacked list, replaces the hidden desktop nav.
           Tap-only: no hover states needed since every row is a full-width button. */}
       {mobileNavOpen && (
-        <nav className="md:hidden border-t border-slate-100 px-4 py-2">
+        <nav className="md:hidden border-t border-slate-100 px-4 py-2 animate-ja-menu-in origin-top">
           {TABS.map(t => (
             <button
               key={t.id}
               onClick={() => goToTab(t.id)}
-              className={`w-full text-left h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
+              className={`w-full text-start h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
                 activeTab === t.id
                   ? 'text-teal-700 bg-teal-50'
                   : 'text-slate-600 active:bg-slate-50'
@@ -378,7 +423,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
           <Link
             href="/capabilities"
             onClick={() => setPendingNav('capabilities')}
-            className={`w-full text-left h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
+            className={`w-full text-start h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
               onCapabilities ? 'text-teal-700 bg-teal-50' : 'text-slate-600 active:bg-slate-50'
             }`}
           >
@@ -387,7 +432,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
           <Link
             href="/analytics"
             onClick={() => setPendingNav('analytics')}
-            className={`w-full text-left h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
+            className={`w-full text-start h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
               onAnalytics ? 'text-teal-700 bg-teal-50' : 'text-slate-600 active:bg-slate-50'
             }`}
           >
