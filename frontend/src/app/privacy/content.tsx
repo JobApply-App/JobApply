@@ -31,6 +31,7 @@ export function PrivacyContent() {
             כישורים וקורות חיים שהעליתם.</li>
           <li><strong>פעילות הגשה:</strong> משרות שצפיתם בהן, שמרתם או הגשתם אליהן, והסטטוס שעדכנתם.</li>
           <li><strong>שיחות עם אריאל:</strong> ההודעות שאתם שולחים לעוזרת, והמידע שהיא צריכה כדי לענות.</li>
+          <li><strong>שיחות עם אליה (תמיכה):</strong> ההודעות שלכם ושל אליה, גם לפני הרשמה. הן נשמרות 90 יום כדי שתוכלו להמשיך את השיחה, ואם אתם מחוברים הן משויכות לחשבון שלכם.</li>
           <li><strong>נתוני שימוש בסיסיים:</strong> זמני פעולות ויומני שגיאות, כמו בכל אתר.</li>
         </ul>
 
@@ -95,6 +96,9 @@ export function PrivacyContent() {
           status you set on them.</li>
         <li><strong>Conversations with Ariel:</strong> the messages you send the assistant and the
           information it needs to answer.</li>
+        <li><strong>Conversations with Eliya (support):</strong> your messages and Eliya&apos;s replies,
+          also before you sign up. They are kept for 90 days so you can pick the conversation up again,
+          and linked to your account when you are signed in.</li>
         <li><strong>Basic usage data:</strong> timestamps and error logs, as on any website.</li>
       </ul>
 

@@ -210,6 +210,17 @@ async def _verified_sub(token: str) -> Optional[str]:
     return identity.user_id
 
 
+async def optional_user_id(request: Request) -> Optional[str]:
+    """The caller's user id when the request carries a valid Supabase token,
+    else None. For endpoints open to signed-out visitors that behave better
+    when they know who is signed in (Eliya's support chat)."""
+    auth = request.headers.get("authorization", "")
+    if auth[:7].lower() != "bearer ":
+        return None
+    token = auth[7:].strip()
+    return await _verified_sub(token) if token else None
+
+
 async def _rate_identity(request: Request) -> str:
     """
     Caller identity for rate keying.

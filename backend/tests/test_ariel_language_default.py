@@ -51,6 +51,7 @@ def test_an_unknown_client_value_falls_back_to_the_stored_one(monkeypatch):
 
 def test_eliya_never_calls_the_product_free():
     """Pricing isn't published and the product won't be free — Eliya must not say it is."""
-    prompt = chat._ELIYA_SYSTEM_PROMPT
-    assert "free account" not in prompt
-    assert "Never say or imply that JobApply is free" in prompt
+    for signed_in in (False, True):
+        prompt = chat._eliya_system_prompt(signed_in=signed_in)
+        assert "free account" not in prompt
+        assert "Never say or imply JobApply is free" in prompt
