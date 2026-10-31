@@ -11,6 +11,7 @@ import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS }    from '@/lib/tokens'
 import { ArielChat } from '@/components/ArielChat'
 import { consumeArielWelcome } from '@/lib/onboardingFlags'
+import { ensureFreshToken, getAuthHeaders } from '@/lib/api'
 
 // Routes that belong to the onboarding flow — Ariel must never render there.
 const ONBOARDING_ROUTES = ['/onboarding', '/profile-builder']
@@ -353,7 +354,7 @@ const WELCOME_SUGGESTION_ICONS = [
 // Used when the visitor is NOT authenticated.  Maintains its own local message
 // state, calls /api/chat/public, and tracks a persistent anonymous session_id.
 
-function PublicChatPanel({ onClose }: { onClose: () => void }) {
+function PublicChatPanel({ onClose, isOpen }: { onClose: () => void; isOpen: boolean }) {
   const S = useI18n().t.support_chat
   const [messages,    setMessages]    = useState<ChatMessage[]>([])
   const [draft,       setDraft]       = useState('')
@@ -366,10 +367,54 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
   const fileRef     = useRef<HTMLInputElement>(null)
   const attachErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const { user } = useAuth()
+
   // Resolve / create the anonymous session ID once on mount (client only)
   useEffect(() => {
     setSessionId(getOrCreateSessionId())
   }, [])
+
+  // Signing out ends the conversation on this browser: the account's messages
+  // leave the screen, and a fresh session id means the next person to sign in
+  // here can't take over whatever is written after.
+  const prevUserId = useRef(user?.id)
+  useEffect(() => {
+    if (prevUserId.current && !user) {
+      try { localStorage.removeItem(PUBLIC_SESSION_KEY) } catch { /* storage blocked */ }
+      setMessages([])
+      setSessionId(getOrCreateSessionId())
+    }
+    prevUserId.current = user?.id
+  }, [user])
+
+  // Restore the saved conversation, so it continues where it stopped. Only
+  // once the panel opens (it stays mounted on every page, and the chat
+  // router's AI rate limit counts this request), and again after sign-in:
+  // the backend then attaches this browser's anonymous messages to the
+  // account and returns the account's whole conversation.
+  const restoredFor = useRef('')
+  useEffect(() => {
+    const key = `${sessionId}:${user?.id ?? ''}`
+    if (!isOpen || !sessionId || restoredFor.current === key) return
+    restoredFor.current = key
+    let cancelled = false
+    ;(async () => {
+      try {
+        await ensureFreshToken()
+        const res = await fetch(`/api/chat/public/history?session_id=${sessionId}`, { headers: getAuthHeaders() })
+        if (!res.ok) return
+        const data = (await res.json()) as { messages?: { role: 'user' | 'assistant'; content: string }[] }
+        if (cancelled || !data.messages?.length) return
+        const restored = data.messages.map((m, i) => ({ role: m.role, content: m.content, ts: i }))
+        // The saved copy wins unless this screen already holds more (a message
+        // sent while the restore was in flight).
+        setMessages(prev => (restored.length >= prev.length ? restored : prev))
+      } catch {
+        // A conversation that can't be restored starts fresh; sending still works.
+      }
+    })()
+    return () => { cancelled = true }
+  }, [isOpen, sessionId, user?.id])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -464,9 +509,10 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
     let accumulated   = ''
 
     try {
+      await ensureFreshToken()
       const res = await fetch('/api/chat/public', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body:    JSON.stringify({
           session_id:  sessionId,
           message:     userMsg.content,
@@ -584,7 +630,16 @@ function PublicChatPanel({ onClose }: { onClose: () => void }) {
         <div className="flex items-center gap-1">
           {messages.length > 0 && (
             <button
-              onClick={() => setMessages([])}
+              onClick={() => {
+                setMessages([])
+                // Also delete the saved copy, or it would return on the next visit.
+                if (sessionId) {
+                  void ensureFreshToken().then(() => fetch(
+                    `/api/chat/public/history?session_id=${sessionId}`,
+                    { method: 'DELETE', headers: getAuthHeaders() },
+                  )).catch(() => { /* the screen is cleared either way */ })
+                }
+              }}
               title={S.clear}
               className="w-11 h-11 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg transition-colors active:bg-indigo-500/25 sm:hover:bg-indigo-500/15"
               style={{ color: '#6366f1' }}
@@ -1049,7 +1104,7 @@ export function ChatOverlay() {
         ariaLabel={S.launcher_label}
         shadowColor="rgba(79,70,229,0.18)"
       >
-        <PublicChatPanel onClose={closeEliya} />
+        <PublicChatPanel onClose={closeEliya} isOpen={isEliyaOpen} />
       </OverlayShell>
     </>
   )

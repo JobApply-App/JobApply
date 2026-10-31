@@ -1,18 +1,17 @@
 'use client'
 import { useCallback, useRef, useState } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
-import { useAuth } from '@/contexts/AuthContext'
 import { useChat } from '@/contexts/ChatContext'
 import { useDialogA11y } from '@/hooks/useDialogA11y'
 import {
   CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_E164, CONTACT_WHATSAPP_URL,
 } from '@/lib/contact'
 
-// Help and Contact used to show a "coming soon" toast. Help now opens Ariel
-// (the in-app assistant) for a signed-in user; a signed-out visitor, who has
-// no Ariel, gets the contact details instead. Contact shows the real email,
-// phone and WhatsApp (lib/contact.ts). Rendered once, from the root layout,
-// so every page ends with the same footer.
+// Help opens Eliya, the support assistant, for everyone, signed in or not:
+// she explains the product and helps with sign-up, login and technical
+// trouble, and her conversation is saved so it continues later. Contact shows
+// the real email, phone and WhatsApp (lib/contact.ts). Rendered once, from
+// the root layout, so every page ends with the same footer.
 
 function ContactDialog({ onClose }: { onClose: () => void }) {
   const F = useI18n().t.footer
@@ -104,15 +103,13 @@ function CookiesDialog({ onClose }: { onClose: () => void }) {
 
 export function Footer() {
   const F = useI18n().t.footer
-  const { user } = useAuth()
-  const { openChat } = useChat()
+  const { openEliya } = useChat()
   const [dialog, setDialog] = useState<'contact' | 'cookies' | null>(null)
   const closeDialog = useCallback(() => setDialog(null), [])
 
   function openHelp(e: React.MouseEvent) {
     e.preventDefault()
-    if (user) openChat()
-    else setDialog('contact')
+    openEliya()
   }
 
   const link = 'hover:text-slate-800 whitespace-nowrap py-2 sm:py-0'
