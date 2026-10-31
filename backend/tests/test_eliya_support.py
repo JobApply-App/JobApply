@@ -92,3 +92,17 @@ def test_clear_deletes_only_the_callers_conversation(repo):
     r.clear(mine, None)
     assert r.recent(mine, None, 10) == []
     assert r.recent(theirs, None, 10) == [{"role": "user", "content": "theirs"}]
+
+
+def test_ariel_knows_the_same_live_limits(monkeypatch):
+    # Both of Ariel's prompts (private chat and job-context chat) carry the
+    # limits from deps.py, the same text Eliya gets.
+    from backend.repositories import profile_repository
+    monkeypatch.setattr(chat, "get_profile", lambda user_id: {})
+    monkeypatch.setattr(profile_repository, "get_locales", lambda user_id: {"ui_locale": None, "cv_locale": None})
+    uid = "00000000-0000-0000-0000-000000000001"
+    limits = chat._daily_limits_note()
+    for prompt in (chat._build_ariel_system([], uid), chat._build_system_prompt(None, uid)):
+        assert limits in prompt
+        assert f"AI match analyses: {deps.DAILY_ANALYSIS_CAP} a day" in prompt
+        assert f"Messages with Ariel: {deps.DAILY_CHAT_MESSAGE_CAP} a day" in prompt
