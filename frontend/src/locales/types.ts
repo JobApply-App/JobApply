@@ -117,7 +117,8 @@ export interface Dict {
       h2:        string
       lead:      string
       steps:     readonly { title: string; body: string }[]
-      parts:     readonly { label: string; weight: string }[]
+      // An example breakdown of 82.4: each part's points out of its maximum.
+      parts:     readonly { label: string; points: number; max: number }[]
       note:      string
       original:  string
       tailored:  string
@@ -130,6 +131,7 @@ export interface Dict {
       lead:        string
       name:        string
       placeholder: string
+      example:     string
       typing:      string
       chips_label: string
       intro:       readonly { from: 'ai' | 'me'; text: string }[]

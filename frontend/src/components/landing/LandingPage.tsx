@@ -520,28 +520,32 @@ function FeedScene({ active }: { active: boolean }) {
   )
 }
 
+function ScorePart({ part, i, active, reduced }: { part: { label: string; points: number; max: number }; i: number; active: boolean; reduced: boolean }) {
+  const v = useCountUp(part.points, active, reduced, 1100)
+  return (
+    <div className="grid gap-2">
+      <div className="flex justify-between gap-4 text-[14px]">
+        <span className="font-semibold text-slate-900">{part.label}</span>
+        <span dir="ltr" className="tabular-nums text-slate-500"><span className="font-semibold text-slate-900">{v.toFixed(1)}</span> / {part.max}</span>
+      </div>
+      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+        <div className="h-full rounded-full origin-left rtl:origin-right"
+          style={{ background: i === 0 ? 'var(--ja-gradient-intelligence)' : '#0D9488', transform: `scaleX(${active ? part.points / part.max : 0})`, transition: `transform 1000ms ${EASE} ${150 + i * 120}ms` }} />
+      </div>
+    </div>
+  )
+}
+
 function ScoreScene({ active, reduced }: { active: boolean; reduced: boolean }) {
   const S = useI18n().t.landing.story
   const v = useCountUp(82.4, active, reduced, 1100)
-  const fills = [0.86, 0.78, 0.8]
   return (
     <div className="rounded-[24px] bg-white shadow-floating p-6 sm:p-8 grid gap-6">
       <div className="flex items-baseline gap-2">
         <span className="text-[64px] sm:text-[80px] leading-none font-extrabold tracking-[-0.05em] tabular-nums text-teal-600">{v.toFixed(1)}</span>
         <span className="text-[20px] font-semibold text-slate-400">/ 100</span>
       </div>
-      {S.parts.map((p, i) => (
-        <div key={p.label} className="grid gap-2">
-          <div className="flex justify-between gap-4 text-[14px]">
-            <span className="font-semibold text-slate-900">{p.label}</span>
-            <span className="text-slate-500 tabular-nums">{p.weight}</span>
-          </div>
-          <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-            <div className="h-full rounded-full origin-left rtl:origin-right"
-              style={{ background: i === 0 ? 'var(--ja-gradient-intelligence)' : '#0D9488', transform: `scaleX(${active ? fills[i] : 0})`, transition: `transform 1000ms ${EASE} ${150 + i * 120}ms` }} />
-          </div>
-        </div>
-      ))}
+      {S.parts.map((p, i) => <ScorePart key={p.label} part={p} i={i} active={active} reduced={reduced} />)}
       <p className="text-[14px] text-slate-500 border-t border-slate-100 pt-4">{S.note}</p>
     </div>
   )
@@ -591,6 +595,13 @@ function CvScene({ active, reduced }: { active: boolean; reduced: boolean }) {
   )
 }
 
+/** Below md the scene sits under its text, so it plays when it is itself on
+ *  screen, not when its step reaches the middle (it showed 0.0 until then). */
+function InlineScene({ render }: { render: (on: boolean) => ReactNode }) {
+  const [ref, on] = useInView<HTMLDivElement>(0.45)
+  return <div ref={ref} className="md:hidden mt-4">{render(on)}</div>
+}
+
 function Story({ reduced }: { reduced: boolean }) {
   const { t, dir } = useI18n()
   const S = t.landing.story
@@ -638,7 +649,7 @@ function Story({ reduced }: { reduced: boolean }) {
                     </div>
                   )}
                 </div>
-                <div className="md:hidden mt-4">{scene(i, seen[i])}</div>
+                <InlineScene render={on => scene(i, on || seen[i])} />
               </div>
             ))}
           </div>
@@ -696,6 +707,7 @@ function ArielPanel({ msgs, typing, scrollKey }: { msgs: Msg[]; typing: boolean;
       <div className="flex items-center gap-3 px-5 h-16 border-b border-slate-100">
         <ArielAvatar size={36} />
         <span className="font-semibold text-[17px] text-slate-800">{A.name}</span>
+        <span className="ms-auto text-[13px] text-slate-500">{A.example}</span>
       </div>
       <div ref={box} className="h-[340px] overflow-y-auto px-5 py-5 grid gap-4 content-start" aria-live="polite">
         {msgs.map(m => <Bubble key={m.key} from={m.from}>{m.text}</Bubble>)}

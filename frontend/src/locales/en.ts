@@ -139,7 +139,7 @@ export const en = {
         { n: 4, label: 'CVs tailored to a job, every day.' },
       ],
     },
-    eliya: { label: 'Questions? Ask Eliya', title: 'Eliya, support' },
+    eliya: { label: 'Need help?', title: 'Eliya, support' },
     jobs: [
       { title: 'Product Manager', place: 'Tel Aviv' },
       { title: 'Customer Success Lead', place: 'Herzliya' },
@@ -151,14 +151,14 @@ export const en = {
       h2: 'From thousands of listings to the one you apply to.',
       lead: 'JobApply scans thousands of jobs for you every day, and leaves you only the decision to apply.',
       steps: [
-        { title: 'Your feed sorts itself', body: 'New jobs wait for you every day, filtered to the roles you chose. Each one is scored against your CV, and the best fits rise to the top. No more scrolling through hundreds of ads.' },
-        { title: 'Every score shows its work', body: 'Open a job and see exactly what fits, what is missing and how much each part counts. So you know where your time is worth it, and what to strengthen before you apply.' },
-        { title: 'A CV for this job', body: 'One click rewrites your CV for the job’s requirements. Every line comes from something you wrote, and you can edit it all before you download.' },
+        { title: 'Your feed sorts itself', body: 'Every new job is scored against your CV, and the feed puts itself in order: the best fits at the top, the weak ones at the bottom. Instead of scrolling through hundreds of ads, you start with the first job on the list.' },
+        { title: 'Every score shows its work', body: 'A score is never a mystery number. It breaks into three parts, each with its own points: how well your experience fits, how many of the skills and keywords the job looks for you have, and how your career path leads to it.' },
+        { title: 'A CV for this job', body: 'One click rewrites the same lines from your CV in the job’s own language. No facts are added, just sharper wording for what you already did. Switch between your original and the tailored version, and edit any line before you download.' },
       ],
       parts: [
-        { label: 'Experience fit', weight: '50% of the score' },
-        { label: 'Skills and keywords', weight: '30% of the score' },
-        { label: 'Career trajectory', weight: '20% of the score' },
+        { label: 'Experience fit', points: 43.0, max: 50 },
+        { label: 'Skills and keywords', points: 24.5, max: 30 },
+        { label: 'Career trajectory', points: 14.9, max: 20 },
       ],
       note: 'A career change, or more seniority than the job asks for, never lowers your score.',
       original: 'Your original',
@@ -168,16 +168,17 @@ export const en = {
       cta_note: 'Upload the CV you already have, and everything else is ready.',
     },
     ariel: {
-      h2: 'Ariel works on your CV with you.',
-      lead: 'Your career agent. Ask why a score is low, sharpen a line, or get ready for an interview.',
+      h2: 'Ariel, your career agent.',
+      lead: 'She knows your CV and the jobs in your feed. Ask why a score came out low, have her sharpen a line, or prepare for an interview together. Every answer starts from your own data.',
       name: 'Ariel',
       placeholder: 'Type your reply…',
+      example: 'Example conversation with Maya',
       typing: 'Ariel is typing',
       chips_label: 'Try asking Ariel',
       intro: [
-        { from: 'ai', text: 'Hi, I’m Ariel, your career agent at JobApply. I know your CV and the jobs that fit it.' },
+        { from: 'ai', text: 'Hi Maya, I’m Ariel, your career agent. I’ve read your CV, and I know the jobs that fit you.' },
         { from: 'me', text: 'What can you help me with?' },
-        { from: 'ai', text: 'I explain every score, sharpen your CV and get you ready for interviews. Pick an option and I’ll show you.' },
+        { from: 'ai', text: 'I can explain why you got a score, sharpen your CV and get you ready for interviews. Where shall we start?' },
       ],
       chips: [
         { q: 'Why is my score 82.4?', convo: [
@@ -210,7 +211,7 @@ export const en = {
           'You don’t see them all. Your feed is filtered to the roles you choose and ranked by how well each job fits your CV. You can change your roles at any time.',
         ] },
         { q: 'How is the match score worked out?', a: [
-          'Each job gets a score from 0 to 100, made of three parts: how your experience fits the requirements (50%), skills and keywords (30%), and your career trajectory (20%).',
+          'Each job gets a score from 0 to 100, made of three parts: up to 50 points for how your experience fits the requirements, up to 30 for skills and keywords, and up to 20 for your career trajectory.',
           'Next to the score you see the reasons: what on your CV meets the requirements and what is missing. So you know what to strengthen before you apply.',
           'A career change, or more seniority than the job asks for, never lowers the score. Everything you have done counts, not only your last title.',
         ] },
