@@ -40,7 +40,7 @@ from sqlalchemy.orm import Session
 
 from backend.core.errors import AppError
 from backend.api.deps import (
-    DAILY_CHAT_MESSAGE_CAP, DAILY_CV_GENERATION_CAP, CurrentUser, daily_chat_limit,
+    DAILY_ANALYSIS_CAP, DAILY_CHAT_MESSAGE_CAP, DAILY_CV_GENERATION_CAP, CurrentUser, daily_chat_limit,
     get_current_user, llm_rate_limit, optional_user_id, standard_rate_limit,
 )
 from backend.repositories import support_message_repository
@@ -1434,6 +1434,7 @@ def _eliya_system_prompt(signed_in: bool) -> str:
     """Eliya's rules, the product knowledge file, and the live daily limits."""
     limits = (
         f"## Daily limits (live)\n"
+        f"- AI match analyses: {DAILY_ANALYSIS_CAP} a day.\n"
         f"- Tailored CVs: {DAILY_CV_GENERATION_CAP} a day.\n"
         f"- Messages with Ariel: {DAILY_CHAT_MESSAGE_CAP} a day.\n"
         f"Limits reset at midnight UTC."

@@ -145,14 +145,14 @@ export const en = {
       typing: 'Ariel is typing',
       chips_label: 'Try asking Ariel',
       intro: [
-        { from: 'ai', text: 'You moved from customer success into product. Want a summary that tells that story?' },
-        { from: 'me', text: 'Yes, but keep it honest.' },
-        { from: 'ai', text: 'Only from what you wrote. Here is a draft, and you approve every line.' },
+        { from: 'ai', text: 'You scored 82.4 for the Product Manager job. Your strength: five years close to customers. What’s missing: writing product specs.' },
+        { from: 'me', text: 'I did write specs for the dev team.' },
+        { from: 'ai', text: 'Then it’s just not on your CV. I can add: “Wrote feature specs for R&D, based on customer feedback.” Add it?' },
       ],
       chips: [
-        { q: 'Why is my score 58?', a: 'The job asks for pricing and forecasting. Your CV shows renewals, but no forecasting. If you have done it, tell me and I will add it.' },
-        { q: 'Sharpen my summary', a: 'Try this: customer success manager moving into product, with five years of turning customer feedback into roadmap input.' },
-        { q: 'Interview prep', a: 'Expect a question on prioritisation. The quarterly feature list you built for R&D is your strongest example. Want to rehearse it?' },
+        { q: 'Sharpen my summary', a: 'Here’s one: “Customer success manager moving into product, with five years of turning customer feedback into what R&D builds next.”' },
+        { q: 'Interview prep', a: 'They’ll likely ask how you prioritise. Use the quarterly feature list you built for R&D: what made it, what you cut, and why. Want to practise?' },
+        { q: 'Will you change my facts?', a: 'Never. I only change the wording. Anything new comes from you, like the specs line you just gave me.' },
       ],
     },
     facts: {

@@ -16,6 +16,7 @@ _QA_A = "2631c93b-93bb-4313-a2c2-79dbb786d199"   # seeded in CI by ci-seed-qa-us
 def test_prompt_carries_the_knowledge_file_and_live_limits():
     prompt = chat._eliya_system_prompt(signed_in=False)
     assert "## Getting started" in prompt                      # from knowledge/eliya_product.md
+    assert f"AI match analyses: {deps.DAILY_ANALYSIS_CAP} a day" in prompt
     assert f"Tailored CVs: {deps.DAILY_CV_GENERATION_CAP} a day" in prompt
     assert f"Messages with Ariel: {deps.DAILY_CHAT_MESSAGE_CAP} a day" in prompt
 
