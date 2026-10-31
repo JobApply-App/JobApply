@@ -732,6 +732,32 @@ export async function saveHebrewForm(value: HebrewForm): Promise<void> {
   await post<{ value: HebrewForm }, { status: string }>('/api/profile/hebrew-form', { value })
 }
 
+// ── About you (signup step 2) ─────────────────────────────────────────────────
+
+export type Gender = 'male' | 'female' | 'unspecified'
+export type WorkEnvironment = 'onsite' | 'hybrid' | 'remote' | 'any'
+export type CareerChange = 'yes' | 'maybe' | 'no'
+/** Stored in English (profile text is English); labels live in the dictionaries. */
+export const REGIONS = ['Tel Aviv', 'Center', 'Sharon', 'Shfela', 'Jerusalem', 'Haifa & North', "Be'er Sheva & South"] as const
+export type Region = typeof REGIONS[number]
+
+export interface AboutAnswers {
+  gender:           Gender | null
+  locations:        Region[]
+  work_environment: WorkEnvironment | null
+  career_change:    CareerChange | null
+}
+
+export async function fetchAbout(): Promise<AboutAnswers> {
+  return get<AboutAnswers>('/api/profile/about')
+}
+
+export async function saveAbout(body: {
+  gender: Gender; locations: Region[]; work_environment: WorkEnvironment; career_change: CareerChange
+}): Promise<void> {
+  await post<typeof body, { status: string }>('/api/profile/about', body)
+}
+
 export interface LinkedInImportResponse {
   status:   string
   imported: boolean
