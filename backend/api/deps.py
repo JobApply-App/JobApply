@@ -391,6 +391,42 @@ async def daily_generation_limit(user: CurrentUser = Depends(get_current_user)) 
         )
 
 
+DAILY_ANALYSIS_CAP = 10
+
+
+def consume_daily_analysis(user_id: str) -> None:
+    """
+    Count one AI analysis a user asked for (opening a job that has no
+    analysis yet, or pasting a job link to analyse), and reject with 429
+    once DAILY_ANALYSIS_CAP is reached today (UTC).
+
+    Called inline, right before the LLM work, rather than as a route
+    dependency: opening a job that is already analysed costs nothing and must
+    not count. Counted on the attempt, like the background budget
+    (services/llm_budget.py), because the cost is incurred by the attempt.
+    The counter lives in the kv table so a restart does not reset it.
+    """
+    from datetime import datetime, timezone
+
+    from backend.repositories import kv_repository
+
+    key = f"daily_analysis:{user_id}:{datetime.now(timezone.utc).date().isoformat()}"
+    entry = kv_repository.get(key)
+    try:
+        used = int(entry.value) if entry else 0
+    except (TypeError, ValueError):
+        used = 0
+    if used >= DAILY_ANALYSIS_CAP:
+        raise AppError("daily_analysis_limit",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"You've reached today's limit of {DAILY_ANALYSIS_CAP} AI job "
+                "analyses. This resets at midnight UTC."
+            ), limit=DAILY_ANALYSIS_CAP,
+        )
+    kv_repository.upsert(key, str(used + 1))
+
+
 DAILY_CHAT_MESSAGE_CAP = 40
 
 
