@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react'
 import { ensureFreshToken, getAuthHeaders } from '@/lib/api'
-import { ChatStreamError, chatErrorText } from '@/lib/chatError'
+import { ChatStreamError, chatErrorText, chatStreamErrorFrom } from '@/lib/chatError'
 import type { ErrorParams } from '@/lib/errors'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -179,7 +179,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         signal,
       })
 
-      if (!res.ok)    throw new Error(`${res.status} ${res.statusText}`)
+      // The server's error code (e.g. daily_chat_limit) becomes Ariel's reply.
+      if (!res.ok)    throw await chatStreamErrorFrom(res)
       if (!res.body)  throw new Error('No response body.')
 
       const reader     = res.body.getReader()

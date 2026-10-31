@@ -79,7 +79,8 @@ export interface Dict {
       sign_up:   string
     }
     hero: {
-      h1:        string
+      // Two lines: the past (muted), then the present.
+      h1:        readonly string[]
       sub:       string
       cta:       string
       link:      string
@@ -96,22 +97,25 @@ export interface Dict {
       // Three reasons to choose JobApply, right under the hero.
       why:       readonly { title: string; body: string }[]
     }
-    // The job search as it is today, row by row against the same step with
-    // JobApply.
+    // The search as it is today, lit word by word as it scrolls past, then
+    // what JobApply changes, in real figures.
     pain: {
-      h2:           string
-      lead:         string
-      before_label: string
-      after_label:  string
-      rows:         readonly { before: string; after: string }[]
-      cta:          string
+      label:       string
+      lines:       readonly string[]   // the last one is the turn
+      answer_h2:   string
+      answer_lead: string
+      cta:         string
+      // `n` counts up; `value` is shown as is when there is no number.
+      tiles:       readonly { n?: number; prefix?: string; suffix?: string; value?: string; label: string }[]
     }
+    eliya: { label: string; title: string }
     // Example jobs on the hero cards and the story feed. Titles stay in
     // English in both languages: that is how they arrive from LinkedIn.
     jobs: readonly { title: string; place: string }[]
     hybrid: string
     story: {
       h2:        string
+      lead:      string
       steps:     readonly { title: string; body: string }[]
       parts:     readonly { label: string; weight: string }[]
       note:      string
@@ -132,11 +136,6 @@ export interface Dict {
       // Each option plays a whole example conversation in place of the intro.
       chips:       readonly { q: string; convo: readonly { from: 'ai' | 'me'; text: string }[] }[]
       cta:         string
-    }
-    facts: {
-      h2:    string
-      lead:  string
-      items: readonly { n: number; prefix: string; label: string }[]
     }
     faq: {
       h2:    string

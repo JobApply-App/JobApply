@@ -20,6 +20,7 @@ import { useI18n } from '@/contexts/I18nContext'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { Logo } from '@/components/ui/Logo'
 import { getScoreBand } from '@/lib/scoreBand'
+import { useChat } from '@/contexts/ChatContext'
 
 const EASE = 'cubic-bezier(0.23, 1, 0.32, 1)'
 
@@ -317,22 +318,30 @@ function Hero({ reduced }: { reduced: boolean }) {
   const L = useI18n().t.landing.hero
   // The headline rises a word at a time, then the line under it, then the
   // actions. CSS only, so it plays without script; reduced motion skips it.
-  const words = L.h1.split(' ')
+  const lines = L.h1.map(line => line.split(' '))
   const rise = (ms: number) => ({ style: reduced ? undefined : { animationDelay: `${ms}ms` } })
-  const after = words.length * 70 + 120
+  const count = lines.flat().length
+  const after = count * 70 + 120
   return (
     <section className="relative isolate overflow-clip" aria-labelledby="landing-h1">
       <div aria-hidden="true" className="absolute inset-0 -z-10"
         style={{ background: 'radial-gradient(50% 60% at 75% 40%, #F0FDFA, rgba(240,253,250,0) 70%), radial-gradient(35% 45% at 95% 90%, rgba(245,243,255,.9), rgba(245,243,255,0) 70%)' }} />
       <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-10 sm:pt-16 pb-20 sm:pb-28 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
         <div className="grid gap-5">
-          <h1 id="landing-h1" className="text-[44px] sm:text-[60px] lg:text-[72px] leading-[1.02] font-extrabold tracking-[-0.04em] text-slate-900 [text-wrap:balance]">
-            {words.map((w, i) => (
-              <span key={i}>
-                <span {...rise(i * 70)} className={`inline-block ${reduced ? '' : 'animate-ja-rise'}`}>{w}</span>
-                {i < words.length - 1 && ' '}
-              </span>
-            ))}
+          <h1 id="landing-h1" className="text-[38px] sm:text-[52px] lg:text-[58px] leading-[1.05] font-extrabold tracking-[-0.04em] text-slate-900 [text-wrap:balance]">
+            {lines.map((words, li) => {
+              const first = lines.slice(0, li).flat().length
+              return (
+                <span key={li} className={`block ${li === 0 ? 'text-slate-500' : 'text-slate-900'}`}>
+                  {words.map((w, i) => (
+                    <span key={i}>
+                      <span {...rise((first + i) * 70 + li * 160)} className={`inline-block ${reduced ? '' : 'animate-ja-rise'}`}>{w}</span>
+                      {i < words.length - 1 && ' '}
+                    </span>
+                  ))}
+                </span>
+              )
+            })}
           </h1>
           <p {...rise(after)} className={`text-[18px] sm:text-[20px] leading-relaxed text-slate-600 max-w-[34rem] ${reduced ? '' : 'animate-ja-rise'}`}>{L.sub}</p>
           <div {...rise(after + 100)} className={`flex flex-wrap items-center gap-3 mt-1 ${reduced ? '' : 'animate-ja-rise'}`}>
@@ -374,55 +383,109 @@ function Why({ reduced }: { reduced: boolean }) {
   )
 }
 
-// ── Pain: the search today, row by row against JobApply ────────────────────
+// ── Pain: the search today, lit word by word as it scrolls past ────────────
+//
+// Apple's pinned statement: the paragraph holds still while each word lights
+// up with scroll progress, so the reader moves through the evenings one
+// sentence at a time. The last line, the turn, lights in teal.
 
-function Pain({ reduced }: { reduced: boolean }) {
+function PainLines({ reduced }: { reduced: boolean }) {
   const P = useI18n().t.landing.pain
-  const [ref, inView] = useInView<HTMLDivElement>(0.25)
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-  const [headRef, headStyle] = useReveal<HTMLDivElement>()
-  // Until hydration and under reduced motion the end state shows, so nothing
-  // is lost without script. Otherwise each old step is struck through in
-  // turn, and its replacement rises in beside it.
-  const done = !mounted || inView || reduced
-  const at = (i: number) => (reduced ? 0 : 350 + i * 450)
+  const outer = useRef<HTMLElement>(null)
+  // 1 = every word lit: the state before script runs, and under reduced motion.
+  const [progress, setProgress] = useState(1)
+
+  useEffect(() => {
+    const el = outer.current
+    if (!el || reduced) { setProgress(1); return }
+    let raf = 0
+    const read = () => {
+      raf = 0
+      const r = el.getBoundingClientRect()
+      const span = Math.max(1, r.height - window.innerHeight)
+      setProgress(Math.min(1, Math.max(0, -r.top / span)))
+    }
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(read) }
+    read()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [reduced])
+
+  const last = P.lines.length - 1
+  const total = P.lines.join(' ').split(' ').length
+  // Finishes a little before the pin releases, so the full text is read still.
+  const lit = progress * 1.1 * total
+  let n = 0
+
   return (
-    <section className="py-20 sm:py-28 bg-white border-y border-slate-100" aria-labelledby="pain-h2">
+    <section ref={outer} aria-label={P.label} className={reduced ? 'py-24 sm:py-32' : 'h-[240vh]'}>
+      <div className={reduced ? '' : 'sticky top-0 h-[100svh] flex items-center'}>
+        <p className="max-w-5xl mx-auto px-4 sm:px-8 text-[30px] sm:text-[44px] lg:text-[52px] leading-[1.15] font-bold tracking-[-0.035em]">
+          {P.lines.map((line, li) => (
+            <span key={li} className={li === last ? 'block mt-6 sm:mt-10' : undefined}>
+              {line.split(' ').map((w, wi) => {
+                const on = n++ < lit
+                return (
+                  <span key={wi} className="transition-colors duration-300"
+                    style={{ color: on ? (li === last ? '#0F766E' : '#0F172A') : '#CBD5E1' }}>
+                    {w}{' '}
+                  </span>
+                )
+              })}
+            </span>
+          ))}
+        </p>
+      </div>
+    </section>
+  )
+}
+
+function Tile({ t, big, active, reduced, style }: {
+  t: { n?: number; prefix?: string; suffix?: string; value?: string; label: string }
+  big: boolean; active: boolean; reduced: boolean; style: React.CSSProperties
+}) {
+  const v = useCountUp(t.n ?? 0, active, reduced, 1400)
+  const shown = t.n === undefined ? t.value : `${t.prefix ?? ''}${Math.round(v).toLocaleString('en-US')}${t.suffix ?? ''}`
+  return (
+    <div style={style}
+      className={`rounded-[24px] sm:rounded-[28px] p-5 sm:p-8 grid content-between gap-4 sm:gap-6 ${big
+        ? 'col-span-2 lg:col-span-1 lg:row-span-2 min-h-[220px] lg:min-h-0 text-white'
+        : 'bg-white shadow-elevation-1 ring-1 ring-slate-100 min-h-[170px] sm:min-h-[200px]'}`}>
+      {/* dir=ltr keeps "100+" and "~10,000" in order inside Hebrew text. */}
+      <span dir={t.n === undefined ? undefined : 'ltr'} className={`text-start font-extrabold tracking-[-0.05em] tabular-nums leading-none ${big ? 'text-[60px] sm:text-[80px] lg:text-[64px] xl:text-[72px]' : t.n === undefined ? 'text-[26px] sm:text-[44px] text-teal-700' : 'text-[44px] sm:text-[64px] text-slate-900'}`}>
+        {shown}
+      </span>
+      <span className={`text-[15px] sm:text-[17px] leading-snug max-w-[22rem] ${big ? 'text-teal-50' : 'text-slate-600'}`}>{t.label}</span>
+    </div>
+  )
+}
+
+function Answer({ reduced }: { reduced: boolean }) {
+  const P = useI18n().t.landing.pain
+  const [headRef, headStyle] = useReveal<HTMLDivElement>()
+  const [gridRef, style] = useStagger<HTMLDivElement>(reduced, 90)
+  const [countRef, counting] = useInView<HTMLDivElement>(0.3)
+  return (
+    <section className="pb-20 sm:pb-32" aria-labelledby="answer-h2">
       <div className="max-w-6xl mx-auto px-4 sm:px-8">
-        <div ref={headRef} style={headStyle} className="max-w-2xl grid gap-4 mb-12 sm:mb-16">
-          <h2 id="pain-h2" className="text-[36px] sm:text-[52px] leading-[1.05] font-bold tracking-[-0.035em] text-slate-900 [text-wrap:balance]">{P.h2}</h2>
-          <p className="text-[18px] leading-relaxed text-slate-600">{P.lead}</p>
+        <div ref={headRef} style={headStyle} className="max-w-3xl mx-auto text-center grid gap-5 justify-items-center mb-12 sm:mb-16">
+          <h2 id="answer-h2" className="text-[44px] sm:text-[64px] lg:text-[80px] leading-none font-extrabold tracking-[-0.045em] text-slate-900">{P.answer_h2}</h2>
+          <p className="text-[18px] sm:text-[21px] leading-relaxed text-slate-600 max-w-2xl">{P.answer_lead}</p>
+          <Link href="/login" className={`${btnPrimary} mt-2 h-[52px] px-7 text-[16px]`}>{P.cta}</Link>
         </div>
-        <div ref={ref}>
-          <div className="hidden md:grid grid-cols-[minmax(0,1fr)_40px_minmax(0,1fr)] gap-6 pb-4 text-[15px] font-semibold">
-            <span className="text-slate-500">{P.before_label}</span>
-            <span />
-            <span className="text-teal-700">{P.after_label}</span>
-          </div>
-          <ol className="border-t border-slate-200">
-            {P.rows.map((r, i) => (
-              <li key={r.before} className="grid md:grid-cols-[minmax(0,1fr)_40px_minmax(0,1fr)] gap-3 md:gap-6 items-center py-6 border-b border-slate-200">
-                <div>
-                  <span className="md:hidden block text-[13px] font-semibold text-slate-500 mb-1">{P.before_label}</span>
-                  <p className="text-[17px] leading-relaxed line-through decoration-2 transition-[color,text-decoration-color] duration-500"
-                    style={{ color: done ? '#64748B' : '#334155', textDecorationColor: done ? 'rgba(251,113,133,.7)' : 'transparent', transitionDelay: `${at(i)}ms` }}>
-                    {r.before}
-                  </p>
-                </div>
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="hidden md:block w-6 h-6 justify-self-center text-slate-300 rtl:-scale-x-100">
-                  <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <p className="flex gap-2.5 text-[17px] leading-relaxed font-semibold text-slate-900"
-                  style={reduced ? undefined : { opacity: done ? 1 : 0, transform: done ? 'none' : 'translateY(10px)', transition: `opacity 500ms ${EASE} ${at(i) + 250}ms, transform 700ms ${EASE} ${at(i) + 250}ms` }}>
-                  <Check className="text-teal-600 mt-1" />
-                  <span>{r.after}</span>
-                </p>
-              </li>
+        <div ref={countRef}>
+          <div ref={gridRef} className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:grid-rows-2">
+            {P.tiles.map((t, i) => (
+              <Tile key={t.label} t={t} big={i === 0} active={counting} reduced={reduced}
+                style={{ ...style(i), ...(i === 0 ? { background: 'linear-gradient(160deg, #0F766E, #134E4A)' } : {}) }} />
             ))}
-          </ol>
+          </div>
         </div>
-        <Link href="/login" className={`${btnPrimary} mt-10 h-[52px] px-7 text-[16px]`}>{P.cta}</Link>
       </div>
     </section>
   )
@@ -555,16 +618,17 @@ function Story({ reduced }: { reduced: boolean }) {
   return (
     <section id="how" className="scroll-mt-20 py-20 sm:py-32" aria-labelledby="how-h2" style={{ ['--seg-dir' as string]: dir === 'rtl' ? -1 : 1 }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-8">
-        <div ref={headRef} style={headStyle} className="max-w-2xl mb-12 lg:mb-4">
+        <div ref={headRef} style={headStyle} className="max-w-2xl mb-12 md:mb-4">
           <h2 id="how-h2" className="text-[36px] sm:text-[52px] leading-[1.05] font-bold tracking-[-0.035em] text-slate-900 [text-wrap:balance]">{S.h2}</h2>
+          <p className="mt-5 text-[18px] sm:text-[20px] leading-relaxed text-slate-600">{S.lead}</p>
         </div>
-        <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-12 lg:gap-16">
+        <div className="grid md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-12 md:gap-16">
           <div>
             {S.steps.map((s, i) => (
               <div key={s.title} data-step={i} ref={el => { stepRefs.current[i] = el }}
-                className="lg:min-h-[70vh] flex flex-col justify-center gap-3 py-8 lg:py-0 transition-opacity duration-ja-enter"
+                className="md:min-h-[70vh] flex flex-col justify-center gap-3 py-8 md:py-0 transition-opacity duration-ja-enter"
                 style={{ opacity: active === i ? 1 : undefined }}>
-                <div className={`grid gap-3 transition-opacity duration-ja-enter ${active === i ? 'lg:opacity-100' : 'lg:opacity-35'}`}>
+                <div className={`grid gap-3 transition-opacity duration-ja-enter ${active === i ? 'md:opacity-100' : 'md:opacity-35'}`}>
                   <h3 className="text-[24px] sm:text-[28px] font-bold tracking-[-0.02em] text-slate-900">{s.title}</h3>
                   <p className="text-[17px] leading-relaxed text-slate-600 max-w-md">{s.body}</p>
                   {i === S.steps.length - 1 && (
@@ -574,11 +638,11 @@ function Story({ reduced }: { reduced: boolean }) {
                     </div>
                   )}
                 </div>
-                <div className="lg:hidden mt-4">{scene(i, seen[i])}</div>
+                <div className="md:hidden mt-4">{scene(i, seen[i])}</div>
               </div>
             ))}
           </div>
-          <div className="hidden lg:block">
+          <div className="hidden md:block">
             <div className="sticky top-[calc(50vh-240px)] h-[480px]">
               {[0, 1, 2].map(i => (
                 <div key={i} aria-hidden={active !== i} className="absolute inset-0 flex items-center"
@@ -689,40 +753,6 @@ function ArielSection({ reduced }: { reduced: boolean }) {
   )
 }
 
-// ── Real figures ─────────────────────────────────────────────────────────────
-
-function Fact({ n, prefix, label, active, reduced, delay }: { n: number; prefix: string; label: string; active: boolean; reduced: boolean; delay: number }) {
-  const [go, setGo] = useState(false)
-  useEffect(() => { if (!active) return; const id = setTimeout(() => setGo(true), delay); return () => clearTimeout(id) }, [active, delay])
-  const v = useCountUp(n, go, reduced, 1200)
-  return (
-    <div className="grid gap-2 border-t border-slate-200 pt-5">
-      <span className="text-[44px] sm:text-[56px] leading-none font-extrabold tracking-[-0.05em] tabular-nums text-slate-900">
-        {prefix}{Math.round(v).toLocaleString('en-US')}
-      </span>
-      <span className="text-[15px] text-slate-600 max-w-[16rem]">{label}</span>
-    </div>
-  )
-}
-
-function Facts({ reduced }: { reduced: boolean }) {
-  const F = useI18n().t.landing.facts
-  const [ref, inView] = useInView<HTMLDivElement>(0.3)
-  return (
-    <section className="py-20 sm:py-28" aria-labelledby="facts-h2">
-      <div ref={ref} className="max-w-6xl mx-auto px-4 sm:px-8">
-        <div className="max-w-2xl mb-12 grid gap-4">
-          <h2 id="facts-h2" className="text-[36px] sm:text-[52px] leading-[1.05] font-bold tracking-[-0.035em] text-slate-900">{F.h2}</h2>
-          <p className="text-[18px] text-slate-600">{F.lead}</p>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10">
-          {F.items.map((it, i) => <Fact key={it.label} {...it} active={inView} reduced={reduced} delay={i * 120} />)}
-        </div>
-      </div>
-    </section>
-  )
-}
-
 // ── Questions: an editorial list, each answer in full ──────────────────────
 //
 // Deliberately unlike Ariel's chat above (Ron, 2026-10-31): numbered
@@ -801,6 +831,24 @@ function Close() {
   )
 }
 
+// ── Eliya, for questions before signing up ──────────────────────────────────
+//
+// Opposite the accessibility button (Ron, 2026-10-31), so the two never
+// overlap. It opens the same support panel the footer's Help link opens.
+
+function EliyaLauncher() {
+  const E = useI18n().t.landing.eliya
+  const { isEliyaOpen, openEliya } = useChat()
+  if (isEliyaOpen) return null
+  return (
+    <button type="button" onClick={() => openEliya()} aria-label={E.label} title={E.title}
+      className="fixed bottom-6 end-4 sm:end-6 z-30 h-12 w-12 sm:w-auto sm:ps-1.5 sm:pe-4 inline-flex items-center justify-center gap-2.5 rounded-full bg-white text-[14px] font-semibold text-slate-800 shadow-floating ring-1 ring-indigo-100 transition-transform duration-ja-ui hover:-translate-y-0.5 active:scale-[0.97] print:hidden">
+      <span aria-hidden="true" className="w-9 h-9 rounded-full grid place-items-center text-white text-[14px] font-bold" style={{ background: '#4F46E5' }}>E</span>
+      <span className="hidden sm:inline">{E.label}</span>
+    </button>
+  )
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export function LandingPage() {
@@ -816,13 +864,14 @@ export function LandingPage() {
       <main id="landing-main">
         <Hero reduced={reduced} />
         <Why reduced={reduced} />
-        <Pain reduced={reduced} />
+        <PainLines reduced={reduced} />
+        <Answer reduced={reduced} />
         <Story reduced={reduced} />
         <ArielSection key={`ariel-${locale}`} reduced={reduced} />
-        <Facts reduced={reduced} />
         <Faq key={`faq-${locale}`} reduced={reduced} />
         <Close />
       </main>
+      <EliyaLauncher />
     </div>
   )
 }

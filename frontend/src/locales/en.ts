@@ -11,7 +11,7 @@ export const en = {
       auth_not_configured:    { title: 'Sign-in is down on our side', why: 'A configuration problem on our server is blocking sign-in. It is not something you did.', action: 'Try again later. We have been notified.' },
       rate_limited:           { title: 'Too many requests at once', why: 'To keep the service fast for everyone, we limit how many requests can be sent per minute.', action: 'Wait a minute and try again.' },
       daily_cv_limit:         { title: 'Daily CV limit reached', why: 'Each account can generate up to {limit} CVs a day.', action: 'The limit resets at midnight UTC (02:00–03:00 Israel time). Meanwhile you can download a CV you already generated.' },
-      daily_chat_limit:       { title: "Daily limit for Ariel reached", why: 'Each account can send up to {limit} messages to Ariel a day.', action: 'The limit resets at midnight UTC (02:00–03:00 Israel time).' },
+      daily_chat_limit:       { title: "That's all our messages for today", why: "You can send me up to {limit} messages a day, and we've reached today's.", action: "Come back tomorrow and we'll pick up right where we left off. The limit resets at midnight UTC (02:00–03:00 Israel time)." },
       daily_analysis_limit:   { title: 'Daily AI analysis limit reached', why: 'Each account can run up to {limit} AI job analyses a day.', action: 'The limit resets at midnight UTC (02:00–03:00 Israel time). Jobs already analysed stay open to you.' },
       linkedin_quota:         { title: 'LinkedIn lookups are used up for this month', why: 'We read LinkedIn postings through an external service with a monthly quota, and it has run out.', action: "Paste a link to the same job from the company's own site, or from another job board." },
       job_not_found:          { title: 'This job is no longer in your list', why: 'It was removed, or it belongs to a different account.', action: 'Refresh the page to see your up-to-date list.' },
@@ -96,8 +96,8 @@ export const en = {
       sign_up: 'Sign up',
     },
     hero: {
-      h1: 'Job hunting, without losing your evenings.',
-      sub: 'JobApply reads the listings for you, shows which are worth applying to and why, and writes a CV tailored to each job.',
+      h1: ['Job hunting used to take you hours.', 'Now it takes minutes.'],
+      sub: 'JobApply finds the jobs that fit you, explains every match and writes a CV tailored to each one.',
       cta: 'Log in',
       link: 'See how it works',
       fact: 'Nearly 10,000 jobs from LinkedIn, refreshed daily.',
@@ -120,18 +120,26 @@ export const en = {
       ],
     },
     pain: {
-      h2: 'This is job hunting today.',
-      lead: 'Evening after evening of scrolling, reading and rewriting. Then silence. It doesn’t have to be this way.',
-      before_label: 'Without JobApply',
-      after_label: 'With JobApply',
-      rows: [
-        { before: 'Scrolling hundreds of listings to find a few that matter.', after: 'Your feed arrives filtered to your roles and ranked by fit.' },
-        { before: 'Reading every description and guessing whether you fit.', after: 'Every job has a score and reasons: what fits, what is missing.' },
-        { before: 'Rewriting your CV from scratch, for every single job.', after: 'A CV tailored to the job in a few clicks, only from what you wrote.' },
-        { before: 'Sending it off, and never learning why no one replied.', after: 'You know what to strengthen before you apply, and Ariel helps you prepare.' },
+      label: 'Job hunting today',
+      lines: [
+        'Evening after evening, scrolling through hundreds of listings.',
+        'Reading every description, guessing whether you fit.',
+        'Rewriting the same CV, again and again.',
+        'Sending it off, and waiting for a reply that never comes.',
+        'It doesn’t have to be this way.',
       ],
+      answer_h2: 'Now it’s simple.',
+      answer_lead: 'JobApply does the heavy lifting, and you apply only where it’s worth it.',
       cta: 'Start now',
+      tiles: [
+        { n: 10000, prefix: '~', label: 'jobs from LinkedIn, scanned for you and refreshed every day.' },
+        { value: 'Every job', label: 'in your feed gets a match score, and the best fits rise to the top.' },
+        { n: 100, suffix: '+', label: 'CVs already built with JobApply.' },
+        { n: 15, label: 'messages with Ariel, every day.' },
+        { n: 4, label: 'CVs tailored to a job, every day.' },
+      ],
     },
+    eliya: { label: 'Questions? Ask Eliya', title: 'Eliya, support' },
     jobs: [
       { title: 'Product Manager', place: 'Tel Aviv' },
       { title: 'Customer Success Lead', place: 'Herzliya' },
@@ -141,10 +149,11 @@ export const en = {
     hybrid: 'Hybrid',
     story: {
       h2: 'From thousands of listings to the one you apply to.',
+      lead: 'JobApply scans thousands of jobs for you every day, and leaves you only the decision to apply.',
       steps: [
-        { title: 'Your feed sorts itself', body: 'Every job is scored against your CV, so the best fits rise to the top.' },
-        { title: 'Every score shows its work', body: 'See what fits, what is missing, and how much each part counts.' },
-        { title: 'A CV for this job', body: 'Rewritten for the job’s requirements. Every line comes from something you wrote.' },
+        { title: 'Your feed sorts itself', body: 'New jobs wait for you every day, filtered to the roles you chose. Each one is scored against your CV, and the best fits rise to the top. No more scrolling through hundreds of ads.' },
+        { title: 'Every score shows its work', body: 'Open a job and see exactly what fits, what is missing and how much each part counts. So you know where your time is worth it, and what to strengthen before you apply.' },
+        { title: 'A CV for this job', body: 'One click rewrites your CV for the job’s requirements. Every line comes from something you wrote, and you can edit it all before you download.' },
       ],
       parts: [
         { label: 'Experience fit', weight: '50% of the score' },
@@ -192,16 +201,6 @@ export const en = {
       ],
       cta: 'Talk to Ariel',
     },
-    facts: {
-      h2: 'Built for a focused search.',
-      lead: 'Daily limits keep every analysis careful.',
-      items: [
-        { n: 10000, prefix: '~', label: 'jobs from LinkedIn, refreshed daily' },
-        { n: 10, prefix: '', label: 'AI match analyses a day' },
-        { n: 4, prefix: '', label: 'tailored CVs a day' },
-        { n: 40, prefix: '', label: 'messages with Ariel a day' },
-      ],
-    },
     faq: {
       h2: 'Ask before you start.',
       lead: 'What to know before you log in for the first time.',
@@ -231,7 +230,7 @@ export const en = {
         ] },
         { q: 'Why are there daily limits?', a: [
           'Each analysis reads the whole job and your whole CV, so the score and its reasons are specific, not generic.',
-          'That is why there is a daily allowance: 10 match analyses, 4 tailored CVs and 40 messages with Ariel. It resets every day.',
+          'That is why there is a daily allowance: 10 match analyses, 4 tailored CVs and 15 messages with Ariel. It resets every day.',
           'JobApply is built for a focused search: fewer applications, to the right jobs.',
         ] },
         { q: 'What happens to my data?', a: [
