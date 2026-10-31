@@ -550,9 +550,11 @@ function ArielSection({ reduced }: { reduced: boolean }) {
     if (inView && !started.current) { started.current = true; play(A.intro as { from: 'ai' | 'me'; text: string }[], true) }
   }, [inView, play, A.intro])
 
+  // Each option replaces the intro with its own example conversation.
   const ask = (i: number) => {
+    started.current = true
     setAsked(i)
-    play([{ from: 'me', text: A.chips[i].q }, { from: 'ai', text: A.chips[i].a }])
+    play(A.chips[i].convo as { from: 'ai' | 'me'; text: string }[], true)
   }
 
   return (

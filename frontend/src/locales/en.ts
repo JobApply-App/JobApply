@@ -145,14 +145,29 @@ export const en = {
       typing: 'Ariel is typing',
       chips_label: 'Try asking Ariel',
       intro: [
-        { from: 'ai', text: 'You scored 82.4 for the Product Manager job. Your strength: five years close to customers. What’s missing: writing product specs.' },
-        { from: 'me', text: 'I did write specs for the dev team.' },
-        { from: 'ai', text: 'Then it’s just not on your CV. I can add: “Wrote feature specs for R&D, based on customer feedback.” Add it?' },
+        { from: 'ai', text: 'Hi, I’m Ariel, your career agent at JobApply. I know your CV and the jobs that fit it.' },
+        { from: 'me', text: 'What can you help me with?' },
+        { from: 'ai', text: 'I explain every score, sharpen your CV and get you ready for interviews. Pick an option and I’ll show you.' },
       ],
       chips: [
-        { q: 'Sharpen my summary', a: 'Here’s one: “Customer success manager moving into product, with five years of turning customer feedback into what R&D builds next.”' },
-        { q: 'Interview prep', a: 'They’ll likely ask how you prioritise. Use the quarterly feature list you built for R&D: what made it, what you cut, and why. Want to practise?' },
-        { q: 'Will you change my facts?', a: 'Never. I only change the wording. Anything new comes from you, like the specs line you just gave me.' },
+        { q: 'Why is my score 82.4?', convo: [
+          { from: 'me', text: 'Why did I get 82.4 for the Product Manager job?' },
+          { from: 'ai', text: 'Your strength: five years close to customers. What’s missing: writing product specs, which the job asks for.' },
+          { from: 'me', text: 'I did write specs for the dev team.' },
+          { from: 'ai', text: 'Then it’s just not on your CV. I can add: “Wrote feature specs for R&D, based on customer feedback.” Add it?' },
+        ] },
+        { q: 'Sharpen my summary', convo: [
+          { from: 'me', text: 'Can you sharpen my summary?' },
+          { from: 'ai', text: 'Right now it says “Customer success manager with wide customer experience.” It doesn’t say where you’re heading.' },
+          { from: 'me', text: 'I want to move into product.' },
+          { from: 'ai', text: 'Then try: “Customer success manager moving into product, with five years of turning customer feedback into what R&D builds next.” Keep it?' },
+        ] },
+        { q: 'Interview prep', convo: [
+          { from: 'me', text: 'I have an interview for the Product Manager job. What should I focus on?' },
+          { from: 'ai', text: 'They’ll likely ask how you prioritise. Your strongest example is the quarterly feature list you built for R&D.' },
+          { from: 'me', text: 'What should I say about it?' },
+          { from: 'ai', text: 'What made the list, what you cut and why, and what happened once it shipped. Want to practise the answer?' },
+        ] },
       ],
     },
     facts: {
