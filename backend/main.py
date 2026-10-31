@@ -632,6 +632,11 @@ async def health():
             content={"status": "degraded", "checks": checks},
         )
 
+    # Reported, never gating: a schema behind the code is a deploy problem to
+    # fix, not a reason to take the whole service out of rotation.
+    from backend.core.migrations import schema_status
+    checks["schema"] = schema_status()
+
     try:
         from backend.services.pdf_builder import pdf_engine_available
 
