@@ -96,8 +96,8 @@ export const en = {
       sign_up: 'Sign up',
     },
     hero: {
-      h1: 'Know which jobs are worth your time.',
-      sub: 'A match score with reasons, and a CV tailored to each job.',
+      h1: 'Job hunting, without losing your evenings.',
+      sub: 'JobApply reads the listings for you, shows which are worth applying to and why, and writes a CV tailored to each job.',
       cta: 'Log in',
       link: 'See how it works',
       fact: 'Nearly 10,000 jobs from LinkedIn, refreshed daily.',
@@ -112,6 +112,25 @@ export const en = {
       tailor: 'Tailor my CV',
       ask: 'Ask Ariel',
       score_up: '+{n} after you added a skill',
+      why_label: 'Why JobApply',
+      why: [
+        { title: 'Only the jobs that fit', body: 'Your feed is filtered to the roles you choose and ranked against your CV. The best fits come first.' },
+        { title: 'A score that explains itself', body: 'Not just a number: what fits, what is missing, and what to strengthen before you apply.' },
+        { title: 'A CV for every job', body: 'Tailored to the requirements in a few clicks, in Hebrew or English. The facts stay yours.' },
+      ],
+    },
+    pain: {
+      h2: 'This is job hunting today.',
+      lead: 'Evening after evening of scrolling, reading and rewriting. Then silence. It doesn’t have to be this way.',
+      before_label: 'Without JobApply',
+      after_label: 'With JobApply',
+      rows: [
+        { before: 'Scrolling hundreds of listings to find a few that matter.', after: 'Your feed arrives filtered to your roles and ranked by fit.' },
+        { before: 'Reading every description and guessing whether you fit.', after: 'Every job has a score and reasons: what fits, what is missing.' },
+        { before: 'Rewriting your CV from scratch, for every single job.', after: 'A CV tailored to the job in a few clicks, only from what you wrote.' },
+        { before: 'Sending it off, and never learning why no one replied.', after: 'You know what to strengthen before you apply, and Ariel helps you prepare.' },
+      ],
+      cta: 'Start now',
     },
     jobs: [
       { title: 'Product Manager', place: 'Tel Aviv' },
@@ -136,6 +155,8 @@ export const en = {
       original: 'Your original',
       tailored: 'Tailored',
       source: 'Both lines come from your profile. No facts were added.',
+      cta: 'Build my CV',
+      cta_note: 'Upload the CV you already have, and everything else is ready.',
     },
     ariel: {
       h2: 'Ariel works on your CV with you.',
@@ -169,6 +190,7 @@ export const en = {
           { from: 'ai', text: 'What made the list, what you cut and why, and what happened once it shipped. Want to practise the answer?' },
         ] },
       ],
+      cta: 'Talk to Ariel',
     },
     facts: {
       h2: 'Built for a focused search.',
@@ -182,15 +204,43 @@ export const en = {
     },
     faq: {
       h2: 'Ask before you start.',
-      lead: 'Pick a question. Ariel answers the way she would in the app.',
+      lead: 'What to know before you log in for the first time.',
       items: [
-        { q: 'Where do the jobs come from?', a: 'Today, from LinkedIn only: nearly 10,000 jobs, filtered to the roles you choose and refreshed every day.' },
-        { q: 'How is the score worked out?', a: 'Half comes from how your experience fits the job, 30% from skills and keywords, and 20% from your career trajectory. Every score comes with its reasons.' },
-        { q: 'Will the AI make things up?', a: 'No. The wording changes; the facts stay yours. You can edit every line before you download the CV.' },
-        { q: 'Does it work in Hebrew?', a: 'Yes. The interface and the explanations come in Hebrew or English, and each CV is written in the language of the job.' },
-        { q: 'Why are there daily limits?', a: 'Each analysis reads the whole job and your whole CV. The limits keep that careful: 10 analyses, 4 tailored CVs and 40 messages with me a day.' },
-        { q: 'What happens to my data?', a: 'Your CV is used to score jobs and to write your CVs. The privacy page explains what is stored and why.' },
+        { q: 'Where do the jobs come from?', a: [
+          'Today the jobs come from LinkedIn: nearly 10,000 of them, refreshed every day.',
+          'You don’t see them all. Your feed is filtered to the roles you choose and ranked by how well each job fits your CV. You can change your roles at any time.',
+        ] },
+        { q: 'How is the match score worked out?', a: [
+          'Each job gets a score from 0 to 100, made of three parts: how your experience fits the requirements (50%), skills and keywords (30%), and your career trajectory (20%).',
+          'Next to the score you see the reasons: what on your CV meets the requirements and what is missing. So you know what to strengthen before you apply.',
+          'A career change, or more seniority than the job asks for, never lowers the score. Everything you have done counts, not only your last title.',
+        ] },
+        { q: 'Will the AI make things up on my CV?', a: [
+          'No. The wording changes; the facts stay yours. Tailored CVs are written only from what is on your CV and your profile.',
+          'If the job asks for something that is missing, Ariel asks you about it instead of guessing.',
+          'Before you download, you see the whole CV and can edit any line.',
+        ] },
+        { q: 'Does it work in Hebrew?', a: [
+          'Yes. The interface, the explanations and Ariel all work in Hebrew and English, and you can switch at any time.',
+          'Each CV is written in the language of the job: an English listing gets an English CV, a Hebrew listing gets a right-to-left Hebrew one.',
+          'There are five templates built for applicant tracking systems (ATS), so a company’s system reads your CV the way it should.',
+        ] },
+        { q: 'How long does it take to get started?', a: [
+          'Log in, upload the CV you already have, and pick the roles you are interested in.',
+          'From there your feed starts filling with ranked jobs, and Ariel is ready for questions. No need to write a CV from scratch.',
+        ] },
+        { q: 'Why are there daily limits?', a: [
+          'Each analysis reads the whole job and your whole CV, so the score and its reasons are specific, not generic.',
+          'That is why there is a daily allowance: 10 match analyses, 4 tailored CVs and 40 messages with Ariel. It resets every day.',
+          'JobApply is built for a focused search: fewer applications, to the right jobs.',
+        ] },
+        { q: 'What happens to my data?', a: [
+          'Your CV and profile are used for two things only: ranking jobs and writing your tailored CVs.',
+          'The privacy page sets out what is stored, why, and how to contact us about it.',
+        ], link: { href: '/privacy', label: 'Read the privacy policy' } },
       ],
+      more: 'Another question? Once you are in, Ariel answers anything.',
+      cta: 'Log in',
     },
     close: {
       h2: 'Start with the jobs that fit.',

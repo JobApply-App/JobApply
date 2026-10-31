@@ -92,6 +92,19 @@ export interface Dict {
       tailor:    string
       ask:       string
       score_up:  string   // "{n}" = points gained
+      why_label: string
+      // Three reasons to choose JobApply, right under the hero.
+      why:       readonly { title: string; body: string }[]
+    }
+    // The job search as it is today, row by row against the same step with
+    // JobApply.
+    pain: {
+      h2:           string
+      lead:         string
+      before_label: string
+      after_label:  string
+      rows:         readonly { before: string; after: string }[]
+      cta:          string
     }
     // Example jobs on the hero cards and the story feed. Titles stay in
     // English in both languages: that is how they arrive from LinkedIn.
@@ -105,6 +118,8 @@ export interface Dict {
       original:  string
       tailored:  string
       source:    string
+      cta:       string
+      cta_note:  string
     }
     ariel: {
       h2:          string
@@ -116,6 +131,7 @@ export interface Dict {
       intro:       readonly { from: 'ai' | 'me'; text: string }[]
       // Each option plays a whole example conversation in place of the intro.
       chips:       readonly { q: string; convo: readonly { from: 'ai' | 'me'; text: string }[] }[]
+      cta:         string
     }
     facts: {
       h2:    string
@@ -125,7 +141,11 @@ export interface Dict {
     faq: {
       h2:    string
       lead:  string
-      items: readonly { q: string; a: string }[]
+      // Each answer is a few short paragraphs; `link` points to where the
+      // full detail lives.
+      items: readonly { q: string; a: readonly string[]; link?: { href: string; label: string } }[]
+      more:  string
+      cta:   string
     }
     close: {
       h2:   string
