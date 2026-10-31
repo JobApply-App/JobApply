@@ -13,7 +13,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from backend.core.errors import AppError, error_body
-from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit, require_admin, sync_rate_limit
+from backend.api.deps import CurrentUser, consume_daily_analysis, get_current_user, llm_rate_limit, require_admin, sync_rate_limit
 from backend.schemas.job import DetailedAnalysis, JobMatch, RawJobPosting, ReasonTag
 import backend.repositories.job_repository as job_store
 from backend.services import feed_service
@@ -1016,6 +1016,7 @@ async def start_analyze_job(
     user:    CurrentUser = Depends(get_current_user),
 ):
     """Begin analysing a job URL and return a task id immediately."""
+    await asyncio.to_thread(consume_daily_analysis, user.user_id)
     _reap_analyze_tasks()
     task_id = str(uuid.uuid4())
     _ANALYZE_TASKS[task_id] = {
@@ -1318,6 +1319,7 @@ async def analyze_job_now(job_id: str, user: CurrentUser = Depends(get_current_u
     if job.score_is_proxy or not (job.fit_brief or "").strip():
         if providers_unavailable():
             raise AppError("ai_unavailable", status_code=503, detail="AI analysis is temporarily unavailable.")
+        await asyncio.to_thread(consume_daily_analysis, user.user_id)
         await refresh_user_scores(user.user_id, only_job_id=job_id)
         job = job_store.get_by_id(job_id, user.user_id) or job
     return JobAnalysisState(
