@@ -55,10 +55,10 @@ export function ChatLauncher() {
   const [showIntro, setShowIntro] = useState(false)
   useEffect(() => {
     // The first-visit tour already introduces Ariel; don't stack two popups.
-    if (readIntroSeen() || isTourPending()) return
+    if (readIntroSeen() || isTourPending(user)) return
     const id = setTimeout(() => setShowIntro(true), 1500)
     return () => clearTimeout(id)
-  }, [])
+  }, [user])
   const dismissIntro = () => { markIntroSeen(); setShowIntro(false) }
 
   // Ariel is available to every signed-in user outside onboarding — the same
