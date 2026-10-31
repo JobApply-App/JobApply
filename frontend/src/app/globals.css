@@ -40,10 +40,24 @@
   --ja-ink-deep:      #0A1F1C;   /* near-black teal — dark hero gradient stop  */
 
   /* Elevation (mirrors tailwind.config.ts boxShadow tokens) */
-  --ja-elevation-1:   0 1px 2px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.06);
-  --ja-elevation-2:   0 2px 4px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.08);
-  --ja-floating:      0 4px 6px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.12),
-                      0 1px 0px rgba(255,255,255,0.8) inset;
+  --ja-elevation-1:   0 1px 2px rgba(15,23,42,0.05), 0 2px 6px -2px rgba(15,23,42,0.06);
+  --ja-elevation-2:   0 1px 2px rgba(15,23,42,0.06), 0 8px 16px -8px rgba(15,23,42,0.08),
+                      0 24px 48px -28px rgba(19,78,74,0.22);
+  --ja-floating:      0 1px 2px rgba(15,23,42,0.06), 0 14px 28px -14px rgba(19,78,74,0.28),
+                      0 40px 70px -36px rgba(19,78,74,0.28), 0 1px 0px rgba(255,255,255,0.8) inset;
+
+  /* Motion (2026-11 redesign, mirrors tailwind.config.ts). One curve for
+     everything that enters or responds: fast start, long gentle settle.
+     Press feedback 120ms, UI changes 240ms, things arriving 400ms. */
+  --ja-ease-out:      cubic-bezier(0.23, 1, 0.32, 1);
+  --ja-ease-in-out:   cubic-bezier(0.65, 0, 0.35, 1);
+  --ja-dur-press:     120ms;
+  --ja-dur-ui:        240ms;
+  --ja-dur-enter:     400ms;
+
+  /* Material: translucent chrome that content scrolls under (header, bars) */
+  --ja-glass:         rgba(255,255,255,0.72);
+  --ja-glass-edge:    rgba(226,232,240,0.7);
 
   /* Radius */
   --ja-radius-sm:     6px;
@@ -152,6 +166,51 @@ input[type='range'] {
   .ja-animate-section.ja-visible {
     opacity: 1;
     animation: none;
+  }
+}
+
+/* ── Redesign primitives (2026-11) ─────────────────────────────────────────── */
+
+/* Translucent material: the page shows through, blurred. Falls back to solid
+   white for viewers who asked the OS for less transparency. */
+.ja-glass {
+  background: var(--ja-glass);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ja-glass {
+    background: var(--ja-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Press feedback: a control answers the moment it is pressed, not on release. */
+.ja-press {
+  transition: transform var(--ja-dur-press) var(--ja-ease-out);
+}
+.ja-press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Reduced motion, app-wide. Until now only the landing sections and the
+   accessibility menu's own switch honoured the OS setting; every modal,
+   drawer and transition ignored it. Movement collapses to its end state and
+   nothing is hidden. Looping indicators (spinners, pulses) are left running
+   on purpose: stopping one makes a loading screen look frozen. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-modal-in,
+  .animate-ja-rise,
+  .animate-ja-sheet-up,
+  .animate-ja-fade {
+    animation: none !important;
   }
 }
 

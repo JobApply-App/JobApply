@@ -127,7 +127,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
 
   return (
     <>
-    <header className="w-full bg-white border-b border-slate-100 sticky top-0 z-40">
+    <header className="w-full ja-glass border-b border-slate-100/70 sticky top-0 z-40">
       <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12 h-14 md:h-[60px] grid grid-cols-[auto_1fr_auto] items-center gap-3 md:gap-8">
 
       <div className="flex items-center gap-1">
