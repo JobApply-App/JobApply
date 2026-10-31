@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
+import { useAuth } from '@/contexts/AuthContext'
+import type { User } from '@supabase/supabase-js'
 import { TOKENS } from '@/lib/tokens'
 
 // First-visit tour. A tester asked for "an explanation that pops up the first
@@ -9,6 +11,10 @@ import { TOKENS } from '@/lib/tokens'
 // steps over the overview, each lighting up one real element (looked up by
 // its data-tour attribute) with two lines of copy. Shown once; replayable
 // from the user menu, which dispatches TOUR_REPLAY_EVENT.
+//
+// "Shown once" is stored on the account (user_metadata.tour_done), not only
+// in this browser: signOut() clears localStorage, so the browser flag alone
+// brought the tour back after every login and on every new device.
 //
 // The card sits at the bottom of the screen rather than beside the target:
 // it never covers what it describes, and it behaves the same on a phone.
@@ -18,28 +24,30 @@ export const TOUR_REPLAY_EVENT = 'ja:tour-replay'
 
 const TARGETS: (string | null)[] = [null, 'top-matches', 'confidence', 'ariel']
 
-function readDone(): boolean {
+function readDone(user: User | null): boolean {
+  if ((user?.user_metadata as Record<string, unknown> | undefined)?.tour_done === true) return true
   try { return window.localStorage.getItem(TOUR_DONE_KEY) === '1' } catch { return true }
 }
 function markDone(): void {
   try { window.localStorage.setItem(TOUR_DONE_KEY, '1') } catch { /* private mode */ }
 }
 
-export function isTourPending(): boolean {
-  return typeof window !== 'undefined' && !readDone()
+export function isTourPending(user: User | null): boolean {
+  return typeof window !== 'undefined' && !readDone(user)
 }
 
 export function ProductTour({ ready }: { ready: boolean }) {
   const T = useI18n().t.tour
+  const { user, updateUserMeta } = useAuth()
   const [step, setStep] = useState<number | null>(null)
   const [rect, setRect] = useState<DOMRect | null>(null)
 
   // Start once the overview has rendered its sections.
   useEffect(() => {
-    if (!ready || readDone()) return
+    if (!ready || readDone(user)) return
     const id = setTimeout(() => setStep(0), 800)
     return () => clearTimeout(id)
-  }, [ready])
+  }, [ready, user])
 
   useEffect(() => {
     const replay = () => setStep(0)
@@ -49,9 +57,10 @@ export function ProductTour({ ready }: { ready: boolean }) {
 
   const finish = useCallback(() => {
     markDone()
+    void updateUserMeta({ tour_done: true }).catch(() => { /* the browser flag still holds */ })
     setStep(null)
     setRect(null)
-  }, [])
+  }, [updateUserMeta])
 
   // Track the current target: scroll it into view, then follow it through
   // scrolling and resizing. A missing target (e.g. no matches yet) just

@@ -176,11 +176,13 @@ function LandingHeader() {
         </nav>
         <div className="ms-auto flex items-center gap-2 sm:gap-3">
           <LanguageSwitcher className="shrink-0" />
-          <Link href="/login" className="h-10 px-3 inline-flex items-center rounded-lg text-[14px] font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100/70 transition-colors whitespace-nowrap">
-            {L.sign_in}
-          </Link>
-          <Link href="/signup" className={`${btnPrimary} hidden sm:inline-flex h-10 px-4 text-[14px] rounded-lg`}>
+          {/* Log in is the main action (Ron, 2026-10-31); a visitor without an
+              account finds sign-up on the login page, or here. */}
+          <Link href="/signup" className="hidden sm:inline-flex h-10 px-3 items-center rounded-lg text-[14px] font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100/70 transition-colors whitespace-nowrap">
             {L.sign_up}
+          </Link>
+          <Link href="/login" className={`${btnPrimary} inline-flex h-10 px-4 text-[14px] rounded-lg`}>
+            {L.sign_in}
           </Link>
         </div>
       </div>
@@ -313,7 +315,7 @@ function Hero({ reduced }: { reduced: boolean }) {
           </h1>
           <p className="text-[18px] sm:text-[20px] leading-relaxed text-slate-600 max-w-[34rem]">{L.sub}</p>
           <div className="flex flex-wrap items-center gap-3 mt-1">
-            <Link href="/signup" className={`${btnPrimary} h-[52px] px-7 text-[16px]`}>{L.cta}</Link>
+            <Link href="/login" className={`${btnPrimary} h-[52px] px-7 text-[16px]`}>{L.cta}</Link>
             <a href="#how" className="h-[52px] px-2 inline-flex items-center text-[16px] font-semibold text-teal-800 underline decoration-transparent underline-offset-[5px] hover:decoration-current transition-[text-decoration-color]">
               {L.link}
             </a>
@@ -684,7 +686,7 @@ function Close() {
           <div aria-hidden="true" className="absolute -z-10 w-[560px] h-[560px] rounded-full top-0 start-1/2" style={{ background: 'radial-gradient(closest-side, #F0FDFA, rgba(240,253,250,0))' }} />
           <h2 id="close-h2" className="text-[36px] sm:text-[56px] leading-[1.04] font-bold tracking-[-0.035em] max-w-[14ch] [text-wrap:balance]">{C.h2}</h2>
           <p className="text-[18px] text-slate-600">{C.body}</p>
-          <Link href="/signup" className={`${btnPrimary} mt-2 h-[52px] px-7 text-[16px]`}>
+          <Link href="/login" className={`${btnPrimary} mt-2 h-[52px] px-7 text-[16px]`}>
             {C.cta}
           </Link>
         </div>

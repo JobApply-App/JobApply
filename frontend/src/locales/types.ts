@@ -1238,10 +1238,6 @@ export interface Dict {
     network:            string
     failed:             string
   }
-  app_shell: {
-    securing: string
-    please_wait: string
-  }
   applications: {
     title: string
     summary: string

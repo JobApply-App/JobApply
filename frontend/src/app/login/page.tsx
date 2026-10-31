@@ -534,13 +534,15 @@ export default function LoginPage() {
                   </button>
                 </form>
 
-                <p className="text-center text-xs text-slate-500">
-                  {L.card.no_account}
+                {/* The landing page sends everyone here first, so the way to
+                    a new account has to be as easy to see as the form. */}
+                <div className="grid gap-2 pt-4 border-t border-slate-100">
+                  <p className="text-center text-sm text-slate-600">{L.card.no_account}</p>
                   <Link href="/signup"
-                    className="inline-block py-3 sm:py-0 px-1 font-semibold text-teal-700 hover:text-teal-800 transition-colors">
+                    className="w-full inline-flex items-center justify-center min-h-[44px] rounded-lg border border-slate-200 text-sm font-semibold text-teal-800 hover:bg-slate-50 transition-colors">
                     {L.card.sign_up_link}
                   </Link>
-                </p>
+                </div>
               </div>
             </>
           )}

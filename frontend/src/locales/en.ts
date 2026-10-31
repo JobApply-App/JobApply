@@ -98,7 +98,7 @@ export const en = {
     hero: {
       h1: 'Know which jobs are worth your time.',
       sub: 'A match score with reasons, and a CV tailored to each job.',
-      cta: 'Sign up',
+      cta: 'Log in',
       link: 'See how it works',
       fact: 'Nearly 10,000 jobs from LinkedIn, refreshed daily.',
       feed_label: 'Example match feed',
@@ -195,7 +195,7 @@ export const en = {
     close: {
       h2: 'Start with the jobs that fit.',
       body: 'Upload your CV and your first feed is ready.',
-      cta: 'Sign up',
+      cta: 'Log in',
     },
   },
   login: {
@@ -1386,10 +1386,6 @@ export const en = {
     timeout:            'Processing is taking longer than usual. Please refresh the page in a minute. Your CV may already be saved.',
     network:            "We couldn't reach the server. Check your connection and try again.",
     failed:             'Upload failed. Please try again.',
-  },
-  app_shell: {
-    securing: 'Securing your workspace and activating agents…',
-    please_wait: 'Please wait.',
   },
   applications: {
     title: 'Applications',
