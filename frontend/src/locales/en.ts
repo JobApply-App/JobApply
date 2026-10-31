@@ -305,6 +305,8 @@ export const en = {
     accessibility: 'Accessibility statement',
     rights:        'All rights reserved',
     nav_label:     'Site information',
+    group_support: 'Support',
+    group_legal:   'Legal',
     contact_title: 'Contact us',
     contact_body:  'A question, a problem or an idea? A person on the team reads every message.',
     contact_email: 'Email',

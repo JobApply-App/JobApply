@@ -2,6 +2,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import { useChat } from '@/contexts/ChatContext'
+import { Logo } from './ui/Logo'
 import { useDialogA11y } from '@/hooks/useDialogA11y'
 import {
   CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_E164, CONTACT_WHATSAPP_URL,
@@ -107,27 +108,41 @@ export function Footer() {
   const [dialog, setDialog] = useState<'contact' | 'cookies' | null>(null)
   const closeDialog = useCallback(() => setDialog(null), [])
 
-  function openHelp(e: React.MouseEvent) {
-    e.preventDefault()
-    openEliya()
-  }
-
-  const link = 'hover:text-slate-800 whitespace-nowrap py-2 sm:py-0'
+  // 44px tap targets on phones; on a pointer screen the rows sit closer.
+  const link = 'inline-flex items-center min-h-[44px] sm:min-h-0 sm:py-1 text-start text-slate-500 hover:text-slate-900 transition-colors whitespace-nowrap'
+  const group = 'text-[12.5px] font-semibold text-slate-900'
 
   return (
     <>
       {dialog === 'contact' && <ContactDialog onClose={closeDialog} />}
       {dialog === 'cookies' && <CookiesDialog onClose={closeDialog} />}
       <footer className="border-t border-slate-200 bg-white">
-        <div className="max-w-content mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-[12.5px] text-slate-500">
-          <p><span dir="ltr">&copy; {new Date().getFullYear()} JOB-APPLY</span> · {F.rights}</p>
-          <nav aria-label={F.nav_label} className="flex flex-wrap items-center gap-x-5 gap-y-1">
-            <a href="/privacy" className={link}>{F.privacy}</a>
-            <a href="/terms" className={link}>{F.terms}</a>
-            <button type="button" onClick={() => setDialog('cookies')} className={link}>{F.cookies}</button>
-            <a href="/accessibility" className={link}>{F.accessibility}</a>
-            <a href="#" onClick={openHelp} className={link}>{F.help}</a>
-            <a href="#" onClick={e => { e.preventDefault(); setDialog('contact') }} className={link}>{F.contact}</a>
+        <div className="max-w-content mx-auto w-full px-4 sm:px-6 py-8 sm:py-10 flex flex-col gap-8 sm:flex-row sm:justify-between text-[13px]">
+          <div className="flex flex-col gap-3">
+            <Logo size={22} />
+            <p className="text-[12.5px] text-slate-500">
+              <span dir="ltr">&copy; {new Date().getFullYear()} JOB-APPLY</span>
+              <br />
+              {F.rights}
+            </p>
+          </div>
+          <nav aria-label={F.nav_label} className="grid grid-cols-2 gap-x-10 gap-y-6 sm:gap-x-16">
+            <div>
+              <p id="footer-support" className={group}>{F.group_support}</p>
+              <ul aria-labelledby="footer-support" className="mt-2 sm:mt-3 sm:space-y-1">
+                <li><button type="button" onClick={openEliya} className={link}>{F.help}</button></li>
+                <li><button type="button" onClick={() => setDialog('contact')} className={link}>{F.contact}</button></li>
+              </ul>
+            </div>
+            <div>
+              <p id="footer-legal" className={group}>{F.group_legal}</p>
+              <ul aria-labelledby="footer-legal" className="mt-2 sm:mt-3 sm:space-y-1">
+                <li><a href="/privacy" className={link}>{F.privacy}</a></li>
+                <li><a href="/terms" className={link}>{F.terms}</a></li>
+                <li><button type="button" onClick={() => setDialog('cookies')} className={link}>{F.cookies}</button></li>
+                <li><a href="/accessibility" className={link}>{F.accessibility}</a></li>
+              </ul>
+            </div>
           </nav>
         </div>
       </footer>
