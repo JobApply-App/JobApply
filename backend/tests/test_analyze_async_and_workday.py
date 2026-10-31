@@ -8,6 +8,8 @@ request, which the Vercel proxy cuts off — and leaving the screen lost the
 result. These tests pin the Workday JSON fallback and the start/status task.
 """
 import asyncio
+
+import pytest
 from fastapi import HTTPException
 
 from backend.scrapers import ats_api_scraper as ats
@@ -70,6 +72,14 @@ from backend.api.deps import CurrentUser
 from backend.api.routes import jobs
 
 _USER = CurrentUser(user_id="u1", email="t@example.com")
+
+
+@pytest.fixture(autouse=True)
+def _no_daily_cap(monkeypatch):
+    # The daily analysis counter lives in the kv store, which persists across
+    # runs on a local SQLite file; after ten runs in one day these tests would
+    # hit the cap. The cap has its own tests (test_daily_analysis_limit.py).
+    monkeypatch.setattr(jobs, "consume_daily_analysis", lambda user_id: None)
 
 
 async def _finish(task_id, user=_USER):
