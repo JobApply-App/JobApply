@@ -9,16 +9,14 @@
  * sanitize_text() on every user-supplied string, harden_system_prompt() on
  * Eliya's instructions, and strict Pydantic max_length payload caps.
  *
- * This proxy keeps only two responsibilities:
- *   1. Log the conversation to Supabase → public_chat_logs (user message
- *      awaited before forwarding; assistant reply teed from the SSE stream).
- *   2. Pipe FastAPI's SSE stream to the browser, passing status codes
- *      through unchanged — including 429 Too Many Requests, which the
- *      ChatOverlay renders as a polite "busy" notice.
+ * This proxy only pipes FastAPI's SSE stream to the browser, passing status
+ * codes through unchanged — including 429 Too Many Requests, which the
+ * ChatOverlay renders as a polite "busy" notice. The backend saves the
+ * conversation (support_messages, kept 90 days); a signed-in caller's
+ * Authorization header is forwarded so it is saved to their account.
  */
 
 import { NextRequest } from 'next/server'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const BACKEND = process.env.BACKEND_URL ?? 'http://127.0.0.1:8000'
 
@@ -45,36 +43,6 @@ interface RequestBody {
   message:      string
   history?:     HistoryMessage[]
   attachments?: AttachmentInput[]
-}
-
-// ── Supabase helpers ──────────────────────────────────────────────────────────
-
-type AnyClient = SupabaseClient<any, any, any, any, any>
-
-function getSupabaseServer(): AnyClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL      ?? ''
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
-  if (!url.startsWith('https://') || !key.startsWith('eyJ')) return null
-  return createClient(url, key)
-}
-
-function logMessage(
-  supabase:     AnyClient | null,
-  session_id:   string,
-  role:         'user' | 'assistant',
-  message_text: string,
-): void {
-  if (!supabase) return
-  // Fire-and-forget — never await in the hot path after streaming starts
-  ;(supabase as any)
-    .from('public_chat_logs')
-    .insert([{ session_id, role, message_text }])
-    .then(({ error }: { error: { message: string } | null }) => {
-      if (error) console.error('[public/chat] DB log failed:', error.message)
-    })
-    .catch((err: unknown) => {
-      console.error('[public/chat] DB log threw:', err)
-    })
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -121,25 +89,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     .slice(0, 10)
     .map(a => ({ base64: a.base64, mediaType: a.mediaType, name: typeof a.name === 'string' ? a.name.slice(0, 300) : 'file' }))
 
-  // ── 2. Log user message (awaited — committed before the LLM call) ─────────
-
-  const supabase = getSupabaseServer()
-  await new Promise<void>(resolve => {
-    if (!supabase) { resolve(); return }
-    ;(supabase as any)
-      .from('public_chat_logs')
-      .insert([{ session_id, role: 'user', message_text: userText }])
-      .then(({ error }: { error: { message: string } | null }) => {
-        if (error) console.error('[public/chat] User log failed:', error.message)
-        resolve()
-      })
-      .catch((err: unknown) => {
-        console.error('[public/chat] User log threw:', err)
-        resolve()
-      })
-  })
-
-  // ── 3. Forward to FastAPI ──────────────────────────────────────────────────
+  // ── 2. Forward to FastAPI ──────────────────────────────────────────────────
 
   let upstream: Response
   try {
@@ -147,6 +97,10 @@ export async function POST(request: NextRequest): Promise<Response> {
       method:  'POST',
       headers: {
         'Content-Type': 'application/json',
+        // A signed-in caller's token tells Eliya who she is talking to.
+        ...(request.headers.get('authorization')
+          ? { 'Authorization': request.headers.get('authorization') as string }
+          : {}),
         // Preserve the real client IP for the backend's IP-keyed rate limiter.
         'X-Forwarded-For': request.headers.get('x-forwarded-for')
           ?? request.headers.get('x-real-ip')
@@ -184,51 +138,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     })
   }
 
-  // ── 4. Tee the SSE stream: pipe to browser + accumulate reply for logging ─
-
-  const reader  = upstream.body.getReader()
-  const decoder = new TextDecoder()
-
-  const outStream = new ReadableStream({
-    async start(controller) {
-      let lineBuffer  = ''
-      let accumulated = ''
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          // Forward raw bytes untouched — parsing below is for logging only.
-          controller.enqueue(value)
-
-          lineBuffer += decoder.decode(value, { stream: true })
-          const lines = lineBuffer.split('\n')
-          lineBuffer  = lines.pop() ?? ''
-
-          for (const raw of lines) {
-            const line = raw.trimEnd()
-            if (!line.startsWith('data:')) continue
-            const payload = line.slice(5).trim()
-            if (!payload || payload === '[DONE]') continue
-            try {
-              const evt = JSON.parse(payload) as { chunk?: string }
-              if (typeof evt.chunk === 'string') accumulated += evt.chunk
-            } catch { /* non-JSON data line — ignore for logging */ }
-          }
-        }
-        logMessage(supabase, session_id, 'assistant', accumulated || '(empty)')
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        console.error('[public/chat] Stream read error:', msg)
-      } finally {
-        controller.close()
-        reader.releaseLock()
-      }
-    },
-  })
-
-  return new Response(outStream, {
+  return new Response(upstream.body, {
     status:  200,
     headers: {
       'Content-Type':      'text/event-stream; charset=utf-8',
