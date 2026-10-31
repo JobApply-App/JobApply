@@ -40,7 +40,7 @@ from sqlalchemy.orm import Session
 
 from backend.core.errors import AppError
 from backend.api.deps import (
-    DAILY_CHAT_MESSAGE_CAP, DAILY_CV_GENERATION_CAP, CurrentUser, daily_chat_limit,
+    DAILY_ANALYSIS_CAP, DAILY_CHAT_MESSAGE_CAP, DAILY_CV_GENERATION_CAP, CurrentUser, daily_chat_limit,
     get_current_user, llm_rate_limit, optional_user_id, standard_rate_limit,
 )
 from backend.repositories import support_message_repository
@@ -150,6 +150,26 @@ class ChatStreamRequest(BaseModel):
     messages:    List[ChatMessage]
     job_context: Optional[JobContext] = None
 
+# ── Daily limits, shared by Ariel's and Eliya's prompts ───────────────────────
+
+def _daily_limits_note() -> str:
+    """The live daily limits, read from deps.py, so neither assistant quotes a
+    number the code no longer enforces."""
+    return (
+        f"## Daily limits (live)\n"
+        f"- AI match analyses: {DAILY_ANALYSIS_CAP} a day.\n"
+        f"- Tailored CVs: {DAILY_CV_GENERATION_CAP} a day.\n"
+        f"- Messages with Ariel: {DAILY_CHAT_MESSAGE_CAP} a day.\n"
+        f"Limits reset at midnight UTC."
+    )
+
+
+_ARIEL_LIMITS_RULE = (
+    "If the user asks about limits, or one stops them, state the limit plainly from "
+    "the list below. Never invent other limits, a plan or a price."
+)
+
+
 # ── System prompt builder (general chat / job-context endpoint) ───────────────
 
 def _build_system_prompt(job_context: Optional[JobContext], user_id: str) -> str:
@@ -202,6 +222,8 @@ def _build_system_prompt(job_context: Optional[JobContext], user_id: str) -> str
         "go in the Military Service section, not under Work Experience, and when you list "
         "someone's work history, name the service separately (\"during your service as …\")."
     ]
+
+    parts.append(_ARIEL_LIMITS_RULE + "\n" + _daily_limits_note())
 
     if job_context:
         ctx_parts: list[str] = [f"TOPIC: {job_context.topic}"]
@@ -783,6 +805,7 @@ def _build_ariel_system(pinned_messages: list[ChatMessage], user_id: str,
     )
 
     parts.append(_ARIEL_STRATEGIST_CORE)
+    parts.append(_ARIEL_LIMITS_RULE + "\n" + _daily_limits_note())
     language_note = _ariel_language_note(user_id, ui_locale)
     if language_note:
         parts.append(language_note)
@@ -1432,12 +1455,7 @@ with open(_ELIYA_KNOWLEDGE_PATH, encoding="utf-8") as _f:
 
 def _eliya_system_prompt(signed_in: bool) -> str:
     """Eliya's rules, the product knowledge file, and the live daily limits."""
-    limits = (
-        f"## Daily limits (live)\n"
-        f"- Tailored CVs: {DAILY_CV_GENERATION_CAP} a day.\n"
-        f"- Messages with Ariel: {DAILY_CHAT_MESSAGE_CAP} a day.\n"
-        f"Limits reset at midnight UTC."
-    )
+    limits = _daily_limits_note()
     rules = _ELIYA_RULES.format(
         career_route=_ELIYA_CAREER_SIGNED_IN if signed_in else _ELIYA_CAREER_SIGNED_OUT,
     )

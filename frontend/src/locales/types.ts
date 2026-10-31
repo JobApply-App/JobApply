@@ -114,7 +114,8 @@ export interface Dict {
       typing:      string
       chips_label: string
       intro:       readonly { from: 'ai' | 'me'; text: string }[]
-      chips:       readonly { q: string; a: string }[]
+      // Each option plays a whole example conversation in place of the intro.
+      chips:       readonly { q: string; convo: readonly { from: 'ai' | 'me'; text: string }[] }[]
     }
     facts: {
       h2:    string
