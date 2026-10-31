@@ -438,7 +438,7 @@ def consume_daily_analysis(user_id: str) -> None:
     kv_repository.upsert(key, str(used + 1))
 
 
-DAILY_CHAT_MESSAGE_CAP = 40
+DAILY_CHAT_MESSAGE_CAP = 15
 
 
 async def daily_chat_limit(user: CurrentUser = Depends(get_current_user)) -> None:
@@ -447,8 +447,9 @@ async def daily_chat_limit(user: CurrentUser = Depends(get_current_user)) -> Non
     DAILY_CHAT_MESSAGE_CAP Ariel messages today (UTC), across both chat
     surfaces (POST /chat/stream and POST /chat/ariel/private).
 
-    40/day covers roughly 5-8 real conversations for someone using Ariel as
-    a career assistant, while stopping the case that actually drives cost: a
+    15/day (lowered from 40 by Ron, 2026-10-31) covers two or three real
+    conversations for someone using Ariel as a career assistant, while
+    stopping the case that actually drives cost: a
     single very long, continuous session. Each request resends the full
     system prompt plus the growing history, so cost per turn rises through a
     session, not just message count — a firm daily ceiling is what actually

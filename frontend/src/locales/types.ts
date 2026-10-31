@@ -79,7 +79,8 @@ export interface Dict {
       sign_up:   string
     }
     hero: {
-      h1:        string
+      // Two lines: the past (muted), then the present.
+      h1:        readonly string[]
       sub:       string
       cta:       string
       link:      string
@@ -92,40 +93,60 @@ export interface Dict {
       tailor:    string
       ask:       string
       score_up:  string   // "{n}" = points gained
+      why_label: string
+      // Three reasons to choose JobApply, right under the hero.
+      why:       readonly { title: string; body: string }[]
     }
+    // The search as it is today, lit word by word as it scrolls past, then
+    // what JobApply changes, in real figures.
+    pain: {
+      label:       string
+      lines:       readonly string[]   // the last one is the turn
+      answer_h2:   string
+      answer_lead: string
+      cta:         string
+      // `n` counts up; `value` is shown as is when there is no number.
+      tiles:       readonly { n?: number; prefix?: string; suffix?: string; value?: string; label: string }[]
+    }
+    eliya: { label: string; title: string }
     // Example jobs on the hero cards and the story feed. Titles stay in
     // English in both languages: that is how they arrive from LinkedIn.
     jobs: readonly { title: string; place: string }[]
     hybrid: string
     story: {
       h2:        string
+      lead:      string
       steps:     readonly { title: string; body: string }[]
-      parts:     readonly { label: string; weight: string }[]
+      // An example breakdown of 82.4: each part's points out of its maximum.
+      parts:     readonly { label: string; points: number; max: number }[]
       note:      string
       original:  string
       tailored:  string
       source:    string
+      cta:       string
+      cta_note:  string
     }
     ariel: {
       h2:          string
       lead:        string
       name:        string
       placeholder: string
+      example:     string
       typing:      string
       chips_label: string
       intro:       readonly { from: 'ai' | 'me'; text: string }[]
       // Each option plays a whole example conversation in place of the intro.
       chips:       readonly { q: string; convo: readonly { from: 'ai' | 'me'; text: string }[] }[]
-    }
-    facts: {
-      h2:    string
-      lead:  string
-      items: readonly { n: number; prefix: string; label: string }[]
+      cta:         string
     }
     faq: {
       h2:    string
       lead:  string
-      items: readonly { q: string; a: string }[]
+      // Each answer is a few short paragraphs; `link` points to where the
+      // full detail lives.
+      items: readonly { q: string; a: readonly string[]; link?: { href: string; label: string } }[]
+      more:  string
+      cta:   string
     }
     close: {
       h2:   string
