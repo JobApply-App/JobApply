@@ -210,12 +210,15 @@ function HeroFeed({ reduced }: { reduced: boolean }) {
   const L = t.landing
   const flip = dir === 'rtl' ? -1 : 1
   const [mounted, setMounted] = useState(false)
+  // Phones fan the back cards less, so the stack stays inside the screen.
+  const [narrow, setNarrow] = useState(false)
   const [risen, setRisen] = useState(false)
   const [showGain, setShowGain] = useState(false)
   const score = useCountUp(82.4, risen, reduced, 900, 79)
   const tiltRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    setNarrow(window.matchMedia('(max-width: 639px)').matches)
     setMounted(true)
     if (reduced) { setRisen(true); return }
     const a = setTimeout(() => { setRisen(true); setShowGain(true) }, 1500)
@@ -247,9 +250,10 @@ function HeroFeed({ reduced }: { reduced: boolean }) {
   }, [reduced])
 
   const fan = (i: number) => {
+    const k = narrow ? 0.4 : 1
     const rest = [
-      `translateX(${-36 * flip}px) rotate(${-3 * flip}deg) scale(.94)`,
-      `translateX(${40 * flip}px) rotate(${2.5 * flip}deg) scale(.97)`,
+      `translateX(${-36 * k * flip}px) rotate(${-3 * k * flip}deg) scale(.94)`,
+      `translateX(${40 * k * flip}px) rotate(${2.5 * k * flip}deg) scale(.97)`,
       'none',
     ][i]
     return {
@@ -265,13 +269,13 @@ function HeroFeed({ reduced }: { reduced: boolean }) {
       {/* The front card sits in the flow, under the two fanned cards, so the
           box grows with it (Hebrew reasons wrap to more lines) and the
           caption below is never covered. */}
-      <div ref={tiltRef} className="relative sm:pt-[150px] will-change-transform">
+      <div ref={tiltRef} className="relative pt-[112px] sm:pt-[150px] will-change-transform">
         {back.map(({ job, s }, i) => (
-          <div key={job.title} aria-hidden="true" style={{ ...fan(i), top: i === 0 ? 0 : 68 }}
-            className="absolute inset-x-0 mx-auto w-full max-w-[420px] rounded-[20px] bg-white shadow-elevation-2 px-6 py-5 hidden sm:block">
+          <div key={job.title} aria-hidden="true" style={fan(i)}
+            className={`absolute inset-x-0 mx-auto w-full max-w-[420px] rounded-[20px] bg-white shadow-elevation-2 px-5 sm:px-6 py-5 ${i === 0 ? 'top-0' : 'top-[52px] sm:top-[68px]'}`}>
             <div className="flex items-center justify-between gap-4">
-              <div>
-                <div dir="auto" className="font-bold text-[17px] tracking-tight text-slate-900 text-start">{job.title}</div>
+              <div className="min-w-0">
+                <div dir="auto" className="font-bold text-[17px] tracking-tight text-slate-900 text-start truncate">{job.title}</div>
                 <div className="text-[14px] text-slate-500">{job.place}</div>
               </div>
               <Ring value={s} size={64} />
