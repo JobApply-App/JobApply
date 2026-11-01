@@ -18,7 +18,7 @@ import { getAuthHeaders }           from '@/lib/api'
 import { LanguageSwitcher }         from '@/components/LanguageSwitcher'
 import { useI18n }                  from '@/contexts/I18nContext'
 import { AuthLayout }               from '@/components/auth/AuthLayout'
-import { CareerStageCards, type CareerStage } from '@/components/auth/CareerStageCards'
+import { SignupSteps }              from '@/components/auth/SignupSteps'
 import { evaluatePassword }         from '@/components/auth/PasswordMeter'
 import { TOKENS }                   from '@/lib/tokens'
 import { authErrorKind, authErrorMessage } from '@/lib/authErrors'
@@ -140,9 +140,9 @@ export default function SignupPage() {
   const AE = t.common.auth_errors
 
   // ── Field state ───────────────────────────────────────────────────────────
-  const [fullName,     setFullName]     = useState('')
+  const [firstName,    setFirstName]    = useState('')
+  const [lastName,     setLastName]     = useState('')
   const [phone,        setPhone]        = useState('+972')
-  const [careerStage,  setCareerStage]  = useState<CareerStage | ''>('')
   const [email,        setEmail]        = useState('')
   const [password,     setPassword]     = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -215,10 +215,12 @@ export default function SignupPage() {
   // ── Validation ────────────────────────────────────────────────────────────
   const phoneOk = phone.length > 3 && isValidPhoneNumber(phone)
 
+  const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
+
   const canSubmit =
-    fullName.trim().length >= 2                    &&
+    firstName.trim().length >= 2                   &&
+    lastName.trim().length >= 2                    &&
     phoneOk                                        &&
-    careerStage !== ''                             &&
     email.includes('@') && email.includes('.')     &&
     pw.level !== 'empty' && pw.level !== 'weak'   &&
     !emailExists                                   &&
@@ -228,13 +230,13 @@ export default function SignupPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!canSubmit || busy || creating) return
-    console.log(`${LOG} submit — email: ${email}, careerStage: ${careerStage}`)
+    console.log(`${LOG} submit — email: ${email}`)
     setSubmitError(null)
     setBusy(true)
     try {
-      await signUp(email, password, fullName.trim(), phone)
+      await signUp(email, password, fullName, phone)
       console.log(`${LOG} signUp success`)
-      setOnboarding({ fullName: fullName.trim(), careerStage })
+      setOnboarding({ fullName, careerStage: '' })
 
       void fetch('/api/profile/init', {
         method:  'POST',
@@ -243,7 +245,8 @@ export default function SignupPage() {
 
       setCreating(true)
       await new Promise(r => setTimeout(r, 1500))
-      router.replace('/discover')
+      // Step 2 (about you) comes straight after the account is created.
+      router.replace('/onboarding?step=preferences')
     } catch (err: unknown) {
       if (authErrorKind(err) === 'already_exists') {
         setEmailExists(true)
@@ -266,7 +269,7 @@ export default function SignupPage() {
     }
   }
 
-  if (creating) return <WorkspaceAnimation name={fullName.split(' ')[0]} />
+  if (creating) return <WorkspaceAnimation name={firstName.trim()} />
 
   const disableAll = busy || googleBusy
 
@@ -298,6 +301,7 @@ export default function SignupPage() {
       {/* Form */}
       <div className="flex-1 px-6 sm:px-10 pb-12 pt-4">
         <div className="max-w-lg mx-auto">
+          <SignupSteps current={1} />
           <div className="mb-7">
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{S.page.title}</h1>
             <p className="text-sm text-slate-500 mt-1">{S.page.subtitle}</p>
@@ -327,22 +331,40 @@ export default function SignupPage() {
 
             <form onSubmit={handleSubmit} noValidate className="space-y-5">
 
-              {/* Full Name */}
-              <div>
-                <label htmlFor="fullName" className="block text-xs font-medium text-slate-700 mb-1.5">
-                  {S.page.full_name} <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  id="fullName" type="text" autoComplete="name" required
-                  disabled={disableAll}
-                  placeholder={S.page.full_name_placeholder}
-                  value={fullName}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    setSubmitError(null)
-                    setFullName(e.target.value)
-                  }}
-                  className={inputCls()}
-                />
+              {/* First + last name */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="min-w-0">
+                  <label htmlFor="firstName" className="block text-xs font-medium text-slate-700 mb-1.5">
+                    {S.page.first_name} <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    id="firstName" type="text" autoComplete="given-name" required
+                    disabled={disableAll}
+                    placeholder={S.page.first_name_placeholder}
+                    value={firstName}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      setSubmitError(null)
+                      setFirstName(e.target.value)
+                    }}
+                    className={inputCls()}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label htmlFor="lastName" className="block text-xs font-medium text-slate-700 mb-1.5">
+                    {S.page.last_name} <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    id="lastName" type="text" autoComplete="family-name" required
+                    disabled={disableAll}
+                    placeholder={S.page.last_name_placeholder}
+                    value={lastName}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      setSubmitError(null)
+                      setLastName(e.target.value)
+                    }}
+                    className={inputCls()}
+                  />
+                </div>
               </div>
 
               {/* Phone */}
@@ -357,27 +379,6 @@ export default function SignupPage() {
                   disabled={disableAll}
                   hasError={false}
                 />
-              </div>
-
-              {/* Career Stage */}
-              <div>
-                <p className="text-xs font-medium text-slate-700 mb-2.5">
-                  {S.page.career_stage} <span className="text-rose-400">*</span>
-                </p>
-                <CareerStageCards
-                  value={careerStage}
-                  onChange={v => { setSubmitError(null); setCareerStage(v) }}
-                  disabled={disableAll}
-                />
-                {careerStage !== '' && (
-                  <p className="mt-1.5 text-[11px] text-teal-700 flex items-center gap-1">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    {S.page.career_stage_selected}
-                  </p>
-                )}
               </div>
 
               {/* Email */}

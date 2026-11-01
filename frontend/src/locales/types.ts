@@ -1161,6 +1161,20 @@ export interface Dict {
       seniority_hint: readonly [string, string, string, string, string, string]
       level_heading: string
     }
+    // Signup step 2: everything except roles is new here.
+    about: {
+      gender_label:     string
+      gender_hint:      string
+      genders:          { male: string; female: string; unspecified: string }
+      gender_default_note: string   // shown when "prefer not to say" is picked
+      locations_label:  string
+      locations_hint:   string
+      regions:          Record<'Tel Aviv' | 'Center' | 'Sharon' | 'Shfela' | 'Jerusalem' | 'Haifa & North' | "Be'er Sheva & South", string>
+      work_label:       string
+      work:             { onsite: string; hybrid: string; remote: string; any: string }
+      change_label:     string
+      change:           { yes: string; maybe: string; no: string }
+    }
     intake: {
       title:          string
       intro:          string
@@ -1175,6 +1189,8 @@ export interface Dict {
     }
   }
   signup: {
+    // "Step {n} of {total}: {name}" over signup, about-you and CV upload.
+    steps: { label: string; names: readonly [string, string, string] }
     page: {
       hero_eyebrow:   string
       back_to_login:  string
@@ -1183,11 +1199,11 @@ export interface Dict {
       title:          string
       subtitle:       string
       or_fill_details:string
-      full_name:      string
-      full_name_placeholder: string
+      first_name:     string
+      first_name_placeholder: string
+      last_name:      string
+      last_name_placeholder: string
       phone:          string
-      career_stage:   string
-      career_stage_selected: string
       email:          string
       email_placeholder: string
       account_exists: string
@@ -1210,7 +1226,6 @@ export interface Dict {
       sign_up_failed: string
       google_failed:  string
     }
-    career_stages: ReadonlyArray<{ title: string; subtitle: string }>
     password_rules: readonly [string, string, string, string]
     password_levels: { weak: string; fair: string; strong: string }
     phone: {

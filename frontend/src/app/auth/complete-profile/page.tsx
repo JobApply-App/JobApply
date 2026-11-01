@@ -5,7 +5,6 @@ import { isValidPhoneNumber }        from 'react-phone-number-input'
 import dynamic                       from 'next/dynamic'
 import { useRouter }                 from 'next/navigation'
 import AuthGuard                     from '@/components/AuthGuard'
-import { CareerStageCards, type CareerStage } from '@/components/auth/CareerStageCards'
 import { useAuth }                   from '@/contexts/AuthContext'
 import { useOnboarding }             from '@/contexts/OnboardingContext'
 import { getAuthHeaders }            from '@/lib/api'
@@ -71,25 +70,24 @@ function CompleteProfileContent() {
   const picture   = typeof meta?.picture === 'string' ? meta.picture : null
 
   const [phone,       setPhone]       = useState('+972')
-  const [careerStage, setCareerStage] = useState<CareerStage | ''>('')
   const [busy,        setBusy]        = useState(false)
   const [creating,    setCreating]    = useState(false)
   const [error,       setError]       = useState<string | null>(null)
 
   // E164 value from PhoneInput — validate with isValidPhoneNumber, no manual regex
   const phoneOk = phone.length > 3 && isValidPhoneNumber(phone)
-  const canSubmit = phoneOk && careerStage !== ''
+  const canSubmit = phoneOk
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!canSubmit || busy) return
-    console.log(`${LOG} submit — careerStage: ${careerStage}`)
+    console.log(`${LOG} submit`)
     setError(null)
     setBusy(true)
     try {
-      await updateUserMeta({ career_stage: careerStage, phone })
+      await updateUserMeta({ phone })
       console.log(`${LOG} updateUserMeta success`)
-      setOnboarding({ fullName, careerStage })
+      setOnboarding({ fullName, careerStage: '' })
 
       void fetch('/api/profile/init', {
         method:  'POST',
@@ -98,7 +96,7 @@ function CompleteProfileContent() {
 
       setCreating(true)
       await new Promise(r => setTimeout(r, 1500))
-      router.replace('/discover')
+      router.replace('/onboarding?step=preferences')
     } catch (err: unknown) {
       setError(authErrorMessage(err, t.common.auth_errors, CP.generic_error))
       setBusy(false)
@@ -148,27 +146,6 @@ function CompleteProfileContent() {
                 onChange={setPhone}
                 disabled={busy}
               />
-            </div>
-
-            {/* Career Stage */}
-            <div>
-              <p className="text-xs font-medium text-slate-700 mb-2.5">
-                {t.signup.page.career_stage} <span className="text-rose-400">*</span>
-              </p>
-              <CareerStageCards
-                value={careerStage}
-                onChange={setCareerStage}
-                disabled={busy}
-              />
-              {careerStage !== '' && (
-                <p className="mt-1.5 text-[11px] text-teal-700 flex items-center gap-1">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  {t.signup.page.career_stage_selected}
-                </p>
-              )}
             </div>
 
             {/* Error */}

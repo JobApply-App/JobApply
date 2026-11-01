@@ -80,9 +80,11 @@ export default function AuthCallbackPage() {
 
         console.log(`${LOG} session established for: ${session.user.email}`)
 
-        // Routing decision: new Google users lack career_stage in metadata
+        // Routing decision: a new Google user has no phone in metadata yet.
+        // Older accounts gave a career stage on that page instead, so either
+        // one means the page was already done.
         const meta        = session.user.user_metadata as Record<string, unknown> | null
-        const careerStage = meta?.career_stage
+        const pageDone    = Boolean(meta?.phone || meta?.career_stage)
 
         // A returning user who already finished onboarding goes straight into
         // the app. This used to send EVERY Google sign-in to /discover (the
@@ -90,8 +92,8 @@ export default function AuthCallbackPage() {
         // asked to start over on each login. The metadata flag is checked
         // first; when it is missing (older accounts) the backend decides —
         // onboarding_status or an imported CV, the same rule sync-user uses.
-        let destination = code && !careerStage ? '/auth/complete-profile' : '/discover'
-        if (destination === '/discover') {
+        let destination = code && !pageDone ? '/auth/complete-profile' : '/onboarding?step=preferences'
+        if (destination !== '/auth/complete-profile') {
           if (meta?.profile_completed === true) {
             destination = '/'
           } else {
@@ -102,7 +104,7 @@ export default function AuthCallbackPage() {
               })
               const sync = res.ok ? await res.json() as { profile_completed?: boolean } : null
               if (sync?.profile_completed) destination = '/'
-            } catch { /* non-fatal: fall back to /discover */ }
+            } catch { /* non-fatal: fall back to step 2 */ }
           }
         }
         console.log(`${LOG} redirecting to ${destination}`)
