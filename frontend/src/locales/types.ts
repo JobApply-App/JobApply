@@ -1282,6 +1282,7 @@ export interface Dict {
     creating_ws_named: string
     setting_up: string
     language: string
+    location: string
     phone_invalid: string
     no_results: string
   }
