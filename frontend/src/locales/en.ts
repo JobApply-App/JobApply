@@ -1476,6 +1476,7 @@ export const en = {
     creating_ws_named: 'Creating your workspace, {name}…',
     setting_up: 'Setting up your career profile',
     language: 'Language',
+    location: 'Location',
     phone_invalid: 'Please enter a valid phone number for the selected country.',
     no_results: 'No results',
   },

@@ -1513,6 +1513,7 @@ export const he = {
     creating_ws_named: 'יוצרים את סביבת העבודה שלך, {name}…',
     setting_up: 'מכינים את הפרופיל המקצועי שלך',
     language: 'שפה',
+    location: 'מיקום',
     phone_invalid: 'הזינו מספר טלפון תקין למדינה שנבחרה.',
     no_results: 'אין תוצאות',
   },
