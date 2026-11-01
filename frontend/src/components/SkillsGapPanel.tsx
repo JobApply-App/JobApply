@@ -118,7 +118,7 @@ export function SkillsGapPanel({ jobId, hasJd }: Props) {
   return (
     <div className="space-y-2 py-1">
       <p className="text-[10px] font-bold tracking-widest uppercase text-amber-700">
-        Missing Skills &amp; Requirements
+        {J.skills_gap_title}
       </p>
 
       {bullets.length > 0 && (

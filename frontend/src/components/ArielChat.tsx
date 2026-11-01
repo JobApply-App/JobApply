@@ -76,9 +76,9 @@ function makeId() {
   return Math.random().toString(36).slice(2, 10)
 }
 
-function fmtDate(iso: string) {
+function fmtDate(iso: string, locale: string) {
   const d = new Date(iso)
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -301,7 +301,7 @@ function MessageActionBar({ isUser, callbacks }: { isUser: boolean; callbacks: A
     { icon: <ReplyIcon />,   label: A.msg.reply,  danger: false, fn: callbacks.onReply  },
     // Edit — user messages only
     ...(isUser && callbacks.onEdit ? [{
-      icon: <EditIcon />, label: 'Edit', danger: false, fn: callbacks.onEdit,
+      icon: <EditIcon />, label: A.msg.edit, danger: false, fn: callbacks.onEdit,
     }] : []),
     // Translate — assistant messages only
     ...(!isUser ? [{
@@ -408,7 +408,7 @@ const MessageBubble = memo(function MessageBubble({
         >
           {message.isPinned && (
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 mb-1.5">
-              <PinIcon filled /> Pinned
+              <PinIcon filled /> {A.msg.pinned}
             </span>
           )}
           {isUser && message.attachments && message.attachments.length > 0 && (
@@ -487,7 +487,8 @@ interface HistoryPanelProps {
 function HistoryPanel({
   isOpen, onClose, sessions, loadingList, activeSessionId, onSelectSession, onNewSession,
 }: HistoryPanelProps) {
-  const A = useI18n().t.ariel
+  const { t, locale } = useI18n()
+  const A = t.ariel
   return (
     <>
       {/* Backdrop */}
@@ -528,7 +529,7 @@ function HistoryPanel({
             onClick={() => { onNewSession(); onClose() }}
             className="w-full text-left text-[12px] text-violet-600 font-medium px-3 py-2 rounded-lg hover:bg-violet-50 transition flex items-center gap-2"
           >
-            <span className="text-[16px] leading-none">+</span> New conversation
+            <span className="text-[16px] leading-none">+</span> {A.new_conversation}
           </button>
         </div>
 
@@ -560,7 +561,7 @@ function HistoryPanel({
                       `}
                     >
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[10.5px] text-slate-400">{fmtDate(s.updated_at)}</span>
+                        <span className="text-[10.5px] text-slate-400">{fmtDate(s.updated_at, locale)}</span>
                         <span className="text-[10px] text-slate-300">{s.message_count === 1 ? A.msgs_one : A.msgs_many.replace('{n}', String(s.message_count))}</span>
                       </div>
                       <p dir="auto" className="text-[12px] text-slate-600 leading-snug line-clamp-2 [unicode-bidi:plaintext] text-start">{s.preview || A.empty_convo}</p>
@@ -1268,9 +1269,9 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          title={`Attach files (images, PDFs, videos, Word docs). Max ${MAX_ATTACHMENTS} files, up to ${MAX_TOTAL_SIZE_MB}MB total${
-            attachments.length > 0 ? ` (${attachments.length}/${MAX_ATTACHMENTS} attached)` : ''
-          }`}
+          title={A.attach_title.replace('{max}', String(MAX_ATTACHMENTS)).replace('{mb}', String(MAX_TOTAL_SIZE_MB)) + (
+            attachments.length > 0 ? A.attach_count.replace('{n}', String(attachments.length)).replace('{max}', String(MAX_ATTACHMENTS)) : ''
+          )}
           aria-label={A.attach}
           disabled={streaming || attachments.length >= MAX_ATTACHMENTS}
           className="shrink-0 w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100 transition disabled:opacity-40"

@@ -321,7 +321,7 @@ export function OutreachModal({ job, onClose }: Props) {
               <input
                 value={targetName}
                 onChange={e => setTargetName(e.target.value)}
-                placeholder={activeTab === 'headhunter' ? 'e.g. Dana Cohen' : 'e.g. Yael Ben-David'}
+                placeholder={activeTab === 'headhunter' ? O.ph_name_recruiter : O.ph_name_manager}
                 className="h-9 px-3 rounded-lg border border-slate-200 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 bg-white"
               />
             </div>
@@ -332,7 +332,7 @@ export function OutreachModal({ job, onClose }: Props) {
               <input
                 value={targetCompany}
                 onChange={e => setTargetCompany(e.target.value)}
-                placeholder={activeTab === 'headhunter' ? 'e.g. Gotfriends, Nisha, SQLink' : job.company}
+                placeholder={activeTab === 'headhunter' ? O.ph_agency : job.company}
                 className="h-9 px-3 rounded-lg border border-slate-200 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 bg-white"
               />
             </div>
@@ -426,27 +426,9 @@ export function OutreachModal({ job, onClose }: Props) {
           {/* Tips */}
           {!generatedMsg && (
             <div className="rounded-2xl border border-slate-100 px-4 py-3">
-              <p className="text-[11.5px] font-semibold text-slate-600 mb-2">
-                {activeTab === 'consultation' && '💡 Tips for Step 1'}
-                {activeTab === 'escalation'   && '💡 Tips for Step 2'}
-                {activeTab === 'headhunter'   && '💡 Tips for Agency Outreach'}
-              </p>
+              <p className="text-[11.5px] font-semibold text-slate-600 mb-2">💡 {O.tips[activeTab].title}</p>
               <ul className="space-y-1 text-[12px] text-slate-500">
-                {activeTab === 'consultation' && <>
-                  <li>• Target Directors and VPs. They make hiring decisions, not HR</li>
-                  <li>• Send Monday–Wednesday, 9–11am local time for best open rates</li>
-                  <li>• Never mention the job opening. Just ask for perspective</li>
-                </>}
-                {activeTab === 'escalation' && <>
-                  <li>• Only send this after a positive reply (a like counts, a reply is better)</li>
-                  <li>• The 3rd-person summary is designed to be forwarded verbatim to the hiring team</li>
-                  <li>• Keep the transition natural and refer to the earlier conversation specifically</li>
-                </>}
-                {activeTab === 'headhunter' && <>
-                  <li>• Target Gotfriends, Nisha, SQLink, Experis, Michael Page (Israel)</li>
-                  <li>• Recruiters forward candidates who make their job easy, so lead with value</li>
-                  <li>• Specify your target role and availability clearly in the opening</li>
-                </>}
+                {O.tips[activeTab].items.map(item => <li key={item}>• {item}</li>)}
               </ul>
             </div>
           )}

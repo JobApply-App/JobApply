@@ -1,3 +1,5 @@
+import type { ReasonCode } from '../lib/reasonLabel'
+
 // ── Dictionary type ────────────────────────────────────────────────────────────
 //
 // Every key in Dict must have an entry in BOTH en.ts and he.ts.
@@ -125,6 +127,11 @@ export interface Dict {
       source:    string
       cta:       string
       cta_note:  string
+      // The example CV in the tailoring scene, in the page's language.
+      cv_name:   string
+      cv_role:   string
+      cv_before: readonly string[]
+      cv_after:  readonly string[]
     }
     ariel: {
       h2:          string
@@ -352,6 +359,10 @@ export interface Dict {
     linkedin_blocked:      string
     linkedin_maintenance:  string
     linkedin_maintenance_body: string
+    // What a user is told while LinkedIn is blocked or paused; the operator's
+    // fix-it commands show only in development.
+    linkedin_blocked_body: string
+    linkedin_paused_body:  string
     roles_missing_title: string
     roles_missing_body:  string
     roles_missing_cta:   string
@@ -402,6 +413,9 @@ export interface Dict {
     summary_aria:     string
     volunteering_aria:string
     military_note:    string
+    bullet_aria:      string
+    this_role:        string
+    this_company:     string
   }
   applier: {
     close_preview:    string
@@ -440,6 +454,8 @@ export interface Dict {
     copilot_placeholder: string
     copilot_editing:  string
     apply_edit:       string
+    submit_hint:      string
+    undo_last:        string
     evaluating:       string
     fill_form:        string
     one_detail:       string
@@ -566,6 +582,10 @@ export interface Dict {
     differs_1c: string
     differs_2: string
     differs_3: string
+    ph_name_recruiter: string
+    ph_name_manager:   string
+    ph_agency:         string
+    tips: Record<'consultation' | 'escalation' | 'headhunter', { title: string; items: readonly string[] }>
   }
   trust: {
     confidence_matrix:   string
@@ -594,6 +614,10 @@ export interface Dict {
     drop_file:           string
     reply_no_ai:         string
     linkedin_expired:    string
+    linkedin_expired_body: string
+    loading_audit:       string
+    session:             string
+    awaiting_verification: string
     fix_connection:      string
     answer_placeholder:  string
     loading_label:       string
@@ -796,6 +820,10 @@ export interface Dict {
   job_card: {
     sources: { linkedin: string; company_site: string; other: string }
     direct_title:      string
+    direct:            string
+    queued:            string
+    skills_gap_title:  string
+    reason_labels:     Record<ReasonCode, string>
     bulk_import:       string
     bulk_import_title: string
     // JD section headings, keyed by the backend's section keys.
@@ -889,6 +917,7 @@ export interface Dict {
       copy: string; copied: string; reply: string; translate: string
       regenerate: string; pin: string; unpin: string; report: string; delete: string
       show_original: string; show_translation: string
+      edit: string; pinned: string
     }
     history_close_label: string
     close:           string
@@ -898,6 +927,9 @@ export interface Dict {
     minimize_hint:   string
     history_title:   string
     new_conversation:string
+    dialog_label:    string
+    attach_title:    string
+    attach_count:    string
     remove:          string
     attach:          string
     stop:            string

@@ -16,6 +16,7 @@ import { InterviewSimulatorModal } from './InterviewSimulatorModal'
 import { AtsKeywordsPanel } from './AtsKeywordsPanel'
 import { InfoTip } from './ui/InfoTip'
 import { SkillsGapPanel }   from './SkillsGapPanel'
+import { localizeReason, reasonSkill } from '@/lib/reasonLabel'
 
 // ── Chevron ───────────────────────────────────────────────────────────────────
 
@@ -274,7 +275,7 @@ function DirectApplyBadge() {
       className="inline-flex items-center gap-0.5 h-[17px] px-1.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800"
       title={J.direct_title}
     >
-      ⚡ Direct
+      ⚡ {J.direct}
     </span>
   )
 }
@@ -589,7 +590,7 @@ function AnalyzeJobButton({ jobId }: { jobId: string }) {
   if (state === 'done') {
     return (
       <span className="text-[11px] font-medium text-teal-700 shrink-0">
-        ✓ Queued
+        ✓ {J.queued}
       </span>
     )
   }
@@ -770,7 +771,7 @@ function AgentAnalysisBox({ job, userId, active }: { job: ApiFeedJob; userId?: s
           {userId && negReasons.length > 0 && (
             <div className="space-y-1">
               {negReasons.map(r => (
-                <ArielInsightButton key={r.label} userId={userId} skillName={r.label} />
+                <ArielInsightButton key={r.label} userId={userId} skillName={reasonSkill(r.label)} />
               ))}
             </div>
           )}
@@ -873,7 +874,7 @@ export const JobCard = memo(function JobCard({
   // skill/experience reason tags (never the negative "neg" kind).
   const strengths: string[] = [
     ...(isDirect ? [J.sources.company_site] : []),
-    ...job.reasons.filter(r => r.kind === 'skill' || r.kind === 'exp').map(r => r.label),
+    ...job.reasons.filter(r => r.kind === 'skill' || r.kind === 'exp').map(r => localizeReason(r.label, J.reason_labels)),
   ].slice(0, 4)
   const isSaved            = job.status === 'saved'
   // Server-authoritative applied state — button must be visible/enabled for
