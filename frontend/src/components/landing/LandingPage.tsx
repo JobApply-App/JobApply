@@ -267,7 +267,7 @@ function HeroFeed({ reduced }: { reduced: boolean }) {
             className="absolute inset-x-0 mx-auto w-full max-w-[420px] rounded-[20px] bg-white shadow-elevation-2 px-6 py-5 hidden sm:block">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div dir="ltr" className="font-bold text-[17px] tracking-tight text-slate-900 text-start">{job.title}</div>
+                <div dir="auto" className="font-bold text-[17px] tracking-tight text-slate-900 text-start">{job.title}</div>
                 <div className="text-[14px] text-slate-500">{job.place}</div>
               </div>
               <Ring value={s} size={64} />
@@ -279,7 +279,7 @@ function HeroFeed({ reduced }: { reduced: boolean }) {
           className="relative sm:absolute sm:top-[150px] inset-x-0 mx-auto w-full max-w-[420px] rounded-[20px] bg-white shadow-floating px-5 sm:px-6 py-5 grid gap-3 z-10">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div dir="ltr" className="font-bold text-[18px] tracking-tight text-slate-900 text-start">{L.jobs[0].title}</div>
+              <div dir="auto" className="font-bold text-[18px] tracking-tight text-slate-900 text-start">{L.jobs[0].title}</div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {[L.jobs[0].place, L.hybrid].map(tag => (
                   <span key={tag} className="text-[12.5px] text-slate-600 bg-slate-100 rounded-full px-2.5 py-0.5">{tag}</span>
@@ -509,7 +509,7 @@ function FeedScene({ active }: { active: boolean }) {
           <div key={f.job} className="absolute inset-x-3 flex items-center justify-between gap-3 rounded-2xl px-4 h-[68px] bg-white"
             style={{ top: 12, transform: `translateY(${slot * ROW}px)`, transition: `transform 800ms ${EASE} ${i * 60}ms`, boxShadow: slot === 0 && active ? 'inset 0 0 0 1px #CCFBF1' : 'inset 0 0 0 1px #F1F5F9' }}>
             <div className="min-w-0">
-              <div dir="ltr" className="font-semibold text-[15px] text-slate-900 truncate text-start">{L.jobs[f.job].title}</div>
+              <div dir="auto" className="font-semibold text-[15px] text-slate-900 truncate text-start">{L.jobs[f.job].title}</div>
               <div className="text-[13px] text-slate-500">{L.jobs[f.job].place}</div>
             </div>
             <Ring value={f.score} size={48} />

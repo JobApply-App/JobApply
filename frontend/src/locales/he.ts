@@ -141,10 +141,10 @@ export const he = {
     },
     eliya: { label: 'צריכים עזרה?', title: 'אליה, תמיכה' },
     jobs: [
-      { title: 'Product Manager', place: 'תל אביב' },
-      { title: 'Customer Success Lead', place: 'הרצליה' },
-      { title: 'Revenue Operations Manager', place: 'רמת גן' },
-      { title: 'Product Operations Analyst', place: 'פתח תקווה' },
+      { title: 'מנהל/ת מוצר', place: 'תל אביב' },
+      { title: 'ראש צוות הצלחת לקוחות', place: 'הרצליה' },
+      { title: 'מנהל/ת תפעול הכנסות', place: 'רמת גן' },
+      { title: 'אנליסט/ית תפעול מוצר', place: 'פתח תקווה' },
     ],
     hybrid: 'היברידי',
     story: {
