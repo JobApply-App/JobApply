@@ -4,6 +4,7 @@ import { formatRelativeTime } from '@/lib/relativeTime'
 import type { ApiFeedJob, JobSourceType, ReasonKind } from '@/lib/apiTypes'
 import { analyzeJobNow, markJobApplied, refreshFeedScores, fetchJobJd, ensureFreshToken, getAuthHeaders } from '@/lib/api'
 import { getScoreBand as scoreBand } from '@/lib/scoreBand'
+import { ApiError } from '@/lib/errors'
 import { useI18n } from '@/contexts/I18nContext'
 import { ProbeModal, type ProbeState } from './TrustDashboard'
 
@@ -507,6 +508,15 @@ function _isSubstantiveText(text: string): boolean {
 // Backend sentinel values — must match feed_service.py constants exactly.
 const AUTH_WALL_SENTINEL  = '__auth_wall__'
 
+/** Today's AI analyses are used up: say so instead of loading forever. */
+function AnalysisLimitReached({ text }: { text: string }) {
+  return (
+    <div role="status" className="rounded-lg px-4 py-3 bg-slate-50 border border-slate-200">
+      <p className="text-[12.5px] text-slate-700 leading-relaxed">{text}</p>
+    </div>
+  )
+}
+
 function AnalysisUnavailable() {
   const J = useI18n().t.job_card
   return (
@@ -707,6 +717,7 @@ function AgentAnalysisBox({ job, userId, active }: { job: ApiFeedJob; userId?: s
   // Analysis fetched on demand when the card is opened (see analyzeJobNow).
   const [fetched, setFetched] = useState<{ fit_brief: string | null; score_is_proxy: boolean; enrichment_failures: number } | null>(null)
   const [requested, setRequested] = useState(false)
+  const [limitText, setLimitText] = useState<string | null>(null)
   const source        = fetched ?? job
   const raw           = (source.fit_brief ?? '').trim()
   const analysisReady = _isSubstantiveText(raw) && !source.score_is_proxy
@@ -720,7 +731,11 @@ function AgentAnalysisBox({ job, userId, active }: { job: ApiFeedJob; userId?: s
     setRequested(true)
     analyzeJobNow(job.job_id)
       .then(res => setFetched(res))
-      .catch(() => { /* leave the skeleton; the background sweep may still reach it */ })
+      .catch(err => {
+        // Daily limit reached: tell the user. Anything else leaves the
+        // skeleton; the background sweep may still reach it.
+        if (err instanceof ApiError && err.code === 'daily_analysis_limit') setLimitText(err.message)
+      })
   }, [active, requested, analysisReady, hardFailed, job.status, job.job_id])
   const isAuthWall    = job.status === 'auth_wall'
 
@@ -764,6 +779,8 @@ function AgentAnalysisBox({ job, userId, active }: { job: ApiFeedJob; userId?: s
         <AnalysisAuthWall />
       ) : hardFailed ? (
         <AnalysisUnavailable />
+      ) : limitText ? (
+        <AnalysisLimitReached text={limitText} />
       ) : (
         <AnalysisSkeleton />
       )}

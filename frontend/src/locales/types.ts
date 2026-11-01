@@ -10,7 +10,7 @@
  */
 export const ERROR_CODES = [
   'auth_required', 'session_expired', 'forbidden', 'admin_only', 'dev_only', 'auth_not_configured',
-  'rate_limited', 'daily_cv_limit', 'daily_chat_limit', 'linkedin_quota',
+  'rate_limited', 'daily_cv_limit', 'daily_chat_limit', 'daily_analysis_limit', 'linkedin_quota',
   'job_not_found', 'application_not_found', 'session_not_found', 'item_not_found', 'task_expired',
   'invalid_input', 'empty_message', 'invalid_linkedin_url', 'file_too_large', 'unsupported_file',
   'legacy_doc', 'file_mismatch', 'conflict',
@@ -79,7 +79,8 @@ export interface Dict {
       sign_up:   string
     }
     hero: {
-      h1:        string
+      // Two lines: the past (muted), then the present.
+      h1:        readonly string[]
       sub:       string
       cta:       string
       link:      string
@@ -92,39 +93,60 @@ export interface Dict {
       tailor:    string
       ask:       string
       score_up:  string   // "{n}" = points gained
+      why_label: string
+      // Three reasons to choose JobApply, right under the hero.
+      why:       readonly { title: string; body: string }[]
     }
+    // The search as it is today, lit word by word as it scrolls past, then
+    // what JobApply changes, in real figures.
+    pain: {
+      label:       string
+      lines:       readonly string[]   // the last one is the turn
+      answer_h2:   string
+      answer_lead: string
+      cta:         string
+      // `n` counts up; `value` is shown as is when there is no number.
+      tiles:       readonly { n?: number; prefix?: string; suffix?: string; value?: string; label: string }[]
+    }
+    eliya: { label: string; title: string }
     // Example jobs on the hero cards and the story feed. Titles stay in
     // English in both languages: that is how they arrive from LinkedIn.
     jobs: readonly { title: string; place: string }[]
     hybrid: string
     story: {
       h2:        string
+      lead:      string
       steps:     readonly { title: string; body: string }[]
-      parts:     readonly { label: string; weight: string }[]
+      // An example breakdown of 82.4: each part's points out of its maximum.
+      parts:     readonly { label: string; points: number; max: number }[]
       note:      string
       original:  string
       tailored:  string
       source:    string
+      cta:       string
+      cta_note:  string
     }
     ariel: {
       h2:          string
       lead:        string
       name:        string
       placeholder: string
+      example:     string
       typing:      string
       chips_label: string
       intro:       readonly { from: 'ai' | 'me'; text: string }[]
-      chips:       readonly { q: string; a: string }[]
-    }
-    facts: {
-      h2:    string
-      lead:  string
-      items: readonly { n: number; prefix: string; label: string }[]
+      // Each option plays a whole example conversation in place of the intro.
+      chips:       readonly { q: string; convo: readonly { from: 'ai' | 'me'; text: string }[] }[]
+      cta:         string
     }
     faq: {
       h2:    string
       lead:  string
-      items: readonly { q: string; a: string }[]
+      // Each answer is a few short paragraphs; `link` points to where the
+      // full detail lives.
+      items: readonly { q: string; a: readonly string[]; link?: { href: string; label: string } }[]
+      more:  string
+      cta:   string
     }
     close: {
       h2:   string
@@ -1141,6 +1163,20 @@ export interface Dict {
       seniority_hint: readonly [string, string, string, string, string, string]
       level_heading: string
     }
+    // Signup step 2: everything except roles is new here.
+    about: {
+      gender_label:     string
+      gender_hint:      string
+      genders:          { male: string; female: string; unspecified: string }
+      gender_default_note: string   // shown when "prefer not to say" is picked
+      locations_label:  string
+      locations_hint:   string
+      regions:          Record<'Tel Aviv' | 'Center' | 'Sharon' | 'Shfela' | 'Jerusalem' | 'Haifa & North' | "Be'er Sheva & South", string>
+      work_label:       string
+      work:             { onsite: string; hybrid: string; remote: string; any: string }
+      change_label:     string
+      change:           { yes: string; maybe: string; no: string }
+    }
     intake: {
       title:          string
       intro:          string
@@ -1155,6 +1191,8 @@ export interface Dict {
     }
   }
   signup: {
+    // "Step {n} of {total}: {name}" over signup, about-you and CV upload.
+    steps: { label: string; names: readonly [string, string, string] }
     page: {
       hero_eyebrow:   string
       back_to_login:  string
@@ -1163,11 +1201,11 @@ export interface Dict {
       title:          string
       subtitle:       string
       or_fill_details:string
-      full_name:      string
-      full_name_placeholder: string
+      first_name:     string
+      first_name_placeholder: string
+      last_name:      string
+      last_name_placeholder: string
       phone:          string
-      career_stage:   string
-      career_stage_selected: string
       email:          string
       email_placeholder: string
       account_exists: string
@@ -1190,7 +1228,6 @@ export interface Dict {
       sign_up_failed: string
       google_failed:  string
     }
-    career_stages: ReadonlyArray<{ title: string; subtitle: string }>
     password_rules: readonly [string, string, string, string]
     password_levels: { weak: string; fair: string; strong: string }
     phone: {
@@ -1238,10 +1275,6 @@ export interface Dict {
     timeout:            string
     network:            string
     failed:             string
-  }
-  app_shell: {
-    securing: string
-    please_wait: string
   }
   applications: {
     title: string

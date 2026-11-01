@@ -584,6 +584,13 @@ def init_db() -> None:
             "backend/alembic_app_schema/, not by this module.",
             ENGINE.url.host,
         )
+        status = schema_status()
+        if status != "ok":
+            logger.error(
+                "[schema] database is not at the migrations' head (%s). Run "
+                "`alembic -c alembic_app_schema.ini upgrade head`; Render must "
+                "start through backend/scripts/docker-entrypoint.sh.", status,
+            )
         return
 
     Base.metadata.create_all(ENGINE)
@@ -593,3 +600,37 @@ def init_db() -> None:
     with ENGINE.connect() as conn:
         _migrate_confidence_matrix(conn)
         _migrate_tenant_id(conn)
+
+
+# ── Is the database on the latest migration? ──────────────────────────────────
+# Production ran without migrations from 17 to 31 October 2026: Render's
+# start command replaced the Docker ENTRYPOINT that runs them, and nothing
+# reported it. A missing table only surfaced as a swallowed error. This makes
+# the gap visible at startup and in /health.
+
+def _code_head() -> str | None:
+    from pathlib import Path
+
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    cfg = Config()
+    cfg.set_main_option("script_location", str(Path(__file__).resolve().parent.parent / "alembic_app_schema"))
+    return ScriptDirectory.from_config(cfg).get_current_head()
+
+
+def _db_revision() -> str | None:
+    with ENGINE.connect() as conn:
+        row = conn.execute(text("SELECT version_num FROM alembic_version_app_schema")).first()
+    return row[0] if row else None
+
+
+def schema_status() -> str:
+    """"ok", "n/a" on SQLite, otherwise what is wrong (never raises)."""
+    if ENGINE.dialect.name == "sqlite":
+        return "n/a"
+    try:
+        db, head = _db_revision(), _code_head()
+    except Exception as exc:
+        return f"unknown ({type(exc).__name__})"
+    return "ok" if db == head else f"behind (database {db}, code {head})"

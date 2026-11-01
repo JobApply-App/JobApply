@@ -364,6 +364,79 @@ async def set_hebrew_form(
     return {"status": "ok", "value": body.value}
 
 
+# ── About you (signup step 2) ─────────────────────────────────────────────────
+# What a new user tells us right after creating the account, besides roles:
+# gender, where and how they want to work, and whether they are open to a
+# career change. Gender sets the Hebrew wording of the CV and of Ariel
+# (cv_hebrew_gender); "unspecified" writes masculine, Ron's default, until the
+# user asks Ariel for another form. Location and work model are stored in
+# career_goals, where Ariel's update_career_goals tool already writes them.
+
+GENDERS          = {"male", "female", "unspecified"}
+WORK_MODELS      = {"onsite", "hybrid", "remote", "any"}
+CAREER_CHANGE    = {"yes", "maybe", "no"}
+REGIONS          = {"Tel Aviv", "Center", "Sharon", "Shfela", "Jerusalem", "Haifa & North", "Be'er Sheva & South"}
+_GENDER_TO_FORM  = {"male": "m", "female": "f"}
+
+
+class AboutPayload(BaseModel):
+    gender:           str
+    locations:        List[str] = Field(default_factory=list, max_length=len(REGIONS))
+    work_environment: str
+    career_change:    str
+
+
+@router.get("/about")
+async def get_about(user: CurrentUser = Depends(get_current_user)) -> dict:
+    """The calling user's step-2 answers, for prefilling the form."""
+    goals = profile_repository.get_profile_json(user.user_id).get("career_goals") or {}
+    return {
+        "gender":           profile_repository.get_answer(user.user_id, "gender"),
+        "locations":        [l for l in goals.get("preferred_locations") or [] if l in REGIONS],
+        "work_environment": goals.get("work_environment"),
+        "career_change":    goals.get("open_to_career_change"),
+    }
+
+
+@router.post("/about")
+async def save_about(body: AboutPayload, user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Save gender, locations, work model and openness to a career change."""
+    if body.gender not in GENDERS:
+        raise HTTPException(status_code=422, detail=f"gender must be one of {sorted(GENDERS)}")
+    if body.work_environment not in WORK_MODELS:
+        raise HTTPException(status_code=422, detail=f"work_environment must be one of {sorted(WORK_MODELS)}")
+    if body.career_change not in CAREER_CHANGE:
+        raise HTTPException(status_code=422, detail=f"career_change must be one of {sorted(CAREER_CHANGE)}")
+    unknown = [l for l in body.locations if l not in REGIONS]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"unknown locations: {unknown}")
+
+    profile_repository.set_answer(user.user_id, "gender", body.gender)
+    form = _GENDER_TO_FORM.get(body.gender)
+    if form is None:
+        # Keep a form the user already chose with Ariel; otherwise masculine.
+        current = profile_repository.get_answer(user.user_id, "cv_hebrew_gender")
+        form = current if current in HEBREW_FORMS else "m"
+    profile_repository.set_answer(user.user_id, "cv_hebrew_gender", form)
+
+    _now = datetime.now(timezone.utc).isoformat()
+    with Session(ENGINE) as _sess:
+        row, _created = profile_repository.get_or_create(_sess, user.user_id, now=_now)
+        mp = dict(row.master_profile or {})
+        goals = dict(mp.get("career_goals") or {})
+        goals["preferred_locations"]   = list(dict.fromkeys(body.locations))
+        goals["work_environment"]      = body.work_environment
+        goals["open_to_career_change"] = body.career_change
+        mp["career_goals"] = goals
+        row.master_profile = mp
+        row.updated_at     = _now
+        profile_repository.save(_sess, row)
+        _sess.commit()
+
+    logger.info("[profile/about] user=%s gender=%s form=%s", user.user_id, body.gender, form)
+    return {"status": "ok", "hebrew_form": form}
+
+
 # ── POST /api/profile/linkedin-import ─────────────────────────────────────────
 # Phase 8 stub: accepts a LinkedIn profile URL and returns a mock success after
 # a short delay. Real scraping is intentionally NOT implemented (LinkedIn's

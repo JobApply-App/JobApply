@@ -54,12 +54,15 @@ services:
     # deployed image) and binds to Render's own dynamic $PORT instead of
     # the hardcoded 8000 the local Dockerfile/docker-compose.yml use.
     #
-    # This replaces CMD only — the Dockerfile's ENTRYPOINT
-    # (backend/scripts/docker-entrypoint.sh) still wraps it, so
-    # `alembic upgrade head` runs against DATABASE_URL before uvicorn
-    # starts. A failed migration exits non-zero and Render keeps the
-    # previous release serving instead of promoting this one.
-    dockerCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    # Render's Docker Command replaces the image's ENTRYPOINT as well as its
+    # CMD, so it must call backend/scripts/docker-entrypoint.sh itself. It
+    # did not from 17 to 31 October 2026, and no migration ran in production
+    # in that time (found 31 October: a missing table, swallowed errors).
+    # Through the entrypoint, `alembic upgrade head` runs against
+    # DATABASE_URL before uvicorn starts; a failed migration exits non-zero
+    # and Render keeps the previous release serving. /health reports
+    # "schema" so a gap is visible either way.
+    dockerCommand: /usr/local/bin/docker-entrypoint.sh uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: APP_ENV
         value: production

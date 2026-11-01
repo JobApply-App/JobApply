@@ -16,6 +16,7 @@ _QA_A = "2631c93b-93bb-4313-a2c2-79dbb786d199"   # seeded in CI by ci-seed-qa-us
 def test_prompt_carries_the_knowledge_file_and_live_limits():
     prompt = chat._eliya_system_prompt(signed_in=False)
     assert "## Getting started" in prompt                      # from knowledge/eliya_product.md
+    assert f"AI match analyses: {deps.DAILY_ANALYSIS_CAP} a day" in prompt
     assert f"Tailored CVs: {deps.DAILY_CV_GENERATION_CAP} a day" in prompt
     assert f"Messages with Ariel: {deps.DAILY_CHAT_MESSAGE_CAP} a day" in prompt
 
@@ -91,3 +92,17 @@ def test_clear_deletes_only_the_callers_conversation(repo):
     r.clear(mine, None)
     assert r.recent(mine, None, 10) == []
     assert r.recent(theirs, None, 10) == [{"role": "user", "content": "theirs"}]
+
+
+def test_ariel_knows_the_same_live_limits(monkeypatch):
+    # Both of Ariel's prompts (private chat and job-context chat) carry the
+    # limits from deps.py, the same text Eliya gets.
+    from backend.repositories import profile_repository
+    monkeypatch.setattr(chat, "get_profile", lambda user_id: {})
+    monkeypatch.setattr(profile_repository, "get_locales", lambda user_id: {"ui_locale": None, "cv_locale": None})
+    uid = "00000000-0000-0000-0000-000000000001"
+    limits = chat._daily_limits_note()
+    for prompt in (chat._build_ariel_system([], uid), chat._build_system_prompt(None, uid)):
+        assert limits in prompt
+        assert f"AI match analyses: {deps.DAILY_ANALYSIS_CAP} a day" in prompt
+        assert f"Messages with Ariel: {deps.DAILY_CHAT_MESSAGE_CAP} a day" in prompt

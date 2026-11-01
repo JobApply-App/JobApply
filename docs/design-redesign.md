@@ -32,7 +32,7 @@ Audience: `docs/target-audience.md` (31 October 2026). Prototypes Ron approved t
 - Large headings take negative tracking (about -0.03em to -0.045em at display size); body text none.
 - Hierarchy comes from weight and size together; emphasis from weight, not colour.
 - One idea per screen on marketing pages; short copy, few calls to action. Fullness comes from showing the product, not from more words.
-- No eyebrows or tracked capitals above headings, no invented numbers, quotes or logos. Real figures only (nearly 10,000 LinkedIn jobs; daily limits of 10 analyses, 4 tailored CVs, 40 Ariel messages). Never write "free".
+- No eyebrows or tracked capitals above headings, no invented numbers, quotes or logos. Real figures only (nearly 10,000 LinkedIn jobs; daily limits of 10 analyses, 4 tailored CVs, 15 Ariel messages). Never write "free".
 
 ## Phases
 

@@ -10,15 +10,16 @@ import { useOnboarding }    from '@/contexts/OnboardingContext'
 import { resolveDisplayName } from '@/lib/nameUtils'
 import { TOKENS }           from '@/lib/tokens'
 import {
-  saveRolePreferences, fetchRolePreferences, markOnboardingComplete, saveHebrewForm,
+  saveRolePreferences, fetchRolePreferences, markOnboardingComplete,
+  fetchAbout, saveAbout, REGIONS,
   uploadCvFiles,
   cvUploadErrorMessage,
   type CvUploadStage,
   type RoleSeniorityItem,
   type SeniorityLevel,
-  type HebrewForm,
+  type Gender, type WorkEnvironment, type CareerChange, type Region,
 } from '@/lib/api'
-import { HebrewFormPicker } from '@/components/HebrewFormPicker'
+import { SignupSteps } from '@/components/auth/SignupSteps'
 import { CvUploadProgress } from '@/components/CvUploadProgress'
 import { armArielWelcome } from '@/lib/onboardingFlags'
 import { RolePicker, type PendingRole } from '@/components/RolePicker'
@@ -86,6 +87,48 @@ function DirectionalArrow() {
   return <span aria-hidden="true">{dir === 'rtl' ? '\u2190' : '\u2192'}</span>
 }
 
+// One question with a few answers. multi: any number may be on (areas).
+function Choices<T extends string>({ label, hint, options, labels, value, onChange, multi = false, disabled }: {
+  label:    string
+  hint?:    string
+  options:  readonly T[]
+  labels:   Record<T, string>
+  value:    T[]
+  onChange: (v: T[]) => void
+  multi?:   boolean
+  disabled: boolean
+}) {
+  return (
+    <fieldset className="mt-7" disabled={disabled}>
+      <legend className="block text-[12px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{label}</legend>
+      {hint && <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">{hint}</p>}
+      <div className={`flex flex-wrap gap-2 ${hint ? '' : 'mt-2'}`}>
+        {options.map(o => {
+          const on = value.includes(o)
+          return (
+            <button
+              key={o}
+              type="button"
+              role={multi ? 'checkbox' : 'radio'}
+              aria-checked={on}
+              onClick={() => onChange(multi ? (on ? value.filter(v => v !== o) : [...value, o]) : [o])}
+              className={`rounded-lg border px-3.5 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40 ${
+                on ? 'border-teal-500 bg-teal-50 text-teal-800' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              {labels[o]}
+            </button>
+          )
+        })}
+      </div>
+    </fieldset>
+  )
+}
+
+const GENDERS: readonly Gender[] = ['male', 'female', 'unspecified']
+const WORK_MODELS: readonly WorkEnvironment[] = ['onsite', 'hybrid', 'remote', 'any']
+const CAREER_CHANGE: readonly CareerChange[] = ['yes', 'maybe', 'no']
+
 // ── Steps data ────────────────────────────────────────────────────────────────
 
 // Icons only — title/body live in the dictionaries (onboarding.showcase.steps)
@@ -102,6 +145,7 @@ function OnboardingContent() {
   const { set: setOnboarding }   = useOnboarding()
   const { t } = useI18n()
   const O = t.onboarding
+  const A = O.about
 
   // The step lives in the URL (?step=preferences|intake), not only in state.
   // With state alone the browser's Back button left /onboarding entirely,
@@ -119,7 +163,10 @@ function OnboardingContent() {
   const [selected,  setSelected]  = useState<PendingRole[]>([])
   const [saving,    setSaving]    = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [hebrewForm, setHebrewForm] = useState<HebrewForm | null>(null)
+  const [gender,    setGender]    = useState<Gender | null>(null)
+  const [locations, setLocations] = useState<Region[]>([])
+  const [work,      setWork]      = useState<WorkEnvironment | null>(null)
+  const [change,    setChange]    = useState<CareerChange | null>(null)
 
   // CV upload state (in-place — no intermediate screen)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -150,6 +197,14 @@ function OnboardingContent() {
         })))
       })
       .catch(() => { /* empty picker, as before */ })
+    fetchAbout()
+      .then(a => {
+        setGender(prev => prev ?? a.gender)
+        setLocations(prev => prev.length ? prev : a.locations)
+        setWork(prev => prev ?? a.work_environment)
+        setChange(prev => prev ?? a.career_change)
+      })
+      .catch(() => { /* empty answers */ })
   }, [])
 
   // Someone who already finished onboarding came here only to change their
@@ -158,10 +213,12 @@ function OnboardingContent() {
   const alreadyOnboarded =
     (user?.user_metadata as Record<string, unknown> | null)?.profile_completed === true
 
-  // Every role needs a level, and Hebrew wording must be chosen: the app asks
-  // for anything missing at the next login (RequiredDetailsGate), so letting
-  // it through here would only mean asking twice.
-  const hasRoles = selected.length > 0 && selected.every(r => r.seniority) && hebrewForm !== null
+  // Every role needs a level, and gender must be chosen (it sets the Hebrew
+  // wording): the app asks for anything missing at the next login
+  // (RequiredDetailsGate), so letting it through here would only mean asking
+  // twice. Areas are optional: none means the whole country.
+  const hasRoles = selected.length > 0 && selected.every(r => r.seniority)
+    && gender !== null && work !== null && change !== null
   const toItems = (): RoleSeniorityItem[] =>
     selected.map(r => ({ role: r.role, seniority: r.seniority ?? '' }))
 
@@ -170,7 +227,9 @@ function OnboardingContent() {
     setSaveError('')
     try {
       await saveRolePreferences({ roles: toItems() })
-      if (hebrewForm) await saveHebrewForm(hebrewForm)
+      if (gender && work && change) {
+        await saveAbout({ gender, locations, work_environment: work, career_change: change })
+      }
       if (alreadyOnboarded) router.push('/?tab=overview')
       else setPhase('intake')
     } catch {
@@ -287,7 +346,8 @@ function OnboardingContent() {
 
   if (phase === 'preferences') {
     return (
-      <OnboardingShell onBack={() => setPhase('showcase')}>
+      <OnboardingShell onBack={alreadyOnboarded ? () => setPhase('showcase') : undefined}>
+        <div className="max-w-xl mx-auto">{!alreadyOnboarded && <SignupSteps current={2} />}</div>
         <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
           <h1 className="text-[20px] font-bold text-slate-900 mb-1">{O.preferences.title}</h1>
           <p className="text-[13.5px] text-slate-500 mb-7 leading-relaxed">
@@ -299,11 +359,36 @@ function OnboardingContent() {
           </label>
           <RolePicker selected={selected} setSelected={setSelected} />
 
-          <p className="block text-[12px] font-semibold uppercase tracking-wider text-slate-400 mt-7 mb-1">
-            {t.required_details.hebrew_heading}
-          </p>
-          <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">{t.required_details.hebrew_hint}</p>
-          <HebrewFormPicker value={hebrewForm} onChange={setHebrewForm} disabled={saving} />
+          <Choices
+            label={A.gender_label} hint={A.gender_hint}
+            options={GENDERS} labels={A.genders}
+            value={gender ? [gender] : []} onChange={v => setGender(v[0])}
+            disabled={saving}
+          />
+          {gender === 'unspecified' && (
+            <p className="text-[12px] text-slate-500 mt-2 leading-relaxed">{A.gender_default_note}</p>
+          )}
+
+          <Choices
+            label={A.locations_label} hint={A.locations_hint}
+            options={REGIONS} labels={A.regions}
+            value={locations} onChange={setLocations} multi
+            disabled={saving}
+          />
+
+          <Choices
+            label={A.work_label}
+            options={WORK_MODELS} labels={A.work}
+            value={work ? [work] : []} onChange={v => setWork(v[0])}
+            disabled={saving}
+          />
+
+          <Choices
+            label={A.change_label}
+            options={CAREER_CHANGE} labels={A.change}
+            value={change ? [change] : []} onChange={v => setChange(v[0])}
+            disabled={saving}
+          />
 
           {saveError && (
             <p className="text-[12.5px] text-red-600 mt-4" role="alert">{saveError}</p>
@@ -334,6 +419,7 @@ function OnboardingContent() {
 
   return (
     <OnboardingShell onBack={() => setPhase('preferences')}>
+      <div className="max-w-md mx-auto"><SignupSteps current={3} /></div>
       <div className="max-w-md mx-auto bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
         <h1 className="text-[20px] font-bold text-slate-900 mb-1">{O.intake.title}</h1>
         <p className="text-[13.5px] text-slate-500 mb-7 leading-relaxed">

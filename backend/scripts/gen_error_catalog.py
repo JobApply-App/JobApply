@@ -18,7 +18,7 @@ WHEN = {
  'auth_required':'פעולה בלי התחברות (אין טוקן)','session_expired':'טוקן פג או לא תקין',
  'forbidden':'ניסיון לגשת לנתונים של משתמש אחר','admin_only':'מסך ניהול','dev_only':'כלי פיתוח בפרודקשן',
  'auth_not_configured':'חסר SUPABASE_URL בשרת','rate_limited':'יותר מדי בקשות בדקה (כל נתיבי ה-AI)',
- 'daily_cv_limit':'מכסת יצירת קו״ח יומית','daily_chat_limit':'מכסת הודעות יומית לאריאל',
+ 'daily_cv_limit':'מכסת יצירת קו״ח יומית','daily_chat_limit':'מכסת הודעות יומית לאריאל','daily_analysis_limit':'מכסת ניתוחי AI יומית',
  'linkedin_quota':'מכסת RapidAPI החודשית נגמרה','job_not_found':'משרה נמחקה / של משתמש אחר',
  'application_not_found':'הגשה לא קיימת','session_not_found':'שיחת ראיון/היסטוריה פגה',
  'item_not_found':'כל 404 אחר','task_expired':'משימת רקע (ניתוח קישור, העלאת קו״ח) פגה',

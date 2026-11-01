@@ -40,7 +40,7 @@ from sqlalchemy.orm import Session
 
 from backend.core.errors import AppError
 from backend.api.deps import (
-    DAILY_CHAT_MESSAGE_CAP, DAILY_CV_GENERATION_CAP, CurrentUser, daily_chat_limit,
+    DAILY_ANALYSIS_CAP, DAILY_CHAT_MESSAGE_CAP, DAILY_CV_GENERATION_CAP, CurrentUser, daily_chat_limit,
     get_current_user, llm_rate_limit, optional_user_id, standard_rate_limit,
 )
 from backend.repositories import support_message_repository
@@ -150,6 +150,26 @@ class ChatStreamRequest(BaseModel):
     messages:    List[ChatMessage]
     job_context: Optional[JobContext] = None
 
+# ── Daily limits, shared by Ariel's and Eliya's prompts ───────────────────────
+
+def _daily_limits_note() -> str:
+    """The live daily limits, read from deps.py, so neither assistant quotes a
+    number the code no longer enforces."""
+    return (
+        f"## Daily limits (live)\n"
+        f"- AI match analyses: {DAILY_ANALYSIS_CAP} a day.\n"
+        f"- Tailored CVs: {DAILY_CV_GENERATION_CAP} a day.\n"
+        f"- Messages with Ariel: {DAILY_CHAT_MESSAGE_CAP} a day.\n"
+        f"Limits reset at midnight UTC."
+    )
+
+
+_ARIEL_LIMITS_RULE = (
+    "If the user asks about limits, or one stops them, state the limit plainly from "
+    "the list below. Never invent other limits, a plan or a price."
+)
+
+
 # ── System prompt builder (general chat / job-context endpoint) ───────────────
 
 def _build_system_prompt(job_context: Optional[JobContext], user_id: str) -> str:
@@ -202,6 +222,12 @@ def _build_system_prompt(job_context: Optional[JobContext], user_id: str) -> str
         "go in the Military Service section, not under Work Experience, and when you list "
         "someone's work history, name the service separately (\"during your service as …\")."
     ]
+
+    addressing = _ariel_addressing_note(user_id)
+    if addressing:
+        parts.append(addressing)
+
+    parts.append(_ARIEL_LIMITS_RULE + "\n" + _daily_limits_note())
 
     if job_context:
         ctx_parts: list[str] = [f"TOPIC: {job_context.topic}"]
@@ -457,7 +483,13 @@ TO the user, not about yourself. When replying in Hebrew, every verb,
 adjective, and pronoun addressed to the user (second person) must agree
 with the user's gender.
 
-1. Infer the user's gender from available signals, in this priority order:
+0. When an <AddressingForm> block is present, it is the user's own choice:
+   follow it, and it overrides every signal below. If the user asks to be
+   addressed differently (feminine, masculine, plural, neutral), call the
+   set_addressing_form tool at once and switch; their tailored CVs follow
+   the same form, so say so in one short line.
+1. With no <AddressingForm>, infer the user's gender from available
+   signals, in this priority order:
    a. Explicit statements in the conversation (e.g. "אני גבר" / "אני אישה").
    b. Grammatical self-references the user makes about themselves
       (e.g. "עבדתי" is gender-neutral, but "הייתי בטוח" vs "הייתי בטוחה"
@@ -782,11 +814,47 @@ def _build_ariel_system(pinned_messages: list[ChatMessage], user_id: str,
         "</MasterProfile>"
     )
 
+    addressing = _ariel_addressing_note(user_id)
+    if addressing:
+        parts.append(addressing)
+
     parts.append(_ARIEL_STRATEGIST_CORE)
+    parts.append(_ARIEL_LIMITS_RULE + "\n" + _daily_limits_note())
     language_note = _ariel_language_note(user_id, ui_locale)
     if language_note:
         parts.append(language_note)
     return harden_system_prompt("\n\n".join(parts))
+
+
+_ADDRESSING_FORMS = {
+    "m": "masculine second-person forms (אתה, תוכל, מוכן)",
+    "f": "feminine second-person forms (את, תוכלי, מוכנה)",
+    "n": "plural second-person forms (אתם, תוכלו, מוכנים), never a singular gendered form",
+}
+
+
+def _ariel_addressing_note(user_id: str) -> str:
+    """
+    How Ariel addresses the user in Hebrew: the form saved at signup (from
+    the gender answer) or later through set_addressing_form. The same value
+    (cv_hebrew_gender) sets the wording of the user's Hebrew CVs.
+    """
+    from backend.repositories import profile_repository
+    try:
+        form   = profile_repository.get_answer(user_id, "cv_hebrew_gender")
+        gender = profile_repository.get_answer(user_id, "gender")
+    except Exception as exc:
+        logger.warning("[_build_ariel_system] addressing form unreadable user=%s: %s", user_id, exc)
+        return ""
+    if form not in _ADDRESSING_FORMS:
+        return ""
+    lines = [f"Address the user in Hebrew with {_ADDRESSING_FORMS[form]}."]
+    if gender == "unspecified":
+        lines.append(
+            "The user preferred not to state a gender; this form is the default. "
+            "Do not ask about it, but honour any request for another form."
+        )
+    return "<AddressingForm>\n" + "\n".join(lines) + "\n</AddressingForm>"
 
 
 def _ariel_language_note(user_id: str, ui_locale: Optional[str] = None) -> str:
@@ -1432,12 +1500,7 @@ with open(_ELIYA_KNOWLEDGE_PATH, encoding="utf-8") as _f:
 
 def _eliya_system_prompt(signed_in: bool) -> str:
     """Eliya's rules, the product knowledge file, and the live daily limits."""
-    limits = (
-        f"## Daily limits (live)\n"
-        f"- Tailored CVs: {DAILY_CV_GENERATION_CAP} a day.\n"
-        f"- Messages with Ariel: {DAILY_CHAT_MESSAGE_CAP} a day.\n"
-        f"Limits reset at midnight UTC."
-    )
+    limits = _daily_limits_note()
     rules = _ELIYA_RULES.format(
         career_route=_ELIYA_CAREER_SIGNED_IN if signed_in else _ELIYA_CAREER_SIGNED_OUT,
     )

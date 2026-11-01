@@ -15,6 +15,7 @@ import { AllJobsTab }           from '@/components/AllJobsTab'
 import { AnalyzeTrigger }       from '@/components/AgentStatusCenter'
 import { ApplierPreview }       from '@/components/ApplierPreview'
 import AuthGuard                from '@/components/AuthGuard'
+import { AppSkeleton, hasStoredSession } from '@/components/AppSkeleton'
 import { LandingPage }          from '@/components/landing/LandingPage'
 import { useAuth }              from '@/contexts/AuthContext'
 import { resolveDisplayName }   from '@/lib/nameUtils'
@@ -28,18 +29,15 @@ import type { ApiFeedJob }      from '@/lib/apiTypes'
 //   linking by verified email, profile_completed backfill) before the
 //   dashboard's data hooks mount.
 //
-// DESIGN — render gate, not background hook
-//   SyncGate renders a brief blocking screen until sync-user responds (or a
-//   locally-cached flag says it already ran). HomePageContent (and every hook
-//   inside it) only mounts AFTER the gate transitions to 'done', so the very
-//   first data fetch already sees the correctly-linked user_id.
-//
-// STATES
-//   idle      — user/session not yet available (should be instant; AuthGuard
-//               guarantees children only render with a confirmed session)
-//   in_flight — POST in progress → show blocking spinner + message
-//   done      — sync attempted (success or failure — sync-user is best-effort
-//               and non-fatal) → render children
+// DESIGN — background sync, never a wait
+//   The dashboard renders at once and sync-user runs beside it. It used to be
+//   a blocking gate: a dark "Securing your workspace and activating agents…
+//   Please wait." screen after every login (signOut clears localStorage, so
+//   the cached flag below never survived a sign-in), waiting on a request to
+//   a backend that can be slow. Ron, 2026-10-31: no waiting screen at all.
+//   The case the gate protected is rare: this login re-linked rows from an
+//   older account (Google after email sign-up). Only then is anything already
+//   read stale, and the page reloads once so it reads the linked data.
 //
 // NOTE — legacy data migration removed from this flow
 //   POST /api/auth/migrate-legacy-data used to fire here for every user. It
@@ -53,12 +51,8 @@ import type { ApiFeedJob }      from '@/lib/apiTypes'
 //   run for this user in this browser, so subsequent visits skip the
 //   network call entirely and go straight to done.
 
-type MigrationPhase = 'idle' | 'in_flight' | 'done'
-
 function MigrationGate({ children }: { children: React.ReactNode }) {
-  const { t } = useI18n()
   const { user, session, updateUserMeta } = useAuth()
-  const [phase, setPhase] = useState<MigrationPhase>('idle')
   const firedRef = useRef(false)   // guards against React StrictMode double-invoke
 
   useEffect(() => {
@@ -89,13 +83,11 @@ function MigrationGate({ children }: { children: React.ReactNode }) {
           })
           .catch(() => { /* non-fatal */ })
       }
-      setPhase('done')
       return
     }
 
-    // ── Slow path: sync identity, then let the dashboard mount ────────────────
+    // ── First sync in this browser: runs beside the dashboard ─────────────────
     firedRef.current = true
-    setPhase('in_flight')
 
     // Provider-agnostic identity sync (account linking by verified email): if
     // this login minted a new Supabase user for an email that already owns
@@ -110,6 +102,9 @@ function MigrationGate({ children }: { children: React.ReactNode }) {
       .then((sync: { status?: string; linked_from?: string; profile_completed?: boolean } | null) => {
         if (sync?.status === 'linked') {
           console.info('[sync-user] account linked from', sync.linked_from)
+          localStorage.setItem(storageKey, '1')
+          window.location.reload()
+          return
         }
         // Backfill for accounts created before the profile_completed flag:
         // the backend reports whether the master profile already has real
@@ -120,33 +115,11 @@ function MigrationGate({ children }: { children: React.ReactNode }) {
         }
       })
       .catch(() => { /* non-fatal */ })
-      .then(() => {
-        localStorage.setItem(storageKey, '1')
-        setPhase('done')
-      })
+      .then(() => { localStorage.setItem(storageKey, '1') })
     // `updateUserMeta` is safe to depend on: AuthContext defines it as
     // useCallback(..., []), so its identity is fixed for the provider's
     // lifetime and listing it cannot make this effect run any more often.
   }, [user, session, updateUserMeta])
-
-  // ── Blocking screen (idle / in_flight) ────────────────────────────────────
-  if (phase !== 'done') {
-    return (
-      <div
-        className="min-h-screen flex flex-col items-center justify-center gap-5 px-6 bg-ja-ink"
-      >
-        <div className="w-9 h-9 rounded-full border-2 border-slate-700 border-t-blue-500 animate-spin" />
-
-        {phase === 'in_flight' && (
-          <p className="text-sm text-center leading-relaxed text-ja-subtle" style={{ maxWidth: 300 }}>
-            {t.app_shell.securing}
-            <br />
-            <span>{t.app_shell.please_wait}</span>
-          </p>
-        )}
-      </div>
-    )
-  }
 
   return <>{children}</>
 }
@@ -401,13 +374,10 @@ function HomePageContent() {
 export default function HomePage() {
   const { user, loading } = useAuth()
 
-  // Auth resolving — neutral spinner, no flash of either surface
+  // Auth resolving (a local read, ~100ms): the app's frame if this browser
+  // holds a session, otherwise the plain page colour — never a spinner.
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-teal-500 animate-spin" />
-      </div>
-    )
+    return hasStoredSession() ? <AppSkeleton /> : <div className="min-h-screen bg-ja-bg" />
   }
 
   // Unauthenticated → show the public landing page

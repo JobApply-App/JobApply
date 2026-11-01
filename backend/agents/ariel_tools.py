@@ -412,6 +412,28 @@ ARIEL_TOOLS: list[dict[str, Any]] = [
             "required": ["confirmation_phrase"],
         },
     },
+    {
+        "name": "set_addressing_form",
+        "description": (
+            "Save how the user wants to be addressed in Hebrew. Call this the "
+            "moment the user asks for a different form (e.g. 'תפני אליי בלשון "
+            "נקבה', 'speak to me in plural'). The same form sets the wording of "
+            "their Hebrew CVs, so it applies to both Ariel and the CV."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "form": {
+                    "type": "string",
+                    "enum": ["m", "f", "n"],
+                    "description": "m = masculine, f = feminine, n = plural / "
+                                   "neutral (Ariel uses plural; CVs use slash "
+                                   "forms such as מנהל/ת).",
+                },
+            },
+            "required": ["form"],
+        },
+    },
 ]
 
 
@@ -903,6 +925,25 @@ def _handle_edit_tailored_cv_bullet(
         return f"error: could not apply the CV edit — {exc}"
 
 
+def _handle_set_addressing_form(
+    tool_input: dict[str, Any],
+    user_id:    str,
+    session:    Session,
+) -> str:
+    """Write cv_hebrew_gender, which Ariel's prompt and Hebrew CVs both read."""
+    form = tool_input.get("form")
+    if form not in ("m", "f", "n"):
+        return "error: form must be one of m, f, n."
+    try:
+        from backend.repositories import profile_repository
+        profile_repository.set_answer(user_id, "cv_hebrew_gender", form)
+    except Exception as exc:
+        logger.error("[ariel_tools] set_addressing_form failed user=%s: %s", user_id, exc)
+        return f"error: could not save the addressing form — {exc}"
+    logger.info("[ariel_tools] set_addressing_form user=%s form=%s", user_id, form)
+    return f"Addressing form saved: {form}. Use it from this reply on; Hebrew CVs follow it."
+
+
 # ── Dispatcher ────────────────────────────────────────────────────────────────
 
 _HANDLERS = {
@@ -914,6 +955,7 @@ _HANDLERS = {
     "finalize_onboarding":        _handle_finalize_onboarding,
     "get_tailored_cv_for_review": _handle_get_tailored_cv_for_review,
     "edit_tailored_cv_bullet":    _handle_edit_tailored_cv_bullet,
+    "set_addressing_form":        _handle_set_addressing_form,
 }
 
 
