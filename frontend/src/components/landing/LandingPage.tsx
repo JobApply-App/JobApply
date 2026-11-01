@@ -21,6 +21,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { Logo } from '@/components/ui/Logo'
 import { getScoreBand } from '@/lib/scoreBand'
 import { useChat } from '@/contexts/ChatContext'
+import { FilterIcon, FileIcon } from '@/components/icons'
 
 const EASE = 'cubic-bezier(0.23, 1, 0.32, 1)'
 
@@ -261,7 +262,10 @@ function HeroFeed({ reduced }: { reduced: boolean }) {
   const back = [{ job: L.jobs[2], s: 58 }, { job: L.jobs[1], s: 91.2 }]
   return (
     <div className="relative" role="group" aria-label={L.hero.feed_label}>
-      <div ref={tiltRef} className="relative sm:h-[460px] will-change-transform">
+      {/* The front card sits in the flow, under the two fanned cards, so the
+          box grows with it (Hebrew reasons wrap to more lines) and the
+          caption below is never covered. */}
+      <div ref={tiltRef} className="relative sm:pt-[150px] will-change-transform">
         {back.map(({ job, s }, i) => (
           <div key={job.title} aria-hidden="true" style={{ ...fan(i), top: i === 0 ? 0 : 68 }}
             className="absolute inset-x-0 mx-auto w-full max-w-[420px] rounded-[20px] bg-white shadow-elevation-2 px-6 py-5 hidden sm:block">
@@ -276,7 +280,7 @@ function HeroFeed({ reduced }: { reduced: boolean }) {
         ))}
 
         <article style={{ ...fan(2) }}
-          className="relative sm:absolute sm:top-[150px] inset-x-0 mx-auto w-full max-w-[420px] rounded-[20px] bg-white shadow-floating px-5 sm:px-6 py-5 grid gap-3 z-10">
+          className="relative mx-auto w-full max-w-[420px] rounded-[20px] bg-white shadow-floating px-5 sm:px-6 py-5 grid gap-3 z-10">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div dir="auto" className="font-bold text-[18px] tracking-tight text-slate-900 text-start">{L.jobs[0].title}</div>
@@ -309,7 +313,7 @@ function HeroFeed({ reduced }: { reduced: boolean }) {
           </div>
         </article>
       </div>
-      <p className="text-center text-[12.5px] text-slate-500 mt-4 sm:mt-0">{L.hero.example}</p>
+      <p className="text-center text-[12.5px] text-slate-500 mt-5">{L.hero.example}</p>
     </div>
   )
 }
@@ -360,19 +364,33 @@ function Hero({ reduced }: { reduced: boolean }) {
 
 // ── Why JobApply: three reasons, right under the hero ──────────────────────
 
+// A gauge, for "a score that explains itself".
+function ScoreGlyph({ s = 22 }: { s?: number }) {
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3.5 16.5a8.5 8.5 0 0 1 17 0" />
+      <path d="M12 16.5l4.2-5" />
+      <circle cx="12" cy="16.5" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+// Each reason gets the picture of what it is about, in the order of L.why:
+// the filtered feed, the score, the CV.
+const WHY_ICONS = [<FilterIcon key="feed" s={22} />, <ScoreGlyph key="score" />, <FileIcon key="cv" s={22} />]
+
 function Why({ reduced }: { reduced: boolean }) {
   const L = useI18n().t.landing.hero
   const [ref, style] = useStagger<HTMLUListElement>(reduced, 120)
-  const [lineRef, lineOn] = useInView<HTMLDivElement>(0.4)
   return (
     <section aria-label={L.why_label} className="-mt-6 sm:-mt-10 pb-16 sm:pb-24">
-      <div ref={lineRef} className="max-w-6xl mx-auto px-4 sm:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-8">
         <ul ref={ref} className="grid sm:grid-cols-3 gap-x-10 gap-y-8">
           {L.why.map((w, i) => (
-            <li key={w.title} style={style(i)} className="relative grid gap-2 pt-6">
-              <span aria-hidden="true" className="absolute top-0 inset-x-0 h-px bg-slate-200" />
-              <span aria-hidden="true" className="absolute top-0 start-0 w-16 h-[3px] -mt-px rounded-full bg-teal-600 origin-left rtl:origin-right"
-                style={{ transform: `scaleX(${lineOn || reduced ? 1 : 0})`, transition: reduced ? undefined : `transform 900ms ${EASE} ${200 + i * 120}ms` }} />
+            <li key={w.title} style={style(i)} className="grid gap-2 content-start">
+              <span aria-hidden="true" className="mb-2 w-12 h-12 rounded-2xl grid place-items-center text-white shadow-elevation-2" style={{ background: 'linear-gradient(150deg, #14B8A6, #0F766E)' }}>
+                {WHY_ICONS[i]}
+              </span>
               <h2 className="text-[20px] font-bold tracking-[-0.015em] text-slate-900">{w.title}</h2>
               <p className="text-[16px] leading-relaxed text-slate-600">{w.body}</p>
             </li>
@@ -385,25 +403,33 @@ function Why({ reduced }: { reduced: boolean }) {
 
 // ── Pain: the search today, lit word by word as it scrolls past ────────────
 //
-// Apple's pinned statement: the paragraph holds still while each word lights
-// up with scroll progress, so the reader moves through the evenings one
-// sentence at a time. The last line, the turn, lights in teal.
+// Apple's pinned statement: the paragraph holds still while each word appears
+// with scroll progress, so the reader moves through the evenings one sentence
+// at a time. The last line, the turn, appears in teal. Words not reached yet
+// are hidden (Ron, 2026-11-01), and progress only moves forward: scrolling
+// back up never hides what has been read.
 
 function PainLines({ reduced }: { reduced: boolean }) {
   const P = useI18n().t.landing.pain
   const outer = useRef<HTMLElement>(null)
-  // 1 = every word lit: the state before script runs, and under reduced motion.
-  const [progress, setProgress] = useState(1)
+  // null until the first measurement: every word shows, which is the state
+  // without script and under reduced motion.
+  const [progress, setProgress] = useState<number | null>(null)
 
   useEffect(() => {
     const el = outer.current
-    if (!el || reduced) { setProgress(1); return }
+    if (!el || reduced) { setProgress(null); return }
     let raf = 0
     const read = () => {
       raf = 0
       const r = el.getBoundingClientRect()
-      const span = Math.max(1, r.height - window.innerHeight)
-      setProgress(Math.min(1, Math.max(0, -r.top / span)))
+      // From the text coming into view (section top at 30% of the viewport,
+      // the pinned text near its bottom) to the pin releasing, so the screen
+      // is never an empty band while the section scrolls in.
+      const vh = window.innerHeight
+      const span = Math.max(1, r.height - vh + 0.3 * vh)
+      const p = Math.min(1, Math.max(0, (0.3 * vh - r.top) / span))
+      setProgress(prev => prev === null ? p : Math.max(prev, p))
     }
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(read) }
     read()
@@ -419,20 +445,20 @@ function PainLines({ reduced }: { reduced: boolean }) {
   const last = P.lines.length - 1
   const total = P.lines.join(' ').split(' ').length
   // Finishes a little before the pin releases, so the full text is read still.
-  const lit = progress * 1.1 * total
+  const lit = (progress ?? 1) * 1.1 * total
   let n = 0
 
   return (
     <section ref={outer} aria-label={P.label} className={reduced ? 'py-24 sm:py-32' : 'h-[240vh]'}>
       <div className={reduced ? '' : 'sticky top-0 h-[100svh] flex items-center'}>
-        <p className="max-w-5xl mx-auto px-4 sm:px-8 text-[30px] sm:text-[44px] lg:text-[52px] leading-[1.15] font-bold tracking-[-0.035em]">
+        <p className="max-w-5xl mx-auto px-4 sm:px-8 text-center [text-wrap:balance] text-[30px] sm:text-[44px] lg:text-[52px] leading-[1.15] font-bold tracking-[-0.035em]">
           {P.lines.map((line, li) => (
             <span key={li} className={li === last ? 'block mt-6 sm:mt-10' : undefined}>
               {line.split(' ').map((w, wi) => {
                 const on = n++ < lit
                 return (
-                  <span key={wi} className="transition-colors duration-300"
-                    style={{ color: on ? (li === last ? '#0F766E' : '#0F172A') : '#CBD5E1' }}>
+                  <span key={wi} className={li === last ? 'text-teal-700' : 'text-slate-900'}
+                    style={{ opacity: on ? 1 : 0, transition: `opacity 450ms ${EASE}` }}>
                     {w}{' '}
                   </span>
                 )
@@ -822,18 +848,31 @@ function Faq({ reduced }: { reduced: boolean }) {
 // ── Close ────────────────────────────────────────────────────────────────────
 
 function Close() {
-  const C = useI18n().t.landing.close
+  const { t } = useI18n()
+  const C = t.landing.close
   const [ref, style] = useReveal<HTMLDivElement>()
+  // The last thing on the page, so it carries the page's colour: the teal of
+  // the first tile and the score, with Ariel's violet glowing in one corner.
   return (
     <section className="py-20 sm:py-28" aria-labelledby="close-h2">
       <div className="max-w-6xl mx-auto px-4 sm:px-8">
-        <div ref={ref} style={style} className="relative isolate overflow-clip rounded-[32px] bg-white shadow-floating px-6 sm:px-16 py-16 sm:py-24 grid gap-5 justify-items-start text-slate-900">
-          <div aria-hidden="true" className="absolute -z-10 w-[560px] h-[560px] rounded-full top-0 start-1/2" style={{ background: 'radial-gradient(closest-side, #F0FDFA, rgba(240,253,250,0))' }} />
-          <h2 id="close-h2" className="text-[36px] sm:text-[56px] leading-[1.04] font-bold tracking-[-0.035em] max-w-[14ch] [text-wrap:balance]">{C.h2}</h2>
-          <p className="text-[18px] text-slate-600">{C.body}</p>
-          <Link href="/login" className={`${btnPrimary} mt-2 h-[52px] px-7 text-[16px]`}>
-            {C.cta}
-          </Link>
+        <div ref={ref} style={{ ...style, background: 'linear-gradient(150deg, #0F766E 0%, #115E59 55%, #134E4A 100%)' }}
+          className="relative isolate overflow-clip rounded-[32px] shadow-floating px-6 sm:px-16 py-16 sm:py-24 grid gap-5 justify-items-center text-center text-white">
+          <div aria-hidden="true" className="absolute -z-10 w-[640px] h-[640px] rounded-full -top-64 start-1/2 -translate-x-1/2 rtl:translate-x-1/2"
+            style={{ background: 'radial-gradient(closest-side, rgba(94,234,212,.35), rgba(94,234,212,0))' }} />
+          <div aria-hidden="true" className="absolute -z-10 w-[420px] h-[420px] rounded-full -bottom-48 -end-24"
+            style={{ background: 'radial-gradient(closest-side, rgba(167,139,250,.45), rgba(167,139,250,0))' }} />
+          <h2 id="close-h2" className="text-[38px] sm:text-[60px] leading-[1.04] font-extrabold tracking-[-0.04em] max-w-[16ch] [text-wrap:balance]">{C.h2}</h2>
+          <p className="text-[18px] sm:text-[20px] text-teal-50/90 max-w-[32rem]">{C.body}</p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/login" className="inline-flex items-center justify-center h-[52px] px-8 rounded-xl bg-white text-teal-800 text-[16px] font-semibold tracking-tight shadow-elevation-2 transition-[background-color,transform] duration-ja-ui hover:bg-teal-50 active:scale-[0.97] active:duration-ja-press focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+              {C.cta}
+            </Link>
+            <Link href="/signup" className="inline-flex items-center justify-center h-[52px] px-6 rounded-xl text-[16px] font-semibold text-white ring-1 ring-white/40 transition-[background-color,transform] duration-ja-ui hover:bg-white/10 active:scale-[0.97] active:duration-ja-press focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+              {t.landing.nav.sign_up}
+            </Link>
+          </div>
+          <p className="mt-2 max-w-[300px] sm:max-w-none text-[14px] text-teal-100/90"><Check className="inline align-[-2px] me-1.5 text-teal-200" />{t.landing.hero.fact}</p>
         </div>
       </div>
     </section>
