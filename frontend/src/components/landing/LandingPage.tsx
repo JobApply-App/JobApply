@@ -443,7 +443,7 @@ function PainLines({ reduced }: { reduced: boolean }) {
   return (
     <section ref={outer} aria-label={P.label} className={reduced ? 'py-24 sm:py-32' : 'h-[240vh]'}>
       <div className={reduced ? '' : 'sticky top-0 h-[100svh] flex items-center'}>
-        <p className="max-w-5xl mx-auto px-4 sm:px-8 text-[30px] sm:text-[44px] lg:text-[52px] leading-[1.15] font-bold tracking-[-0.035em]">
+        <p className="max-w-5xl mx-auto px-4 sm:px-8 text-center [text-wrap:balance] text-[30px] sm:text-[44px] lg:text-[52px] leading-[1.15] font-bold tracking-[-0.035em]">
           {P.lines.map((line, li) => (
             <span key={li} className={li === last ? 'block mt-6 sm:mt-10' : undefined}>
               {line.split(' ').map((w, wi) => {
