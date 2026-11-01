@@ -403,33 +403,25 @@ function Why({ reduced }: { reduced: boolean }) {
 
 // ── Pain: the search today, lit word by word as it scrolls past ────────────
 //
-// Apple's pinned statement: the paragraph holds still while each word appears
-// with scroll progress, so the reader moves through the evenings one sentence
-// at a time. The last line, the turn, appears in teal. Words not reached yet
-// are hidden (Ron, 2026-11-01), and progress only moves forward: scrolling
-// back up never hides what has been read.
+// Apple's pinned statement: the paragraph holds still while each word lights
+// up with scroll progress, so the reader moves through the evenings one
+// sentence at a time. The last line, the turn, lights in teal.
 
 function PainLines({ reduced }: { reduced: boolean }) {
   const P = useI18n().t.landing.pain
   const outer = useRef<HTMLElement>(null)
-  // null until the first measurement: every word shows, which is the state
-  // without script and under reduced motion.
-  const [progress, setProgress] = useState<number | null>(null)
+  // 1 = every word lit: the state before script runs, and under reduced motion.
+  const [progress, setProgress] = useState(1)
 
   useEffect(() => {
     const el = outer.current
-    if (!el || reduced) { setProgress(null); return }
+    if (!el || reduced) { setProgress(1); return }
     let raf = 0
     const read = () => {
       raf = 0
       const r = el.getBoundingClientRect()
-      // From the text coming into view (section top at 30% of the viewport,
-      // the pinned text near its bottom) to the pin releasing, so the screen
-      // is never an empty band while the section scrolls in.
-      const vh = window.innerHeight
-      const span = Math.max(1, r.height - vh + 0.3 * vh)
-      const p = Math.min(1, Math.max(0, (0.3 * vh - r.top) / span))
-      setProgress(prev => prev === null ? p : Math.max(prev, p))
+      const span = Math.max(1, r.height - window.innerHeight)
+      setProgress(Math.min(1, Math.max(0, -r.top / span)))
     }
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(read) }
     read()
@@ -445,20 +437,20 @@ function PainLines({ reduced }: { reduced: boolean }) {
   const last = P.lines.length - 1
   const total = P.lines.join(' ').split(' ').length
   // Finishes a little before the pin releases, so the full text is read still.
-  const lit = (progress ?? 1) * 1.1 * total
+  const lit = progress * 1.1 * total
   let n = 0
 
   return (
     <section ref={outer} aria-label={P.label} className={reduced ? 'py-24 sm:py-32' : 'h-[240vh]'}>
       <div className={reduced ? '' : 'sticky top-0 h-[100svh] flex items-center'}>
-        <p className="max-w-5xl mx-auto px-4 sm:px-8 text-center [text-wrap:balance] text-[30px] sm:text-[44px] lg:text-[52px] leading-[1.15] font-bold tracking-[-0.035em]">
+        <p className="max-w-5xl mx-auto px-4 sm:px-8 text-[30px] sm:text-[44px] lg:text-[52px] leading-[1.15] font-bold tracking-[-0.035em]">
           {P.lines.map((line, li) => (
             <span key={li} className={li === last ? 'block mt-6 sm:mt-10' : undefined}>
               {line.split(' ').map((w, wi) => {
                 const on = n++ < lit
                 return (
-                  <span key={wi} className={li === last ? 'text-teal-700' : 'text-slate-900'}
-                    style={{ opacity: on ? 1 : 0, transition: `opacity 450ms ${EASE}` }}>
+                  <span key={wi} className="transition-colors duration-300"
+                    style={{ color: on ? (li === last ? '#0F766E' : '#0F172A') : '#CBD5E1' }}>
                     {w}{' '}
                   </span>
                 )
