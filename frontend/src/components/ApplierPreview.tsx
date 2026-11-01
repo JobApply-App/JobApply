@@ -1202,7 +1202,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                 // (e.g. Hebrew, Arabic, CJK). Sync the ref with the final value.
                 onCompositionEnd={e => { copilotPromptRef.current = (e.target as HTMLTextAreaElement).value }}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleCopilotSubmit() }}
-                placeholder={'e.g. "Make the first GO-OUT bullet more quantified"\n"Add Salesforce to skills"\n"Rewrite the summary for a PM role"'}
+                placeholder={A.copilot_placeholder}
                 rows={3}
                 disabled={isCopilotBusy}
                 style={{
@@ -1241,7 +1241,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                 {isCopilotBusy ? <><Spinner size={12} /> {A.copilot_editing}</> : A.apply_edit}
               </button>
               <p style={{ fontSize: 10, color: TOKENS.color.muted, marginTop: 6, textAlign: 'center' }}>
-                ⌘↵ to submit · edits are saved automatically
+                {A.submit_hint}
               </p>
 
               {/* Undo — only visible after at least one successful edit */}
@@ -1263,7 +1263,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
                     transition: 'opacity 0.15s',
                   }}
                 >
-                  ↺ Undo last edit
+                  ↺ {A.undo_last}
                   <span style={{ fontSize: 10, color: TOKENS.color.muted }}>
                     ({editHistory.length})
                   </span>

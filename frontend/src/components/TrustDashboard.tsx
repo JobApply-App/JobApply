@@ -895,7 +895,7 @@ function ManualReviewModal({ entity, onClose, onDone }: ManualReviewModalProps) 
           {/* Flag reason from audit log */}
           {loadingAudit && (
             <div className="flex items-center gap-2 text-[12px] text-slate-400 py-2">
-              <SpinnerIcon s={13} />Loading audit log…
+              <SpinnerIcon s={13} />{T.loading_audit}
             </div>
           )}
           {auditError && (
@@ -1490,11 +1490,14 @@ function AuthWallCallout() {
           {T.linkedin_expired}
         </p>
         <p className="text-[12px] text-slate-500 leading-relaxed">
-          The scraper hit a LinkedIn login wall: the{' '}
-          <code className="font-mono text-[11px]">li_at</code> cookie needs refreshing.
-          Update <code className="font-mono text-[11px]">LINKEDIN_LI_AT</code> in{' '}
-          <code className="font-mono text-[11px]">backend/.env</code>, delete the browser
-          profile, and restart the server.
+          {T.linkedin_expired_body}
+          {process.env.NODE_ENV === 'development' && <>
+            {' '}The scraper hit a LinkedIn login wall: the{' '}
+            <code className="font-mono text-[11px]">li_at</code> cookie needs refreshing.
+            Update <code className="font-mono text-[11px]">LINKEDIN_LI_AT</code> in{' '}
+            <code className="font-mono text-[11px]">backend/.env</code>, delete the browser
+            profile, and restart the server.
+          </>}
         </p>
       </div>
       <a
@@ -2051,7 +2054,8 @@ interface CapabilityDetailDrawerProps {
 }
 
 function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps) {
-  const T = useI18n().t.trust
+  const { t, locale } = useI18n()
+  const T = t.trust
   const isOpen    = !!entity
   const insights  = entity ? buildCapabilityInsights(entity, T.insights) : null
   const band      = entity ? getScoreBand(entity.confidence_score) : null
@@ -2190,7 +2194,7 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
                       >
                         <span className="text-slate-600 truncate">{ev.source_label}</span>
                         <span className="text-slate-400 tabular-nums shrink-0">
-                          {new Date(ev.verified_at).toLocaleDateString()}
+                          {new Date(ev.verified_at).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US')}
                         </span>
                       </div>
                     ))}
@@ -2360,7 +2364,7 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
               {/* Rules */}
               <p className="text-[11px] text-slate-400 leading-relaxed">
                 {T.reply_no_ai}
-                Session <code className="font-mono text-[10px]">{session.session_id.slice(0, 8)}…</code>
+                {T.session} <code className="font-mono text-[10px]">{session.session_id.slice(0, 8)}…</code>
               </p>
 
               {/* CTA */}
@@ -2569,7 +2573,7 @@ export function CapabilitiesList({ userId, className = '' }: { userId: string; c
         {/* Summary */}
         {unverifiedCount > 0 && (
           <span className="ml-auto text-[11px] text-slate-400 hidden sm:block">
-            {unverifiedCount} awaiting verification
+            {T.awaiting_verification.replace('{n}', String(unverifiedCount))}
           </span>
         )}
       </div>

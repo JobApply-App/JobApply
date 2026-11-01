@@ -551,9 +551,6 @@ function ScoreScene({ active, reduced }: { active: boolean; reduced: boolean }) 
   )
 }
 
-const CV_BEFORE = ['Responsible for customer accounts and renewals.', 'Worked with R&D on customer issues.']
-const CV_AFTER = ['Owned renewals for B2B customer accounts.', 'Partnered with R&D to resolve customer-reported issues.']
-
 function CvScene({ active, reduced }: { active: boolean; reduced: boolean }) {
   const S = useI18n().t.landing.story
   const [tailored, setTailored] = useState(false)
@@ -564,7 +561,7 @@ function CvScene({ active, reduced }: { active: boolean; reduced: boolean }) {
     return () => clearTimeout(id)
   }, [active, reduced])
   const choose = (v: boolean) => { touched.current = true; setTailored(v) }
-  const lines = tailored ? CV_AFTER : CV_BEFORE
+  const lines = tailored ? S.cv_after : S.cv_before
   return (
     <div className="grid gap-4">
       <div role="group" aria-label="CV" className="relative inline-grid grid-cols-2 self-start justify-self-start rounded-xl bg-slate-100 p-1 shadow-[inset_0_1px_2px_rgba(15,23,42,.06)]">
@@ -577,13 +574,13 @@ function CvScene({ active, reduced }: { active: boolean; reduced: boolean }) {
           </button>
         ))}
       </div>
-      <div dir="ltr" className="rounded-[24px] bg-white shadow-floating p-6 sm:p-8 grid gap-3 text-left" aria-live="polite">
+      <div className="rounded-[24px] bg-white shadow-floating p-6 sm:p-8 grid gap-3 text-start" aria-live="polite">
         <div>
-          <div className="font-bold text-[18px] tracking-tight text-slate-900">Maya Cohen</div>
-          <div className="text-[14px] text-slate-500">Customer Success Manager, 2021 to today</div>
+          <div className="font-bold text-[18px] tracking-tight text-slate-900">{S.cv_name}</div>
+          <div className="text-[14px] text-slate-500">{S.cv_role}</div>
         </div>
         {lines.map(line => (
-          <p key={line} className={`rounded-lg px-4 py-3 text-[14px] leading-relaxed animate-ja-rise ${tailored ? 'bg-teal-50 text-slate-900 shadow-[inset_3px_0_0_#0D9488]' : 'bg-slate-50 text-slate-600'}`}>
+          <p key={line} className={`rounded-lg px-4 py-3 text-[14px] leading-relaxed animate-ja-rise ${tailored ? 'bg-teal-50 text-slate-900 shadow-[inset_3px_0_0_#0D9488] rtl:shadow-[inset_-3px_0_0_#0D9488]' : 'bg-slate-50 text-slate-600'}`}>
             {line}
           </p>
         ))}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { isValidPhoneNumber }          from 'react-phone-number-input'
 import { useI18n }                    from '@/contexts/I18nContext'
 
@@ -91,7 +91,21 @@ export function PhoneInput({
   hasError  = false,
   id        = 'phone',
 }: PhoneInputProps) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  // Country names in the interface language; the list keeps English names as
+  // the fallback and as a second search key, so typing either finds it.
+  const regionNames = useMemo(() => {
+    try { return new Intl.DisplayNames([locale], { type: 'region' }) } catch { return null }
+  }, [locale])
+  const nameOf = useCallback(
+    (c: Country) => (locale === 'en' ? c.name : regionNames?.of(c.code) ?? c.name),
+    [locale, regionNames],
+  )
+  // Israel stays first; the rest are alphabetical in the interface language.
+  const countries = useMemo(() => locale === 'en' ? COUNTRIES : [
+    COUNTRIES[0],
+    ...COUNTRIES.slice(1).sort((a, b) => nameOf(a).localeCompare(nameOf(b), locale)),
+  ], [locale, nameOf])
   const [country,  setCountry]  = useState<Country>(() =>
     COUNTRIES.find(c => value.startsWith(c.dial)) ?? COUNTRIES[0]
   )
@@ -125,11 +139,12 @@ export function PhoneInput({
   }, [open])
 
   const filtered = query
-    ? COUNTRIES.filter(c =>
+    ? countries.filter(c =>
         c.name.toLowerCase().includes(query.toLowerCase()) ||
+        nameOf(c).toLowerCase().includes(query.toLowerCase()) ||
         c.dial.includes(query)
       )
-    : COUNTRIES
+    : countries
 
   function selectCountry(c: Country) {
     setCountry(c)
@@ -257,14 +272,14 @@ export function PhoneInput({
                     role="option"
                     aria-selected={c.code === country.code}
                     onClick={() => selectCountry(c)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors ${
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-sm text-start transition-colors ${
                       c.code === country.code
                         ? 'bg-teal-50 text-teal-700'
                         : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     <span className="text-base leading-none w-5 flex-shrink-0">{c.flag}</span>
-                    <span className="flex-1 truncate font-medium">{c.name}</span>
+                    <span className="flex-1 truncate font-medium">{nameOf(c)}</span>
                     <span className={`text-[12px] flex-shrink-0 tabular-nums ${c.code === country.code ? 'text-teal-700' : 'text-slate-400'}`}>
                       {c.dial}
                     </span>

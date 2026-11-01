@@ -1050,7 +1050,8 @@ function OverlayShell({
 // Opening one closes the other (enforced in ChatContext).
 
 export function ChatOverlay() {
-  const S = useI18n().t.support_chat
+  const { t } = useI18n()
+  const S = t.support_chat
   const { isOpen, closeChat, isEliyaOpen, closeEliya, openChat } = useChat()
   const { user, loading } = useAuth()
   const pathname = usePathname()
@@ -1088,7 +1089,7 @@ export function ChatOverlay() {
         <OverlayShell
           isOpen={isOpen}
           onBackdropClick={closeChat}
-          ariaLabel="Ask Ariel, your career agent"
+          ariaLabel={t.ariel.dialog_label}
           shadowColor="rgba(124,58,237,0.18)"
           handleVariant="onLight"
         >

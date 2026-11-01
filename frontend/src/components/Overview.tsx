@@ -27,6 +27,10 @@ import {
 // PAUSED  — manually paused via reset_linkedin_scraper.py --pause while a
 //            fresh li_at cookie is being configured.  Not an error state.
 
+// The operator's fix-it steps (server commands, .env keys) are for development;
+// a user only needs to know LinkedIn jobs are paused.
+const IS_DEV = process.env.NODE_ENV === 'development'
+
 function LinkedInBlockedBanner({ blockedAt }: { blockedAt: string | null }) {
   const O = useI18n().t.overview
   const formattedAt = blockedAt
@@ -45,13 +49,16 @@ function LinkedInBlockedBanner({ blockedAt }: { blockedAt: string | null }) {
           {O.linkedin_blocked}
         </p>
         <p className="text-[12px] text-slate-600 leading-relaxed">
-          The scraper hit a redirect loop (bot-detection) and has been paused to protect your
-          IP.{formattedAt && <> Blocked at {formattedAt}.</>}
-          {' '}Run{' '}
-          <code className="font-mono text-[11px]">venv/bin/python -m backend.scripts.reset_linkedin_scraper --pause</code>
-          , update <code className="font-mono text-[11px]">LINKEDIN_LI_AT</code> in{' '}
-          <code className="font-mono text-[11px]">backend/.env</code>, then run{' '}
-          <code className="font-mono text-[11px]">--resume</code>.
+          {O.linkedin_blocked_body}
+          {IS_DEV && <>
+            {' '}The scraper hit a redirect loop (bot-detection) and has been paused to protect your
+            IP.{formattedAt && <> Blocked at {formattedAt}.</>}
+            {' '}Run{' '}
+            <code className="font-mono text-[11px]">venv/bin/python -m backend.scripts.reset_linkedin_scraper --pause</code>
+            , update <code className="font-mono text-[11px]">LINKEDIN_LI_AT</code> in{' '}
+            <code className="font-mono text-[11px]">backend/.env</code>, then run{' '}
+            <code className="font-mono text-[11px]">--resume</code>.
+          </>}
         </p>
       </div>
     </div>
@@ -150,11 +157,14 @@ function LinkedInPausedBanner() {
           {O.linkedin_maintenance}
         </p>
         <p className="text-[12px] text-slate-600 leading-relaxed">
-          {O.linkedin_maintenance_body}
-          Update <code className="font-mono text-[11px]">LINKEDIN_LI_AT</code> in{' '}
-          <code className="font-mono text-[11px]">backend/.env</code>, then run{' '}
-          <code className="font-mono text-[11px]">venv/bin/python -m backend.scripts.reset_linkedin_scraper --resume</code>{' '}
-          to restart scraping.
+          {O.linkedin_paused_body}
+          {IS_DEV && <>
+            {' '}{O.linkedin_maintenance_body}
+            {' '}Update <code className="font-mono text-[11px]">LINKEDIN_LI_AT</code> in{' '}
+            <code className="font-mono text-[11px]">backend/.env</code>, then run{' '}
+            <code className="font-mono text-[11px]">venv/bin/python -m backend.scripts.reset_linkedin_scraper --resume</code>{' '}
+            to restart scraping.
+          </>}
         </p>
       </div>
     </div>

@@ -383,7 +383,7 @@ export function LiveEditor({
                     field={bullet.text}
                     onChange={setFieldValue}
                     rows={2}
-                    ariaLabel={`Bullet ${bulletIdx + 1} for ${exp.role.value || 'this role'} at ${exp.company.value || 'this company'}`}
+                    ariaLabel={L.bullet_aria.replace('{n}', String(bulletIdx + 1)).replace('{role}', exp.role.value || L.this_role).replace('{company}', exp.company.value || L.this_company)}
                   />
                 </div>
               </div>
