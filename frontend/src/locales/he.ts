@@ -371,6 +371,8 @@ export const he = {
     accessibility: 'הצהרת נגישות',
     rights:        'כל הזכויות שמורות',
     nav_label:     'מידע על האתר',
+    group_support: 'תמיכה',
+    group_legal:   'מידע משפטי',
     contact_title: 'יצירת קשר',
     contact_body:  'שאלה, בעיה או רעיון? בן אדם מהצוות קורא כל הודעה.',
     contact_email: 'מייל',

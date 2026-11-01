@@ -209,6 +209,8 @@ input[type='range'] {
   .animate-modal-in,
   .animate-ja-rise,
   .animate-ja-sheet-up,
+  .animate-ja-menu-in,
+  .animate-ja-tab-in,
   .animate-ja-fade {
     animation: none !important;
   }

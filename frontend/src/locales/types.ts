@@ -277,6 +277,8 @@ export interface Dict {
     accessibility: string
     rights:        string
     nav_label:     string
+    group_support: string
+    group_legal:   string
     contact_title: string
     contact_body:  string
     contact_email: string

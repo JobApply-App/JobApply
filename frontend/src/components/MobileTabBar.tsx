@@ -42,7 +42,7 @@ export function MobileTabBar({ tab, onTab }: { tab?: string | null; onTab?: (t: 
   return (
     <nav
       aria-label={H.mobile_tabs_label}
-      className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200"
+      className="md:hidden fixed inset-x-0 bottom-0 z-40 ja-glass border-t border-slate-200/70"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <ul className="grid grid-cols-4">
@@ -56,12 +56,21 @@ export function MobileTabBar({ tab, onTab }: { tab?: string | null; onTab?: (t: 
                 onClick={() => {
                   if (item.key !== 'capabilities' && pathname === '/') onTab?.(item.key)
                 }}
-                className={`flex flex-col items-center justify-center gap-0.5 h-16 text-[11.5px] font-medium transition-colors ${
+                className={`ja-press flex flex-col items-center justify-center gap-0.5 h-16 text-[11.5px] font-medium transition-colors duration-ja-ui ${
                   active ? 'text-teal-700' : 'text-slate-500 active:text-slate-800'
                 }`}
               >
-                <span className={`inline-flex items-center justify-center h-7 w-12 rounded-full ${active ? 'bg-teal-50' : ''}`}>
-                  {item.icon}
+                {/* The highlight is always there and grows in from the icon's
+                    centre when the tab becomes active, so a switch reads as
+                    the bar answering the tap rather than a box appearing. */}
+                <span className="relative inline-flex items-center justify-center h-7 w-12">
+                  <span
+                    aria-hidden
+                    className={`absolute inset-0 rounded-lg bg-teal-50 transition-[transform,opacity] duration-ja-ui ${
+                      active ? 'opacity-100 scale-100' : 'opacity-0 scale-x-50'
+                    }`}
+                  />
+                  <span className="relative">{item.icon}</span>
                 </span>
                 {H.nav[item.key]}
               </Link>

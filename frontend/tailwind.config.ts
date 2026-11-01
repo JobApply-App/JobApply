@@ -133,6 +133,12 @@ const config: Config = {
           '0%':   { opacity: '0', transform: 'translateY(12px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        // A menu or popover opening from its trigger: a short drop and scale,
+        // with transform-origin set on the element to the trigger's corner.
+        'ja-menu-in': {
+          '0%':   { opacity: '0', transform: 'translateY(-4px) scale(0.97)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
         // Bottom sheet on phones: slides up from the edge it leaves by.
         'ja-sheet-up': {
           '0%':   { transform: 'translateY(100%)' },
@@ -144,6 +150,13 @@ const config: Config = {
         'ja-fade':     'ja-fade 200ms cubic-bezier(0.23, 1, 0.32, 1)',
         'ja-rise':     'ja-rise 400ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-sheet-up': 'ja-sheet-up 320ms cubic-bezier(0.23, 1, 0.32, 1)',
+        'ja-menu-in':  'ja-menu-in 180ms cubic-bezier(0.23, 1, 0.32, 1)',
+        // A tab's content arriving: the same rise, shorter and smaller, so
+        // switching tabs reads as a change of page without slowing it down.
+        // `backwards`, not `both`: a transform left on the wrapper after the
+        // rise would become the containing block for every position:fixed
+        // modal and sheet inside the tab.
+        'ja-tab-in':   'ja-rise 260ms cubic-bezier(0.23, 1, 0.32, 1) backwards',
       },
     },
   },
