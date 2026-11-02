@@ -1428,6 +1428,7 @@ export const en = {
       cta:        'Continue',
       save_failed: 'Could not save your details. Please try again.',
     },
+    card: { role: 'Role', home: 'Home' },
     panels: {
       preferences: { headline: 'Tell us what you’re after.', subline: 'Your answers decide which jobs reach you and how they rank.' },
       intake:      { headline: 'It all starts with your CV.', subline: 'We read it once and build your profile from it.' },

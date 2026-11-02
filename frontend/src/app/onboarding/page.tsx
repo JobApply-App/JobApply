@@ -19,19 +19,20 @@ import {
   type SearchMode,
 } from '@/lib/api'
 import { AccountStep } from '@/components/auth/AccountStep'
-import { AuthLayout } from '@/components/auth/AuthLayout'
+import { CareerCard } from '@/components/auth/CareerCard'
 import { CityPicker, type HomeCity } from '@/components/auth/CityPicker'
 import { CvDropzone } from '@/components/auth/CvDropzone'
-import { SignupSteps } from '@/components/auth/SignupSteps'
+import { KycShell } from '@/components/auth/KycShell'
 import { WelcomeScene } from '@/components/auth/WelcomeScene'
-import { authChip, authInput, authLabel, authPrimary, authSub, authTitle } from '@/components/auth/authStyles'
+import { authInput, authLabel, kycOption, kycPrimary, kycSub, kycTitle } from '@/components/auth/authStyles'
+import { roleLabel } from '@/lib/roleCatalog'
 import { armArielWelcome } from '@/lib/onboardingFlags'
-import { RolePicker, type PendingRole } from '@/components/RolePicker'
+import { RolePicker, SENIORITY_VALUES, type PendingRole } from '@/components/RolePicker'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 // One question with a few answers. multi: any number may be on (areas).
-function Choices<T extends string>({ label, hint, options, labels, value, onChange, multi = false, disabled, className = 'mt-8' }: {
+function Choices<T extends string>({ label, hint, options, labels, value, onChange, multi = false, disabled, className = 'mt-6' }: {
   label?:   string
   hint?:    string
   options:  readonly T[]
@@ -44,9 +45,9 @@ function Choices<T extends string>({ label, hint, options, labels, value, onChan
 }) {
   return (
     <fieldset className={className} disabled={disabled}>
-      {label && <legend className="block text-[15px] font-semibold text-slate-900 mb-1">{label}</legend>}
-      {hint && <p className="text-[14px] text-slate-500 leading-relaxed">{hint}</p>}
-      <div className={`flex flex-wrap gap-2 ${label || hint ? 'mt-3' : ''}`}>
+      {label && <legend className="block text-[17px] font-semibold tracking-tight text-slate-900 mb-1">{label}</legend>}
+      {hint && <p className="text-[15px] text-slate-600 leading-relaxed">{hint}</p>}
+      <div className={`grid grid-cols-2 sm:grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-2.5 ${label || hint ? 'mt-3' : ''}`}>
         {options.map(o => {
           const on = value.includes(o)
           return (
@@ -56,7 +57,7 @@ function Choices<T extends string>({ label, hint, options, labels, value, onChan
               role={multi ? 'checkbox' : 'radio'}
               aria-checked={on}
               onClick={() => onChange(multi ? (on ? value.filter(v => v !== o) : [...value, o]) : [o])}
-              className={authChip(on)}
+              className={kycOption(on)}
             >
               {labels[o]}
             </button>
@@ -83,7 +84,7 @@ function OnboardingContent() {
   const router = useRouter()
   const { user, updateUserMeta, signOut } = useAuth()
   const { set: setOnboarding }   = useOnboarding()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const O = t.onboarding
   const A = O.about
 
@@ -97,6 +98,26 @@ function OnboardingContent() {
   const setPhase = useCallback((next: Phase) => {
     router.push(next === 'showcase' ? '/onboarding' : `/onboarding?step=${next}`)
   }, [router])
+
+  // The question within that step, in the URL for the same reason.
+  const qParam = Number(searchParams.get('q'))
+  const question = qParam >= 1 && qParam <= 4 ? qParam : 1
+  const seenQuestion = useRef(question)
+  const forward = useRef(true)
+  if (seenQuestion.current !== question) {
+    forward.current = question > seenQuestion.current
+    seenQuestion.current = question
+  }
+  const [accountName, setAccountName] = useState<string | null>(null)
+  // Set when an unanswered question sends the user back to it, focused once it is on screen.
+  const pendingFocus = useRef<string | null>(null)
+  useEffect(() => {
+    if (!pendingFocus.current) return
+    const el = document.getElementById(pendingFocus.current)
+    pendingFocus.current = null
+    el?.scrollIntoView({ block: 'center' })
+    el?.focus({ preventScroll: true })
+  }, [question])
 
   // Role & seniority step state
   const [selected,  setSelected]  = useState<PendingRole[]>([])
@@ -181,10 +202,15 @@ function OnboardingContent() {
   const handleSavePreferences = async () => {
     if (!hasRoles) {
       setShowErrors(true)
-      const first = !rolesOk ? 'target-roles-combobox' : gender === null ? 'field-gender' : homeWhere === 'abroad' ? 'home-abroad' : 'home-city'
-      const el = document.getElementById(first)
-      el?.scrollIntoView({ block: 'center' })
-      el?.focus({ preventScroll: true })
+      const [q, first] = !rolesOk ? [1, 'target-roles-combobox'] : gender === null ? [2, 'field-gender'] : [3, homeWhere === 'abroad' ? 'home-abroad' : 'home-city']
+      if (q === question) {
+        const el = document.getElementById(first)
+        el?.scrollIntoView({ block: 'center' })
+        el?.focus({ preventScroll: true })
+      } else {
+        pendingFocus.current = first
+        router.push(`/onboarding?step=preferences&q=${q}`)
+      }
       return
     }
     setSaving(true)
@@ -211,6 +237,22 @@ function OnboardingContent() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const nextQuestion = () => {
+    const missing = question === 1 ? (rolesOk ? null : 'target-roles-combobox')
+      : question === 2 ? (gender !== null ? null : 'field-gender')
+      : question === 3 && !homeOk ? (homeWhere === 'abroad' ? 'home-abroad' : 'home-city')
+      : null
+    if (missing) {
+      setShowErrors(true)
+      const el = document.getElementById(missing)
+      el?.scrollIntoView({ block: 'center' })
+      el?.focus({ preventScroll: true })
+      return
+    }
+    setShowErrors(false)
+    router.push(`/onboarding?step=preferences&q=${question + 1}`)
   }
 
   // Completion path for the CV upload:
@@ -272,147 +314,194 @@ function OnboardingContent() {
 
   // ── Step 1 again, from Back on step 2 ────────────────────────────────────────
 
+  const metaName = (() => {
+    const meta = user?.user_metadata as Record<string, unknown> | null
+    return String(meta?.full_name ?? meta?.name ?? '').trim() || null
+  })()
+  const firstRole = selected[0]
+  const roleValue = firstRole
+    ? [
+        roleLabel(firstRole.role, locale),
+        firstRole.seniority && O.preferences.seniority[SENIORITY_VALUES.indexOf(firstRole.seniority)],
+      ].filter(Boolean).join(', ') + (selected.length > 1 ? ` +${selected.length - 1}` : '')
+    : null
+  const cityValue = cities.find(c => c.en === homeCity)
+  const homeValue = homeWhere === 'abroad'
+    ? homeAbroad.trim() || null
+    : homeCity && (locale === 'he' && cityValue ? cityValue.he : homeCity)
+  // Work starts on a default, so it joins the card once the user has reached it.
+  const card = (
+    <CareerCard
+      name={accountName?.trim() || metaName}
+      role={roleValue}
+      home={homeValue}
+      work={phase === 'intake' || (phase === 'preferences' && question === 4) ? A.work[work] : null}
+      scanning={cvBusy}
+    />
+  )
+
   if (phase === 'account') {
     return (
-      <AuthLayout headline={t.landing.close.h2} subline={t.landing.close.body} headerEnd={signOutButton}>
-        <div key={phase} className="w-full flex justify-center animate-ja-tab-in motion-reduce:animate-none">
-          <AccountStep />
+      <KycShell step={1} progress={0.2} aside={card} headerEnd={signOutButton}
+        caption={{ headline: t.landing.close.h2, subline: t.landing.close.body }}>
+        <div key={phase} className="w-full animate-ja-tab-in motion-reduce:animate-none">
+          <AccountStep onName={setAccountName} />
         </div>
-      </AuthLayout>
+      </KycShell>
     )
   }
 
-  // ── Role & seniority step ────────────────────────────────────────────────────
+  // ── Role & seniority step, one question at a time ────────────────────────────
 
   if (phase === 'preferences') {
+    const titles = [
+      { title: O.preferences.title, hint: O.preferences.intro },
+      { title: A.gender_label,      hint: A.gender_hint },
+      { title: A.home_label,        hint: A.home_hint },
+      { title: A.work_label,        hint: null },
+    ]
+    const { title, hint } = titles[question - 1]
+    const back = question > 1
+      ? { href: `/onboarding?step=preferences&q=${question - 1}`, label: t.signup.page.back, aria: t.signup.page.back }
+      : alreadyOnboarded
+        ? { href: '/?tab=overview', label: t.signup.page.back, aria: t.signup.page.back }
+        : { href: '/onboarding?step=account', label: t.signup.page.back, aria: O.account.title }
     return (
-      <AuthLayout
-        headline={O.panels.preferences.headline}
-        subline={O.panels.preferences.subline}
+      <KycShell
+        step={alreadyOnboarded ? undefined : 2}
+        progress={alreadyOnboarded ? question / 4 : 0.2 + question * 0.12}
+        aside={card}
+        caption={{ headline: O.panels.preferences.headline, subline: O.panels.preferences.subline }}
         headerEnd={signOutButton}
-        back={alreadyOnboarded
-          ? { href: '/?tab=overview', label: t.signup.page.back, aria: t.signup.page.back }
-          : { href: '/onboarding?step=account', label: t.signup.page.back, aria: O.account.title }}
+        back={back}
       >
-        <div key={phase} className="w-full max-w-[520px] animate-ja-tab-in motion-reduce:animate-none">
-          {!alreadyOnboarded && <SignupSteps current={2} />}
-          <h1 className={authTitle}>{O.preferences.title}</h1>
-          <p className={authSub}>{O.preferences.intro}</p>
+        <div key={question} className={`w-full motion-reduce:!animate-ja-fade ${
+          forward.current ? 'animate-ja-from-end rtl:animate-ja-from-start' : 'animate-ja-from-start rtl:animate-ja-from-end'
+        }`}>
+          <h1 className={kycTitle}>{title}</h1>
+          {hint && <p className={kycSub}>{hint}</p>}
 
-          <div className="mt-8">
-            <label htmlFor="target-roles-combobox" className={authLabel}>{O.preferences.roles_label}</label>
-            <RolePicker selected={selected} setSelected={setSelected} />
-            {showErrors && !rolesOk && <p className="text-[14px] text-rose-600 mt-2" role="alert">{A.errors.roles}</p>}
-          </div>
-
-          <div id="field-gender" tabIndex={-1} className="outline-none">
-            <Choices
-              label={A.gender_label} hint={A.gender_hint}
-              options={GENDERS} labels={A.genders}
-              value={gender ? [gender] : []} onChange={v => setGender(v[0])}
-              disabled={saving}
-            />
-            {showErrors && gender === null && <p className="text-[14px] text-rose-600 mt-2" role="alert">{A.errors.gender}</p>}
-          </div>
-          {gender === 'unspecified' && (
-            <p className="text-[14px] text-slate-500 mt-3 leading-relaxed">{A.gender_default_note}</p>
+          {question === 1 && (
+            <div className="mt-8">
+              <label htmlFor="target-roles-combobox" className={authLabel}>{O.preferences.roles_label}</label>
+              <RolePicker selected={selected} setSelected={setSelected} />
+              {showErrors && !rolesOk && <p className="text-[14px] text-rose-600 mt-2" role="alert">{A.errors.roles}</p>}
+            </div>
           )}
 
-          <Choices
-            label={A.home_label} hint={A.home_hint}
-            options={HOME_WHERE} labels={A.home_where}
-            value={[homeWhere]} onChange={v => setHomeWhere(v[0])}
-            disabled={saving}
-          />
-          <div key={homeWhere} className="mt-4 animate-ja-tab-in motion-reduce:animate-none">
-            {homeWhere === 'israel' ? (
-              <CityPicker id="home-city" cities={cities} value={homeCity} onChange={setHomeCity} disabled={saving} />
-            ) : (
-              <>
-                <label htmlFor="home-abroad" className={authLabel}>{A.home_abroad_label}</label>
-                <input id="home-abroad" value={homeAbroad} maxLength={80} disabled={saving}
-                  placeholder={A.home_abroad_placeholder}
-                  onChange={e => setHomeAbroad(e.target.value)} className={authInput()} />
-              </>
-            )}
-            {showErrors && !homeOk && <p className="text-[14px] text-rose-600 mt-2" role="alert">{A.errors.home}</p>}
-          </div>
-
-          {/* Distance needs a home we can place, so this stays inside Israel. */}
-          {homeWhere === 'israel' && (
+          {question === 2 && (
             <>
-              <Choices
-                label={A.range_label} hint={A.range_hint}
-                options={SEARCH_MODES} labels={A.range_modes}
-                value={[mode]} onChange={v => setMode(v[0])}
-                disabled={saving}
-              />
-              <div key={mode} className="animate-ja-tab-in motion-reduce:animate-none">
-                {mode === 'radius' ? (
-                  <Choices
-                    className="mt-4"
-                    options={RADII} labels={A.radius}
-                    value={[radius]} onChange={v => setRadius(v[0])}
-                    disabled={saving}
-                  />
-                ) : (
-                  <Choices
-                    className="mt-4"
-                    hint={A.locations_hint}
-                    options={REGIONS} labels={A.regions}
-                    value={locations} onChange={setLocations} multi
-                    disabled={saving}
-                  />
-                )}
+              <div id="field-gender" tabIndex={-1} className="outline-none">
+                <Choices
+                  options={GENDERS} labels={A.genders}
+                  value={gender ? [gender] : []} onChange={v => setGender(v[0])}
+                  disabled={saving}
+                />
+                {showErrors && gender === null && <p className="text-[14px] text-rose-600 mt-2" role="alert">{A.errors.gender}</p>}
               </div>
+              {gender === 'unspecified' && (
+                <p className="text-[15px] text-slate-600 mt-4 leading-relaxed animate-ja-tab-in motion-reduce:animate-none">{A.gender_default_note}</p>
+              )}
             </>
           )}
 
-          <Choices
-            label={A.work_label}
-            options={WORK_MODELS} labels={A.work}
-            value={[work]} onChange={v => setWork(v[0])}
-            disabled={saving}
-          />
+          {question === 3 && (
+            <>
+              <Choices
+                options={HOME_WHERE} labels={A.home_where}
+                value={[homeWhere]} onChange={v => setHomeWhere(v[0])}
+                disabled={saving}
+              />
+              <div key={homeWhere} className="mt-4 animate-ja-tab-in motion-reduce:animate-none">
+                {homeWhere === 'israel' ? (
+                  <CityPicker id="home-city" cities={cities} value={homeCity} onChange={setHomeCity} disabled={saving} />
+                ) : (
+                  <>
+                    <label htmlFor="home-abroad" className={authLabel}>{A.home_abroad_label}</label>
+                    <input id="home-abroad" value={homeAbroad} maxLength={80} disabled={saving}
+                      placeholder={A.home_abroad_placeholder}
+                      onChange={e => setHomeAbroad(e.target.value)} className={authInput()} />
+                  </>
+                )}
+                {showErrors && !homeOk && <p className="text-[14px] text-rose-600 mt-2" role="alert">{A.errors.home}</p>}
+              </div>
 
-          <Choices
-            label={A.change_label}
-            options={CAREER_CHANGE} labels={A.change}
-            value={[change]} onChange={v => setChange(v[0])}
-            disabled={saving}
-          />
-
-          {saveError && (
-            <p className="text-[14px] text-rose-600 mt-6" role="alert">{saveError}</p>
+              {/* Distance needs a home we can place, so this stays inside Israel. */}
+              {homeWhere === 'israel' && (
+                <>
+                  <Choices
+                    label={A.range_label} hint={A.range_hint}
+                    options={SEARCH_MODES} labels={A.range_modes}
+                    value={[mode]} onChange={v => setMode(v[0])}
+                    disabled={saving}
+                  />
+                  <div key={mode} className="animate-ja-tab-in motion-reduce:animate-none">
+                    {mode === 'radius' ? (
+                      <Choices
+                        className="mt-3"
+                        options={RADII} labels={A.radius}
+                        value={[radius]} onChange={v => setRadius(v[0])}
+                        disabled={saving}
+                      />
+                    ) : (
+                      <Choices
+                        className="mt-3"
+                        hint={A.locations_hint}
+                        options={REGIONS} labels={A.regions}
+                        value={locations} onChange={setLocations} multi
+                        disabled={saving}
+                      />
+                    )}
+                  </div>
+                </>
+              )}
+              <p className="mt-6 text-[13px] text-slate-600">{A.credit}</p>
+            </>
           )}
 
-          <button
-            type="button"
-            onClick={handleSavePreferences}
-            disabled={saving}
-            className={`${authPrimary} mt-10`}
-          >
-            {saving ? O.preferences.saving : O.preferences.continue_cta}
-          </button>
-          <p className="mt-4 text-center text-[13px] text-slate-500">{A.credit}</p>
+          {question === 4 && (
+            <>
+              <Choices
+                options={WORK_MODELS} labels={A.work}
+                value={[work]} onChange={v => setWork(v[0])}
+                disabled={saving}
+              />
+              <Choices
+                label={A.change_label}
+                options={CAREER_CHANGE} labels={A.change}
+                value={[change]} onChange={v => setChange(v[0])}
+                disabled={saving}
+              />
+              {saveError && (
+                <p className="text-[14px] text-rose-600 mt-6" role="alert">{saveError}</p>
+              )}
+            </>
+          )}
+
+          <div className="max-lg:sticky max-lg:bottom-0 z-10 max-lg:-mx-5 max-sm:px-5 sm:max-lg:-mx-10 sm:max-lg:px-10 mt-7 max-lg:pb-4 max-lg:pt-3 max-lg:bg-white/60 max-lg:backdrop-blur-xl [@media(prefers-reduced-transparency:reduce)]:max-lg:bg-white">
+            <button type="button" onClick={question < 4 ? nextQuestion : handleSavePreferences} disabled={saving} className={`${kycPrimary} max-lg:ms-14 max-lg:w-[calc(100%-3.5rem)]`}>
+              {saving ? O.preferences.saving : O.preferences.continue_cta}
+            </button>
+          </div>
         </div>
-      </AuthLayout>
+      </KycShell>
     )
   }
 
   // ── Intake hub ───────────────────────────────────────────────────────────────
 
   return (
-    <AuthLayout
-      headline={O.panels.intake.headline}
-      subline={O.panels.intake.subline}
+    <KycShell
+      step={3}
+      progress={0.85}
+      aside={card}
+      caption={{ headline: O.panels.intake.headline, subline: O.panels.intake.subline }}
       headerEnd={signOutButton}
-      back={{ href: '/onboarding?step=preferences', label: t.signup.page.back, aria: t.signup.page.back }}
+      back={{ href: '/onboarding?step=preferences&q=4', label: t.signup.page.back, aria: t.signup.page.back }}
     >
-      <div key={phase} className="w-full max-w-[440px] animate-ja-tab-in motion-reduce:animate-none">
-        <SignupSteps current={3} />
-        <h1 className={authTitle}>{O.intake.title}</h1>
-        <p className={authSub}>{O.intake.intro}</p>
+      <div key={phase} className="w-full animate-ja-tab-in motion-reduce:animate-none">
+        <h1 className={kycTitle}>{O.intake.title}</h1>
+        <p className={kycSub}>{O.intake.intro}</p>
 
         <CvDropzone
           busy={cvBusy}
@@ -426,7 +515,7 @@ function OnboardingContent() {
             got nothing back. Say up front what belongs here and where the
             rest goes, rather than only after a failed upload. */}
         {!cvBusy && (
-          <p className="text-[14px] text-slate-500 mt-5 leading-relaxed">
+          <p className="text-[14px] text-slate-600 mt-5 leading-relaxed">
             {O.intake.cv_only_note}
           </p>
         )}
@@ -436,12 +525,12 @@ function OnboardingContent() {
           type="button"
           onClick={() => router.push('/?tab=overview')}
           disabled={cvBusy}
-          className="w-full mt-4 min-h-[44px] text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-40"
+          className="w-full mt-4 min-h-[44px] text-[14px] font-medium text-slate-600 hover:text-slate-900 transition-colors disabled:opacity-40"
         >
           {O.intake.skip}
         </button>
       </div>
-    </AuthLayout>
+    </KycShell>
   )
 }
 

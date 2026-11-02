@@ -1237,6 +1237,7 @@ export interface Dict {
       save_failed: string
     }
     // The teal panel beside steps 2 and 3.
+    card: { role: string; home: string }
     panels: {
       preferences: { headline: string; subline: string }
       intake:      { headline: string; subline: string }

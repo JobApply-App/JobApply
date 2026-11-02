@@ -87,7 +87,7 @@ function Progress({ stage }: { stage: CvUploadStage }) {
   return (
     <div role="status" aria-live="polite" className="mt-5 animate-ja-tab-in motion-reduce:animate-none">
       <div role="progressbar" aria-label={P.title} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(estimate * 100)}
-        className="h-1 overflow-hidden rounded-full bg-slate-100">
+        className="h-1 overflow-hidden rounded-full bg-slate-900/10">
         <div className="h-full bg-teal-600 origin-left rtl:origin-right"
           style={{ transform: `scaleX(${estimate})`, transition: 'transform 500ms linear' }} />
       </div>
@@ -158,27 +158,27 @@ export function CvDropzone({ busy, stage, error, onFiles, onWrongType }: {
           if (all.length && !usable.length) onWrongType()
           take(usable)
         }}
-        className={`mt-7 w-full flex flex-col items-center gap-6 rounded-[20px] border-2 px-6 pt-9 pb-7 text-center transition-[background-color,border-color,transform] duration-ja-ui active:scale-[0.99] active:duration-ja-press focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 disabled:active:scale-100 ${
+        className={`mt-8 w-full flex flex-col items-center gap-6 rounded-[28px] px-6 pt-10 pb-8 text-center ring-inset shadow-elevation-2 backdrop-blur-xl [@media(prefers-reduced-transparency:reduce)]:bg-white transition-[background-color,box-shadow,transform] duration-ja-ui active:scale-[0.99] active:duration-ja-press focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 disabled:active:scale-100 ${
           error ? 'animate-ja-shake motion-reduce:animate-none' : ''
         } ${
-          busy ? 'border-solid border-slate-100 bg-slate-50/70'
-            : dragging ? 'border-solid border-teal-600 bg-teal-50 scale-[1.015]'
-            : hovered ? 'border-dashed border-teal-600 bg-teal-50/50'
-            : 'border-dashed border-slate-200 bg-white'
+          busy ? 'ring-1 ring-slate-900/5 bg-white/50'
+            : dragging ? 'ring-2 ring-teal-600 bg-teal-50/80 scale-[1.015]'
+            : hovered ? 'ring-1 ring-teal-600/40 bg-white/90'
+            : 'ring-1 ring-slate-900/5 bg-white/60'
         }`}>
         <Paper open={arrived} lift={dragging || hovered} busy={busy} stage={stage} />
         <span key={busy ? 'busy' : dragging ? 'drag' : 'idle'} className="block min-w-0 max-w-full pointer-events-none animate-ja-tab-in motion-reduce:animate-none">
           {busy ? (
             <>
-              <span dir="auto" className="block truncate text-[17px] font-semibold tracking-tight text-slate-900">
+              <span dir="auto" className="block truncate text-[18px] font-semibold tracking-tight text-slate-900">
                 {names.length === 1 ? names[0] : I.files_count.replace('{n}', String(names.length))}
               </span>
-              <span className="block mt-1 text-[15px] text-slate-500">{I.reading}</span>
+              <span className="block mt-1 text-[15px] text-slate-600">{I.reading}</span>
             </>
           ) : (
             <>
-              <span className="block text-[17px] font-semibold tracking-tight text-slate-900">{dragging ? I.drag_over : I.upload_cta}</span>
-              <span className="block mt-1 text-[15px] leading-relaxed text-slate-500">{I.upload_hint}</span>
+              <span className="block text-[18px] font-semibold tracking-tight text-slate-900">{dragging ? I.drag_over : I.upload_cta}</span>
+              <span className="block mt-1 text-[15px] leading-relaxed text-slate-600">{I.upload_hint}</span>
             </>
           )}
         </span>

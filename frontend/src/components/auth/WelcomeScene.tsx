@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
-import { LanguageSwitcher } from '@/components/LanguageSwitcher'
-import { Logo } from '@/components/ui/Logo'
 import { getScoreBand } from '@/lib/scoreBand'
-import { authPrimary, authSub, authTitle } from './authStyles'
+import { KycShell } from './KycShell'
+import { kycPrimary, kycSub, kycTitle } from './authStyles'
 
 // ── WelcomeScene ─────────────────────────────────────────────────────────────
 //
@@ -84,7 +83,7 @@ function Stage({ act, beat, name }: { act: number; beat: number; name: string | 
   const sorted = act === 1 && beat >= 2
 
   return (
-    <div aria-hidden="true" className="relative w-[380px] h-[460px] shrink-0 max-lg:scale-[.58] max-lg:-translate-y-3 xl:scale-[1.2]">
+    <div aria-hidden="true" className="relative w-[380px] h-[460px] shrink-0 max-lg:scale-[.5] max-lg:-translate-y-3 xl:scale-[1.12]">
       {/* The CV */}
       <div className="absolute start-[30px] top-[30px] w-[320px] h-[400px] overflow-hidden rounded-[20px] bg-white shadow-floating p-6"
         style={{
@@ -225,74 +224,58 @@ export function WelcomeScene({ name, onStart, headerEnd }: {
   const first = name?.trim().split(/\s+/)[0]
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-white">
-      {/* On a phone the column dissolves so the stage can sit between its header and text. */}
-      <div className="contents lg:flex lg:w-[44%] lg:flex-none lg:min-w-0 lg:flex-col">
-        <header className="h-16 shrink-0 max-lg:order-1 flex items-center justify-between gap-3 px-5 sm:px-10">
-          <Logo size={26} />
-          <div className="flex items-center gap-1 sm:gap-2">
-            <LanguageSwitcher />
-            {headerEnd}
-          </div>
-        </header>
-        <main className="flex flex-1 max-lg:order-3 justify-center px-5 sm:px-10 pt-2 pb-10 lg:items-center">
-          <div className="w-full max-w-[440px]">
-            <h1 dir="auto" className={`${authTitle} text-start [overflow-wrap:anywhere]`}>
-              {first ? S.greeting.replace('{name}', first) : S.title}
-            </h1>
-            <p className={authSub}>{S.subtitle}</p>
+    <KycShell
+      headerEnd={headerEnd}
+      aside={
+        <div className="relative max-lg:h-[250px] lg:h-[560px] flex flex-col items-center justify-center overflow-visible">
+          <Stage act={act} beat={beat} name={name} />
+          <p className="absolute -bottom-1 lg:-bottom-6 inset-x-0 text-center text-[13px] text-slate-600">{S.example}</p>
+        </div>
+      }
+    >
+      <h1 dir="auto" className={`${kycTitle} text-start [overflow-wrap:anywhere]`}>
+        {first ? S.greeting.replace('{name}', first) : S.title}
+      </h1>
+      <p className={kycSub}>{S.subtitle}</p>
 
-            <ol className="mt-6">
-              {S.steps.map((step, i) => {
-                const on = act === i
-                return (
-                  <li key={step.title} className="relative border-b border-slate-100">
-                    <button type="button" aria-current={on ? 'step' : undefined}
-                      onClick={() => { setAuto(false); setAct(i); setRun(r => r + 1) }}
-                      className="w-full flex gap-4 py-4 text-start rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600">
-                      <span aria-hidden="true" className={`w-4 shrink-0 text-[16px] leading-snug font-semibold tabular-nums transition-colors duration-ja-ui ${on ? 'text-teal-700' : 'text-slate-400'}`}>{i + 1}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className={`block text-[16px] leading-snug font-semibold tracking-tight transition-colors duration-ja-ui ${on ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>{step.title}</span>
-                        <span className={`grid transition-[grid-template-rows,opacity] duration-ja-enter ease-ja-out motion-reduce:transition-none ${on ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-                          <span className="overflow-hidden">
-                            <span className="block pt-1 lg:min-h-[53px] text-[15px] leading-relaxed text-slate-500">{step.body}</span>
-                          </span>
-                        </span>
-                      </span>
-                    </button>
-                    {on && auto && (
-                      <span key={run} aria-hidden="true" className="absolute inset-x-0 -bottom-px h-0.5 bg-teal-600 origin-left rtl:origin-right animate-ja-fill"
-                        style={{ animationDuration: `${ACT_MS[i]}ms` }} />
-                    )}
-                  </li>
-                )
-              })}
-            </ol>
-
-            <button type="button" onClick={onStart} className={`mt-6 ${authPrimary}`}>{S.cta}</button>
-            {!reduced && (
-              <button type="button"
-                onClick={() => {
-                  if (auto) { setAuto(false); return }
-                  setAct(0); setAuto(true); setRun(r => r + 1)
-                }}
-                className="mt-2 mx-auto block min-h-[44px] px-3 text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-ja-ui">
-                {auto ? S.pause : S.replay}
+      <ol className="mt-7 space-y-1.5">
+        {S.steps.map((step, i) => {
+          const on = act === i
+          return (
+            <li key={step.title} className={`relative overflow-hidden rounded-2xl transition-[background-color,box-shadow] duration-ja-ui ${on ? 'bg-white/70 shadow-elevation-1' : ''}`}>
+              <button type="button" aria-current={on ? 'step' : undefined}
+                onClick={() => { setAuto(false); setAct(i); setRun(r => r + 1) }}
+                className="w-full flex gap-4 px-4 py-3.5 text-start rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600">
+                <span aria-hidden="true" className={`w-4 shrink-0 text-[16px] leading-snug font-semibold tabular-nums transition-colors duration-ja-ui ${on ? 'text-teal-700' : 'text-slate-500'}`}>{i + 1}</span>
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-[16px] leading-snug font-semibold tracking-tight transition-colors duration-ja-ui ${on ? 'text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}>{step.title}</span>
+                  <span className={`grid transition-[grid-template-rows,opacity] duration-ja-enter ease-ja-out motion-reduce:transition-none ${on ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                    <span className="overflow-hidden">
+                      <span className="block pt-1 lg:min-h-[53px] text-[15px] leading-relaxed text-slate-600">{step.body}</span>
+                    </span>
+                  </span>
+                </span>
               </button>
-            )}
-          </div>
-        </main>
-      </div>
+              {on && auto && (
+                <span key={run} aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 bg-teal-600 origin-left rtl:origin-right animate-ja-fill"
+                  style={{ animationDuration: `${ACT_MS[i]}ms` }} />
+              )}
+            </li>
+          )
+        })}
+      </ol>
 
-      <div className="relative h-[310px] shrink-0 max-lg:order-2 lg:h-screen lg:sticky lg:top-0 lg:flex-1 min-w-0 overflow-hidden flex flex-col items-center justify-center"
-        style={{ background: 'linear-gradient(150deg, #0F766E 0%, #115E59 55%, #134E4A 100%)' }}>
-        <div aria-hidden="true" className="absolute -top-32 start-1/4 w-[480px] h-[480px] rounded-full blur-3xl pointer-events-none"
-          style={{ background: 'rgba(94,234,212,.28)' }} />
-        <div aria-hidden="true" className="absolute -bottom-40 -end-24 w-[480px] h-[480px] rounded-full blur-3xl pointer-events-none"
-          style={{ background: 'rgba(167,139,250,.38)' }} />
-        <Stage act={act} beat={beat} name={name} />
-        <p className="absolute bottom-3 lg:bottom-8 inset-x-5 text-center text-[13px] text-teal-50/90">{S.example}</p>
-      </div>
-    </div>
+      <button type="button" onClick={onStart} className={`mt-5 ${kycPrimary} max-lg:ms-14 max-lg:w-[calc(100%-3.5rem)]`}>{S.cta}</button>
+      {!reduced && (
+        <button type="button"
+          onClick={() => {
+            if (auto) { setAuto(false); return }
+            setAct(0); setAuto(true); setRun(r => r + 1)
+          }}
+          className="mt-2 mx-auto block min-h-[44px] px-3 text-[14px] font-medium text-slate-600 hover:text-slate-900 transition-colors duration-ja-ui">
+          {auto ? S.pause : S.replay}
+        </button>
+      )}
+    </KycShell>
   )
 }
