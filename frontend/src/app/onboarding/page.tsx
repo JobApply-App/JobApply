@@ -22,6 +22,7 @@ import { AccountStep } from '@/components/auth/AccountStep'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { CityPicker, type HomeCity } from '@/components/auth/CityPicker'
 import { SignupSteps } from '@/components/auth/SignupSteps'
+import { WelcomeScene } from '@/components/auth/WelcomeScene'
 import { authChip, authInput, authLabel, authPrimary, authSub, authTitle } from '@/components/auth/authStyles'
 import { CvUploadProgress } from '@/components/CvUploadProgress'
 import { armArielWelcome } from '@/lib/onboardingFlags'
@@ -287,28 +288,9 @@ function OnboardingContent() {
   // ── Welcome ──────────────────────────────────────────────────────────────────
 
   if (phase === 'showcase') {
-    return (
-      <AuthLayout headline={t.landing.close.h2} subline={t.landing.close.body} headerEnd={signOutButton}>
-        <div className="w-full max-w-[440px] animate-ja-tab-in motion-reduce:animate-none">
-          <h1 className={authTitle}>{O.showcase.title}</h1>
-          <p className={authSub}>{O.showcase.subtitle}</p>
-          <ol className="mt-6 divide-y divide-slate-100">
-            {O.showcase.steps.map((step, i) => (
-              <li key={step.title} className="flex gap-4 py-5">
-                <span aria-hidden="true" className="w-4 shrink-0 text-[16px] leading-snug font-semibold tabular-nums text-teal-700">{i + 1}</span>
-                <div className="min-w-0">
-                  <p className="text-[16px] leading-snug font-semibold tracking-tight text-slate-900">{step.title}</p>
-                  <p className="mt-1 text-[15px] leading-relaxed text-slate-500">{step.body}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-          <button type="button" onClick={() => setPhase('preferences')} className={`mt-4 ${authPrimary}`}>
-            {O.showcase.cta}
-          </button>
-        </div>
-      </AuthLayout>
-    )
+    const meta = user?.user_metadata as Record<string, unknown> | null
+    const name = String(meta?.full_name ?? meta?.name ?? '').trim() || null
+    return <WelcomeScene name={name} onStart={() => setPhase('preferences')} headerEnd={signOutButton} />
   }
 
   // ── Step 1 again, from Back on step 2 ────────────────────────────────────────

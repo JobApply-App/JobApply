@@ -1170,7 +1170,16 @@ export interface Dict {
     showcase: {
       title:    string
       subtitle: string
+      greeting: string   // takes the user's first name, {name}
       cta:      string
+      pause:    string
+      replay:   string
+      example:  string
+      name_fallback: string
+      stamp:    string   // takes a job title, {job}
+      read_chips: ReadonlyArray<string>
+      // A sample tailored CV: `mark` is the part highlighted as matching the job.
+      cv_lines: ReadonlyArray<{ before: string; mark: string; after: string }>
       steps: ReadonlyArray<{ title: string; body: string }>
     }
     preferences: {

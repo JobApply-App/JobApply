@@ -124,6 +124,10 @@ const config: Config = {
           '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
         },
         // Backdrop behind a modal: fades, never moves.
+        'ja-fill': {
+          from: { transform: 'scaleX(0)' },
+          to:   { transform: 'scaleX(1)' },
+        },
         'ja-fade': {
           '0%':   { opacity: '0' },
           '100%': { opacity: '1' },
@@ -149,6 +153,7 @@ const config: Config = {
         'modal-in':    'modal-in 260ms cubic-bezier(0.23, 1, 0.32, 1)',
         'ja-fade':     'ja-fade 200ms cubic-bezier(0.23, 1, 0.32, 1)',
         'ja-rise':     'ja-rise 400ms cubic-bezier(0.23, 1, 0.32, 1) both',
+        'ja-fill':     'ja-fill 1s linear both',
         'ja-sheet-up': 'ja-sheet-up 320ms cubic-bezier(0.23, 1, 0.32, 1)',
         'ja-menu-in':  'ja-menu-in 180ms cubic-bezier(0.23, 1, 0.32, 1)',
         // A tab's content arriving: the same rise, shorter and smaller, so

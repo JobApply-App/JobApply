@@ -1344,7 +1344,19 @@ export const en = {
     showcase: {
       title:    'Welcome to JobApply',
       subtitle: 'Two short steps, then we start finding your jobs.',
+      greeting: 'Good to meet you, {name}.',
       cta:      'Get started',
+      pause:    'Pause',
+      replay:   'Play again',
+      example:  'An example. Yours is written from your real CV.',
+      name_fallback: 'Your name',
+      stamp:    'Tailored for {job}',
+      read_chips: ['Roles', 'Skills', 'Experience'],
+      cv_lines: [
+        { before: 'Led ', mark: 'customer onboarding', after: ' for a B2B portfolio' },
+        { before: 'Cut churn through ', mark: 'renewal playbooks', after: '' },
+        { before: 'Worked with product on ', mark: 'customer feedback', after: '' },
+      ],
       steps: [
         { title: 'Tell us what you’re after',
           body:  'Your target roles, then your CV. You only do this once.' },
