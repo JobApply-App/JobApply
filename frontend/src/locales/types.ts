@@ -1185,7 +1185,7 @@ export interface Dict {
       pick_level:       string
       saving:           string
       continue_cta:     string
-      skip:             string
+      roles_open:       string   // the arrow that opens the list
       save_failed:      string
       // Seniority VALUES stay English in the database; only these labels
       // are translated. Indexed positionally against SENIORITY_OPTIONS.
@@ -1201,8 +1201,14 @@ export interface Dict {
       gender_default_note: string   // shown when "prefer not to say" is picked
       home_label:       string
       home_hint:        string
+      home_where:       { israel: string; abroad: string }
       home_placeholder: string
+      home_open:        string   // the arrow that opens the list
       home_none:        string   // the city search found nothing
+      home_abroad_label: string
+      home_abroad_placeholder: string
+      errors:           { roles: string; gender: string; home: string }
+      credit:           string
       range_label:      string
       range_hint:       string
       range_modes:      { radius: string; regions: string }

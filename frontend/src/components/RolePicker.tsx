@@ -4,7 +4,8 @@ import { useMemo, useRef, useState } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import type { SeniorityLevel } from '@/lib/api'
 import { authInput } from '@/components/auth/authStyles'
-import { roleLabel, searchRoles } from '@/lib/roleCatalog'
+import { ComboChevron } from '@/components/auth/ComboChevron'
+import { ROLE_CATALOG, roleLabel, searchRoles } from '@/lib/roleCatalog'
 
 /*
  * Target roles, each with the user's level in it. Shared by onboarding and
@@ -38,7 +39,7 @@ export function RolePicker({ selected, setSelected }: {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const suggestions = useMemo(
-    () => searchRoles(query, new Set(selected.map(r => r.role.toLowerCase()))),
+    () => searchRoles(query, new Set(selected.map(r => r.role.toLowerCase())), ROLE_CATALOG.length),
     [query, selected],
   )
   // Anything not in the list can still be added as typed — say so, instead of
@@ -47,7 +48,9 @@ export function RolePicker({ selected, setSelected }: {
   const offerCustom = typed.length > 1 && !suggestions.some(r =>
     [r.en, r.he].some(l => l.toLowerCase() === typed.toLowerCase()))
   const optionCount = suggestions.length + (offerCustom ? 1 : 0)
-  const label = (r: { en: string; he: string }) => (locale === 'he' ? r.he : r.en)
+  // The list answers in the language being typed, whatever the interface is in.
+  const inHebrew = typed ? /[\u0590-\u05FF]/.test(typed) : locale === 'he'
+  const label = (r: { en: string; he: string }, he = inHebrew) => (he ? r.he : r.en)
 
   const addRole = (role: string) => {
     const value = role.trim()
@@ -88,26 +91,29 @@ export function RolePicker({ selected, setSelected }: {
           placeholder={P.role_placeholder}
           maxLength={80}
           disabled={selected.length >= 10}
-          className={authInput()}
+          className={`${authInput()} pe-11`}
         />
+
+        <ComboChevron open={open} label={P.roles_open} disabled={selected.length >= 10}
+          onToggle={() => { if (!open) inputRef.current?.focus(); setOpen(!open) }} />
 
         {open && optionCount > 0 && (
           <ul
             id="role-suggestions"
             role="listbox"
-            className="absolute inset-x-0 top-[calc(100%+6px)] z-30 rounded-xl bg-white border border-slate-100 shadow-floating overflow-hidden max-h-64 overflow-y-auto"
+            className="absolute inset-x-0 top-[calc(100%+6px)] z-30 rounded-xl bg-white border border-slate-100 shadow-floating max-h-72 overflow-y-auto"
           >
             {suggestions.map((s, i) => (
               <li key={s.en} role="option" aria-selected={i === highlight}>
                 <button
                   onMouseDown={e => { e.preventDefault(); addRole(s.en) }}
                   onMouseEnter={() => setHighlight(i)}
-                  className={`w-full text-start px-4 py-2.5 text-[15px] ${
+                  className={`w-full flex items-baseline justify-between gap-3 text-start px-4 py-2.5 text-[15px] ${
                     i === highlight ? 'bg-teal-50 text-teal-900' : 'text-slate-700'
                   }`}
                 >
-                  {label(s)}
-                  {locale === 'he' && <span className="ms-2 text-[13px] text-slate-500" dir="ltr">{s.en}</span>}
+                  <span dir="auto">{label(s)}</span>
+                  <span dir="auto" className="shrink-0 text-[13px] text-slate-500">{label(s, !inHebrew)}</span>
                 </button>
               </li>
             ))}

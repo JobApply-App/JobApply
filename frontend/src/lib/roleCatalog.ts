@@ -367,7 +367,8 @@ export function searchRoles(query: string, exclude: ReadonlySet<string>, limit =
     return typed.every(t => ws.some(w => wordMatches(t, w)))
   })
   const contains = pool.filter(r => !byWord.includes(r) && haystack(r).includes(q))
-  return [...byWord, ...contains].slice(0, limit)
+  const starts = (r: RoleOption) => clean(r.en).startsWith(q) || clean(r.he).startsWith(q)
+  return [...byWord.filter(starts), ...byWord.filter(r => !starts(r)), ...contains].slice(0, limit)
 }
 
 /** The label to show for a stored role: the catalog's translation, or the role as typed. */

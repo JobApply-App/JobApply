@@ -46,7 +46,7 @@ from backend.services.master_profile_service import (
     save_enriched_entities,
 )
 from backend.services.profile_update_service import ProfileUpdateService
-from backend.services.israel_cities import CITIES, CITY_BY_NAME, RADIUS_OPTIONS_KM
+from backend.services.israel_cities import CITY_BY_NAME, RADIUS_OPTIONS_KM
 from backend.services.confidence_math import compute_decoupled_score, EvidenceRow, verification_status
 from backend.services.confidence_matrix_service import (
     compute_breakdown,
@@ -389,14 +389,9 @@ class AboutPayload(BaseModel):
     work_environment: str
     career_change:    str
     home_city:        Optional[str] = None
+    home_abroad:      Optional[str] = Field(default=None, max_length=80)   # free text, outside Israel
     search_mode:      str = "radius"
     radius_km:        Optional[int] = None    # None = the whole country
-
-
-@router.get("/cities")
-async def get_cities(user: CurrentUser = Depends(get_current_user)) -> list[dict]:
-    """The cities a user can give as home. `en` is the value that gets saved."""
-    return [{"en": c.en, "he": c.he} for c in CITIES]
 
 
 @router.get("/about")
@@ -408,6 +403,7 @@ async def get_about(user: CurrentUser = Depends(get_current_user)) -> dict:
         "gender":           profile_repository.get_answer(user.user_id, "gender"),
         "locations":        locations,
         "home_city":        goals.get("home_city"),
+        "home_abroad":      goals.get("home_abroad"),
         # Someone who answered before the radius existed picked regions.
         "search_mode":      goals.get("search_mode") or ("regions" if locations else "radius"),
         "radius_km":        goals.get("radius_km"),
@@ -453,6 +449,10 @@ async def save_about(body: AboutPayload, user: CurrentUser = Depends(get_current
         goals["radius_km"]             = body.radius_km if body.search_mode == "radius" else None
         if body.home_city is not None:
             goals["home_city"]         = body.home_city
+            goals["home_abroad"]       = None
+        elif (body.home_abroad or "").strip():
+            goals["home_abroad"]       = body.home_abroad.strip()
+            goals["home_city"]         = None
         goals["work_environment"]      = body.work_environment
         goals["open_to_career_change"] = body.career_change
         mp["career_goals"] = goals

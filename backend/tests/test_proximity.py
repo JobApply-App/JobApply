@@ -1,4 +1,7 @@
 """The proximity factor: where it applies, its size, and Principle 4."""
+import json
+from pathlib import Path
+
 import pytest
 
 from backend.services.israel_cities import (
@@ -33,8 +36,8 @@ def test_names_no_city_here(location):
 
 def test_every_city_resolves_to_itself_in_both_languages():
     for city in CITIES:
-        assert resolve_city(f"{city.en}, Israel") == city
-        assert resolve_city(city.he) == city
+        assert resolve_city(f"{city.en}, Israel") == city, city.en
+        assert resolve_city(city.he) == city, city.he
 
 
 def _goals(**kw):
@@ -179,7 +182,31 @@ async def test_rejects_unknown_answers(about, bad):
     assert err.value.status_code == 422
 
 
-async def test_cities_route_lists_every_city(about):
-    cities = await about.route.get_cities(about.user)
-    assert len(cities) == len(CITIES)
-    assert {"en": "Tel Aviv", "he": "תל אביב"} in cities
+async def test_living_abroad_is_saved_and_gives_no_factor(about):
+    body = _payload(about.route, home_abroad=" Berlin, Germany ")
+    await about.route.save_about(body, about.user)
+    got = await about.route.get_about(about.user)
+    assert (got["home_abroad"], got["home_city"]) == ("Berlin, Germany", None)
+    assert proximity_delta(about.row.master_profile["career_goals"], "Tel Aviv, Israel") is None
+
+
+def test_the_list_covers_every_recognised_locality():
+    assert len(CITIES) >= 1300
+    for city in CITIES:
+        assert 29.4 < city.lat < 33.5 and 34.2 < city.lon < 35.95, city.en
+
+
+def test_frontend_list_has_the_same_names():
+    path = Path(__file__).resolve().parents[2] / "frontend/src/lib/israelLocalities.json"
+    frontend = json.loads(path.read_text(encoding="utf-8"))
+    assert [c["en"] for c in frontend] == [c.en for c in CITIES]
+
+
+@pytest.mark.parametrize("location,expected", [
+    ("Yagur, Haifa District, Israel", "Yagur"),      # a kibbutz, by its own name
+    ("Kibbutz Yagur, Haifa District, Israel", "Haifa"),  # not its exact name: the district
+    ("Central District, Israel", None),
+])
+def test_small_localities_only_match_whole(location, expected):
+    city = resolve_city(location)
+    assert (city.en if city else None) == expected

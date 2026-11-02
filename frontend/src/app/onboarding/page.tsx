@@ -11,20 +11,20 @@ import { resolveDisplayName } from '@/lib/nameUtils'
 import { TOKENS }           from '@/lib/tokens'
 import {
   saveRolePreferences, fetchRolePreferences, markOnboardingComplete,
-  fetchAbout, saveAbout, fetchCities, REGIONS,
+  fetchAbout, saveAbout, REGIONS,
   uploadCvFiles,
   cvUploadErrorMessage,
   type CvUploadStage,
   type RoleSeniorityItem,
   type SeniorityLevel,
   type Gender, type WorkEnvironment, type CareerChange, type Region,
-  type HomeCity, type SearchMode,
+  type SearchMode,
 } from '@/lib/api'
 import { AccountStep } from '@/components/auth/AccountStep'
 import { AuthLayout } from '@/components/auth/AuthLayout'
-import { CityPicker } from '@/components/auth/CityPicker'
+import { CityPicker, type HomeCity } from '@/components/auth/CityPicker'
 import { SignupSteps } from '@/components/auth/SignupSteps'
-import { authChip, authLabel, authPrimary, authSub, authTitle } from '@/components/auth/authStyles'
+import { authChip, authInput, authLabel, authPrimary, authSub, authTitle } from '@/components/auth/authStyles'
 import { CvUploadProgress } from '@/components/CvUploadProgress'
 import { armArielWelcome } from '@/lib/onboardingFlags'
 import { RolePicker, type PendingRole } from '@/components/RolePicker'
@@ -119,6 +119,7 @@ const GENDERS: readonly Gender[] = ['male', 'female', 'unspecified']
 const WORK_MODELS: readonly WorkEnvironment[] = ['onsite', 'hybrid', 'remote', 'any']
 const CAREER_CHANGE: readonly CareerChange[] = ['yes', 'maybe', 'no']
 const SEARCH_MODES: readonly SearchMode[] = ['radius', 'regions']
+const HOME_WHERE = ['israel', 'abroad'] as const
 const RADII = ['10', '25', '50', 'all'] as const
 type Radius = typeof RADII[number]
 
@@ -161,9 +162,13 @@ function OnboardingContent() {
   const [cities,    setCities]    = useState<HomeCity[]>([])
   const [homeCity,  setHomeCity]  = useState<string | null>(null)
   const [mode,      setMode]      = useState<SearchMode>('radius')
-  const [radius,    setRadius]    = useState<Radius>('25')
-  const [work,      setWork]      = useState<WorkEnvironment | null>(null)
-  const [change,    setChange]    = useState<CareerChange | null>(null)
+  const [radius,    setRadius]    = useState<Radius>('all')
+  const [homeWhere, setHomeWhere] = useState<typeof HOME_WHERE[number]>('israel')
+  const [homeAbroad, setHomeAbroad] = useState('')
+  const [showErrors, setShowErrors] = useState(false)
+  // Not required, so they start on the answer most people would give (Ron).
+  const [work,      setWork]      = useState<WorkEnvironment>('any')
+  const [change,    setChange]    = useState<CareerChange>('maybe')
 
   // CV upload state (in-place — no intermediate screen)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -198,15 +203,20 @@ function OnboardingContent() {
       .then(a => {
         setGender(prev => prev ?? a.gender)
         setLocations(prev => prev.length ? prev : a.locations)
-        setWork(prev => prev ?? a.work_environment)
-        setChange(prev => prev ?? a.career_change)
-        setHomeCity(prev => prev ?? a.home_city)
-        setMode(a.search_mode)
+        if (a.work_environment) setWork(a.work_environment)
+        if (a.career_change) setChange(a.career_change)
+        setHomeCity(prev => prev ?? a.home_city ?? null)
+        if (a.home_abroad) { setHomeWhere('abroad'); setHomeAbroad(a.home_abroad) }
+        // The older backend sends neither field: its saved areas must not read as "no mode".
+        setMode(a.search_mode ?? (a.locations.length ? 'regions' : 'radius'))
         // A saved home city with no radius means the whole country was chosen.
         if (a.home_city) setRadius(a.radius_km ? String(a.radius_km) as Radius : 'all')
       })
       .catch(() => { /* empty answers */ })
-    fetchCities().then(setCities).catch(() => { /* no list: the city is not required */ })
+    // Bundled, not fetched: about 50 KB that only this step needs.
+    import('@/lib/israelLocalities.json')
+      .then(m => setCities(m.default as HomeCity[]))
+      .catch(err => console.error('[onboarding] could not load the localities list:', err))
   }, [])
 
   // Someone who already finished onboarding came here only to change their
@@ -215,31 +225,41 @@ function OnboardingContent() {
   const alreadyOnboarded =
     (user?.user_metadata as Record<string, unknown> | null)?.profile_completed === true
 
-  // Every role needs a level, and gender must be chosen (it sets the Hebrew
-  // wording): the app asks for anything missing at the next login
-  // (RequiredDetailsGate), so letting it through here would only mean asking
-  // twice. Areas are optional: none means the whole country. The home city is
-  // required unless its list failed to load, which must not trap anyone here.
-  const hasRoles = selected.length > 0 && selected.every(r => r.seniority)
-    && gender !== null && work !== null && change !== null
-    && (homeCity !== null || cities.length === 0)
+  // What the product cannot work without, and there is no skipping past it:
+  // roles with a level (what to look for), gender (the Hebrew wording; the app
+  // would ask at the next login anyway, see RequiredDetailsGate) and where the
+  // user lives (what distance is measured from). The city only counts as missing
+  // once its list has loaded, so a failed load cannot trap anyone on this step.
+  const rolesOk  = selected.length > 0 && selected.every(r => r.seniority)
+  const homeOk   = homeWhere === 'abroad' ? homeAbroad.trim() !== '' : Boolean(homeCity) || cities.length === 0
+  const hasRoles = rolesOk && gender !== null && homeOk
   const toItems = (): RoleSeniorityItem[] =>
     selected.map(r => ({ role: r.role, seniority: r.seniority ?? '' }))
 
   const handleSavePreferences = async () => {
+    if (!hasRoles) {
+      setShowErrors(true)
+      const first = !rolesOk ? 'target-roles-combobox' : gender === null ? 'field-gender' : homeWhere === 'abroad' ? 'home-abroad' : 'home-city'
+      const el = document.getElementById(first)
+      el?.scrollIntoView({ block: 'center' })
+      el?.focus({ preventScroll: true })
+      return
+    }
     setSaving(true)
     setSaveError('')
     try {
       await saveRolePreferences({ roles: toItems() })
-      if (gender && work && change) {
+      if (gender) {
+        const abroad = homeWhere === 'abroad'
         await saveAbout({
           gender,
-          locations:        mode === 'regions' ? locations : [],
+          locations:        !abroad && mode === 'regions' ? locations : [],
           work_environment: work,
           career_change:    change,
-          home_city:        homeCity,
+          home_city:        abroad ? null : homeCity,
+          home_abroad:      abroad ? homeAbroad.trim() : null,
           search_mode:      mode,
-          radius_km:        mode === 'radius' && radius !== 'all' ? Number(radius) : null,
+          radius_km:        !abroad && mode === 'radius' && radius !== 'all' ? Number(radius) : null,
         })
       }
       if (alreadyOnboarded) router.push('/?tab=overview')
@@ -393,60 +413,83 @@ function OnboardingContent() {
           <div className="mt-8">
             <label htmlFor="target-roles-combobox" className={authLabel}>{O.preferences.roles_label}</label>
             <RolePicker selected={selected} setSelected={setSelected} />
+            {showErrors && !rolesOk && <p className="text-[14px] text-rose-600 mt-2" role="alert">{A.errors.roles}</p>}
           </div>
 
-          <Choices
-            label={A.gender_label} hint={A.gender_hint}
-            options={GENDERS} labels={A.genders}
-            value={gender ? [gender] : []} onChange={v => setGender(v[0])}
-            disabled={saving}
-          />
+          <div id="field-gender" tabIndex={-1} className="outline-none">
+            <Choices
+              label={A.gender_label} hint={A.gender_hint}
+              options={GENDERS} labels={A.genders}
+              value={gender ? [gender] : []} onChange={v => setGender(v[0])}
+              disabled={saving}
+            />
+            {showErrors && gender === null && <p className="text-[14px] text-rose-600 mt-2" role="alert">{A.errors.gender}</p>}
+          </div>
           {gender === 'unspecified' && (
             <p className="text-[14px] text-slate-500 mt-3 leading-relaxed">{A.gender_default_note}</p>
           )}
 
-          <div className="mt-8">
-            <label htmlFor="home-city" className="block text-[15px] font-semibold text-slate-900 mb-1">{A.home_label}</label>
-            <p className="text-[14px] text-slate-500 leading-relaxed mb-3">{A.home_hint}</p>
-            <CityPicker id="home-city" cities={cities} value={homeCity} onChange={setHomeCity} disabled={saving} />
-          </div>
-
           <Choices
-            label={A.range_label} hint={A.range_hint}
-            options={SEARCH_MODES} labels={A.range_modes}
-            value={[mode]} onChange={v => setMode(v[0])}
+            label={A.home_label} hint={A.home_hint}
+            options={HOME_WHERE} labels={A.home_where}
+            value={[homeWhere]} onChange={v => setHomeWhere(v[0])}
             disabled={saving}
           />
-          <div key={mode} className="animate-ja-tab-in motion-reduce:animate-none">
-            {mode === 'radius' ? (
-              <Choices
-                className="mt-4"
-                options={RADII} labels={A.radius}
-                value={[radius]} onChange={v => setRadius(v[0])}
-                disabled={saving}
-              />
+          <div key={homeWhere} className="mt-4 animate-ja-tab-in motion-reduce:animate-none">
+            {homeWhere === 'israel' ? (
+              <CityPicker id="home-city" cities={cities} value={homeCity} onChange={setHomeCity} disabled={saving} />
             ) : (
+              <>
+                <label htmlFor="home-abroad" className={authLabel}>{A.home_abroad_label}</label>
+                <input id="home-abroad" value={homeAbroad} maxLength={80} disabled={saving}
+                  placeholder={A.home_abroad_placeholder}
+                  onChange={e => setHomeAbroad(e.target.value)} className={authInput()} />
+              </>
+            )}
+            {showErrors && !homeOk && <p className="text-[14px] text-rose-600 mt-2" role="alert">{A.errors.home}</p>}
+          </div>
+
+          {/* Distance needs a home we can place, so this stays inside Israel. */}
+          {homeWhere === 'israel' && (
+            <>
               <Choices
-                className="mt-4"
-                hint={A.locations_hint}
-                options={REGIONS} labels={A.regions}
-                value={locations} onChange={setLocations} multi
+                label={A.range_label} hint={A.range_hint}
+                options={SEARCH_MODES} labels={A.range_modes}
+                value={[mode]} onChange={v => setMode(v[0])}
                 disabled={saving}
               />
-            )}
-          </div>
+              <div key={mode} className="animate-ja-tab-in motion-reduce:animate-none">
+                {mode === 'radius' ? (
+                  <Choices
+                    className="mt-4"
+                    options={RADII} labels={A.radius}
+                    value={[radius]} onChange={v => setRadius(v[0])}
+                    disabled={saving}
+                  />
+                ) : (
+                  <Choices
+                    className="mt-4"
+                    hint={A.locations_hint}
+                    options={REGIONS} labels={A.regions}
+                    value={locations} onChange={setLocations} multi
+                    disabled={saving}
+                  />
+                )}
+              </div>
+            </>
+          )}
 
           <Choices
             label={A.work_label}
             options={WORK_MODELS} labels={A.work}
-            value={work ? [work] : []} onChange={v => setWork(v[0])}
+            value={[work]} onChange={v => setWork(v[0])}
             disabled={saving}
           />
 
           <Choices
             label={A.change_label}
             options={CAREER_CHANGE} labels={A.change}
-            value={change ? [change] : []} onChange={v => setChange(v[0])}
+            value={[change]} onChange={v => setChange(v[0])}
             disabled={saving}
           />
 
@@ -457,18 +500,12 @@ function OnboardingContent() {
           <button
             type="button"
             onClick={handleSavePreferences}
-            disabled={saving || !hasRoles}
+            disabled={saving}
             className={`${authPrimary} mt-10`}
           >
             {saving ? O.preferences.saving : O.preferences.continue_cta}
           </button>
-          <button
-            type="button"
-            onClick={() => setPhase('intake')}
-            className="mt-2 w-full min-h-[44px] text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors"
-          >
-            {O.preferences.skip}
-          </button>
+          <p className="mt-4 text-center text-[13px] text-slate-500">{A.credit}</p>
         </div>
       </AuthLayout>
     )

@@ -749,6 +749,7 @@ export interface AboutAnswers {
   work_environment: WorkEnvironment | null
   career_change:    CareerChange | null
   home_city:        string | null
+  home_abroad:      string | null
   search_mode:      SearchMode
   radius_km:        number | null
 }
@@ -759,16 +760,9 @@ export async function fetchAbout(): Promise<AboutAnswers> {
 
 export async function saveAbout(body: {
   gender: Gender; locations: Region[]; work_environment: WorkEnvironment; career_change: CareerChange
-  home_city: string | null; search_mode: SearchMode; radius_km: number | null
+  home_city: string | null; home_abroad: string | null; search_mode: SearchMode; radius_km: number | null
 }): Promise<void> {
   await post<typeof body, { status: string }>('/api/profile/about', body)
-}
-
-/** `en` is the stored value; `he` is only a label. */
-export interface HomeCity { en: string; he: string }
-
-export async function fetchCities(): Promise<HomeCity[]> {
-  return get<HomeCity[]>('/api/profile/cities')
 }
 
 export interface LinkedInImportResponse {
