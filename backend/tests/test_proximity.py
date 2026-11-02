@@ -108,3 +108,78 @@ async def test_thin_jd_never_gets_it():
 
 def test_home_city_names_are_unique():
     assert len(CITY_BY_NAME) == len(CITIES)
+
+
+class _FakeSession:
+    def __init__(self, *_): pass
+    def __enter__(self): return self
+    def __exit__(self, *_): return False
+    def commit(self): pass
+
+
+class _Row:
+    master_profile: dict = {}
+    updated_at = ""
+
+
+@pytest.fixture
+def about(monkeypatch):
+    """The about routes over an in-memory profile, so no database is touched."""
+    from types import SimpleNamespace
+    from backend.api.routes import profile as route
+    row, answers = _Row(), {}
+    repo = route.profile_repository
+    monkeypatch.setattr(route, "Session", _FakeSession)
+    monkeypatch.setattr(repo, "get_or_create", lambda *a, **k: (row, False))
+    monkeypatch.setattr(repo, "save", lambda *a: None)
+    monkeypatch.setattr(repo, "set_answer", lambda _u, k, v: answers.__setitem__(k, v))
+    monkeypatch.setattr(repo, "get_answer", lambda _u, k: answers.get(k))
+    monkeypatch.setattr(repo, "get_profile_json", lambda _u: row.master_profile)
+    return SimpleNamespace(route=route, row=row, user=SimpleNamespace(user_id="u"))
+
+
+def _payload(route, **kw):
+    return route.AboutPayload(**{"gender": "male", "work_environment": "any", "career_change": "yes", **kw})
+
+
+async def test_radius_answer_round_trips_and_drives_the_factor(about):
+    body = _payload(about.route, home_city="Tel Aviv", search_mode="radius", radius_km=25, locations=["Sharon"])
+    await about.route.save_about(body, about.user)
+    got = await about.route.get_about(about.user)
+    assert (got["home_city"], got["search_mode"], got["radius_km"]) == ("Tel Aviv", "radius", 25)
+    assert got["locations"] == []    # areas are not kept in distance mode
+    goals = about.row.master_profile["career_goals"]
+    assert proximity_delta(goals, "Kfar Saba, Israel") == 2.0
+    assert proximity_delta(goals, "Haifa, Israel") == 0.0
+
+
+async def test_regions_answer_round_trips_and_drives_the_factor(about):
+    body = _payload(about.route, home_city="Haifa", search_mode="regions", radius_km=10, locations=["Haifa & North"])
+    await about.route.save_about(body, about.user)
+    got = await about.route.get_about(about.user)
+    assert (got["search_mode"], got["radius_km"], got["locations"]) == ("regions", None, ["Haifa & North"])
+    goals = about.row.master_profile["career_goals"]
+    assert proximity_delta(goals, "Nesher, Israel") == 3.0
+    assert proximity_delta(goals, "Tel Aviv, Israel") == 0.0
+
+
+async def test_older_answer_with_areas_reads_as_regions(about):
+    about.row.master_profile = {"career_goals": {"preferred_locations": ["Sharon"]}}
+    got = await about.route.get_about(about.user)
+    assert (got["search_mode"], got["home_city"]) == ("regions", None)
+
+
+@pytest.mark.parametrize("bad", [
+    {"home_city": "Atlantis"}, {"search_mode": "anywhere"}, {"radius_km": 7},
+])
+async def test_rejects_unknown_answers(about, bad):
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as err:
+        await about.route.save_about(_payload(about.route, **bad), about.user)
+    assert err.value.status_code == 422
+
+
+async def test_cities_route_lists_every_city(about):
+    cities = await about.route.get_cities(about.user)
+    assert len(cities) == len(CITIES)
+    assert {"en": "Tel Aviv", "he": "תל אביב"} in cities
