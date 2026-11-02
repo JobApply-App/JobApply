@@ -664,6 +664,7 @@ async def refresh_user_scores(user_id: str, only_job_id: Optional[str] = None) -
                     entity_scores       = entity_scores,
                     job_id              = job.job_id,   # enables high-match trigger (JOB-43)
                     jd_structured       = job.jd_structured,
+                    job_location        = job.location or "",
                 )
 
                 # Re-use the s1 local proxy score when available to avoid
@@ -681,6 +682,7 @@ async def refresh_user_scores(user_id: str, only_job_id: Optional[str] = None) -
                         ats_base        = result.ats_score,
                         knockout_failed = result.knockout_failed,
                         culture_delta   = result.culture_delta,   # JOB-20: never drop the culture term on rebuild
+                        proximity_delta = result.proximity_delta,
                     )
                     result = type(result)(
                         **{**result.__dict__,

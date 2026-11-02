@@ -11,15 +11,20 @@ import { resolveDisplayName } from '@/lib/nameUtils'
 import { TOKENS }           from '@/lib/tokens'
 import {
   saveRolePreferences, fetchRolePreferences, markOnboardingComplete,
-  fetchAbout, saveAbout, REGIONS,
+  fetchAbout, saveAbout, fetchCities, REGIONS,
   uploadCvFiles,
   cvUploadErrorMessage,
   type CvUploadStage,
   type RoleSeniorityItem,
   type SeniorityLevel,
   type Gender, type WorkEnvironment, type CareerChange, type Region,
+  type HomeCity, type SearchMode,
 } from '@/lib/api'
+import { AccountStep } from '@/components/auth/AccountStep'
+import { AuthLayout } from '@/components/auth/AuthLayout'
+import { CityPicker } from '@/components/auth/CityPicker'
 import { SignupSteps } from '@/components/auth/SignupSteps'
+import { authChip, authLabel, authPrimary, authSub, authTitle } from '@/components/auth/authStyles'
 import { CvUploadProgress } from '@/components/CvUploadProgress'
 import { armArielWelcome } from '@/lib/onboardingFlags'
 import { RolePicker, type PendingRole } from '@/components/RolePicker'
@@ -55,26 +60,12 @@ function SpinnerIcon({ s = 16 }: { s?: number }) {
 
 // ── Shared layout — minimal onboarding chrome (logo + sign out only) ──────────
 
-function OnboardingShell({ onBack, children }: {
-  onBack?:  () => void
-  children: React.ReactNode
-}) {
-  const { t, dir } = useI18n()
+function OnboardingShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen bg-[#FBFBFA]">
       <OnboardingHeader />
       <main className="flex-1 flex flex-col items-center px-4 py-12">
-        <div className="w-full max-w-3xl">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="text-[13px] text-slate-400 hover:text-slate-700 mb-6 flex items-center gap-1 transition"
-            >
-              <span aria-hidden="true">{dir === 'rtl' ? '\u2192' : '\u2190'}</span> {t.login.page.back}
-            </button>
-          )}
-          {children}
-        </div>
+        <div className="w-full max-w-3xl">{children}</div>
       </main>
     </div>
   )
@@ -88,8 +79,8 @@ function DirectionalArrow() {
 }
 
 // One question with a few answers. multi: any number may be on (areas).
-function Choices<T extends string>({ label, hint, options, labels, value, onChange, multi = false, disabled }: {
-  label:    string
+function Choices<T extends string>({ label, hint, options, labels, value, onChange, multi = false, disabled, className = 'mt-8' }: {
+  label?:   string
   hint?:    string
   options:  readonly T[]
   labels:   Record<T, string>
@@ -97,12 +88,13 @@ function Choices<T extends string>({ label, hint, options, labels, value, onChan
   onChange: (v: T[]) => void
   multi?:   boolean
   disabled: boolean
+  className?: string
 }) {
   return (
-    <fieldset className="mt-7" disabled={disabled}>
-      <legend className="block text-[12px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{label}</legend>
-      {hint && <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">{hint}</p>}
-      <div className={`flex flex-wrap gap-2 ${hint ? '' : 'mt-2'}`}>
+    <fieldset className={className} disabled={disabled}>
+      {label && <legend className="block text-[15px] font-semibold text-slate-900 mb-1">{label}</legend>}
+      {hint && <p className="text-[14px] text-slate-500 leading-relaxed">{hint}</p>}
+      <div className={`flex flex-wrap gap-2 ${label || hint ? 'mt-3' : ''}`}>
         {options.map(o => {
           const on = value.includes(o)
           return (
@@ -112,9 +104,7 @@ function Choices<T extends string>({ label, hint, options, labels, value, onChan
               role={multi ? 'checkbox' : 'radio'}
               aria-checked={on}
               onClick={() => onChange(multi ? (on ? value.filter(v => v !== o) : [...value, o]) : [o])}
-              className={`rounded-lg border px-3.5 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40 ${
-                on ? 'border-teal-500 bg-teal-50 text-teal-800' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-              }`}
+              className={authChip(on)}
             >
               {labels[o]}
             </button>
@@ -128,6 +118,9 @@ function Choices<T extends string>({ label, hint, options, labels, value, onChan
 const GENDERS: readonly Gender[] = ['male', 'female', 'unspecified']
 const WORK_MODELS: readonly WorkEnvironment[] = ['onsite', 'hybrid', 'remote', 'any']
 const CAREER_CHANGE: readonly CareerChange[] = ['yes', 'maybe', 'no']
+const SEARCH_MODES: readonly SearchMode[] = ['radius', 'regions']
+const RADII = ['10', '25', '50', 'all'] as const
+type Radius = typeof RADII[number]
 
 // ── Steps data ────────────────────────────────────────────────────────────────
 
@@ -137,11 +130,11 @@ const STEP_ICONS = ['🗂️', '⚡', '📊'] as const
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-type Phase = 'showcase' | 'preferences' | 'intake'
+type Phase = 'showcase' | 'account' | 'preferences' | 'intake'
 
 function OnboardingContent() {
   const router = useRouter()
-  const { user, updateUserMeta } = useAuth()
+  const { user, updateUserMeta, signOut } = useAuth()
   const { set: setOnboarding }   = useOnboarding()
   const { t } = useI18n()
   const O = t.onboarding
@@ -153,7 +146,7 @@ function OnboardingContent() {
   // and Forward move between steps, and a refresh stays on the current one.
   const searchParams = useSearchParams()
   const stepParam = searchParams.get('step')
-  const phase: Phase = stepParam === 'preferences' || stepParam === 'intake' ? stepParam : 'showcase'
+  const phase: Phase = stepParam === 'account' || stepParam === 'preferences' || stepParam === 'intake' ? stepParam : 'showcase'
   const setPhase = useCallback((next: Phase) => {
     router.push(next === 'showcase' ? '/onboarding' : `/onboarding?step=${next}`)
   }, [router])
@@ -165,6 +158,10 @@ function OnboardingContent() {
   const [saveError, setSaveError] = useState('')
   const [gender,    setGender]    = useState<Gender | null>(null)
   const [locations, setLocations] = useState<Region[]>([])
+  const [cities,    setCities]    = useState<HomeCity[]>([])
+  const [homeCity,  setHomeCity]  = useState<string | null>(null)
+  const [mode,      setMode]      = useState<SearchMode>('radius')
+  const [radius,    setRadius]    = useState<Radius>('25')
   const [work,      setWork]      = useState<WorkEnvironment | null>(null)
   const [change,    setChange]    = useState<CareerChange | null>(null)
 
@@ -203,8 +200,13 @@ function OnboardingContent() {
         setLocations(prev => prev.length ? prev : a.locations)
         setWork(prev => prev ?? a.work_environment)
         setChange(prev => prev ?? a.career_change)
+        setHomeCity(prev => prev ?? a.home_city)
+        setMode(a.search_mode)
+        // A saved home city with no radius means the whole country was chosen.
+        if (a.home_city) setRadius(a.radius_km ? String(a.radius_km) as Radius : 'all')
       })
       .catch(() => { /* empty answers */ })
+    fetchCities().then(setCities).catch(() => { /* no list: the city is not required */ })
   }, [])
 
   // Someone who already finished onboarding came here only to change their
@@ -216,9 +218,11 @@ function OnboardingContent() {
   // Every role needs a level, and gender must be chosen (it sets the Hebrew
   // wording): the app asks for anything missing at the next login
   // (RequiredDetailsGate), so letting it through here would only mean asking
-  // twice. Areas are optional: none means the whole country.
+  // twice. Areas are optional: none means the whole country. The home city is
+  // required unless its list failed to load, which must not trap anyone here.
   const hasRoles = selected.length > 0 && selected.every(r => r.seniority)
     && gender !== null && work !== null && change !== null
+    && (homeCity !== null || cities.length === 0)
   const toItems = (): RoleSeniorityItem[] =>
     selected.map(r => ({ role: r.role, seniority: r.seniority ?? '' }))
 
@@ -228,7 +232,15 @@ function OnboardingContent() {
     try {
       await saveRolePreferences({ roles: toItems() })
       if (gender && work && change) {
-        await saveAbout({ gender, locations, work_environment: work, career_change: change })
+        await saveAbout({
+          gender,
+          locations:        mode === 'regions' ? locations : [],
+          work_environment: work,
+          career_change:    change,
+          home_city:        homeCity,
+          search_mode:      mode,
+          radius_km:        mode === 'radius' && radius !== 'all' ? Number(radius) : null,
+        })
       }
       if (alreadyOnboarded) router.push('/?tab=overview')
       else setPhase('intake')
@@ -342,22 +354,46 @@ function OnboardingContent() {
     )
   }
 
+  const signOutButton = (
+    <button type="button" onClick={() => void signOut()}
+      className="min-h-[44px] px-2 whitespace-nowrap text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors">
+      {t.header.sign_out}
+    </button>
+  )
+
+  // ── Step 1 again, from Back on step 2 ────────────────────────────────────────
+
+  if (phase === 'account') {
+    return (
+      <AuthLayout headline={t.landing.close.h2} subline={t.landing.close.body} headerEnd={signOutButton}>
+        <div key={phase} className="w-full flex justify-center animate-ja-tab-in motion-reduce:animate-none">
+          <AccountStep />
+        </div>
+      </AuthLayout>
+    )
+  }
+
   // ── Role & seniority step ────────────────────────────────────────────────────
 
   if (phase === 'preferences') {
     return (
-      <OnboardingShell onBack={alreadyOnboarded ? () => setPhase('showcase') : undefined}>
-        <div className="max-w-xl mx-auto">{!alreadyOnboarded && <SignupSteps current={2} />}</div>
-        <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-          <h1 className="text-[20px] font-bold text-slate-900 mb-1">{O.preferences.title}</h1>
-          <p className="text-[13.5px] text-slate-500 mb-7 leading-relaxed">
-            {O.preferences.intro}
-          </p>
+      <AuthLayout
+        headline={O.panels.preferences.headline}
+        subline={O.panels.preferences.subline}
+        headerEnd={signOutButton}
+        back={alreadyOnboarded
+          ? { href: '/?tab=overview', label: t.signup.page.back, aria: t.signup.page.back }
+          : { href: '/onboarding?step=account', label: t.signup.page.back, aria: O.account.title }}
+      >
+        <div key={phase} className="w-full max-w-[520px] animate-ja-tab-in motion-reduce:animate-none">
+          {!alreadyOnboarded && <SignupSteps current={2} />}
+          <h1 className={authTitle}>{O.preferences.title}</h1>
+          <p className={authSub}>{O.preferences.intro}</p>
 
-          <label htmlFor="target-roles-combobox" className="block text-[12px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
-            {O.preferences.roles_label}
-          </label>
-          <RolePicker selected={selected} setSelected={setSelected} />
+          <div className="mt-8">
+            <label htmlFor="target-roles-combobox" className={authLabel}>{O.preferences.roles_label}</label>
+            <RolePicker selected={selected} setSelected={setSelected} />
+          </div>
 
           <Choices
             label={A.gender_label} hint={A.gender_hint}
@@ -366,15 +402,39 @@ function OnboardingContent() {
             disabled={saving}
           />
           {gender === 'unspecified' && (
-            <p className="text-[12px] text-slate-500 mt-2 leading-relaxed">{A.gender_default_note}</p>
+            <p className="text-[14px] text-slate-500 mt-3 leading-relaxed">{A.gender_default_note}</p>
           )}
 
+          <div className="mt-8">
+            <label htmlFor="home-city" className="block text-[15px] font-semibold text-slate-900 mb-1">{A.home_label}</label>
+            <p className="text-[14px] text-slate-500 leading-relaxed mb-3">{A.home_hint}</p>
+            <CityPicker id="home-city" cities={cities} value={homeCity} onChange={setHomeCity} disabled={saving} />
+          </div>
+
           <Choices
-            label={A.locations_label} hint={A.locations_hint}
-            options={REGIONS} labels={A.regions}
-            value={locations} onChange={setLocations} multi
+            label={A.range_label} hint={A.range_hint}
+            options={SEARCH_MODES} labels={A.range_modes}
+            value={[mode]} onChange={v => setMode(v[0])}
             disabled={saving}
           />
+          <div key={mode} className="animate-ja-tab-in motion-reduce:animate-none">
+            {mode === 'radius' ? (
+              <Choices
+                className="mt-4"
+                options={RADII} labels={A.radius}
+                value={[radius]} onChange={v => setRadius(v[0])}
+                disabled={saving}
+              />
+            ) : (
+              <Choices
+                className="mt-4"
+                hint={A.locations_hint}
+                options={REGIONS} labels={A.regions}
+                value={locations} onChange={setLocations} multi
+                disabled={saving}
+              />
+            )}
+          </div>
 
           <Choices
             label={A.work_label}
@@ -391,40 +451,42 @@ function OnboardingContent() {
           />
 
           {saveError && (
-            <p className="text-[12.5px] text-red-600 mt-4" role="alert">{saveError}</p>
+            <p className="text-[14px] text-rose-600 mt-6" role="alert">{saveError}</p>
           )}
 
-          <div className="flex items-center gap-3 mt-8">
-            <button
-              onClick={handleSavePreferences}
-              disabled={saving || !hasRoles}
-              className="flex-1 h-11 rounded-xl text-[14px] font-semibold text-white transition disabled:opacity-40"
-              style={{ background: TOKENS.color.primary }}
-            >
-              {saving ? O.preferences.saving : <>{O.preferences.continue_cta} <DirectionalArrow /></>}
-            </button>
-            <button
-              onClick={() => setPhase('intake')}
-              className="text-[13px] text-slate-400 hover:text-slate-600 px-3 transition"
-            >
-              {O.preferences.skip}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSavePreferences}
+            disabled={saving || !hasRoles}
+            className={`${authPrimary} mt-10`}
+          >
+            {saving ? O.preferences.saving : O.preferences.continue_cta}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPhase('intake')}
+            className="mt-2 w-full min-h-[44px] text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors"
+          >
+            {O.preferences.skip}
+          </button>
         </div>
-      </OnboardingShell>
+      </AuthLayout>
     )
   }
 
   // ── Intake hub ───────────────────────────────────────────────────────────────
 
   return (
-    <OnboardingShell onBack={() => setPhase('preferences')}>
-      <div className="max-w-md mx-auto"><SignupSteps current={3} /></div>
-      <div className="max-w-md mx-auto bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-        <h1 className="text-[20px] font-bold text-slate-900 mb-1">{O.intake.title}</h1>
-        <p className="text-[13.5px] text-slate-500 mb-7 leading-relaxed">
-          {O.intake.intro}
-        </p>
+    <AuthLayout
+      headline={O.panels.intake.headline}
+      subline={O.panels.intake.subline}
+      headerEnd={signOutButton}
+      back={{ href: '/onboarding?step=preferences', label: t.signup.page.back, aria: t.signup.page.back }}
+    >
+      <div key={phase} className="w-full max-w-[440px] animate-ja-tab-in motion-reduce:animate-none">
+        <SignupSteps current={3} />
+        <h1 className={authTitle}>{O.intake.title}</h1>
+        <p className={authSub}>{O.intake.intro}</p>
 
         {/* Upload CV — opens the OS file picker directly (no extra screen) */}
         <input
@@ -440,6 +502,7 @@ function OnboardingContent() {
           }}
         />
         <button
+          type="button"
           onClick={() => fileRef.current?.click()}
           disabled={cvBusy}
           onDragOver={e => { e.preventDefault(); if (!cvBusy) setCvDragOver(true) }}
@@ -450,56 +513,51 @@ function OnboardingContent() {
             if (cvBusy) return
             void handleCvFiles(Array.from(e.dataTransfer.files).filter(f => /\.(pdf|docx)$/i.test(f.name)))
           }}
-          className={`w-full flex items-center gap-4 rounded-2xl border-2 border-dashed p-5 hover:border-teal-400 hover:bg-teal-50 transition text-start group disabled:opacity-60 disabled:pointer-events-none ${
-            cvDragOver ? 'border-teal-400 bg-teal-50' : 'border-slate-200'
+          className={`mt-8 w-full flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-[background-color,border-color,transform] duration-ja-ui active:scale-[0.99] active:duration-ja-press hover:border-teal-600 hover:bg-teal-50/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 disabled:opacity-60 disabled:pointer-events-none ${
+            cvDragOver ? 'border-teal-600 bg-teal-50/60' : 'border-slate-200'
           }`}
         >
-          <div className="w-11 h-11 rounded-xl bg-slate-100 group-hover:bg-teal-100 flex items-center justify-center text-slate-500 group-hover:text-teal-600 flex-shrink-0 transition">
-            {cvBusy ? <SpinnerIcon s={20} /> : <UploadIcon s={20} />}
-          </div>
-          <div>
-            {cvBusy ? (
-              <>
-                <p className="text-[14px] font-semibold text-slate-800">
-                  {(cvFileCount === 1 ? O.intake.uploading_one : O.intake.uploading_many)
-                    .replace('{n}', String(cvFileCount))}
-                </p>
-                <p className="text-[12px] text-slate-400 mt-0.5">
-                  {O.intake.analyzing}
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-[14px] font-semibold text-slate-800">{O.intake.upload_cta}</p>
-                <p className="text-[12px] text-slate-400 mt-0.5">
-                  {O.intake.upload_hint}
-                </p>
-              </>
-            )}
-          </div>
+          <span className="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center text-ja-primaryHover">
+            {cvBusy ? <SpinnerIcon s={22} /> : <UploadIcon s={22} />}
+          </span>
+          {cvBusy ? (
+            <span>
+              <span className="block text-[16px] font-semibold text-slate-900">
+                {(cvFileCount === 1 ? O.intake.uploading_one : O.intake.uploading_many)
+                  .replace('{n}', String(cvFileCount))}
+              </span>
+              <span className="block text-[14px] text-slate-500 mt-1">{O.intake.analyzing}</span>
+            </span>
+          ) : (
+            <span>
+              <span className="block text-[16px] font-semibold text-slate-900">{O.intake.upload_cta}</span>
+              <span className="block text-[14px] text-slate-500 mt-1 leading-relaxed">{O.intake.upload_hint}</span>
+            </span>
+          )}
         </button>
         {cvBusy && <CvUploadProgress stage={cvStage} />}
         {cvError && (
-          <p className="text-[12px] text-red-600 mt-2" role="alert">{cvError}</p>
+          <p className="text-[14px] text-rose-600 mt-3" role="alert">{cvError}</p>
         )}
 
         {/* Testers uploaded other documents here (e.g. a regulations PDF) and
             got nothing back. Say up front what belongs here and where the
             rest goes, rather than only after a failed upload. */}
-        <p className="text-[12px] text-slate-500 mt-4 leading-relaxed rounded-xl bg-slate-50 px-3.5 py-3">
+        <p className="text-[14px] text-slate-500 mt-5 leading-relaxed">
           {O.intake.cv_only_note}
         </p>
 
         {/* Skip — straight to the dashboard (profile stays incomplete) */}
         <button
+          type="button"
           onClick={() => router.push('/?tab=overview')}
           disabled={cvBusy}
-          className="w-full mt-6 text-[13px] text-slate-400 hover:text-slate-600 transition disabled:opacity-40"
+          className="w-full mt-4 min-h-[44px] text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-40"
         >
           {O.intake.skip}
         </button>
       </div>
-    </OnboardingShell>
+    </AuthLayout>
   )
 }
 

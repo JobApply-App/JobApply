@@ -1112,9 +1112,10 @@ def format_profile_compact(profile: dict) -> str:
     goals = profile.get("career_goals") or {}
     lines.append("")
     lines.append(
-        "CAREER GOALS: target_roles={}; preferred_locations={}; "
+        "CAREER GOALS: target_roles={}; home_city={}; preferred_locations={}; "
         "work_environment={}; notes={}".format(
             ", ".join(goals.get("target_roles") or []) or "(none)",
+            goals.get("home_city") or "(none)",
             ", ".join(goals.get("preferred_locations") or []) or "(none)",
             goals.get("work_environment", "any"),
             (goals.get("notes") or "").strip() or "(none)",

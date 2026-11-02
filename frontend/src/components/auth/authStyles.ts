@@ -17,3 +17,8 @@ export const authSub = 'mt-2 text-[16px] leading-relaxed text-slate-500'
 export const authLabel = 'block text-[14px] font-medium text-slate-700 mb-2'
 export const authPrimary = `w-full h-12 rounded-xl bg-ja-primaryHover text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 hover:bg-ja-harbor disabled:opacity-40 disabled:pointer-events-none ${press}`
 export const authSecondary = `w-full h-12 rounded-xl border border-slate-200 bg-white text-[15px] font-semibold text-slate-700 flex items-center justify-center gap-3 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:pointer-events-none ${press}`
+export function authChip(on: boolean) {
+  return `min-h-11 rounded-xl border px-4 text-[15px] font-medium ${press} ${
+    on ? 'border-teal-700 bg-teal-50 text-teal-900' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+  }`
+}

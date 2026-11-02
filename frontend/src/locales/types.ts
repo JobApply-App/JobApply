@@ -1199,13 +1199,33 @@ export interface Dict {
       gender_hint:      string
       genders:          { male: string; female: string; unspecified: string }
       gender_default_note: string   // shown when "prefer not to say" is picked
-      locations_label:  string
+      home_label:       string
+      home_hint:        string
+      home_placeholder: string
+      home_none:        string   // the city search found nothing
+      range_label:      string
+      range_hint:       string
+      range_modes:      { radius: string; regions: string }
+      radius:           { '10': string; '25': string; '50': string; all: string }
       locations_hint:   string
       regions:          Record<'Tel Aviv' | 'Center' | 'Sharon' | 'Shfela' | 'Jerusalem' | 'Haifa & North' | "Be'er Sheva & South", string>
       work_label:       string
       work:             { onsite: string; hybrid: string; remote: string; any: string }
       change_label:     string
       change:           { yes: string; maybe: string; no: string }
+    }
+    // Step 1 again, reached by Back: the account already exists.
+    account: {
+      title:      string
+      subtitle:   string
+      email_note: string
+      cta:        string
+      save_failed: string
+    }
+    // The teal panel beside steps 2 and 3.
+    panels: {
+      preferences: { headline: string; subline: string }
+      intake:      { headline: string; subline: string }
     }
     intake: {
       title:          string

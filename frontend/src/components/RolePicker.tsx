@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import type { SeniorityLevel } from '@/lib/api'
+import { authInput } from '@/components/auth/authStyles'
 import { roleLabel, searchRoles } from '@/lib/roleCatalog'
 
 /*
@@ -87,26 +88,26 @@ export function RolePicker({ selected, setSelected }: {
           placeholder={P.role_placeholder}
           maxLength={80}
           disabled={selected.length >= 10}
-          className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-base sm:text-[13.5px] text-slate-800 placeholder:text-slate-300 outline-none focus:border-teal-400 transition disabled:opacity-50"
+          className={authInput()}
         />
 
         {open && optionCount > 0 && (
           <ul
             id="role-suggestions"
             role="listbox"
-            className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 rounded-xl bg-white border border-slate-100 shadow-elevation-2 overflow-hidden max-h-64 overflow-y-auto"
+            className="absolute inset-x-0 top-[calc(100%+6px)] z-30 rounded-xl bg-white border border-slate-100 shadow-floating overflow-hidden max-h-64 overflow-y-auto"
           >
             {suggestions.map((s, i) => (
               <li key={s.en} role="option" aria-selected={i === highlight}>
                 <button
                   onMouseDown={e => { e.preventDefault(); addRole(s.en) }}
                   onMouseEnter={() => setHighlight(i)}
-                  className={`w-full text-start px-3.5 py-2.5 text-[13px] transition ${
-                    i === highlight ? 'bg-teal-50 text-teal-800' : 'text-slate-700'
+                  className={`w-full text-start px-4 py-2.5 text-[15px] ${
+                    i === highlight ? 'bg-teal-50 text-teal-900' : 'text-slate-700'
                   }`}
                 >
                   {label(s)}
-                  {locale === 'he' && <span className="ms-2 text-[11.5px] text-slate-400" dir="ltr">{s.en}</span>}
+                  {locale === 'he' && <span className="ms-2 text-[13px] text-slate-500" dir="ltr">{s.en}</span>}
                 </button>
               </li>
             ))}
@@ -115,8 +116,8 @@ export function RolePicker({ selected, setSelected }: {
                 <button
                   onMouseDown={e => { e.preventDefault(); addRole(typed) }}
                   onMouseEnter={() => setHighlight(suggestions.length)}
-                  className={`w-full text-start px-3.5 py-2.5 text-[13px] border-t border-slate-100 transition ${
-                    highlight === suggestions.length ? 'bg-teal-50 text-teal-800' : 'text-slate-600'
+                  className={`w-full text-start px-4 py-2.5 text-[15px] border-t border-slate-100 ${
+                    highlight === suggestions.length ? 'bg-teal-50 text-teal-900' : 'text-slate-600'
                   }`}
                 >
                   {P.add_custom_role.replace('{role}', typed)}
@@ -129,27 +130,31 @@ export function RolePicker({ selected, setSelected }: {
 
       {/* Selected roles — each with its own seniority selector */}
       {selected.length > 0 && (
-        <ul className="mt-4 space-y-2.5">
+        <ul className="mt-4 divide-y divide-slate-100 border-y border-slate-100">
           {selected.map(item => (
             <li
               key={item.role}
-              className="rounded-xl border border-slate-100 bg-slate-50/60 px-3.5 py-3"
+              className="py-4"
             >
               <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-[13.5px] font-semibold text-slate-800">{roleLabel(item.role, locale)}</span>
+                <span className="text-[16px] font-semibold text-slate-900">{roleLabel(item.role, locale)}</span>
                 <button
                   onClick={() => setSelected(prev => prev.filter(r => r.role !== item.role))}
                   aria-label={P.remove_role.replace('{role}', item.role)}
-                  className="text-slate-300 hover:text-slate-600 text-[13px] transition"
-                >✕</button>
+                  className="-me-2 flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                    <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
+                  </svg>
+                </button>
               </div>
               {/* Testers didn't realise the chips were "your level in this
                   role", or how Senior differed from Lead. A labelled heading
                   and a one-line meaning for the chosen level fix both. */}
-              <p className="text-[11.5px] font-semibold text-slate-600 mb-1.5">
+              <p className="text-[14px] text-slate-600 mb-2">
                 {P.level_heading.replace('{role}', item.role)}
               </p>
-              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={P.level_for_role.replace('{role}', item.role)}>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={P.level_for_role.replace('{role}', item.role)}>
                 {SENIORITY_VALUES.map((value, i) => {
                   const on = item.seniority === value
                   return (
@@ -163,10 +168,11 @@ export function RolePicker({ selected, setSelected }: {
                           r.role === item.role ? { ...r, seniority: on ? null : value } : r
                         ))
                       }
-                      className={`text-[11.5px] font-medium px-2.5 py-1 rounded-full border transition ${
+                      type="button"
+                      className={`min-h-10 rounded-lg border px-3 text-[14px] font-medium transition-[background-color,border-color,transform] duration-ja-ui active:scale-[0.97] active:duration-ja-press focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 ${
                         on
-                          ? 'border-teal-400 bg-teal-100 text-teal-800'
-                          : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                          ? 'border-teal-700 bg-teal-50 text-teal-900'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
                       {P.seniority[i]}
@@ -174,7 +180,7 @@ export function RolePicker({ selected, setSelected }: {
                   )
                 })}
               </div>
-              <p className="mt-1.5 text-[11px] text-slate-500" aria-live="polite">
+              <p className="mt-2 text-[14px] text-slate-500" aria-live="polite">
                 {item.seniority === null
                   ? P.pick_level
                   : P.seniority_hint[SENIORITY_VALUES.indexOf(item.seniority)]}

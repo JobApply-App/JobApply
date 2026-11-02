@@ -355,6 +355,7 @@ class MatchScoreResult:
     # composite is exactly the pre-culture formula.
     culture_alignment:    Optional[float] = None   # 0-100 preference alignment, 1 dp
     culture_delta:        Optional[float] = None   # applied composite adjustment, ±5.0
+    proximity_delta:      Optional[float] = None   # closeness to home, 0 to 3; None = no signal
     culture_category:     Optional[str]   = None   # startup|scaleup|corporate|agency
     culture_note:         Optional[str]   = None   # specific UI explanation
     # ── Bullet-level skills-gap mapping (CVParser/LiveEditor integration) ─────
@@ -1627,6 +1628,21 @@ def culture_delta_from_alignment(
     return delta
 
 
+def _compute_proximity(job_location: str, user_id: str) -> Optional[float]:
+    """How close the job is to the user's home city; None when unknown."""
+    if not job_location:
+        return None
+    try:
+        from backend.repositories import profile_repository
+        from backend.services.israel_cities import proximity_delta
+        goals = profile_repository.get_profile_json(user_id).get("career_goals") or {}
+        return proximity_delta(goals, job_location)
+    except Exception:
+        # A failed lookup must not cost a score that was already paid for.
+        logger.warning("[match-proximity] could not read career goals", exc_info=True)
+        return None
+
+
 def finalize_composite(
     local: float,
     semantic: float,
@@ -1635,6 +1651,7 @@ def finalize_composite(
     knockout_failed: bool = False,
     culture_delta: float | None = None,
     structural: float | None = None,
+    proximity_delta: float | None = None,
 ) -> float:
     """
     Compose the final 0-100 Match Score from its parts. Pure and deterministic.
@@ -1643,6 +1660,8 @@ def finalize_composite(
       unified       = 0.60 × llm_composite + 0.40 × structural
       adjusted      = unified + culture_delta                   (when culture ran;
                       bounded ±CULTURE_MAX_ADJUST, see culture_delta_from_alignment)
+                      + proximity_delta                         (when a home city and
+                      the job's city are known; 0 to 3, see israel_cities)
       capped        = min(adjusted, 40.0)                       (knockout failed)
 
     The 40% deterministic term
@@ -1668,6 +1687,10 @@ def finalize_composite(
     Thin-JD callers (Principle 4) use none of this: they zero semantic and
     management and pass no structural, no ats_base and no culture_delta,
     preserving exactly 0.30 × local.
+
+    Proximity follows the same Future-Mandate reasoning as culture: without a
+    signal the composite is unchanged, the thin path never computes it, it is
+    never negative, and the knockout cap still lands after it.
     """
     llm_bucket    = _SEMANTIC_SHARE * semantic + _MANAGEMENT_SHARE * management
     llm_composite = _LOCAL_WEIGHT * local + _LLM_BUCKET_WEIGHT * llm_bucket
@@ -1679,6 +1702,8 @@ def finalize_composite(
         composite = _LLM_BLEND_WEIGHT * llm_composite + _ATS_BLEND_WEIGHT * deterministic
     if culture_delta is not None:
         composite += culture_delta
+    if proximity_delta is not None:
+        composite += proximity_delta
     if knockout_failed:
         composite = min(composite, KNOCKOUT_SCORE_CAP)
     return round(min(100.0, max(0.0, composite)), 1)
@@ -1993,6 +2018,7 @@ async def compute_match_score_async(
     entity_scores: "list | None" = None,
     job_id: Optional[str] = None,
     jd_structured: Optional[str] = None,
+    job_location: str = "",
 ) -> MatchScoreResult:
     """
     Async composite scorer — primary entry point for route handlers.
@@ -2156,6 +2182,8 @@ async def compute_match_score_async(
     dims = _compute_structural(cv_data, jd_text, company_name, user_id, ats,
                                jd_structured=jd_structured)
 
+    proximity = _compute_proximity(job_location, user_id)
+
     llm_composite   = finalize_composite(local, semantic, management)
     knockout_failed = bool(ats and not ats.knockout.passed)
     composite       = finalize_composite(
@@ -2164,6 +2192,7 @@ async def compute_match_score_async(
         structural      = dims.structural if dims else None,
         knockout_failed = knockout_failed,
         culture_delta   = culture_delta,
+        proximity_delta = proximity,
     )
 
     if dims is not None:
@@ -2226,6 +2255,7 @@ async def compute_match_score_async(
         ats_gaps             = list(ats.gap_analysis) if ats else [],
         culture_alignment    = culture_alignment,
         culture_delta        = culture_delta,
+        proximity_delta      = proximity,
         culture_category     = culture_category,
         culture_note         = culture_note,
         structural_score     = dims.structural if dims else None,
