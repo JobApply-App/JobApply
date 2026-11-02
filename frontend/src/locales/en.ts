@@ -253,6 +253,12 @@ export const en = {
     },
   },
   login: {
+    scene: {
+      closed: 'Your feed is behind the glass.',
+      typing: 'It opens as you sign in.',
+      open:   'Scored, and sorted best first.',
+      going:  'Opening your feed.',
+    },
     left: {
       quote_l1: 'While you sleep,',
       quote_l2: 'our agents work.',

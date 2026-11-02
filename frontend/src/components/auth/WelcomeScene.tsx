@@ -24,7 +24,7 @@ const EASE_MOVE = 'cubic-bezier(0.77, 0, 0.175, 1)'
 
 const prefersReduced = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-function LiveRing({ target, size = 48 }: { target: number; size?: number }) {
+export function LiveRing({ target, size = 48 }: { target: number; size?: number }) {
   const [shown, setShown] = useState(0)
   const band = getScoreBand(Math.max(target, 1))
   useEffect(() => {
