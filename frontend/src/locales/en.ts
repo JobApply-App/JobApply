@@ -1343,16 +1343,15 @@ export const en = {
   onboarding: {
     showcase: {
       title:    'Welcome to JobApply',
-      subtitle: 'Three steps to your AI-powered job search.',
-      selected: 'Selected',
-      cta:      'Get Started',
+      subtitle: 'Two short steps, then we start finding your jobs.',
+      cta:      'Get started',
       steps: [
-        { title: 'Create your Master Profile',
-          body:  'Tell us about your experience once. It all lives in a persistent profile, so you never have to repeat yourself.' },
-        { title: 'Auto-Tailor CVs for any job',
-          body:  'Paste a job description and get a perfectly tailored, ATS-optimised CV in seconds, with a match score so you know how strong your application is.' },
-        { title: 'Track your applications',
-          body:  'A Kanban board keeps every application visible. From "Saved" to "Offer", you always know where each opportunity stands.' },
+        { title: 'Tell us what you’re after',
+          body:  'Your target roles, then your CV. You only do this once.' },
+        { title: 'See the jobs that fit',
+          body:  'Every job gets a score, with the reasons behind it.' },
+        { title: 'Apply with a CV tailored to the job',
+          body:  'We write one for each job. You review and edit it before you download it.' },
       ],
     },
     preferences: {

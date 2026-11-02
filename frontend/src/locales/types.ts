@@ -1170,7 +1170,6 @@ export interface Dict {
     showcase: {
       title:    string
       subtitle: string
-      selected: string
       cta:      string
       steps: ReadonlyArray<{ title: string; body: string }>
     }

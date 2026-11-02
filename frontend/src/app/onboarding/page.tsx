@@ -4,11 +4,9 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/contexts/I18nContext'
 import AuthGuard            from '@/components/AuthGuard'
-import { OnboardingHeader } from '@/components/OnboardingHeader'
 import { useAuth }          from '@/contexts/AuthContext'
 import { useOnboarding }    from '@/contexts/OnboardingContext'
 import { resolveDisplayName } from '@/lib/nameUtils'
-import { TOKENS }           from '@/lib/tokens'
 import {
   saveRolePreferences, fetchRolePreferences, markOnboardingComplete,
   fetchAbout, saveAbout, REGIONS,
@@ -31,14 +29,6 @@ import { RolePicker, type PendingRole } from '@/components/RolePicker'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
-function CheckIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  )
-}
-
 function UploadIcon({ s = 20 }: { s?: number }) {
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -56,26 +46,6 @@ function SpinnerIcon({ s = 16 }: { s?: number }) {
       <path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
   )
-}
-
-// ── Shared layout — minimal onboarding chrome (logo + sign out only) ──────────
-
-function OnboardingShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col min-h-screen bg-[#FBFBFA]">
-      <OnboardingHeader />
-      <main className="flex-1 flex flex-col items-center px-4 py-12">
-        <div className="w-full max-w-3xl">{children}</div>
-      </main>
-    </div>
-  )
-}
-
-// A "forward" arrow points right in LTR and left in RTL. A literal "→" in a
-// Hebrew CTA points backwards, away from where the flow actually goes.
-function DirectionalArrow() {
-  const { dir } = useI18n()
-  return <span aria-hidden="true">{dir === 'rtl' ? '\u2190' : '\u2192'}</span>
 }
 
 // One question with a few answers. multi: any number may be on (areas).
@@ -123,12 +93,6 @@ const HOME_WHERE = ['israel', 'abroad'] as const
 const RADII = ['10', '25', '50', 'all'] as const
 type Radius = typeof RADII[number]
 
-// ── Steps data ────────────────────────────────────────────────────────────────
-
-// Icons only — title/body live in the dictionaries (onboarding.showcase.steps)
-// and are indexed positionally against this list. Keep both in the same order.
-const STEP_ICONS = ['🗂️', '⚡', '📊'] as const
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 type Phase = 'showcase' | 'account' | 'preferences' | 'intake'
@@ -151,7 +115,6 @@ function OnboardingContent() {
   const setPhase = useCallback((next: Phase) => {
     router.push(next === 'showcase' ? '/onboarding' : `/onboarding?step=${next}`)
   }, [router])
-  const [active, setActive] = useState(0)
 
   // Role & seniority step state
   const [selected,  setSelected]  = useState<PendingRole[]>([])
@@ -314,72 +277,39 @@ function OnboardingContent() {
     }
   }
 
-  // ── Showcase ─────────────────────────────────────────────────────────────────
-
-  if (phase === 'showcase') {
-    return (
-      <OnboardingShell>
-        <div className="text-center mb-10">
-          <h1 className="text-[28px] font-semibold text-slate-900 tracking-tight">
-            {O.showcase.title}
-          </h1>
-          <p className="text-[14px] text-slate-400 mt-1.5">
-            {O.showcase.subtitle}
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-5 mb-10">
-          {STEP_ICONS.map((icon, idx) => {
-            const isActive = active === idx
-            return (
-              <button
-                key={idx}
-                onClick={() => setActive(idx)}
-                className={`relative text-start rounded-2xl border p-6 transition-all duration-200 cursor-pointer ${
-                  isActive
-                    ? 'border-teal-300 bg-white shadow-elevation-2 scale-[1.02]'
-                    : 'border-slate-200 bg-white/70 hover:bg-white hover:border-slate-300'
-                }`}
-              >
-                <div className={`absolute -top-3 -left-3 w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold border-2 border-white shadow ${
-                  isActive ? 'bg-teal-500 text-white' : 'bg-slate-200 text-slate-500'
-                }`}>
-                  {idx + 1}
-                </div>
-
-                <div className="text-3xl mb-3">{icon}</div>
-                <p className="text-[15px] font-bold text-slate-900 mb-2 leading-snug">{O.showcase.steps[idx].title}</p>
-                <p className="text-[13px] text-slate-500 leading-relaxed">{O.showcase.steps[idx].body}</p>
-
-                {isActive && (
-                  <div className="mt-3 flex items-center gap-1.5 text-[12px] font-semibold text-teal-700">
-                    <CheckIcon /> {O.showcase.selected}
-                  </div>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="flex flex-col items-center">
-          <button
-            onClick={() => setPhase('preferences')}
-            className="h-12 px-8 rounded-2xl text-[15px] font-semibold text-white shadow-elevation-2 hover:shadow-floating hover:-translate-y-0.5 transition-all"
-            style={{ background: `linear-gradient(135deg, ${TOKENS.color.primary}, ${TOKENS.color.primaryHover})` }}
-          >
-            {O.showcase.cta} <DirectionalArrow />
-          </button>
-        </div>
-      </OnboardingShell>
-    )
-  }
-
   const signOutButton = (
     <button type="button" onClick={() => void signOut()}
       className="min-h-[44px] px-2 whitespace-nowrap text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors">
       {t.header.sign_out}
     </button>
   )
+
+  // ── Welcome ──────────────────────────────────────────────────────────────────
+
+  if (phase === 'showcase') {
+    return (
+      <AuthLayout headline={t.landing.close.h2} subline={t.landing.close.body} headerEnd={signOutButton}>
+        <div className="w-full max-w-[440px] animate-ja-tab-in motion-reduce:animate-none">
+          <h1 className={authTitle}>{O.showcase.title}</h1>
+          <p className={authSub}>{O.showcase.subtitle}</p>
+          <ol className="mt-6 divide-y divide-slate-100">
+            {O.showcase.steps.map((step, i) => (
+              <li key={step.title} className="flex gap-4 py-5">
+                <span aria-hidden="true" className="w-4 shrink-0 text-[16px] leading-snug font-semibold tabular-nums text-teal-700">{i + 1}</span>
+                <div className="min-w-0">
+                  <p className="text-[16px] leading-snug font-semibold tracking-tight text-slate-900">{step.title}</p>
+                  <p className="mt-1 text-[15px] leading-relaxed text-slate-500">{step.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <button type="button" onClick={() => setPhase('preferences')} className={`mt-4 ${authPrimary}`}>
+            {O.showcase.cta}
+          </button>
+        </div>
+      </AuthLayout>
+    )
+  }
 
   // ── Step 1 again, from Back on step 2 ────────────────────────────────────────
 
