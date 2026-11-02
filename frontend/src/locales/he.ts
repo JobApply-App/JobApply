@@ -291,13 +291,11 @@ export const he = {
       strength_hint:         'הוסף מספרים, אותיות גדולות וסמלים',
     },
     page: {
-      hero_eyebrow:      'מנוע הקריירה שלך מוכן',
       hero_headline:     'טוב לראות אותך שוב.',
       hero_subline:      'אריאל עקבה אחרי הזדמנויות חדשות בשבילך. התחברו כדי לראות את ההתאמות שלכם ולהמשיך לבנות את הפרופיל.',
       back_to_home:      'חזרה לדף הבית',
       back:              'חזרה',
       back_to_sign_in:   'חזרה להתחברות',
-      get_started:       'התחילו עכשיו',
       sign_in_title:     'התחברות',
       sign_in_sub:       'כניסה לחשבון ולהתאמות המשרות שלכם',
       forgot_password:   'שכחתם סיסמה?',
@@ -1449,10 +1447,8 @@ export const he = {
   signup: {
     steps: { label: 'שלב {n} מתוך {total}: {name}', names: ['פרטי החשבון', 'קצת עליכם', 'קורות חיים'] },
     page: {
-      hero_eyebrow:          'חיפוש העבודה הבא שלכם מתחיל כאן',
       back_to_login:         'חזרה להתחברות',
       back:                  'חזרה',
-      log_in:                'התחברות',
       title:                 'הגדרת החשבון שלכם',
       subtitle:              'מלאו את הפרטים כדי להתחיל.',
       or_fill_details:       'או מלאו את הפרטים',
@@ -1502,9 +1498,6 @@ export const he = {
   },
 
   auth_layout: {
-    default_eyebrow:      'ניהול קריירה חכם',
-    default_headline:     'הקריירה שלך, מנוהלת בחוכמה.',
-    default_subline:      'התאמת כל קורות חיים, מיפוי כל פער מיומנות, ומעקב אחרי כל הגשה.',
     verifying: 'מאמתים את החשבון שלך…',
     link_invalid_title: 'הקישור לא תקין או שפג תוקפו',
     link_invalid_body: 'בקשו מייל אימות חדש.',

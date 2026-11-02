@@ -291,13 +291,11 @@ export const en = {
       strength_hint:         'Add numbers, uppercase letters, and symbols',
     },
     page: {
-      hero_eyebrow:      'Your career engine is ready',
       hero_headline:     'Welcome back.',
       hero_subline:      'Ariel has been tracking new opportunities for you. Sign in to review your matches and continue building your profile.',
       back_to_home:      'Back to home',
       back:              'Back',
       back_to_sign_in:   'Back to sign in',
-      get_started:       'Get Started',
       sign_in_title:     'Sign in',
       sign_in_sub:       'Access your account and job matches',
       forgot_password:   'Forgot password?',
@@ -1412,10 +1410,8 @@ export const en = {
   signup: {
     steps: { label: 'Step {n} of {total}: {name}', names: ['Your account', 'About you', 'Your CV'] },
     page: {
-      hero_eyebrow:          'Your next job search starts here',
       back_to_login:         'Back to login',
       back:                  'Back',
-      log_in:                'Log in',
       title:                 'Set up your account',
       subtitle:              'Fill in your details to get started.',
       or_fill_details:       'or fill in your details',
@@ -1465,9 +1461,6 @@ export const en = {
   },
 
   auth_layout: {
-    default_eyebrow:      'Intelligent career management',
-    default_headline:     'Your career, intelligently managed.',
-    default_subline:      'Tailoring every CV, mapping every skill gap, and tracking every application.',
     verifying: 'Verifying your account…',
     link_invalid_title: 'Link invalid or expired',
     link_invalid_body: 'Please request a new confirmation email.',

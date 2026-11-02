@@ -200,13 +200,11 @@ export interface Dict {
     // above, which was written against an earlier design and no longer
     // matches what is on screen.
     page: {
-      hero_eyebrow:     string
       hero_headline:    string
       hero_subline:     string
       back_to_home:     string
       back:             string
       back_to_sign_in:  string
-      get_started:      string
       sign_in_title:    string
       sign_in_sub:      string
       forgot_password:  string
@@ -1226,10 +1224,8 @@ export interface Dict {
     // "Step {n} of {total}: {name}" over signup, about-you and CV upload.
     steps: { label: string; names: readonly [string, string, string] }
     page: {
-      hero_eyebrow:   string
       back_to_login:  string
       back:           string
-      log_in:         string
       title:          string
       subtitle:       string
       or_fill_details:string
@@ -1271,9 +1267,6 @@ export interface Dict {
     }
   }
   auth_layout: {
-    default_eyebrow:     string
-    default_headline:    string
-    default_subline:     string
     verifying: string
     link_invalid_title: string
     link_invalid_body: string
