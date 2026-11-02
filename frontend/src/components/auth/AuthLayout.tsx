@@ -49,10 +49,12 @@ interface AuthLayoutProps {
   headline: string
   subline:  string
   /** The way back: `label` is shown, `aria` says where it goes. */
-  back: { href: string; label: string; aria: string }
+  back?: { href: string; label: string; aria: string }
+  /** Beside the language menu, for someone already signed in (Sign out). */
+  headerEnd?: React.ReactNode
 }
 
-export function AuthLayout({ children, headline, subline, back }: AuthLayoutProps) {
+export function AuthLayout({ children, headline, subline, back, headerEnd }: AuthLayoutProps) {
   return (
     <div className="min-h-screen flex bg-white">
       <div className="hidden lg:flex lg:w-[46%] xl:w-[44%] shrink-0 flex-col h-screen sticky top-0 overflow-hidden p-10 xl:p-14"
@@ -78,17 +80,23 @@ export function AuthLayout({ children, headline, subline, back }: AuthLayoutProp
 
       <div className="flex flex-1 min-w-0 flex-col">
         <header className="h-16 shrink-0 flex items-center justify-between gap-3 px-4 sm:px-10">
-          <Link href={back.href} aria-label={back.aria}
-            className="inline-flex items-center gap-1.5 min-h-[44px] px-1 text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors">
-            {/* Mirrored in RTL: "back" points toward the reading start. */}
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
-              strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="rtl:-scale-x-100">
-              <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
-            </svg>
-            {back.label}
-          </Link>
-          <span className="lg:hidden"><Logo size={26} /></span>
-          <LanguageSwitcher />
+          {back ? (
+            <Link href={back.href} aria-label={back.aria}
+              className="inline-flex items-center gap-1.5 min-h-[44px] px-1 text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors">
+              {/* Mirrored in RTL: "back" points toward the reading start. */}
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
+                strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="rtl:-scale-x-100">
+                <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+              </svg>
+              {back.label}
+            </Link>
+          ) : <span />}
+          {/* With Sign out as well, a 320px phone has no room for all four. */}
+          <span className={headerEnd ? 'hidden min-[360px]:inline lg:hidden' : 'lg:hidden'}><Logo size={26} /></span>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <LanguageSwitcher />
+            {headerEnd}
+          </div>
         </header>
         <main className="flex flex-1 justify-center px-5 sm:px-10 pt-4 pb-12 lg:items-center">
           {children}

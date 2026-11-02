@@ -46,6 +46,7 @@ from backend.services.master_profile_service import (
     save_enriched_entities,
 )
 from backend.services.profile_update_service import ProfileUpdateService
+from backend.services.israel_cities import CITY_BY_NAME, RADIUS_OPTIONS_KM
 from backend.services.confidence_math import compute_decoupled_score, EvidenceRow, verification_status
 from backend.services.confidence_matrix_service import (
     compute_breakdown,
@@ -379,20 +380,33 @@ REGIONS          = {"Tel Aviv", "Center", "Sharon", "Shfela", "Jerusalem", "Haif
 _GENDER_TO_FORM  = {"male": "m", "female": "f"}
 
 
+SEARCH_MODES     = {"radius", "regions"}
+
+
 class AboutPayload(BaseModel):
     gender:           str
     locations:        List[str] = Field(default_factory=list, max_length=len(REGIONS))
     work_environment: str
     career_change:    str
+    home_city:        Optional[str] = None
+    home_abroad:      Optional[str] = Field(default=None, max_length=80)   # free text, outside Israel
+    search_mode:      str = "radius"
+    radius_km:        Optional[int] = None    # None = the whole country
 
 
 @router.get("/about")
 async def get_about(user: CurrentUser = Depends(get_current_user)) -> dict:
     """The calling user's step-2 answers, for prefilling the form."""
     goals = profile_repository.get_profile_json(user.user_id).get("career_goals") or {}
+    locations = [l for l in goals.get("preferred_locations") or [] if l in REGIONS]
     return {
         "gender":           profile_repository.get_answer(user.user_id, "gender"),
-        "locations":        [l for l in goals.get("preferred_locations") or [] if l in REGIONS],
+        "locations":        locations,
+        "home_city":        goals.get("home_city"),
+        "home_abroad":      goals.get("home_abroad"),
+        # Someone who answered before the radius existed picked regions.
+        "search_mode":      goals.get("search_mode") or ("regions" if locations else "radius"),
+        "radius_km":        goals.get("radius_km"),
         "work_environment": goals.get("work_environment"),
         "career_change":    goals.get("open_to_career_change"),
     }
@@ -400,7 +414,7 @@ async def get_about(user: CurrentUser = Depends(get_current_user)) -> dict:
 
 @router.post("/about")
 async def save_about(body: AboutPayload, user: CurrentUser = Depends(get_current_user)) -> dict:
-    """Save gender, locations, work model and openness to a career change."""
+    """Save gender, home city, search range, work model and openness to a career change."""
     if body.gender not in GENDERS:
         raise HTTPException(status_code=422, detail=f"gender must be one of {sorted(GENDERS)}")
     if body.work_environment not in WORK_MODELS:
@@ -410,6 +424,12 @@ async def save_about(body: AboutPayload, user: CurrentUser = Depends(get_current
     unknown = [l for l in body.locations if l not in REGIONS]
     if unknown:
         raise HTTPException(status_code=422, detail=f"unknown locations: {unknown}")
+    if body.home_city is not None and body.home_city not in CITY_BY_NAME:
+        raise HTTPException(status_code=422, detail=f"unknown city: {body.home_city}")
+    if body.search_mode not in SEARCH_MODES:
+        raise HTTPException(status_code=422, detail=f"search_mode must be one of {sorted(SEARCH_MODES)}")
+    if body.radius_km is not None and body.radius_km not in RADIUS_OPTIONS_KM:
+        raise HTTPException(status_code=422, detail=f"radius_km must be one of {sorted(RADIUS_OPTIONS_KM)}")
 
     profile_repository.set_answer(user.user_id, "gender", body.gender)
     form = _GENDER_TO_FORM.get(body.gender)
@@ -424,7 +444,15 @@ async def save_about(body: AboutPayload, user: CurrentUser = Depends(get_current
         row, _created = profile_repository.get_or_create(_sess, user.user_id, now=_now)
         mp = dict(row.master_profile or {})
         goals = dict(mp.get("career_goals") or {})
-        goals["preferred_locations"]   = list(dict.fromkeys(body.locations))
+        goals["preferred_locations"]   = list(dict.fromkeys(body.locations)) if body.search_mode == "regions" else []
+        goals["search_mode"]           = body.search_mode
+        goals["radius_km"]             = body.radius_km if body.search_mode == "radius" else None
+        if body.home_city is not None:
+            goals["home_city"]         = body.home_city
+            goals["home_abroad"]       = None
+        elif (body.home_abroad or "").strip():
+            goals["home_abroad"]       = body.home_abroad.strip()
+            goals["home_city"]         = None
         goals["work_environment"]      = body.work_environment
         goals["open_to_career_change"] = body.career_change
         mp["career_goals"] = goals

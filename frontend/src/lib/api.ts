@@ -741,11 +741,17 @@ export type CareerChange = 'yes' | 'maybe' | 'no'
 export const REGIONS = ['Tel Aviv', 'Center', 'Sharon', 'Shfela', 'Jerusalem', 'Haifa & North', "Be'er Sheva & South"] as const
 export type Region = typeof REGIONS[number]
 
+export type SearchMode = 'radius' | 'regions'
+
 export interface AboutAnswers {
   gender:           Gender | null
   locations:        Region[]
   work_environment: WorkEnvironment | null
   career_change:    CareerChange | null
+  home_city:        string | null
+  home_abroad:      string | null
+  search_mode:      SearchMode
+  radius_km:        number | null
 }
 
 export async function fetchAbout(): Promise<AboutAnswers> {
@@ -754,6 +760,7 @@ export async function fetchAbout(): Promise<AboutAnswers> {
 
 export async function saveAbout(body: {
   gender: Gender; locations: Region[]; work_environment: WorkEnvironment; career_change: CareerChange
+  home_city: string | null; home_abroad: string | null; search_mode: SearchMode; radius_km: number | null
 }): Promise<void> {
   await post<typeof body, { status: string }>('/api/profile/about', body)
 }

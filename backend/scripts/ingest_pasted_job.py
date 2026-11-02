@@ -145,6 +145,7 @@ async def run(title: str, company: str, location: str, url: str, description: st
         job_title=match.title,
         company_name=match.company or "",
         user_id=user_id,
+        job_location=match.location or "",
     )
     final_score = round(float(result.total), 1)
     analysis_ok = is_substantive_analysis(result.fit_brief)

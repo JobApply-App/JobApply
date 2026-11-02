@@ -1596,7 +1596,8 @@ async def match_score(req: MatchScoreRequest, user: CurrentUser = Depends(get_cu
 
     try:
         result = await compute_match_score_async(
-            req.cv_data, jd_proxy, run_llm_validation=req.llm_validation, user_id=user.user_id
+            req.cv_data, jd_proxy, run_llm_validation=req.llm_validation, user_id=user.user_id,
+            job_location=job.location or "",
         )
     except Exception as exc:
         logger.exception("[resumes/match-score] Scoring failed for job %s", req.job_id)
