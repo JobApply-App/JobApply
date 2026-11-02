@@ -7,8 +7,7 @@ import { isValidPhoneNumber } from 'react-phone-number-input'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOnboarding } from '@/contexts/OnboardingContext'
 import { useI18n } from '@/contexts/I18nContext'
-import { SignupSteps } from './SignupSteps'
-import { authInput, authLabel, authPrimary, authSub, authTitle } from './authStyles'
+import { authInput, authLabel, kycPrimary, kycSub, kycTitle } from './authStyles'
 
 const PhoneInput = dynamic(
   () => import('./PhoneInput').then(m => ({ default: m.PhoneInput })),
@@ -19,7 +18,7 @@ const PhoneInput = dynamic(
  * Where Back from step 2 lands. The account already exists by then, so this is
  * step 1 for editing: name and phone change, and no password is asked for.
  */
-export function AccountStep() {
+export function AccountStep({ onName }: { onName: (name: string) => void }) {
   const { t } = useI18n()
   const S = t.signup.page
   const A = t.onboarding.account
@@ -54,21 +53,20 @@ export function AccountStep() {
   }
 
   return (
-    <div className="w-full max-w-[440px]">
-      <SignupSteps current={1} />
-      <h1 className={authTitle}>{A.title}</h1>
-      <p className={authSub}>{A.subtitle}</p>
+    <div className="w-full">
+      <h1 className={kycTitle}>{A.title}</h1>
+      <p className={kycSub}>{A.subtitle}</p>
       <form onSubmit={save} noValidate className="mt-8 space-y-5">
         <div className="grid grid-cols-2 gap-3">
           <div className="min-w-0">
             <label htmlFor="firstName" className={authLabel}>{S.first_name}</label>
             <input id="firstName" autoComplete="given-name" value={firstName} disabled={busy}
-              onChange={e => setFirstName(e.target.value)} className={authInput()} />
+              onChange={e => { setFirstName(e.target.value); onName(`${e.target.value} ${lastName}`) }} className={authInput()} />
           </div>
           <div className="min-w-0">
             <label htmlFor="lastName" className={authLabel}>{S.last_name}</label>
             <input id="lastName" autoComplete="family-name" value={lastName} disabled={busy}
-              onChange={e => setLastName(e.target.value)} className={authInput()} />
+              onChange={e => { setLastName(e.target.value); onName(`${firstName} ${e.target.value}`) }} className={authInput()} />
           </div>
         </div>
         <div>
@@ -82,7 +80,7 @@ export function AccountStep() {
           <p id="email-note" className="mt-2 text-[14px] text-slate-500">{A.email_note}</p>
         </div>
         {error && <p className="text-[14px] text-rose-600" role="alert">{error}</p>}
-        <button type="submit" disabled={!canSave} className={authPrimary}>{A.cta}</button>
+        <button type="submit" disabled={!canSave} className={kycPrimary}>{A.cta}</button>
       </form>
     </div>
   )

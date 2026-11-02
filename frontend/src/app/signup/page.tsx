@@ -16,11 +16,11 @@ import { useAuth }                  from '@/contexts/AuthContext'
 import { useOnboarding }            from '@/contexts/OnboardingContext'
 import { getAuthHeaders }           from '@/lib/api'
 import { useI18n }                  from '@/contexts/I18nContext'
-import { AuthLayout }               from '@/components/auth/AuthLayout'
-import { SignupSteps }              from '@/components/auth/SignupSteps'
+import { CareerCard }               from '@/components/auth/CareerCard'
+import { KycShell }                 from '@/components/auth/KycShell'
 import { evaluatePassword }         from '@/components/auth/PasswordMeter'
 import { Logo }                     from '@/components/ui/Logo'
-import { authInput, authLabel, authPrimary, authSecondary, authSub, authTitle } from '@/components/auth/authStyles'
+import { authInput, authLabel, authSecondary, kycPrimary, kycSub, kycTitle } from '@/components/auth/authStyles'
 import { authErrorKind, authErrorMessage } from '@/lib/authErrors'
 
 // ── SSR-safe dynamic imports (prevents hydration mismatch) ───────────────────
@@ -239,16 +239,17 @@ export default function SignupPage() {
   const disableAll = busy || googleBusy
 
   return (
-    <AuthLayout
-      headline={t.landing.close.h2}
-      subline={t.landing.close.body}
+    <KycShell
+      step={1}
+      progress={0.2}
+      caption={{ headline: t.landing.close.h2, subline: t.landing.close.body }}
+      aside={<CareerCard name={`${firstName} ${lastName}`.trim() || null} role={null} home={null} work={null} />}
       back={{ href: '/login', label: S.page.back, aria: S.page.back_to_login }}
     >
-        <div className="w-full max-w-[440px] animate-ja-tab-in motion-reduce:animate-none">
-          <SignupSteps current={1} />
+        <div className="w-full animate-ja-tab-in motion-reduce:animate-none">
           <div className="mb-8">
-            <h1 className={authTitle}>{S.page.title}</h1>
-            <p className={authSub}>{S.page.subtitle}</p>
+            <h1 className={kycTitle}>{S.page.title}</h1>
+            <p className={kycSub}>{S.page.subtitle}</p>
           </div>
 
           <div className="space-y-6">
@@ -407,7 +408,7 @@ export default function SignupPage() {
               <button
                 type="submit"
                 disabled={disableAll || !canSubmit}
-                className={authPrimary}
+                className={kycPrimary}
               >
                 {busy && (
                   <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin flex-shrink-0" />
@@ -433,6 +434,6 @@ export default function SignupPage() {
               className="text-teal-700 hover:underline">{S.page.legal_privacy}</Link>{S.page.legal_suffix}
           </p>
         </div>
-    </AuthLayout>
+    </KycShell>
   )
 }
