@@ -79,7 +79,7 @@ def test_an_ordinary_bad_request_does_not():
 def _job(job_id, score):
     return SimpleNamespace(
         job_id=job_id, title="Analyst", company="Acme", apply_url="https://example.com/j",
-        jd_text="x" * 2000, jd_structured="{}", fit_brief=None, score_is_proxy=True,
+        jd_text="x" * 2000, jd_structured="{}", location="", fit_brief=None, score_is_proxy=True,
         enrichment_failures=0, match_score=score, score=score, posted_at="", reasons=[],
     )
 
