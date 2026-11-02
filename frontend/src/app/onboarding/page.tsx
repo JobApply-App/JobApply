@@ -21,33 +21,14 @@ import {
 import { AccountStep } from '@/components/auth/AccountStep'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { CityPicker, type HomeCity } from '@/components/auth/CityPicker'
+import { CvDropzone } from '@/components/auth/CvDropzone'
 import { SignupSteps } from '@/components/auth/SignupSteps'
 import { WelcomeScene } from '@/components/auth/WelcomeScene'
 import { authChip, authInput, authLabel, authPrimary, authSub, authTitle } from '@/components/auth/authStyles'
-import { CvUploadProgress } from '@/components/CvUploadProgress'
 import { armArielWelcome } from '@/lib/onboardingFlags'
 import { RolePicker, type PendingRole } from '@/components/RolePicker'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
-
-function UploadIcon({ s = 20 }: { s?: number }) {
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="16 16 12 12 8 16" /><line x1="12" y1="12" x2="12" y2="21" />
-      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
-    </svg>
-  )
-}
-
-function SpinnerIcon({ s = 16 }: { s?: number }) {
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" style={{ animation: 'ob-spin 0.8s linear infinite' }}>
-      <style>{`@keyframes ob-spin{to{transform:rotate(360deg)}}`}</style>
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.25" />
-      <path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 // One question with a few answers. multi: any number may be on (areas).
 function Choices<T extends string>({ label, hint, options, labels, value, onChange, multi = false, disabled, className = 'mt-8' }: {
@@ -135,11 +116,8 @@ function OnboardingContent() {
   const [change,    setChange]    = useState<CareerChange>('maybe')
 
   // CV upload state (in-place — no intermediate screen)
-  const fileRef = useRef<HTMLInputElement>(null)
   const [cvBusy,      setCvBusy]      = useState(false)
-  const [cvFileCount, setCvFileCount] = useState(0)
   const [cvStage,     setCvStage]     = useState<CvUploadStage>('uploading')
-  const [cvDragOver,  setCvDragOver]  = useState(false)
   const [cvError,     setCvError]     = useState('')
 
   // One role is enough to continue; the level is optional. Requiring a level
@@ -266,7 +244,6 @@ function OnboardingContent() {
   const handleCvFiles = async (files: File[]) => {
     if (!files.length || cvBusy) return
     setCvBusy(true)
-    setCvFileCount(files.length)
     setCvError('')
     try {
       await uploadCvFiles(files, setCvStage)   // all files go up together under the `files` key
@@ -437,64 +414,22 @@ function OnboardingContent() {
         <h1 className={authTitle}>{O.intake.title}</h1>
         <p className={authSub}>{O.intake.intro}</p>
 
-        {/* Upload CV — opens the OS file picker directly (no extra screen) */}
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".pdf,.docx"
-          multiple
-          className="hidden"
-          onChange={e => {
-            const files = Array.from(e.target.files ?? [])
-            e.target.value = ''
-            void handleCvFiles(files)
-          }}
+        <CvDropzone
+          busy={cvBusy}
+          stage={cvStage}
+          error={cvError}
+          onFiles={files => void handleCvFiles(files)}
+          onWrongType={() => setCvError(O.intake.wrong_type)}
         />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={cvBusy}
-          onDragOver={e => { e.preventDefault(); if (!cvBusy) setCvDragOver(true) }}
-          onDragLeave={() => setCvDragOver(false)}
-          onDrop={e => {
-            e.preventDefault()
-            setCvDragOver(false)
-            if (cvBusy) return
-            void handleCvFiles(Array.from(e.dataTransfer.files).filter(f => /\.(pdf|docx)$/i.test(f.name)))
-          }}
-          className={`mt-8 w-full flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-[background-color,border-color,transform] duration-ja-ui active:scale-[0.99] active:duration-ja-press hover:border-teal-600 hover:bg-teal-50/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 disabled:opacity-60 disabled:pointer-events-none ${
-            cvDragOver ? 'border-teal-600 bg-teal-50/60' : 'border-slate-200'
-          }`}
-        >
-          <span className="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center text-ja-primaryHover">
-            {cvBusy ? <SpinnerIcon s={22} /> : <UploadIcon s={22} />}
-          </span>
-          {cvBusy ? (
-            <span>
-              <span className="block text-[16px] font-semibold text-slate-900">
-                {(cvFileCount === 1 ? O.intake.uploading_one : O.intake.uploading_many)
-                  .replace('{n}', String(cvFileCount))}
-              </span>
-              <span className="block text-[14px] text-slate-500 mt-1">{O.intake.analyzing}</span>
-            </span>
-          ) : (
-            <span>
-              <span className="block text-[16px] font-semibold text-slate-900">{O.intake.upload_cta}</span>
-              <span className="block text-[14px] text-slate-500 mt-1 leading-relaxed">{O.intake.upload_hint}</span>
-            </span>
-          )}
-        </button>
-        {cvBusy && <CvUploadProgress stage={cvStage} />}
-        {cvError && (
-          <p className="text-[14px] text-rose-600 mt-3" role="alert">{cvError}</p>
-        )}
 
         {/* Testers uploaded other documents here (e.g. a regulations PDF) and
             got nothing back. Say up front what belongs here and where the
             rest goes, rather than only after a failed upload. */}
-        <p className="text-[14px] text-slate-500 mt-5 leading-relaxed">
-          {O.intake.cv_only_note}
-        </p>
+        {!cvBusy && (
+          <p className="text-[14px] text-slate-500 mt-5 leading-relaxed">
+            {O.intake.cv_only_note}
+          </p>
+        )}
 
         {/* Skip — straight to the dashboard (profile stays incomplete) */}
         <button

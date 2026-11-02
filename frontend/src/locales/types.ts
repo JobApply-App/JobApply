@@ -1247,9 +1247,10 @@ export interface Dict {
       upload_cta:     string
       upload_hint:    string
       cv_only_note:   string   // only CVs here; other documents later, via Ariel
-      uploading_one:  string   // takes {n}
-      uploading_many: string   // takes {n}
-      analyzing:      string
+      drag_over: string
+      wrong_type: string
+      files_count: string   // takes the number of files, {n}
+      reading: string
       upload_failed:  string
       skip:           string
     }
