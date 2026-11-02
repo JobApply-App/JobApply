@@ -264,13 +264,10 @@ export default function SignupPage() {
             </button>
 
             {/* Divider */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-100" />
-              </div>
-              <div className="relative flex justify-center text-[13px] text-slate-500">
-                <span className="bg-white px-3">{S.page.or_fill_details}</span>
-              </div>
+            <div className="flex items-center gap-3 text-[13px] text-slate-600">
+              <span className="h-px flex-1 bg-slate-900/10" />
+              {S.page.or_fill_details}
+              <span className="h-px flex-1 bg-slate-900/10" />
             </div>
 
             <form onSubmit={handleSubmit} noValidate className="space-y-5">
