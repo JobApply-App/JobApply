@@ -15,18 +15,18 @@ import Link                         from 'next/link'
 import { useAuth }                  from '@/contexts/AuthContext'
 import { useOnboarding }            from '@/contexts/OnboardingContext'
 import { getAuthHeaders }           from '@/lib/api'
-import { LanguageSwitcher }         from '@/components/LanguageSwitcher'
 import { useI18n }                  from '@/contexts/I18nContext'
 import { AuthLayout }               from '@/components/auth/AuthLayout'
 import { SignupSteps }              from '@/components/auth/SignupSteps'
 import { evaluatePassword }         from '@/components/auth/PasswordMeter'
-import { TOKENS }                   from '@/lib/tokens'
+import { Logo }                     from '@/components/ui/Logo'
+import { authInput, authLabel, authPrimary, authSecondary, authSub, authTitle } from '@/components/auth/authStyles'
 import { authErrorKind, authErrorMessage } from '@/lib/authErrors'
 
 // ── SSR-safe dynamic imports (prevents hydration mismatch) ───────────────────
 const PhoneInput = dynamic(
   () => import('@/components/auth/PhoneInput').then(m => ({ default: m.PhoneInput })),
-  { ssr: false, loading: () => <div className="h-[42px] rounded-lg border border-slate-200 bg-slate-50 animate-pulse" /> }
+  { ssr: false, loading: () => <div className="h-12 rounded-xl border border-slate-200 bg-slate-50 animate-pulse" /> }
 )
 
 const PasswordMeter = dynamic(
@@ -37,18 +37,6 @@ const PasswordMeter = dynamic(
 const LOG = '[JobApply-Debug][signup]'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
-
-function ArrowLeftIcon() {
-  return (
-    // Mirrored in RTL: "back" points toward the reading start (right in Hebrew).
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-      aria-hidden="true" className="rtl:-scale-x-100">
-      <line x1="19" y1="12" x2="5" y2="12" />
-      <polyline points="12 19 5 12 12 5" />
-    </svg>
-  )
-}
 
 function EyeOpenIcon() {
   return (
@@ -84,47 +72,24 @@ function GoogleLogo() {
 
 // ── Input style helper ────────────────────────────────────────────────────────
 
-function inputCls(hasError = false) {
-  return `w-full rounded-lg border bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none
-    transition placeholder:text-slate-400 disabled:opacity-50 ${
-    hasError
-      ? 'border-rose-400 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/20'
-      : 'border-slate-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20'
-  }`
-}
-
 // ── Workspace animation overlay ───────────────────────────────────────────────
 
 function WorkspaceAnimation({ name }: { name: string }) {
   const L = useI18n().t.auth_layout
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-6"
-      style={{ background: 'linear-gradient(145deg, var(--ja-ink) 0%, var(--ja-ink-deep) 60%, var(--ja-ink) 100%)' }}>
-      <div className="relative">
-        <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-white text-2xl font-extrabold tracking-tight"
-          style={{ background: TOKENS.color.primary, animation: 'logo-pulse 1.5s ease-in-out infinite' }}>
-          JA
-        </div>
-        <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-[3px] bg-green-500"
-          style={{ borderColor: 'var(--ja-ink)', animation: 'dot-blink 1.2s ease-in-out infinite' }} />
-      </div>
-      <div className="text-center space-y-1.5">
-        <p className="text-white text-xl font-bold tracking-tight">
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-6 px-6 text-center"
+      style={{ background: 'linear-gradient(150deg, #0F766E 0%, #115E59 55%, #134E4A 100%)' }}>
+      <span className="rounded-xl bg-white px-3 py-2 shadow-elevation-2"><Logo size={26} /></span>
+      <div className="space-y-2">
+        <p className="text-white text-[28px] sm:text-[36px] leading-tight font-extrabold tracking-[-0.03em]">
           {name ? L.creating_ws_named.replace('{name}', name) : L.creating_ws}
         </p>
-        <p className="text-sm" style={{ color: TOKENS.color.primary }}>
-          {L.setting_up}
-        </p>
+        <p className="text-[16px] text-teal-50/90">{L.setting_up}</p>
       </div>
-      <div className="w-52 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
-        <div className="h-full rounded-full"
-          style={{ background: TOKENS.color.primary, animation: 'ws-fill 1.4s ease-in-out forwards' }} />
+      <div className="w-52 h-1.5 rounded-full overflow-hidden bg-white/20">
+        <div className="h-full rounded-full bg-white" style={{ animation: 'ws-fill 1.4s ease-in-out forwards' }} />
       </div>
-      <style>{`
-        @keyframes logo-pulse { 0%,100%{box-shadow:0 0 0 0px ${TOKENS.color.primary}60} 50%{box-shadow:0 0 0 18px ${TOKENS.color.primary}00} }
-        @keyframes dot-blink  { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        @keyframes ws-fill    { from{width:0%} to{width:100%} }
-      `}</style>
+      <style>{`@keyframes ws-fill { from{width:0%} to{width:100%} }`}</style>
     </div>
   )
 }
@@ -275,44 +240,22 @@ export default function SignupPage() {
 
   return (
     <AuthLayout
-      leftEyebrow={S.page.hero_eyebrow}
-      leftHeadline={t.auth_layout.default_headline}
-      leftSubline={t.auth_layout.default_subline}
+      headline={t.landing.close.h2}
+      subline={t.landing.close.body}
+      back={{ href: '/login', label: S.page.back, aria: S.page.back_to_login }}
     >
-      {/* Header strip */}
-      <header className="flex-shrink-0 w-full">
-        <div className="h-16 flex items-center justify-between px-6 sm:px-10">
-          <Link href="/login"
-            className="inline-flex items-center gap-1.5 min-h-[44px] px-1 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
-            aria-label={S.page.back_to_login}>
-            <ArrowLeftIcon />
-            {S.page.back}
-          </Link>
-          <div className="flex items-center gap-3">
-            <LanguageSwitcher />
-            <Link href="/login"
-              className="inline-flex items-center min-h-[44px] px-1 text-sm font-semibold text-teal-700 hover:text-teal-800 transition-colors">
-              {S.page.log_in}
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Form */}
-      <div className="flex-1 px-6 sm:px-10 pb-12 pt-4">
-        <div className="max-w-lg mx-auto">
+        <div className="w-full max-w-[440px] animate-ja-tab-in motion-reduce:animate-none">
           <SignupSteps current={1} />
-          <div className="mb-7">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{S.page.title}</h1>
-            <p className="text-sm text-slate-500 mt-1">{S.page.subtitle}</p>
+          <div className="mb-8">
+            <h1 className={authTitle}>{S.page.title}</h1>
+            <p className={authSub}>{S.page.subtitle}</p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-100 p-8 space-y-6"
-            style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.02),0 20px 40px rgba(0,0,0,0.04)' }}>
+          <div className="space-y-6">
 
             {/* Google SSO */}
             <button type="button" onClick={handleGoogle} disabled={disableAll}
-              className="w-full flex items-center justify-center gap-3 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed">
+              className={authSecondary}>
               {googleBusy
                 ? <span className="w-[18px] h-[18px] rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin flex-shrink-0" />
                 : <GoogleLogo />}
@@ -324,7 +267,7 @@ export default function SignupPage() {
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-slate-100" />
               </div>
-              <div className="relative flex justify-center text-xs text-slate-400">
+              <div className="relative flex justify-center text-[13px] text-slate-500">
                 <span className="bg-white px-3">{S.page.or_fill_details}</span>
               </div>
             </div>
@@ -334,8 +277,8 @@ export default function SignupPage() {
               {/* First + last name */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="min-w-0">
-                  <label htmlFor="firstName" className="block text-xs font-medium text-slate-700 mb-1.5">
-                    {S.page.first_name} <span className="text-rose-400">*</span>
+                  <label htmlFor="firstName" className={authLabel}>
+                    {S.page.first_name}
                   </label>
                   <input
                     id="firstName" type="text" autoComplete="given-name" required
@@ -346,12 +289,12 @@ export default function SignupPage() {
                       setSubmitError(null)
                       setFirstName(e.target.value)
                     }}
-                    className={inputCls()}
+                    className={authInput()}
                   />
                 </div>
                 <div className="min-w-0">
-                  <label htmlFor="lastName" className="block text-xs font-medium text-slate-700 mb-1.5">
-                    {S.page.last_name} <span className="text-rose-400">*</span>
+                  <label htmlFor="lastName" className={authLabel}>
+                    {S.page.last_name}
                   </label>
                   <input
                     id="lastName" type="text" autoComplete="family-name" required
@@ -362,15 +305,15 @@ export default function SignupPage() {
                       setSubmitError(null)
                       setLastName(e.target.value)
                     }}
-                    className={inputCls()}
+                    className={authInput()}
                   />
                 </div>
               </div>
 
               {/* Phone */}
               <div>
-                <label htmlFor="phone" className="block text-xs font-medium text-slate-700 mb-1.5">
-                  {S.page.phone} <span className="text-rose-400">*</span>
+                <label htmlFor="phone" className={authLabel}>
+                  {S.page.phone}
                 </label>
                 <PhoneInput
                   id="phone"
@@ -383,8 +326,8 @@ export default function SignupPage() {
 
               {/* Email */}
               <div>
-                <label htmlFor="email" className="block text-xs font-medium text-slate-700 mb-1.5">
-                  {S.page.email} <span className="text-rose-400">*</span>
+                <label htmlFor="email" className={authLabel}>
+                  {S.page.email}
                 </label>
                 <div className="relative">
                   <input
@@ -399,16 +342,16 @@ export default function SignupPage() {
                       setEmailExists(false)
                       setEmail(e.target.value)
                     }}
-                    className={inputCls(emailExists)}
+                    className={authInput(emailExists)}
                   />
                   {emailChecking && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <span className="absolute end-4 top-1/2 -translate-y-1/2">
                       <span className="w-4 h-4 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin block" />
                     </span>
                   )}
                 </div>
                 {emailExists && !emailChecking && (
-                  <p id="email-error" className="mt-1.5 text-xs text-rose-600" role="alert">
+                  <p id="email-error" className="mt-2 text-[13px] text-rose-600" role="alert">
                     {S.page.account_exists}{' '}
                     <Link href="/login"
                       className="font-semibold underline hover:text-rose-800 transition-colors">
@@ -420,8 +363,8 @@ export default function SignupPage() {
 
               {/* Password */}
               <div>
-                <label htmlFor="password" className="block text-xs font-medium text-slate-700 mb-1.5">
-                  {S.page.password} <span className="text-rose-400">*</span>
+                <label htmlFor="password" className={authLabel}>
+                  {S.page.password}
                 </label>
                 <div className="relative">
                   <input
@@ -434,11 +377,11 @@ export default function SignupPage() {
                       setSubmitError(null)
                       setPassword(e.target.value)
                     }}
-                    className={`${inputCls(pw.level === 'weak' && password.length > 0)} pr-10`}
+                    className={`${authInput(pw.level === 'weak' && password.length > 0)} pe-11`}
                   />
-                  <button type="button" tabIndex={-1}
+                  <button type="button"
                     onClick={() => setShowPassword(v => !v)}
-                    className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="absolute inset-y-0 end-0 flex items-center px-3.5 rounded-xl text-slate-400 hover:text-slate-600 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-teal-600"
                     aria-label={showPassword ? t.login.card.hide_password : t.login.card.show_password}>
                     {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
                   </button>
@@ -448,7 +391,7 @@ export default function SignupPage() {
 
               {/* Error banner */}
               {submitError && (
-                <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs bg-ja-dangerSubtle text-ja-danger"
+                <div className="flex items-start gap-2 rounded-xl px-3.5 py-3 text-[13px] bg-ja-dangerSubtle text-ja-danger"
                   role="alert">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                     strokeWidth="2" strokeLinecap="round" className="flex-shrink-0 mt-0.5" aria-hidden="true">
@@ -464,8 +407,7 @@ export default function SignupPage() {
               <button
                 type="submit"
                 disabled={disableAll || !canSubmit}
-                className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: TOKENS.color.primary }}
+                className={authPrimary}
               >
                 {busy && (
                   <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin flex-shrink-0" />
@@ -474,7 +416,7 @@ export default function SignupPage() {
               </button>
             </form>
 
-            <p className="text-center text-xs text-slate-500">
+            <p className="text-center text-[14px] text-slate-600">
               {S.page.have_account}{' '}
               <Link href="/login" className="font-semibold text-teal-700 hover:text-teal-800 transition-colors">
                 {S.page.sign_in}
@@ -482,7 +424,7 @@ export default function SignupPage() {
             </p>
           </div>
 
-          <p className="mt-6 text-center text-[11px] text-slate-400 leading-relaxed max-w-md mx-auto">
+          <p className="mt-6 text-center text-[12.5px] text-slate-500 leading-relaxed">
             {S.page.legal_prefix}
             <Link href="/terms" target="_blank" rel="noopener noreferrer"
               className="text-teal-700 hover:underline">{S.page.legal_terms}</Link>
@@ -491,7 +433,6 @@ export default function SignupPage() {
               className="text-teal-700 hover:underline">{S.page.legal_privacy}</Link>{S.page.legal_suffix}
           </p>
         </div>
-      </div>
     </AuthLayout>
   )
 }

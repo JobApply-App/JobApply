@@ -5,10 +5,9 @@ import { useRouter }           from 'next/navigation'
 import Link                    from 'next/link'
 import { useAuth }             from '@/contexts/AuthContext'
 import { useI18n }             from '@/contexts/I18nContext'
-import { LanguageSwitcher }    from '@/components/LanguageSwitcher'
 import { AuthLayout }          from '@/components/auth/AuthLayout'
 import { PasswordMeter, evaluatePassword } from '@/components/auth/PasswordMeter'
-import { TOKENS }              from '@/lib/tokens'
+import { authInput, authLabel, authPrimary, authSecondary, authSub, authTitle } from '@/components/auth/authStyles'
 import { authErrorKind, authErrorMessage } from '@/lib/authErrors'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -20,18 +19,6 @@ type LoginPhase =
   | 'forgot-new-pw'      // enter and confirm new password
 
 // ── Shared icons ──────────────────────────────────────────────────────────────
-
-function ArrowLeftIcon() {
-  return (
-    // Mirrored in RTL: "back" points toward the reading start (right in Hebrew).
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-      aria-hidden="true" className="rtl:-scale-x-100">
-      <line x1="19" y1="12" x2="5" y2="12" />
-      <polyline points="12 19 5 12 12 5" />
-    </svg>
-  )
-}
 
 function EyeOpenIcon() {
   return (
@@ -65,22 +52,11 @@ function GoogleLogo() {
   )
 }
 
-// ── Input class helper ────────────────────────────────────────────────────────
-
-function inputCls(hasError = false) {
-  return `w-full rounded-lg border bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none
-    transition placeholder:text-slate-400 disabled:opacity-50 ${
-    hasError
-      ? 'border-rose-400 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/20'
-      : 'border-slate-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20'
-  }`
-}
-
 // ── Error banner ──────────────────────────────────────────────────────────────
 
 function ErrorBanner({ msg }: { msg: string }) {
   return (
-    <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs bg-ja-dangerSubtle text-ja-danger"
+    <div className="flex items-start gap-2 rounded-xl px-3.5 py-3 text-[13px] bg-ja-dangerSubtle text-ja-danger"
       role="alert">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         strokeWidth="2" strokeLinecap="round" className="flex-shrink-0 mt-0.5" aria-hidden="true">
@@ -287,13 +263,13 @@ export default function LoginPage() {
     return (
       <form onSubmit={handleSendOtp} className="space-y-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">{L.reset.request_title}</h2>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className={authTitle}>{L.reset.request_title}</h1>
+          <p className={authSub}>
             {L.reset.request_sub.replace('{n}', String(OTP_LENGTH))}
           </p>
         </div>
         <div>
-          <label htmlFor="fpEmail" className="block text-xs font-medium text-slate-700 mb-1.5">{L.card.email_label}</label>
+          <label htmlFor="fpEmail" className={authLabel}>{L.card.email_label}</label>
           <input
             id="fpEmail"
             type="email"
@@ -303,18 +279,17 @@ export default function LoginPage() {
             value={fpEmail}
             onChange={e => { setError(null); setFpEmail(e.target.value) }}
             placeholder="you@example.com"
-            className={inputCls()}
+            className={authInput()}
           />
         </div>
         {error && <ErrorBanner msg={error} />}
         <button type="submit" disabled={busy || !fpEmail.includes('@')}
-          className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-          style={{ background: TOKENS.color.primary }}>
+          className={authPrimary}>
           {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
           {busy ? L.reset.sending : L.reset.send_code}
         </button>
         <button type="button" onClick={resetToLogin}
-          className="w-full min-h-[44px] text-sm text-slate-400 hover:text-slate-700 transition-colors">
+          className="w-full min-h-[44px] text-[14px] text-slate-500 hover:text-slate-900 transition-colors">
           <BackArrow /> {L.page.back_to_sign_in}
         </button>
       </form>
@@ -325,9 +300,9 @@ export default function LoginPage() {
     return (
       <form onSubmit={handleVerifyOtp} className="space-y-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">{L.reset.otp_title}</h2>
+          <h1 className={authTitle}>{L.reset.otp_title}</h1>
           {successMsg && (
-            <p className="text-sm text-teal-700 mt-1 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">
+            <p className="mt-3 text-[14px] text-teal-800 bg-teal-50 rounded-xl px-3.5 py-3">
               {successMsg}
             </p>
           )}
@@ -347,8 +322,8 @@ export default function LoginPage() {
               onKeyDown={e => handleOtpKeyDown(i, e)}
               onPaste={e => handleOtpPaste(i, e)}
               disabled={busy}
-              className="w-11 h-12 rounded-xl border border-slate-200 bg-slate-50 text-center text-xl font-bold text-slate-900
-                outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 transition disabled:opacity-50"
+              className="w-12 h-14 rounded-xl border border-slate-200 bg-white text-center text-xl font-bold text-slate-900
+                outline-none hover:border-slate-300 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10 transition-[border-color,box-shadow] duration-ja-ui disabled:opacity-50"
               autoFocus={i === 0}
               aria-label={L.reset.otp_digit_label.replace('{n}', String(i + 1))}
             />
@@ -357,13 +332,12 @@ export default function LoginPage() {
 
         {error && <ErrorBanner msg={error} />}
         <button type="submit" disabled={busy || otp.join('').length < OTP_LENGTH}
-          className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-          style={{ background: TOKENS.color.primary }}>
+          className={authPrimary}>
           {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
           {busy ? L.reset.verifying : L.reset.verify_code}
         </button>
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <button type="button" onClick={resetToLogin} className="min-h-[44px] px-1 hover:text-slate-700 transition-colors">
+        <div className="flex items-center justify-between text-[14px] text-slate-500">
+          <button type="button" onClick={resetToLogin} className="min-h-[44px] px-1 hover:text-slate-900 transition-colors">
             <BackArrow /> {L.page.back}
           </button>
           <button type="button" disabled={busy}
@@ -380,11 +354,11 @@ export default function LoginPage() {
     return (
       <form onSubmit={handleSetNewPassword} className="space-y-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">{L.reset.new_pw_title}</h2>
-          <p className="text-sm text-slate-500 mt-1">{L.reset.new_pw_sub}</p>
+          <h1 className={authTitle}>{L.reset.new_pw_title}</h1>
+          <p className={authSub}>{L.reset.new_pw_sub}</p>
         </div>
         <div>
-          <label htmlFor="newPw" className="block text-xs font-medium text-slate-700 mb-1.5">{L.reset.new_pw_label}</label>
+          <label htmlFor="newPw" className={authLabel}>{L.reset.new_pw_label}</label>
           <div className="relative">
             <input
               id="newPw"
@@ -396,11 +370,11 @@ export default function LoginPage() {
               value={newPw}
               onChange={e => { setError(null); setNewPw(e.target.value) }}
               placeholder={L.reset.new_pw_placeholder}
-              className={`${inputCls()} pr-10`}
+              className={`${authInput()} pe-11`}
             />
-            <button type="button" tabIndex={-1}
+            <button type="button"
               onClick={() => setShowNewPw(v => !v)}
-              className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600 transition-colors"
+              className="absolute inset-y-0 end-0 flex items-center px-3.5 rounded-xl text-slate-400 hover:text-slate-600 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-teal-600"
               aria-label={showNewPw ? L.card.hide_password : L.card.show_password}>
               {showNewPw ? <EyeClosedIcon /> : <EyeOpenIcon />}
             </button>
@@ -410,8 +384,7 @@ export default function LoginPage() {
         {error && <ErrorBanner msg={error} />}
         <button type="submit"
           disabled={busy || newPwStrength.level === 'weak' || newPwStrength.level === 'empty'}
-          className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-          style={{ background: TOKENS.color.primary }}>
+          className={authPrimary}>
           {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
           {busy ? L.reset.saving : L.reset.save_and_sign_in}
         </button>
@@ -423,33 +396,11 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      leftHeadline={L.page.hero_headline}
-      leftEyebrow={L.page.hero_eyebrow}
-      leftSubline={L.page.hero_subline}
+      headline={L.page.hero_headline}
+      subline={L.page.hero_subline}
+      back={{ href: '/', label: L.page.back, aria: L.page.back_to_home }}
     >
-      {/* Header strip */}
-      <header className="flex-shrink-0 w-full">
-        <div className="h-16 flex items-center justify-between px-6 sm:px-10">
-          <Link href="/"
-            className="inline-flex items-center gap-1.5 min-h-[44px] px-1 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
-            aria-label={L.page.back_to_home}>
-            <ArrowLeftIcon />
-            {L.page.back}
-          </Link>
-          <div className="flex items-center gap-3">
-            <LanguageSwitcher />
-            <Link href="/signup"
-              className="inline-flex items-center h-9 px-4 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: TOKENS.color.primary }}>
-              {L.page.get_started}
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Form area */}
-      <div className="flex flex-1 items-center justify-center px-6 py-10">
-        <div className="w-full max-w-sm">
+        <div key={phase} className="w-full max-w-[400px] animate-ja-tab-in motion-reduce:animate-none">
 
           {/* Sub-views for forgot password */}
           {phase === 'forgot-email'  && <ForgotEmailView  />}
@@ -459,19 +410,16 @@ export default function LoginPage() {
           {/* Normal login */}
           {phase === 'login' && (
             <>
-              <div className="mb-7">
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{L.page.sign_in_title}</h1>
-                <p className="text-sm text-slate-500 mt-1">{L.page.sign_in_sub}</p>
+              <div className="mb-8">
+                <h1 className={authTitle}>{L.page.sign_in_title}</h1>
+                <p className={authSub}>{L.page.sign_in_sub}</p>
               </div>
 
-              <div
-                className="bg-white rounded-2xl border border-slate-100 p-8 space-y-5"
-                style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.02),0 20px 40px rgba(0,0,0,0.04)' }}
-              >
+              <div className="space-y-5">
                 {/* Google */}
                 <button type="button" onClick={handleGoogle}
                   disabled={busy || googleBusy}
-                  className="w-full flex items-center justify-center gap-3 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                  className={authSecondary}>
                   {googleBusy
                     ? <span className="w-[18px] h-[18px] rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin flex-shrink-0" />
                     : <GoogleLogo />}
@@ -483,7 +431,7 @@ export default function LoginPage() {
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-slate-100" />
                   </div>
-                  <div className="relative flex justify-center text-xs text-slate-400">
+                  <div className="relative flex justify-center text-[13px] text-slate-500">
                     <span className="bg-white px-3">{L.page.or_sign_in_email}</span>
                   </div>
                 </div>
@@ -491,21 +439,21 @@ export default function LoginPage() {
                 {/* Form */}
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div>
-                    <label htmlFor="email" className="block text-xs font-medium text-slate-700 mb-1.5">{L.card.email_label}</label>
+                    <label htmlFor="email" className={authLabel}>{L.card.email_label}</label>
                     <input id="email" type="email" autoComplete="username" required
                       disabled={busy} value={email}
                       onChange={e => { setError(null); setEmail(e.target.value) }}
-                      className={inputCls()} />
+                      className={authInput()} />
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label htmlFor="password" className="block text-xs font-medium text-slate-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <label htmlFor="password" className="block text-[14px] font-medium text-slate-700">
                         {L.card.password_label}
                       </label>
                       <button type="button"
                         onClick={() => { setFpEmail(email); setPhase('forgot-email'); setError(null) }}
-                        className="min-h-[44px] sm:min-h-0 px-1 text-xs text-teal-700 hover:text-teal-800 font-medium transition-colors">
+                        className="min-h-[44px] sm:min-h-0 px-1 text-[13px] text-teal-700 hover:text-teal-800 font-medium transition-colors">
                         {L.page.forgot_password}
                       </button>
                     </div>
@@ -514,10 +462,10 @@ export default function LoginPage() {
                         autoComplete="current-password" required disabled={busy}
                         value={password}
                         onChange={e => { setError(null); setPassword(e.target.value) }}
-                        className={`${inputCls()} pr-10`} />
-                      <button type="button" tabIndex={-1}
+                        className={`${authInput()} pe-11`} />
+                      <button type="button"
                         onClick={() => setShowPassword(v => !v)}
-                        className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600 transition-colors"
+                        className="absolute inset-y-0 end-0 flex items-center px-3.5 rounded-xl text-slate-400 hover:text-slate-600 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-teal-600"
                         aria-label={showPassword ? L.card.hide_password : L.card.show_password}>
                         {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
                       </button>
@@ -527,8 +475,7 @@ export default function LoginPage() {
                   {error && <ErrorBanner msg={error} />}
 
                   <button type="submit" disabled={busy}
-                    className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-                    style={{ background: TOKENS.color.primary }}>
+                    className={authPrimary}>
                     {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
                     {busy ? L.card.signing_in : L.card.sign_in_btn}
                   </button>
@@ -536,10 +483,10 @@ export default function LoginPage() {
 
                 {/* The landing page sends everyone here first, so the way to
                     a new account has to be as easy to see as the form. */}
-                <div className="grid gap-2 pt-4 border-t border-slate-100">
-                  <p className="text-center text-sm text-slate-600">{L.card.no_account}</p>
+                <div className="grid gap-3 pt-5 border-t border-slate-100">
+                  <p className="text-center text-[14px] text-slate-600">{L.card.no_account}</p>
                   <Link href="/signup"
-                    className="w-full inline-flex items-center justify-center min-h-[44px] rounded-lg border border-slate-200 text-sm font-semibold text-teal-800 hover:bg-slate-50 transition-colors">
+                    className={`${authSecondary} !text-teal-800`}>
                     {L.card.sign_up_link}
                   </Link>
                 </div>
@@ -547,7 +494,6 @@ export default function LoginPage() {
             </>
           )}
         </div>
-      </div>
     </AuthLayout>
   )
 }

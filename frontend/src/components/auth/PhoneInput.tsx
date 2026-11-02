@@ -166,14 +166,14 @@ export function PhoneInput({
 
   const borderColor = (hasError || invalid) ? '#F43F5E' : isValid ? '#14b8a6' : '#E2E8F0'
   const focusCls    = (hasError || invalid)
-    ? 'focus-within:border-rose-400 focus-within:ring-2 focus-within:ring-rose-500/20'
-    : 'focus-within:border-teal-400 focus-within:ring-2 focus-within:ring-teal-500/20'
+    ? 'focus-within:border-rose-500 focus-within:ring-4 focus-within:ring-rose-500/10'
+    : 'focus-within:border-teal-600 focus-within:ring-4 focus-within:ring-teal-600/10'
 
   return (
     <div className="relative" ref={wrapperRef}>
       {/* Input row */}
       <div
-        className={`flex items-stretch rounded-lg border bg-slate-50 overflow-hidden transition-all ${focusCls} ${disabled ? 'opacity-50' : ''}`}
+        className={`flex items-stretch h-12 rounded-xl border bg-white overflow-hidden transition-[border-color,box-shadow] duration-ja-ui ${focusCls} ${disabled ? 'opacity-50' : ''}`}
         style={{ borderColor }}
       >
         {/* Country trigger */}
@@ -181,14 +181,14 @@ export function PhoneInput({
           type="button"
           onClick={() => { if (!disabled) { setOpen(v => !v); setQuery('') } }}
           disabled={disabled}
-          className="flex items-center gap-1.5 px-3 py-2.5 border-r bg-slate-50 hover:bg-slate-100 transition-colors flex-shrink-0"
+          className="flex items-center gap-1.5 px-3 border-e bg-white hover:bg-slate-50 transition-colors flex-shrink-0"
           style={{ borderColor: '#E2E8F0' }}
           aria-label={t.signup.phone.select_country_code}
           aria-haspopup="listbox"
           aria-expanded={open}
         >
           <span className="text-lg leading-none">{country.flag}</span>
-          <span className="text-[13px] font-medium text-slate-600">{country.dial}</span>
+          <span dir="ltr" className="text-[13px] font-medium text-slate-600">{country.dial}</span>
           <svg
             width="10" height="10" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
@@ -210,13 +210,13 @@ export function PhoneInput({
           value={local}
           onChange={handleLocalChange}
           onBlur={() => setTouched(true)}
-          className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none"
+          className="flex-1 min-w-0 bg-transparent px-3 text-[16px] text-slate-900 placeholder:text-slate-400 outline-none"
           aria-label={t.signup.phone.phone_number}
         />
 
         {/* Valid checkmark */}
         {isValid && !invalid && (
-          <span className="flex items-center pr-3" aria-hidden="true">
+          <span className="flex items-center pe-3" aria-hidden="true">
             <span className="w-4 h-4 rounded-full flex items-center justify-center"
               style={{ background: '#14b8a6' }}>
               <svg width="8" height="8" viewBox="0 0 24 24" fill="none"
@@ -238,7 +238,7 @@ export function PhoneInput({
       {/* Dropdown */}
       {open && (
         <div
-          className="absolute z-50 left-0 mt-1.5 w-72 rounded-xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-floating overflow-hidden"
+          className="absolute z-50 start-0 mt-1.5 w-72 rounded-xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-floating overflow-hidden"
           role="listbox"
           aria-label={t.signup.phone.select_country}
         >
