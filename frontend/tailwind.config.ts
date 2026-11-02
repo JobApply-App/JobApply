@@ -124,6 +124,37 @@ const config: Config = {
           '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
         },
         // Backdrop behind a modal: fades, never moves.
+        // A question arriving from the side it was reached from.
+        'ja-from-end': {
+          from: { opacity: '0', transform: 'translateX(24px)', filter: 'blur(3px)' },
+          to:   { opacity: '1', transform: 'none', filter: 'blur(0)' },
+        },
+        'ja-from-start': {
+          from: { opacity: '0', transform: 'translateX(-24px)', filter: 'blur(3px)' },
+          to:   { opacity: '1', transform: 'none', filter: 'blur(0)' },
+        },
+        // The career card settling onto the canvas.
+        'ja-card-in': {
+          from: { opacity: '0', transform: 'translateY(28px) rotateX(16deg) scale(.96)' },
+          to:   { opacity: '1', transform: 'none' },
+        },
+        'ja-sweep': {
+          from: { transform: 'translateY(-100%)' },
+          to:   { transform: 'translateY(100%)' },
+        },
+        'ja-scan': {
+          from: { transform: 'translateY(-48px)' },
+          to:   { transform: 'translateY(132px)' },
+        },
+        'ja-shake': {
+          '20%': { transform: 'translateX(-6px)' },
+          '45%': { transform: 'translateX(5px)' },
+          '70%': { transform: 'translateX(-3px)' },
+        },
+        'ja-fill': {
+          from: { transform: 'scaleX(0)' },
+          to:   { transform: 'scaleX(1)' },
+        },
         'ja-fade': {
           '0%':   { opacity: '0' },
           '100%': { opacity: '1' },
@@ -149,6 +180,13 @@ const config: Config = {
         'modal-in':    'modal-in 260ms cubic-bezier(0.23, 1, 0.32, 1)',
         'ja-fade':     'ja-fade 200ms cubic-bezier(0.23, 1, 0.32, 1)',
         'ja-rise':     'ja-rise 400ms cubic-bezier(0.23, 1, 0.32, 1) both',
+        'ja-fill':     'ja-fill 1s linear both',
+        'ja-from-end':   'ja-from-end 280ms cubic-bezier(0.23, 1, 0.32, 1) both',
+        'ja-from-start': 'ja-from-start 280ms cubic-bezier(0.23, 1, 0.32, 1) both',
+        'ja-card-in':  'ja-card-in 800ms cubic-bezier(0.23, 1, 0.32, 1) both',
+        'ja-sweep':    'ja-sweep 2.2s cubic-bezier(0.77, 0, 0.175, 1) infinite alternate',
+        'ja-scan':     'ja-scan 1.8s cubic-bezier(0.77, 0, 0.175, 1) infinite alternate',
+        'ja-shake':    'ja-shake 360ms cubic-bezier(0.23, 1, 0.32, 1)',
         'ja-sheet-up': 'ja-sheet-up 320ms cubic-bezier(0.23, 1, 0.32, 1)',
         'ja-menu-in':  'ja-menu-in 180ms cubic-bezier(0.23, 1, 0.32, 1)',
         // A tab's content arriving: the same rise, shorter and smaller, so

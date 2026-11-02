@@ -1170,8 +1170,16 @@ export interface Dict {
     showcase: {
       title:    string
       subtitle: string
-      selected: string
+      greeting: string   // takes the user's first name, {name}
       cta:      string
+      pause:    string
+      replay:   string
+      example:  string
+      name_fallback: string
+      stamp:    string   // takes a job title, {job}
+      read_chips: ReadonlyArray<string>
+      // A sample tailored CV: `mark` is the part highlighted as matching the job.
+      cv_lines: ReadonlyArray<{ before: string; mark: string; after: string }>
       steps: ReadonlyArray<{ title: string; body: string }>
     }
     preferences: {
@@ -1229,6 +1237,7 @@ export interface Dict {
       save_failed: string
     }
     // The teal panel beside steps 2 and 3.
+    card: { role: string; home: string }
     panels: {
       preferences: { headline: string; subline: string }
       intake:      { headline: string; subline: string }
@@ -1239,9 +1248,10 @@ export interface Dict {
       upload_cta:     string
       upload_hint:    string
       cv_only_note:   string   // only CVs here; other documents later, via Ariel
-      uploading_one:  string   // takes {n}
-      uploading_many: string   // takes {n}
-      analyzing:      string
+      drag_over: string
+      wrong_type: string
+      files_count: string   // takes the number of files, {n}
+      reading: string
       upload_failed:  string
       skip:           string
     }

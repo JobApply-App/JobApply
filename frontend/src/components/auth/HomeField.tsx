@@ -2,7 +2,7 @@
 
 import { useI18n } from '@/contexts/I18nContext'
 import { CityPicker, type HomeCity } from './CityPicker'
-import { authChip, authInput, authLabel } from './authStyles'
+import { authInput, authLabel, kycOption } from './authStyles'
 
 export type HomeWhere = 'israel' | 'abroad'
 const WHERE: readonly HomeWhere[] = ['israel', 'abroad']
@@ -22,10 +22,10 @@ export function HomeField({ cities, where, onWhere, city, onCity, abroad, onAbro
   const A = useI18n().t.onboarding.about
   return (
     <>
-      <div role="radiogroup" aria-label={A.home_label} className="flex flex-wrap gap-2">
+      <div role="radiogroup" aria-label={A.home_label} className="grid grid-cols-2 gap-2.5">
         {WHERE.map(w => (
           <button key={w} type="button" role="radio" aria-checked={where === w} disabled={disabled}
-            onClick={() => onWhere(w)} className={authChip(where === w)}>
+            onClick={() => onWhere(w)} className={kycOption(where === w)}>
             {A.home_where[w]}
           </button>
         ))}
@@ -34,7 +34,7 @@ export function HomeField({ cities, where, onWhere, city, onCity, abroad, onAbro
         {where === 'israel' ? (
           <>
             <CityPicker id="home-city" cities={cities} value={city} onChange={onCity} disabled={disabled} />
-            <p className="mt-2 text-[13px] text-slate-500">{A.credit}</p>
+            <p className="mt-2 text-[13px] text-slate-600">{A.credit}</p>
           </>
         ) : (
           <>
