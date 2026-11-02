@@ -5,9 +5,10 @@ import { useRouter }           from 'next/navigation'
 import Link                    from 'next/link'
 import { useAuth }             from '@/contexts/AuthContext'
 import { useI18n }             from '@/contexts/I18nContext'
-import { AuthLayout }          from '@/components/auth/AuthLayout'
+import { ExampleFeed }         from '@/components/auth/ExampleFeed'
+import { KycShell }            from '@/components/auth/KycShell'
 import { PasswordMeter, evaluatePassword } from '@/components/auth/PasswordMeter'
-import { authInput, authLabel, authPrimary, authSecondary, authSub, authTitle } from '@/components/auth/authStyles'
+import { authInput, authLabel, authSecondary, kycPrimary, kycSub, kycTitle } from '@/components/auth/authStyles'
 import { authErrorKind, authErrorMessage } from '@/lib/authErrors'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -263,8 +264,8 @@ export default function LoginPage() {
     return (
       <form onSubmit={handleSendOtp} className="space-y-5">
         <div>
-          <h1 className={authTitle}>{L.reset.request_title}</h1>
-          <p className={authSub}>
+          <h1 className={kycTitle}>{L.reset.request_title}</h1>
+          <p className={kycSub}>
             {L.reset.request_sub.replace('{n}', String(OTP_LENGTH))}
           </p>
         </div>
@@ -284,7 +285,7 @@ export default function LoginPage() {
         </div>
         {error && <ErrorBanner msg={error} />}
         <button type="submit" disabled={busy || !fpEmail.includes('@')}
-          className={authPrimary}>
+          className={kycPrimary}>
           {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
           {busy ? L.reset.sending : L.reset.send_code}
         </button>
@@ -300,7 +301,7 @@ export default function LoginPage() {
     return (
       <form onSubmit={handleVerifyOtp} className="space-y-5">
         <div>
-          <h1 className={authTitle}>{L.reset.otp_title}</h1>
+          <h1 className={kycTitle}>{L.reset.otp_title}</h1>
           {successMsg && (
             <p className="mt-3 text-[14px] text-teal-800 bg-teal-50 rounded-xl px-3.5 py-3">
               {successMsg}
@@ -332,7 +333,7 @@ export default function LoginPage() {
 
         {error && <ErrorBanner msg={error} />}
         <button type="submit" disabled={busy || otp.join('').length < OTP_LENGTH}
-          className={authPrimary}>
+          className={kycPrimary}>
           {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
           {busy ? L.reset.verifying : L.reset.verify_code}
         </button>
@@ -354,8 +355,8 @@ export default function LoginPage() {
     return (
       <form onSubmit={handleSetNewPassword} className="space-y-5">
         <div>
-          <h1 className={authTitle}>{L.reset.new_pw_title}</h1>
-          <p className={authSub}>{L.reset.new_pw_sub}</p>
+          <h1 className={kycTitle}>{L.reset.new_pw_title}</h1>
+          <p className={kycSub}>{L.reset.new_pw_sub}</p>
         </div>
         <div>
           <label htmlFor="newPw" className={authLabel}>{L.reset.new_pw_label}</label>
@@ -384,7 +385,7 @@ export default function LoginPage() {
         {error && <ErrorBanner msg={error} />}
         <button type="submit"
           disabled={busy || newPwStrength.level === 'weak' || newPwStrength.level === 'empty'}
-          className={authPrimary}>
+          className={kycPrimary}>
           {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
           {busy ? L.reset.saving : L.reset.save_and_sign_in}
         </button>
@@ -395,12 +396,12 @@ export default function LoginPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <AuthLayout
-      headline={L.page.hero_headline}
-      subline={L.page.hero_subline}
+    <KycShell
+      aside={<ExampleFeed />}
+      caption={{ headline: L.page.hero_headline, subline: L.page.hero_subline }}
       back={{ href: '/', label: L.page.back, aria: L.page.back_to_home }}
     >
-        <div key={phase} className="w-full max-w-[400px] animate-ja-tab-in motion-reduce:animate-none">
+        <div key={phase} className="w-full animate-ja-tab-in motion-reduce:animate-none">
 
           {/* Sub-views for forgot password */}
           {phase === 'forgot-email'  && <ForgotEmailView  />}
@@ -411,8 +412,8 @@ export default function LoginPage() {
           {phase === 'login' && (
             <>
               <div className="mb-8">
-                <h1 className={authTitle}>{L.page.sign_in_title}</h1>
-                <p className={authSub}>{L.page.sign_in_sub}</p>
+                <h1 className={kycTitle}>{L.page.sign_in_title}</h1>
+                <p className={kycSub}>{L.page.sign_in_sub}</p>
               </div>
 
               <div className="space-y-5">
@@ -427,13 +428,10 @@ export default function LoginPage() {
                 </button>
 
                 {/* Divider */}
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-100" />
-                  </div>
-                  <div className="relative flex justify-center text-[13px] text-slate-500">
-                    <span className="bg-white px-3">{L.page.or_sign_in_email}</span>
-                  </div>
+                <div className="flex items-center gap-3 text-[13px] text-slate-600">
+                  <span className="h-px flex-1 bg-slate-900/10" />
+                  {L.page.or_sign_in_email}
+                  <span className="h-px flex-1 bg-slate-900/10" />
                 </div>
 
                 {/* Form */}
@@ -475,7 +473,7 @@ export default function LoginPage() {
                   {error && <ErrorBanner msg={error} />}
 
                   <button type="submit" disabled={busy}
-                    className={authPrimary}>
+                    className={kycPrimary}>
                     {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
                     {busy ? L.card.signing_in : L.card.sign_in_btn}
                   </button>
@@ -494,6 +492,6 @@ export default function LoginPage() {
             </>
           )}
         </div>
-    </AuthLayout>
+    </KycShell>
   )
 }

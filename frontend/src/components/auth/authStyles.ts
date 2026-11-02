@@ -12,10 +12,7 @@ export function authInput(hasError = false) {
   }`
 }
 
-export const authTitle = 'text-[30px] sm:text-[36px] leading-[1.1] font-bold tracking-[-0.03em] text-slate-900'
-export const authSub = 'mt-2 text-[16px] leading-relaxed text-slate-500'
 export const authLabel = 'block text-[14px] font-medium text-slate-700 mb-2'
-export const authPrimary = `w-full h-12 rounded-xl bg-ja-primaryHover text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 hover:bg-ja-harbor disabled:opacity-40 disabled:pointer-events-none ${press}`
 export const authSecondary = `w-full h-12 rounded-xl border border-slate-200 bg-white text-[15px] font-semibold text-slate-700 flex items-center justify-center gap-3 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:pointer-events-none ${press}`
 
 // The signup steps, on the glow of KycShell: larger type, and answers as tiles.
