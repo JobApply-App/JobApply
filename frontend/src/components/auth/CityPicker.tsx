@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import { authInput } from './authStyles'
 import { ComboChevron } from './ComboChevron'
@@ -9,6 +9,18 @@ export interface HomeCity { en: string; he: string; alt?: string[] }
 
 const fold = (s: string) => s.toLowerCase().replace(/['׳’"״*]/g, '').replace(/[-־]/g, ' ').replace(/קריית/g, 'קרית')
 const HEBREW = /[֐-׿]/
+
+/** Bundled, not fetched: about 50 KB that only the screens asking this need. */
+export function useLocalities(enabled = true): HomeCity[] {
+  const [cities, setCities] = useState<HomeCity[]>([])
+  useEffect(() => {
+    if (!enabled) return
+    import('@/lib/israelLocalities.json')
+      .then(m => setCities(m.default as HomeCity[]))
+      .catch(err => console.error('[localities] could not load the list:', err))
+  }, [enabled])
+  return cities
+}
 
 /**
  * The user's home locality, from the official list: it has to be a place we

@@ -20,11 +20,12 @@ import {
 } from '@/lib/api'
 import { AccountStep } from '@/components/auth/AccountStep'
 import { CareerCard } from '@/components/auth/CareerCard'
-import { CityPicker, type HomeCity } from '@/components/auth/CityPicker'
+import { useLocalities } from '@/components/auth/CityPicker'
 import { CvDropzone } from '@/components/auth/CvDropzone'
+import { HomeField, type HomeWhere } from '@/components/auth/HomeField'
 import { KycShell } from '@/components/auth/KycShell'
 import { WelcomeScene } from '@/components/auth/WelcomeScene'
-import { authInput, authLabel, kycOption, kycPrimary, kycSub, kycTitle } from '@/components/auth/authStyles'
+import { authLabel, kycOption, kycPrimary, kycSub, kycTitle } from '@/components/auth/authStyles'
 import { roleLabel } from '@/lib/roleCatalog'
 import { armArielWelcome } from '@/lib/onboardingFlags'
 import { RolePicker, SENIORITY_VALUES, type PendingRole } from '@/components/RolePicker'
@@ -72,7 +73,6 @@ const GENDERS: readonly Gender[] = ['male', 'female', 'unspecified']
 const WORK_MODELS: readonly WorkEnvironment[] = ['onsite', 'hybrid', 'remote', 'any']
 const CAREER_CHANGE: readonly CareerChange[] = ['yes', 'maybe', 'no']
 const SEARCH_MODES: readonly SearchMode[] = ['radius', 'regions']
-const HOME_WHERE = ['israel', 'abroad'] as const
 const RADII = ['10', '25', '50', 'all'] as const
 type Radius = typeof RADII[number]
 
@@ -125,11 +125,11 @@ function OnboardingContent() {
   const [saveError, setSaveError] = useState('')
   const [gender,    setGender]    = useState<Gender | null>(null)
   const [locations, setLocations] = useState<Region[]>([])
-  const [cities,    setCities]    = useState<HomeCity[]>([])
+  const cities = useLocalities()
   const [homeCity,  setHomeCity]  = useState<string | null>(null)
   const [mode,      setMode]      = useState<SearchMode>('radius')
   const [radius,    setRadius]    = useState<Radius>('all')
-  const [homeWhere, setHomeWhere] = useState<typeof HOME_WHERE[number]>('israel')
+  const [homeWhere, setHomeWhere] = useState<HomeWhere>('israel')
   const [homeAbroad, setHomeAbroad] = useState('')
   const [showErrors, setShowErrors] = useState(false)
   // Not required, so they start on the answer most people would give (Ron).
@@ -176,10 +176,6 @@ function OnboardingContent() {
         if (a.home_city) setRadius(a.radius_km ? String(a.radius_km) as Radius : 'all')
       })
       .catch(() => { /* empty answers */ })
-    // Bundled, not fetched: about 50 KB that only this step needs.
-    import('@/lib/israelLocalities.json')
-      .then(m => setCities(m.default as HomeCity[]))
-      .catch(err => console.error('[onboarding] could not load the localities list:', err))
   }, [])
 
   // Someone who already finished onboarding came here only to change their
@@ -407,23 +403,15 @@ function OnboardingContent() {
 
           {question === 3 && (
             <>
-              <Choices
-                options={HOME_WHERE} labels={A.home_where}
-                value={[homeWhere]} onChange={v => setHomeWhere(v[0])}
-                disabled={saving}
-              />
-              <div key={homeWhere} className="mt-4 animate-ja-tab-in motion-reduce:animate-none">
-                {homeWhere === 'israel' ? (
-                  <CityPicker id="home-city" cities={cities} value={homeCity} onChange={setHomeCity} disabled={saving} />
-                ) : (
-                  <>
-                    <label htmlFor="home-abroad" className={authLabel}>{A.home_abroad_label}</label>
-                    <input id="home-abroad" value={homeAbroad} maxLength={80} disabled={saving}
-                      placeholder={A.home_abroad_placeholder}
-                      onChange={e => setHomeAbroad(e.target.value)} className={authInput()} />
-                  </>
-                )}
-                {showErrors && !homeOk && <p className="text-[14px] text-rose-600 mt-2" role="alert">{A.errors.home}</p>}
+              <div className="mt-6">
+                <HomeField
+                  cities={cities}
+                  where={homeWhere} onWhere={setHomeWhere}
+                  city={homeCity} onCity={setHomeCity}
+                  abroad={homeAbroad} onAbroad={setHomeAbroad}
+                  error={showErrors && !homeOk ? A.errors.home : undefined}
+                  disabled={saving}
+                />
               </div>
 
               {/* Distance needs a home we can place, so this stays inside Israel. */}
@@ -455,7 +443,6 @@ function OnboardingContent() {
                   </div>
                 </>
               )}
-              <p className="mt-6 text-[13px] text-slate-600">{A.credit}</p>
             </>
           )}
 

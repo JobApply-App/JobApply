@@ -1,6 +1,6 @@
 """
-Target roles with a level in each, and the Hebrew wording, are asked once:
-at onboarding, or at the next login for anyone who skipped them. The Hebrew
+Target roles with a level in each, the Hebrew wording and where the user
+lives are asked once: at onboarding, or at the next login for anyone who skipped them. The Hebrew
 wording used to be a Masculine/Feminine toggle inside the CV screen.
 """
 from types import SimpleNamespace
@@ -25,19 +25,21 @@ def store(monkeypatch):
 USER = SimpleNamespace(user_id="u1")
 
 
-async def test_a_new_user_is_missing_both(store):
-    assert (await profile.get_required_details(user=USER))["missing"] == ["roles", "hebrew_form"]
+async def test_a_new_user_is_missing_all_of_them(store):
+    assert (await profile.get_required_details(user=USER))["missing"] == ["roles", "hebrew_form", "home"]
 
 
 async def test_a_role_without_a_level_still_counts_as_missing(store):
     store["profile"]["role_preferences"] = {"roles": [{"role": "Product Manager", "seniority": ""}]}
     store["answers"]["cv_hebrew_gender"] = "f"
+    store["profile"]["career_goals"] = {"home_city": "Haifa"}
     assert (await profile.get_required_details(user=USER))["missing"] == ["roles"]
 
 
 async def test_nothing_is_missing_once_answered(store):
     store["profile"]["role_preferences"] = {"roles": [{"role": "Product Manager", "seniority": "senior"}]}
     await profile.set_hebrew_form(profile.HebrewFormPayload(value="n"), user=USER)
+    store["profile"]["career_goals"] = {"home_abroad": "Berlin"}
     assert (await profile.get_required_details(user=USER))["missing"] == []
 
 
