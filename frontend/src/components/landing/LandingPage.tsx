@@ -655,7 +655,7 @@ function Story({ reduced }: { reduced: boolean }) {
         <div className="grid md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-12 md:gap-16">
           <div>
             {S.steps.map((s, i) => (
-              <div key={s.title} data-step={i} ref={el => { stepRefs.current[i] = el }}
+              <div key={i} data-step={i} ref={el => { stepRefs.current[i] = el }}
                 className="md:min-h-[70vh] flex flex-col justify-center gap-3 py-8 md:py-0 transition-opacity duration-ja-enter"
                 style={{ opacity: active === i ? 1 : undefined }}>
                 <div className={`grid gap-3 transition-opacity duration-ja-enter ${active === i ? 'md:opacity-100' : 'md:opacity-35'}`}>
