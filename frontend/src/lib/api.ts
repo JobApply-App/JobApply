@@ -721,11 +721,15 @@ export async function fetchRolePreferences(): Promise<RolePreferences & { cvUnre
 
 /** How Hebrew text refers to the user: he, she, or neutral slash forms (מנהל/ת). */
 export type HebrewForm = 'm' | 'f' | 'n'
-export type RequiredDetail = 'roles' | 'hebrew_form'
+export type RequiredDetail = 'roles' | 'hebrew_form' | 'home'
 
 export async function fetchMissingRequiredDetails(): Promise<RequiredDetail[]> {
   const data = await get<{ missing: RequiredDetail[] }>('/api/profile/required')
   return data.missing ?? []
+}
+
+export async function saveHome(body: { home_city: string | null; home_abroad: string | null }): Promise<void> {
+  await post<typeof body, { status: string }>('/api/profile/home', body)
 }
 
 export async function saveHebrewForm(value: HebrewForm): Promise<void> {

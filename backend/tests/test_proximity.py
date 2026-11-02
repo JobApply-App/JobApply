@@ -210,3 +210,28 @@ def test_frontend_list_has_the_same_names():
 def test_small_localities_only_match_whole(location, expected):
     city = resolve_city(location)
     assert (city.en if city else None) == expected
+
+
+async def test_home_is_missing_until_given_either_way(about):
+    assert "home" in about.route.missing_required_details("u")
+    await about.route.save_home(about.route.HomePayload(home_city="Haifa"), about.user)
+    assert "home" not in about.route.missing_required_details("u")
+    await about.route.save_home(about.route.HomePayload(home_abroad=" Berlin "), about.user)
+    goals = about.row.master_profile["career_goals"]
+    assert (goals["home_city"], goals["home_abroad"]) == (None, "Berlin")
+    assert "home" not in about.route.missing_required_details("u")
+
+
+async def test_saving_home_keeps_the_other_goals(about):
+    about.row.master_profile = {"career_goals": {"work_environment": "hybrid"}, "role_preferences": {"roles": []}}
+    await about.route.save_home(about.route.HomePayload(home_city="Haifa"), about.user)
+    assert about.row.master_profile["career_goals"]["work_environment"] == "hybrid"
+    assert about.row.master_profile["role_preferences"] == {"roles": []}
+
+
+@pytest.mark.parametrize("bad", [{"home_city": "Atlantis"}, {}, {"home_abroad": "   "}])
+async def test_home_rejects_nothing_or_unknown(about, bad):
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as err:
+        await about.route.save_home(about.route.HomePayload(**bad), about.user)
+    assert err.value.status_code == 422

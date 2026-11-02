@@ -325,8 +325,9 @@ async def save_role_preferences(
 
 # ── Required details ──────────────────────────────────────────────────────────
 # What the product needs from every user before they use it: target roles,
-# each with a level, and how Hebrew text should refer to them (Hebrew titles
-# are gendered: מנהל / מנהלת). New users answer these during onboarding;
+# each with a level, how Hebrew text should refer to them (Hebrew titles are
+# gendered: מנהל / מנהלת), and where they live (what job distance is measured
+# from). New users answer these during onboarding;
 # anyone who skipped them, or signed up before they were asked, is asked once
 # at login by the frontend's required-details step, which reads this list.
 
@@ -335,11 +336,15 @@ HEBREW_FORMS = {"m", "f", "n"}   # he / she / neutral wording (מנהל/ת)
 
 def missing_required_details(user_id: str) -> list[str]:
     missing: list[str] = []
-    roles = (profile_repository.get_profile_json(user_id).get("role_preferences") or {}).get("roles") or []
+    profile = profile_repository.get_profile_json(user_id)
+    roles = (profile.get("role_preferences") or {}).get("roles") or []
     if not roles or any(not (r.get("seniority") or "").strip() for r in roles if isinstance(r, dict)):
         missing.append("roles")
     if profile_repository.get_answer(user_id, "cv_hebrew_gender") not in HEBREW_FORMS:
         missing.append("hebrew_form")
+    goals = profile.get("career_goals") or {}
+    if not goals.get("home_city") and not goals.get("home_abroad"):
+        missing.append("home")
     return missing
 
 
@@ -392,6 +397,16 @@ class AboutPayload(BaseModel):
     home_abroad:      Optional[str] = Field(default=None, max_length=80)   # free text, outside Israel
     search_mode:      str = "radius"
     radius_km:        Optional[int] = None    # None = the whole country
+
+
+def _set_home(goals: dict, home_city: Optional[str], home_abroad: Optional[str]) -> None:
+    """A user has one home: in Israel, or free text abroad. Neither given keeps what is there."""
+    if home_city is not None:
+        goals["home_city"]   = home_city
+        goals["home_abroad"] = None
+    elif (home_abroad or "").strip():
+        goals["home_abroad"] = home_abroad.strip()
+        goals["home_city"]   = None
 
 
 @router.get("/about")
@@ -447,12 +462,7 @@ async def save_about(body: AboutPayload, user: CurrentUser = Depends(get_current
         goals["preferred_locations"]   = list(dict.fromkeys(body.locations)) if body.search_mode == "regions" else []
         goals["search_mode"]           = body.search_mode
         goals["radius_km"]             = body.radius_km if body.search_mode == "radius" else None
-        if body.home_city is not None:
-            goals["home_city"]         = body.home_city
-            goals["home_abroad"]       = None
-        elif (body.home_abroad or "").strip():
-            goals["home_abroad"]       = body.home_abroad.strip()
-            goals["home_city"]         = None
+        _set_home(goals, body.home_city, body.home_abroad)
         goals["work_environment"]      = body.work_environment
         goals["open_to_career_change"] = body.career_change
         mp["career_goals"] = goals
@@ -463,6 +473,33 @@ async def save_about(body: AboutPayload, user: CurrentUser = Depends(get_current
 
     logger.info("[profile/about] user=%s gender=%s form=%s", user.user_id, body.gender, form)
     return {"status": "ok", "hebrew_form": form}
+
+
+class HomePayload(BaseModel):
+    home_city:   Optional[str] = None
+    home_abroad: Optional[str] = Field(default=None, max_length=80)
+
+
+@router.post("/home")
+async def save_home(body: HomePayload, user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Where the user lives, alone: for the required-details step at login."""
+    if body.home_city is not None and body.home_city not in CITY_BY_NAME:
+        raise HTTPException(status_code=422, detail=f"unknown city: {body.home_city}")
+    if body.home_city is None and not (body.home_abroad or "").strip():
+        raise HTTPException(status_code=422, detail="home_city or home_abroad is required")
+
+    _now = datetime.now(timezone.utc).isoformat()
+    with Session(ENGINE) as _sess:
+        row, _created = profile_repository.get_or_create(_sess, user.user_id, now=_now)
+        mp = dict(row.master_profile or {})
+        goals = dict(mp.get("career_goals") or {})
+        _set_home(goals, body.home_city, body.home_abroad)
+        mp["career_goals"] = goals
+        row.master_profile = mp
+        row.updated_at     = _now
+        profile_repository.save(_sess, row)
+        _sess.commit()
+    return {"status": "ok"}
 
 
 # ── POST /api/profile/linkedin-import ─────────────────────────────────────────

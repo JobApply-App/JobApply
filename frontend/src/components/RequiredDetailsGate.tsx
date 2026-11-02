@@ -4,22 +4,32 @@ import { useEffect, useState } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import { HebrewFormPicker } from '@/components/HebrewFormPicker'
 import { RolePicker, type PendingRole } from '@/components/RolePicker'
+import { useLocalities } from '@/components/auth/CityPicker'
+import { HomeField, type HomeWhere } from '@/components/auth/HomeField'
 import {
-  fetchMissingRequiredDetails, fetchRolePreferences, saveHebrewForm, saveRolePreferences,
+  fetchMissingRequiredDetails, fetchRolePreferences, saveHebrewForm, saveHome, saveRolePreferences,
   type HebrewForm, type RequiredDetail, type SeniorityLevel,
 } from '@/lib/api'
 import { TOKENS } from '@/lib/tokens'
 
 /**
  * Asks, once, for the details the product cannot work well without: target
- * roles with a level in each, and how Hebrew text should refer to the user.
+ * roles with a level in each, how Hebrew text should refer to the user, and
+ * where they live.
  * New users give these during onboarding; this catches everyone who skipped
  * them or signed up before they were asked. It blocks the app until saved,
  * and shows only the questions that are actually missing.
  */
 export function RequiredDetailsGate() {
-  const R = useI18n().t.required_details
+  const { t } = useI18n()
+  const R = t.required_details
+  const A = t.onboarding.about
   const [missing, setMissing] = useState<RequiredDetail[]>([])
+  const needHome = missing.includes('home')
+  const cities = useLocalities(needHome)
+  const [where, setWhere] = useState<HomeWhere>('israel')
+  const [city, setCity] = useState<string | null>(null)
+  const [abroad, setAbroad] = useState('')
   const [roles, setRoles] = useState<PendingRole[]>([])
   const [form, setForm] = useState<HebrewForm | null>(null)
   const [saving, setSaving] = useState(false)
@@ -49,7 +59,9 @@ export function RequiredDetailsGate() {
   const needForm = missing.includes('hebrew_form')
   const rolesOk = !needRoles || (roles.length > 0 && roles.every(r => r.seniority))
   const formOk = !needForm || form !== null
-  const canSave = rolesOk && formOk && !saving
+  // A list that failed to load must not lock anyone out of the app.
+  const homeOk = !needHome || (where === 'abroad' ? abroad.trim() !== '' : Boolean(city) || cities.length === 0)
+  const canSave = rolesOk && formOk && homeOk && !saving
 
   const save = async () => {
     setSaving(true)
@@ -59,6 +71,8 @@ export function RequiredDetailsGate() {
         await saveRolePreferences({ roles: roles.map(r => ({ role: r.role, seniority: r.seniority ?? '' })) })
       }
       if (needForm && form) await saveHebrewForm(form)
+      if (needHome && where === 'abroad') await saveHome({ home_city: null, home_abroad: abroad.trim() })
+      if (needHome && where === 'israel' && city) await saveHome({ home_city: city, home_abroad: null })
       setMissing([])
     } catch {
       setError(R.save_failed)
@@ -92,6 +106,20 @@ export function RequiredDetailsGate() {
             <h3 className="text-[14px] font-semibold text-slate-800">{R.hebrew_heading}</h3>
             <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">{R.hebrew_hint}</p>
             <HebrewFormPicker value={form} onChange={setForm} disabled={saving} />
+          </section>
+        )}
+
+        {needHome && (
+          <section className="mb-7">
+            <h3 className="text-[14px] font-semibold text-slate-800">{A.home_label}</h3>
+            <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">{A.home_hint}</p>
+            <HomeField
+              cities={cities}
+              where={where} onWhere={setWhere}
+              city={city} onCity={setCity}
+              abroad={abroad} onAbroad={setAbroad}
+              disabled={saving}
+            />
           </section>
         )}
 
