@@ -400,7 +400,6 @@ export default function LoginPage() {
       aside={
         <SignInScene
           email={phase === 'login' ? email : ''}
-          hasPassword={phase === 'login' && password !== ''}
           going={phase === 'login' && (busy || googleBusy)}
           failed={phase === 'login' && error !== null}
         />

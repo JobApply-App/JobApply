@@ -1,121 +1,135 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import { LiveRing } from './WelcomeScene'
 
 // ── SignInScene ──────────────────────────────────────────────────────────────
 //
-// Signing in, shown as what it is: opening your feed. The example jobs wait behind
-// a sliding pane of frosted glass that follows the form, a little with each
-// character of the email and all the way once a password is there. Then the
-// scores count up and the jobs sort themselves best first. A wrong password
-// slides the pane back.
+// Beside the login form, Ariel reports back: a short briefing that writes itself
+// once, with jobs arriving, scoring and sorting best first. The product is an
+// agent that keeps working while the user is away, so this is what coming back
+// to it looks like. The jobs are the landing's examples, and the caption says so.
 //
-// It reads how far the form has got and nothing else: having a password counts,
-// its length never does, so the pane gives nothing away over someone's shoulder.
-// Phones skip the scene, because someone there came to sign in.
+// The orb listens to the form: it answers each character of the email, swells
+// when the form is submitted, and Ariel says so when a sign-in is refused. Only
+// the email moves it, so nothing gives away the length of a password. Phones skip
+// the scene, because someone there came to sign in.
 
-const ROW = 78
+const ROW = 76
 const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
 const EASE_MOVE = 'cubic-bezier(0.77, 0, 0.175, 1)'
-const EASE_DOOR = 'cubic-bezier(0.32, 0.72, 0, 1)'
-const VALID_EMAIL = /^\S+@\S+\.\S{2,}$/
+const TYPE_MS = 28
 
-export function SignInScene({ email, hasPassword, going, failed }: {
-  email:       string
-  hasPassword: boolean
+const prefersReduced = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+export function SignInScene({ email, going, failed }: {
+  email:  string
   /** The form was submitted, or Google is on its way. */
-  going:       boolean
+  going:  boolean
   /** The last attempt was refused and nothing has been retyped since. */
-  failed:      boolean
+  failed: boolean
 }) {
   const { t, dir } = useI18n()
   const L = t.landing
   const S = t.login.scene
   const flip = dir === 'rtl' ? -1 : 1
 
-  // A password manager fills the fields without telling React until the first
-  // click, so the pane would stay shut on a form that looks finished.
-  const [autofilled, setAutofilled] = useState(false)
+  // 0 greeting, 1 jobs arrive, 2 they score, 3 they sort, 4 the last line.
+  const [beat, setBeat] = useState(0)
   useEffect(() => {
-    let tries = 0
-    const id = setInterval(() => {
-      try {
-        if (document.querySelector('#password:-webkit-autofill')) { setAutofilled(true); clearInterval(id) }
-      } catch { clearInterval(id) /* a browser without the selector */ }
-      if (++tries > 8) clearInterval(id)
-    }, 250)
-    return () => clearInterval(id)
+    if (prefersReduced()) { setBeat(4); return }
+    const timers = [1500, 2100, 3200, 4300].map((ms, i) => setTimeout(() => setBeat(i + 1), ms))
+    return () => timers.forEach(clearTimeout)
   }, [])
 
-  const emailOk = VALID_EMAIL.test(email.trim())
-  const open = going || (!failed && (autofilled || (emailOk && hasPassword)))
-  const progress = open ? 1
-    : emailOk || failed ? 0.55
-    : email ? 0.1 + Math.min(email.length / 24, 1) * 0.3
-    : 0
-  const status = going ? S.going : open ? S.open : email ? S.typing : S.closed
+  const line = going ? S.going : failed ? S.failed : beat === 0 ? S.away : beat < 4 ? S.found : S.next
+  const [typed, setTyped] = useState(0)
+  useEffect(() => {
+    if (prefersReduced()) { setTyped(line.length); return }
+    setTyped(0)
+    const id = setInterval(() => setTyped(n => {
+      if (n >= line.length) clearInterval(id)
+      return n + 1
+    }), TYPE_MS)
+    return () => clearInterval(id)
+  }, [line])
 
-  // In the order they arrive, deliberately not best first, so the sort is visible.
+  const orb = useRef<HTMLDivElement>(null)
+  const seen = useRef(email)
+  useEffect(() => {
+    if (seen.current === email) return
+    seen.current = email
+    if (prefersReduced()) return
+    orb.current?.animate(
+      [{ transform: 'scale(1)' }, { transform: 'scale(1.14)' }, { transform: 'scale(1)' }],
+      { duration: 260, easing: EASE_OUT },
+    )
+  }, [email])
+
+  const sorted = beat >= 3
   const jobs = [
     { job: L.jobs[3], score: 74.0, rank: 2 },
     { job: L.jobs[1], score: 91.2, rank: 0 },
-    { job: L.jobs[2], score: 58.6, rank: 3 },
     { job: L.jobs[0], score: 82.4, rank: 1 },
   ]
 
   return (
     <div className="max-lg:hidden max-w-[460px]">
-      <div role="group" aria-label={L.hero.feed_label} className="relative overflow-hidden rounded-[32px]" style={{ height: ROW * 4 + 30 }}>
-        {jobs.map(({ job, score, rank }, i) => (
-          <div key={job.title}
-            className="absolute inset-x-5 top-5 motion-reduce:!transition-none"
-            style={{
-              transform: `translateY(${(open ? rank : i) * ROW}px)${going && rank === 0 ? ' scale(1.03)' : ''}`,
-              opacity: going && rank > 0 ? 0.35 : 1,
-              zIndex: going && rank === 0 ? 1 : 0,
-              transition: `transform 720ms ${EASE_MOVE}, opacity 300ms ${EASE_OUT}`,
-            }}>
-            <div style={{ animationDelay: `${i * 70}ms` }}
-              className="animate-ja-rise motion-reduce:animate-none h-[68px] flex items-center justify-between gap-4 rounded-[18px] bg-white px-4 shadow-elevation-2">
-              <div className="min-w-0">
-                <p dir="auto" className="truncate text-[15px] font-bold tracking-tight text-slate-900 text-start">{job.title}</p>
-                <p className="text-[12.5px] text-slate-500">{job.place}</p>
-              </div>
-              <LiveRing target={open ? score : 0} />
-            </div>
-          </div>
-        ))}
+      <div role="group" aria-label={L.hero.feed_label}
+        className="relative overflow-hidden rounded-[28px] p-5 shadow-floating ring-1 ring-inset ring-white/15"
+        style={{ background: 'linear-gradient(135deg, #115E59 0%, #134E4A 42%, #0A1F1C 100%)' }}>
+        <div aria-hidden="true" className="absolute -top-24 -end-16 h-72 w-72 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(124,58,237,.34)' }} />
+        <div aria-hidden="true" className="absolute -bottom-28 -start-16 h-72 w-72 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(94,234,212,.24)' }} />
 
-        {/* The pane. Keyed on the failure so each refused attempt shakes it again. */}
-        <div aria-hidden="true" className="absolute inset-0 motion-reduce:!transition-none"
-          style={{
-            transform: `translateX(${progress * 104 * flip}%)`,
-            opacity: progress === 1 ? 0 : 1,
-            transition: `transform 640ms ${EASE_DOOR}, opacity 280ms ${EASE_OUT} ${progress === 1 ? '360ms' : '0ms'}`,
-          }}>
-          <div key={String(failed)}
-            className={`relative h-full rounded-[32px] bg-white/40 backdrop-blur-lg ring-1 ring-inset ring-white shadow-floating [@media(prefers-reduced-transparency:reduce)]:bg-white ${failed ? 'animate-ja-shake motion-reduce:animate-none' : ''}`}
-            style={{ backgroundImage: 'linear-gradient(115deg, rgba(255,255,255,.55), rgba(255,255,255,.05) 45%, rgba(255,255,255,.3))' }}>
-            {/* The handle, on the edge that leads as it opens. */}
-            <span className="absolute start-3 top-1/2 -translate-y-1/2 h-14 w-1 rounded-full bg-slate-900/20" />
-            <span className="absolute inset-0 grid place-items-center text-ja-harbor">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="4.5" y="11" width="15" height="9.5" rx="2.5" />
-                <path d="M8 11V7.5a4 4 0 0 1 8 0V11" className="motion-reduce:!transition-none"
-                  style={{ transform: emailOk ? 'translateY(-1.5px)' : 'none', transition: `transform 320ms ${EASE_OUT}` }} />
-              </svg>
-            </span>
+        <div className="relative flex items-center gap-4 h-16">
+          <div ref={orb} aria-hidden="true"
+            className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full"
+            style={{
+              boxShadow: failed ? '0 0 30px rgba(244,63,94,.6)' : '0 0 34px rgba(167,139,250,.65)',
+              transform: going ? 'scale(1.22)' : 'none',
+              transition: `transform 420ms ${EASE_OUT}, box-shadow 300ms ${EASE_OUT}`,
+            }}>
+            <div className="absolute -inset-3 animate-[spin_7s_linear_infinite] motion-reduce:animate-none"
+              style={{ background: 'conic-gradient(#7C3AED, #5EEAD4, #A78BFA, #0D9488, #7C3AED)', filter: 'blur(5px)' }} />
+            <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 34% 28%, rgba(255,255,255,.9), rgba(255,255,255,0) 46%)' }} />
           </div>
+          <div className="min-w-0">
+            <p className="text-[13px] text-teal-100/75">{t.login.scene.name}</p>
+            <p dir="auto" className="min-h-6 text-[17px] leading-6 font-semibold tracking-tight text-white text-start">
+              {line.slice(0, typed)}
+            </p>
+          </div>
+        </div>
+
+        <div className="relative mt-4" style={{ height: ROW * 3 - 8 }}>
+          {jobs.map(({ job, score, rank }, i) => {
+            const shown = beat >= 1
+            const y = (sorted ? rank : i) * ROW
+            return (
+              <div key={job.title} className="absolute inset-x-0 top-0"
+                style={{
+                  transform: `translate(${shown ? 0 : 40 * flip}px, ${y}px)${going && rank === 0 ? ' scale(1.02)' : ''}`,
+                  opacity: !shown ? 0 : going && rank > 0 ? 0.4 : 1,
+                  transition: `transform 720ms ${EASE_MOVE} ${beat === 1 ? i * 90 : 0}ms, opacity 320ms ${EASE_OUT} ${beat === 1 ? i * 90 : 0}ms`,
+                }}>
+                <div className={`h-[68px] flex items-center justify-between gap-4 rounded-[18px] bg-white px-4 shadow-elevation-2 transition-shadow duration-ja-ui ${sorted && rank === 0 ? 'ring-2 ring-teal-300' : ''}`}>
+                  <div className="min-w-0">
+                    <p dir="auto" className="truncate text-[15px] font-bold tracking-tight text-slate-900 text-start">{job.title}</p>
+                    <p className="text-[12.5px] text-slate-500">{job.place}</p>
+                  </div>
+                  <LiveRing target={beat >= 2 ? score : 0} />
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
 
-      <p key={status} className="mt-3 px-5 text-[15px] font-semibold tracking-tight text-slate-900 animate-ja-tab-in motion-reduce:animate-none">{status}</p>
-      <p className="mt-0.5 px-5 text-[13px] text-slate-600">{L.hero.example}</p>
+      <p className="mt-3 px-1 text-[13px] text-slate-600">{L.hero.example}</p>
 
       {/* The welcome gives way before the scene does when the window is short. */}
-      <div className="mt-6 px-5 [@media(max-height:689px)]:hidden">
+      <div className="mt-5 px-1 [@media(max-height:689px)]:hidden">
         <p className="text-[20px] leading-snug font-semibold tracking-tight text-slate-900">{t.login.page.hero_headline}</p>
         <p className="mt-1.5 text-[15px] leading-relaxed text-slate-600">{t.login.page.hero_subline}</p>
       </div>

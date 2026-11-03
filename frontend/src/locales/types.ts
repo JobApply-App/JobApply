@@ -162,7 +162,7 @@ export interface Dict {
     }
   }
   login: {
-    scene: { closed: string; typing: string; open: string; going: string }
+    scene: { name: string; away: string; found: string; next: string; going: string; failed: string }
     left: {
       quote_l1: string
       quote_l2: string
