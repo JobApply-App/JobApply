@@ -5,8 +5,8 @@ import { useRouter }           from 'next/navigation'
 import Link                    from 'next/link'
 import { useAuth }             from '@/contexts/AuthContext'
 import { useI18n }             from '@/contexts/I18nContext'
-import { ExampleFeed }         from '@/components/auth/ExampleFeed'
 import { KycShell }            from '@/components/auth/KycShell'
+import { SignInScene }         from '@/components/auth/SignInScene'
 import { PasswordMeter, evaluatePassword } from '@/components/auth/PasswordMeter'
 import { authInput, authLabel, authSecondary, kycPrimary, kycSub, kycTitle } from '@/components/auth/authStyles'
 import { authErrorKind, authErrorMessage } from '@/lib/authErrors'
@@ -397,8 +397,13 @@ export default function LoginPage() {
 
   return (
     <KycShell
-      aside={<ExampleFeed />}
-      caption={{ headline: L.page.hero_headline, subline: L.page.hero_subline }}
+      aside={
+        <SignInScene
+          email={phase === 'login' ? email : ''}
+          going={phase === 'login' && (busy || googleBusy)}
+          failed={phase === 'login' && error !== null}
+        />
+      }
       back={{ href: '/', label: L.page.back, aria: L.page.back_to_home }}
     >
         <div key={phase} className="w-full animate-ja-tab-in motion-reduce:animate-none">

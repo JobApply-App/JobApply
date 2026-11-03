@@ -253,6 +253,14 @@ export const en = {
     },
   },
   login: {
+    scene: {
+      name:   'Ariel',
+      away:   'While you were away, I kept looking.',
+      found:  'Here’s how jobs like these score.',
+      next:   'Open one and I’ll tailor your CV for it.',
+      going:  'Opening your feed.',
+      failed: 'That didn’t go through. Try once more.',
+    },
     left: {
       quote_l1: 'While you sleep,',
       quote_l2: 'our agents work.',
