@@ -17,7 +17,7 @@ export const ERROR_CODES = [
   'invalid_input', 'empty_message', 'invalid_linkedin_url', 'file_too_large', 'unsupported_file',
   'legacy_doc', 'file_mismatch', 'conflict',
   'posting_closed', 'linkedin_login_wall', 'linkedin_blocked', 'linkedin_job_not_found',
-  'linkedin_unavailable', 'scrape_failed', 'scrape_empty', 'job_no_description', 'job_no_url',
+  'linkedin_unavailable', 'scrape_failed', 'scrape_empty', 'job_no_description', 'job_no_url', 'invalid_job_url',
   'analysis_failed',
   'ai_unavailable', 'ai_failed', 'ai_bad_output',
   'pdf_unavailable', 'pdf_failed', 'pdf_busy',

@@ -18,6 +18,7 @@ from backend.schemas.job import DetailedAnalysis, JobMatch, RawJobPosting, Reaso
 import backend.repositories.job_repository as job_store
 from backend.services import feed_service
 from backend.url_scraper import scrape_job_post
+from backend.utilities.safe_url import UnsafeURL, assert_public_url_async, httpx_guard_hooks
 from backend.scrapers.url_router import (
     scrape_jd_text,
     scrape_linkedin_job,
@@ -678,10 +679,21 @@ class JobUrlRequest(BaseModel):
     url: str = Field(..., max_length=500)
 
 
+async def _require_public_url(url: str) -> None:
+    """422 for a link that is not a public http(s) address (see utilities/safe_url)."""
+    try:
+        await assert_public_url_async(url)
+    except UnsafeURL as exc:
+        logger.warning("[jobs] refused non-public URL %r: %s", url[:200], exc)
+        raise AppError("invalid_job_url", status_code=422,
+                       detail="This link is not a public web address.")
+
+
 async def _check_liveness(url: str) -> bool:
     """Return False if the URL is definitively gone (404/410); True otherwise."""
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=_HTTP_TIMEOUT) as client:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=_HTTP_TIMEOUT,
+                                     event_hooks=httpx_guard_hooks()) as client:
             resp = await client.head(url)
             if resp.status_code in (404, 410):
                 return False
@@ -705,6 +717,7 @@ async def analyze_job_url(request: JobUrlRequest, user: CurrentUser = Depends(ge
     - Otherwise: scrape → verify active → run AI analysis → persist as 'manual'.
     """
     url = request.url.strip()
+    await _require_public_url(url)
 
     # ── Step 1: cache hit — return stored record (no LLM call) ───────────────
     cached = job_store.get_by_url(url, user.user_id)
@@ -804,6 +817,7 @@ async def analyze_job(
       6. Persist      — written once, with status='new', score_is_proxy=False.
     """
     url = request.url.strip()
+    await _require_public_url(url)
     logger.info("[analyze] Starting — url=%s user=%s", url, user.user_id)
 
     # ── 1. Cache check ────────────────────────────────────────────────────────
@@ -1082,7 +1096,9 @@ class ScrapeConfig(BaseModel):
 
 
 class ScrapeRequest(BaseModel):
-    companies: Optional[List[ScrapeConfig]] = None  # None → run default registry
+    # None → run default registry. Capped: each entry is a scrape job run on
+    # this server, and the list came from the client unbounded.
+    companies: Optional[List[ScrapeConfig]] = Field(default=None, max_length=10)
 
 
 class ScrapeResponse(BaseModel):
@@ -1111,6 +1127,8 @@ async def scrape_company_jobs(
     GET /api/jobs/feed to see newly added jobs.
     """
     configs = request.companies
+    for cfg in configs or []:
+        await _require_public_url(cfg.company_url)
 
     _uid = user.user_id   # every scraped job belongs to the CALLER — client-supplied
                           # cfg.user_id is deliberately ignored (tenancy invariant).
