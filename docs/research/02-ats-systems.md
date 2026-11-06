@@ -2,6 +2,10 @@
 
 Stage 2 of the scoring/CV research. Working notes, built up over several rounds. Each round asks narrower questions than the last.
 
+**Recency rule (founder, 2026-11-06).** The AI era moves fast. **Sources from 2024 onward are the evidence base.** Anything older is kept only as **[historical]** background, never as a basis for a decision.
+- Already marked historical: the 2012 Preptel "75%" claim, and the 2021 HBS/Accenture "Hidden Workers" report.
+- Both describe the keyword-filter era before LLM screening.
+
 **Source access.** The research session's network cannot open vendor or academic sites directly (`support.greenhouse.io`, `doc.workday.com`, `arxiv.org` and others refuse to resolve). Approving a research environment that adds them needs claude.ai on a computer or a newer app. Until then, each finding is marked:
 - **[primary]**: the vendor's own documentation, or the paper itself, as quoted in search results;
 - **[secondary]**: a blog or guide describing it;
@@ -81,7 +85,7 @@ Stage 2 of the scoring/CV research. Working notes, built up over several rounds.
 
 ## Round 3: how much do systems actually reject? And the myths
 
-### "75% of CVs are rejected by the ATS"
+### "75% of CVs are rejected by the ATS" [historical, 2012]
 - Traced by several independent write-ups to **2012 sales material from Preptel**, a CV-optimisation company that closed in 2013. No methodology was ever published. [secondary, consistent across sources]
 - The figure drifts (70%, 75%, 88%) as it is repeated. The honest label is **unsupported**, not proven false.
 - **Implication for us:** a product promising to "beat the ATS robot" is selling against a fear with no evidence behind it. What we should optimise is **a person's reading and a recruiter's search**, and what ATSs really automate: knockout answers and requirement matching.
@@ -101,7 +105,7 @@ Stage 2 of the scoring/CV research. Working notes, built up over several rounds.
   - Seen only second-hand so far; the author also sells ATS optimisation. [secondary]
 - **Reading the two together:** rejection is rarely automatic, but **search is everywhere**. A recruiter types skills and titles into the database and filters. A CV that doesn't contain the skill or title in a searchable form is **not rejected; it's never found**. That is the real reason keywords matter.
 
-### Where automation does filter people out: "Hidden Workers" (Harvard Business School + Accenture, 2021)
+### Where automation does filter people out: "Hidden Workers" (Harvard Business School + Accenture, 2021) [historical]
 - Fuller et al.: the efficiency drive "is creating a significant amount of the shortage that they complain about". [primary quote, via search; PDF on hbs.edu]
 - **Mechanism:** systems use rigid proxies, such as a degree as a proxy for work ethic, or **an employment gap as an automatic rejection**. Heavily automated firms "regularly eliminate all but those candidates who most closely match the job requirements specified".
 - **Survey:** about 8,700 workers and 2,250-2,275 executives. About 27 million "hidden workers" in the US.
@@ -247,3 +251,83 @@ Stage 2 of the scoring/CV research. Working notes, built up over several rounds.
 - **Comeet in practice:** what its AI summary takes from the CV, and how it handles Hebrew and two-column PDFs. Best answered by a real upload test.
 - **The data a parser needs** (section names, date formats, contact block) and **how a Hebrew PDF from our templates extracts.** Partly measurable locally with the same text extraction our tests use.
 - **What Jobscan-style "match rate" tools compute**, and whether it relates to anything an ATS does. This is the bridge to stage 4.
+
+---
+
+## Round 6: primary sources, read in full (research environment approved, 2026-11-06)
+
+### Greenhouse Talent Matching: the help article [primary, current]
+- **Five categories:**
+  - **Strong match**;
+  - **Good match**;
+  - **Partial match**;
+  - **Limited match**;
+  - **Needs manual review** (the CV could not be processed by AI, AI is off for the job, or the candidate opted out).
+  - Candidates are grouped by category and **ordered by application date within each group**, not by a finer number.
+- **"Calibration"** is the employer's list of **skills, each rated for importance**. Greenhouse's own advice: *"Since the match score is spread across the selected skills, for clearer matches, we recommend focusing on 4–6 key skills."* The score is spread over a handful of weighted requirements, not over every word in the posting.
+- **What the recruiter sees per candidate:**
+  - "An explanation of why the candidate received their match score, shown as a breakdown of matched experience, industries, and skills based on your calibration";
+  - industry matches ("Media Production at SceneCloud");
+  - **the CV with matched and *similar* keywords highlighted**;
+  - "Calibrated skills matched: 2 of 4" and "Matched terms on this resume: 4".
+- **Similar terms count, and are shown as such.** Exact and similar keyword matches are highlighted separately.
+- **A person can override the match score.** Changing the calibration re-scores everyone, and calibration history is kept.
+- **"Talent Matching is assistive AI, not automated-decision-making. It does not automatically advance or reject candidates."**
+- **Bias audits** [greenhouse.com, 2025-2026]: monthly, by an independent auditor (Warden AI); disparate impact plus demographic-variable testing across 10 protected classes; published publicly; **a new version cannot ship until it passes**.
+  - Real Talent's stated principles: "Transparency, Accountability, Human control". Recruiters "can see which criteria contributed to each match label and can adjust weightings at any time".
+
+### Workday HiredScore Spotlight, release notes 5 August 2026 [primary, current]
+- **The fixed preset framework was replaced by an LLM that "evaluates each screenable qualification individually against the candidate's parsed resume."**
+- **Fit & Gap view:**
+  - met / not met per basic and preferred qualification;
+  - "how they influenced the candidate's grade";
+  - "an explanation for each evaluation conclusion and pointers to relevant sections in the candidate's parsed profile, such as professional experience, education, skills, languages, certifications, and the resume summary."
+- **Grade rule:** "Candidates who meet all scoped basic qualifications receive an A or B." A vs B (and C vs D) come from preferred qualifications and basic-qualification scores.
+- **Stated rationale:** "By evaluating requirements individually, it improves accuracy and supports more fair hiring, including nuanced or non-numeric requirements."
+- **Rollout:** opt-in, pilot first; old requisitions keep the old algorithm; can revert.
+- **Note:** the largest enterprise vendor moved **from a fixed framework to per-requirement LLM evaluation with evidence** in August 2026. This is the current direction of the industry.
+
+### Ashby (VP of Talent, September 2024) [primary, vendor]
+- "No decisions are made for me. **No scoring or ranking is involved.** The AI analyzes the resume and produces a 'Meets' or 'Does not Meet' for each criterion I've set."
+- **Reviewers work in batches of candidates who meet the same criteria.** The AI's explanation is "a helpful starting point" that the person verifies.
+- **The example of a hard-to-verify criterion:** "2 years B2B SaaS experience".
+- **Advice to candidates:** "clearly communicate, through your resume and application, how you meet the minimum requirements in the job description."
+
+### How valid are LLM screeners?
+**Castleman et al., Princeton, IASEAI'26, arXiv 2602.18550, February 2026 [primary].**
+- **Method:** a synthetic CV dataset tailored to jobs with known ground truth.
+- **Criterion validity** (does it pick the more qualified candidate?) rises with model size: **Claude Sonnet 4 0.96**, Gemini 2.5 Pro 0.82, **Gemini 2.0 Flash 0.73**.
+  - **Our scorer runs on Gemini Flash.** For roughly 1 pair in 4 where one candidate is clearly better, a model of this class picks wrong.
+- **Discriminant validity** (abstaining on equally qualified pairs) is poor. When models wrongly pick a winner, they give **"untrue rationale ... such as 'better formatting' when resumes are formatted similarly."**
+- **Validity is higher when CVs differ in credentials (education) than in soft skills.**
+- **Validity drops for non-tech roles.** Nurse practitioner is lower than software engineer.
+
+### Presentation sensitivity
+**Chen & Xiao, arXiv 2609.16517, September 2026 [primary].**
+- **Design:** 102 synthetic O*NET-based profiles across 17 occupations; five presentations each (original bullets, verbosity, prose, **AI polish**, **layout/extraction noise**).
+- **Result:** even the most valid setting reverses **29.6%** of decisions on presentation alone (Mistral: 41.4%).
+- **Limit:** small open models (7-8B), not the large commercial ones. The direction holds; the size for Gemini Flash is unmeasured.
+
+### LLMs prefer CVs written by LLMs
+**Xu, Li & Jiang, arXiv 2509.00462, Aug 2025, revised Jun 2026, AIES/EAAMO 2025 [primary].**
+- **Effect:** LLM screeners "consistently prefer resumes generated by themselves over those written by humans or produced by alternative models, even when content quality is controlled". Self-preference is **67-82%** across commercial and open models.
+- **Simulated pipelines, 24 occupations:** candidates whose CV came from the same LLM as the screener are **23-60% more likely to be shortlisted**. The largest gaps are in **business roles such as sales and accounting**, the roles many of our users target.
+- **Mitigation:** simple interventions targeting the model's self-recognition cut the bias by 17-63%.
+- **Cuts both ways for us:**
+  - (a) An AI-written CV may do better at an AI screener. But which model the employer uses is unknown, and cross-model preference is weaker.
+  - (b) **Our scorer is an LLM grading CVs our own LLM wrote.** Part of any "the CV scores higher after tailoring" effect may be self-preference, not quality. **We must not use our own LLM score as proof that our CVs improved.** The benchmark (stage 7) needs judgments that don't come from our models.
+
+### People follow the AI
+**Wilson et al., FAccT 2026, arXiv 2606.22213 [primary].**
+- People spend **up to 55.6% longer** on a CV when no AI recommendation is shown.
+- Time spent on a non-recommended candidate raises their chance of selection by 3-4%.
+- **AI recommendations reduce the careful review that would catch AI bias.**
+- **For us:** our number shapes where the user spends attention (which jobs they open, which CVs they trust). A confident wrong number steers them away from good jobs. That's another reason to show *why* and *what's unknown*, not just a percentage.
+
+### Humans vs GPT-4 on real CVs
+**Vaishampayan et al., Findings of NAACL 2025 [primary].**
+- **Data:** 736 real CVs to real jobs, rated by trained raters who were checked against experts.
+- **Human raters agreed with each other:** Fleiss κ = **0.79**.
+- **Zero-shot GPT-4 vs humans:** "LLM scores correlate minorly with humans, suggesting they are not interchangeable"; Fleiss' kappa showed **no agreement on any construct**. Chain-of-thought prompting improved it.
+- **Where GPT-4 diverged:** skills (98 rating differences, **23 hallucinated skills**), education (126), certifications (170).
+- **Conclusion:** LLM scores are not a substitute for a recruiter's judgment. Use them in a human-in-the-loop design.
