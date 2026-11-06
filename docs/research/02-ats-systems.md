@@ -351,3 +351,54 @@ Stage 2 of the scoring/CV research. Working notes, built up over several rounds.
   - PyMuPDF and similar extractors feed many LLM-based screening pipelines.
   - **Our own backend parses uploaded CVs with PyMuPDF and pdfplumber** (agents/resume.py, profile_analyzer.py, cv_aggregator_service.py). Hebrew CVs uploaded by users may already be read reversed by us. To verify in the CV-ingestion stage.
 - **Still unknown:** which extractor Comeet, Greenhouse and Workday use. Only a real upload answers this. The fix options (writing logical-order text into the PDF, or a different render path for Hebrew) are a decision for after the research.
+
+---
+
+## Round 8: what job-seeker "match rate" tools compute (the bridge to stage 4)
+
+- **jobscan.co refuses automated access** (403 from its own server), so these points come from search results quoting its tutorial and reviews from 2026. [secondary]
+- **Jobscan's match rate:**
+  - hard skills (weighted most), job title, education (only when the posting asks for an advanced degree), soft skills, other keywords;
+  - **word count and measurable results do not count**, though the report comments on them;
+  - "predicted skills" (suggestions) don't affect the rate;
+  - the target in its current tutorial is **75%** (older pages said 80%).
+- **Reviewers' critique (2026):**
+  - the rate is Jobscan's own keyword comparison, **not a score any employer or ATS produces**;
+  - "stakeholder management" pasted into a skills list scores the same as the same skill shown in a measured bullet;
+  - "a 65–75% match with honest, specific bullets beats a keyword-stuffed 95%".
+- **Rezi:** its score is a *quality* grade (active verbs, quantification, formatting, word count, keyword targeting), separate from a match percentage. **Teal:** a skills-based match score. **Kickresume:** no published method. [secondary]
+- **Our "ATS score for this CV" (`_phase1`) is this genre** (keywords, skills, seniority): a lexical proxy. The founder sees it as "the ATS score" and compares it to the job score, which is a different formula (Research 01, finding 1).
+
+---
+
+## Stage 2: conclusions (pending the Comeet upload test)
+
+1. **There is no single "ATS score" to optimise for.**
+   - Real systems either rank coarsely or judge requirement by requirement, and leave the decision to a person.
+   - Automatic rejection comes from form answers.
+   - Consumer "ATS scores" (Jobscan, ours) are keyword proxies of their own making.
+2. **The 2025-2026 industry standard is per-requirement evaluation with evidence:**
+   - must-have vs preferred;
+   - met / not met / unknown;
+   - a pointer to where in the CV.
+   - Workday (August 2026), Ashby and Greenhouse all ship this. Greenhouse shows "Calibrated skills matched: 2 of 4" and highlights exact vs *similar* terms.
+3. **Holistic LLM numbers are the weak point**, and recent research measures it:
+   - mid-size models pick the wrong candidate about 1 time in 4 (Gemini 2.0 Flash criterion validity 0.73);
+   - presentation-only changes flip 30-41% of decisions (small open models);
+   - GPT-4 does not agree with trained recruiters;
+   - LLMs prefer CVs written by LLMs (67-82%).
+4. **Being *found* still depends on literal terms.** Recruiters search titles and must-have skills, and similar terms are matched only by some systems.
+5. **Our PDFs:**
+   - single-column, so no two-column risk;
+   - English extracts cleanly;
+   - **Hebrew extracts in reversed word order with PyMuPDF** (not with Poppler, and Word's PDF is fine). Real-ATS impact pending the Comeet test.
+
+### Implications for the design decisions (to finalise after all stages)
+- **The score:**
+  - built from per-requirement verdicts (met / partly / not met / **unknown**) with a CV quote each;
+  - must-haves separated from nice-to-haves;
+  - knockouts shown explicitly;
+  - the number computed deterministically from the verdicts, and possibly shown as a band, not a one-decimal percentage.
+- **Unverified information** the user gave Ariel: counted as **"stated, not yet verified"**, shown as such, and not silently turned into a lower score. *(The founder has adopted this.)*
+- **Never use our own LLM's judgment of our own LLM's CV as proof of quality** (self-preference). Validation needs judgments from outside our models (stage 7).
+- **Two different numbers must not be shown side by side as if comparable.**
