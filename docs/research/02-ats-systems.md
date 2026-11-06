@@ -331,3 +331,23 @@ Stage 2 of the scoring/CV research. Working notes, built up over several rounds.
 - **Zero-shot GPT-4 vs humans:** "LLM scores correlate minorly with humans, suggesting they are not interchangeable"; Fleiss' kappa showed **no agreement on any construct**. Chain-of-thought prompting improved it.
 - **Where GPT-4 diverged:** skills (98 rating differences, **23 hallucinated skills**), education (126), certifications (170).
 - **Conclusion:** LLM scores are not a substitute for a recruiter's judgment. Use them in a human-in-the-loop design.
+
+---
+
+## Round 7: what a parser extracts from *our* PDFs (measured locally, 2026-11-06)
+
+- **Layout:** all five templates (t1-t5) are **single-column**. No grid, columns or floats; flex is used only for header and skills lines. The concern that Comeet's single-column reader scrambles two-column CVs **does not apply to us**.
+- **English:** all five templates extract cleanly and in reading order with PyMuPDF and pdfplumber: contact block, then summary, experience, education, skills, languages and military service.
+- **Hebrew:** compared against a control, the same Hebrew text in a Word document converted to PDF by LibreOffice.
+
+| Extractor | Word/LibreOffice Hebrew PDF | Our Chromium Hebrew PDF |
+|---|---|---|
+| pdftotext (Poppler) | logical order, correct | **logical order, correct**; only date ranges come out reversed ("2026 - 2023") |
+| PyMuPDF | logical order, correct | **word order reversed within each line** ("לקוחות הצלחת מנהל") |
+| pdfplumber | letters reversed | letters reversed |
+
+- **pdfplumber reverses Hebrew letters for any PDF.** That's a limit of the tool, not of our file.
+- **PyMuPDF reads Word's Hebrew PDF correctly but ours word-reversed.** That's specific to how Chromium writes RTL text runs.
+  - PyMuPDF and similar extractors feed many LLM-based screening pipelines.
+  - **Our own backend parses uploaded CVs with PyMuPDF and pdfplumber** (agents/resume.py, profile_analyzer.py, cv_aggregator_service.py). Hebrew CVs uploaded by users may already be read reversed by us. To verify in the CV-ingestion stage.
+- **Still unknown:** which extractor Comeet, Greenhouse and Workday use. Only a real upload answers this. The fix options (writing logical-order text into the PDF, or a different render path for Hebrew) are a decision for after the research.
