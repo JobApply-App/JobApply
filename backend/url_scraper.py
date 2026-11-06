@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 
+from backend.utilities.safe_url import assert_public_url, safe_requests_get
+
 from backend.scrapers.ats_api_scraper import try_greenhouse_api, try_lever_api, try_workday_api
 from backend.utilities.html_guard import html_visible_text, visible_text
 
@@ -130,6 +132,9 @@ def scrape_job_post(url: str) -> ScrapedJob:
     # pages — prefer these over generic HTML scraping when the URL matches.
     # Any failure (unrecognized path, network error, thin content) falls
     # through to the generic scraper below.
+    # Only public http(s) addresses: this URL is often user-supplied.
+    assert_public_url(url)
+
     for api_fn in (try_greenhouse_api, try_lever_api, try_workday_api):
         api_result = api_fn(url)
         if api_result is not None:
@@ -139,7 +144,7 @@ def scrape_job_post(url: str) -> ScrapedJob:
                 raw_text=api_result["raw_text"],
             )
 
-    response = requests.get(url, headers={"User-Agent": _UA}, timeout=10)
+    response = safe_requests_get(url, headers={"User-Agent": _UA}, timeout=10)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "html.parser")

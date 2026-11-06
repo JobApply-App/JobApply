@@ -183,19 +183,26 @@ class VerifiedIdentity:
         self.name    = name
 
 
+_ASYMMETRIC_ALGS = frozenset({"RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "EdDSA"})
+
+
 async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
     """Verify an RS256 token against Supabase's JWKS public keys."""
     try:
         # Peek at the header to find the signing key
         header = jwt.get_unverified_header(token)
         kid    = header.get("kid")
-        # Use whatever algorithm the token header declares (RS256, ES256, etc.)
-        # rather than hardcoding a single algorithm — Supabase may rotate alg types.
+        # The token's own header names its algorithm, and an attacker writes
+        # that header. Only the asymmetric algorithms Supabase signs with are
+        # accepted: an "HS256" or "none" token verified against the public
+        # key is the classic algorithm-confusion forgery. python-jose refuses
+        # that today only because the key is passed as a JWK dict; this does
+        # not rest on that detail.
         alg    = header.get("alg")
-        if not alg:
+        if alg not in _ASYMMETRIC_ALGS:
             raise AppError("session_expired",
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token header is missing the 'alg' field.",
+                detail="Token signing algorithm is not accepted.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 

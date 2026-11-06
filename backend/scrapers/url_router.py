@@ -65,6 +65,8 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 
+from backend.utilities.safe_url import assert_public_url
+
 from backend.scrapers.base_scraper import BaseScraper
 from backend.utilities.html_guard import html_visible_text, visible_text
 
@@ -496,6 +498,7 @@ def scrape_linkedin_job(url: str):
                                 response contained no usable job description
                                 text.
     """
+    assert_public_url(url)
     from backend.url_scraper import ScrapedJob  # local import avoids a cycle at module load
 
     job_id  = _extract_linkedin_job_id(url)
@@ -664,6 +667,7 @@ def scrape_jd_text(url: str) -> str:
 
     Raises ValueError when the page is unreachable or contains no usable content.
     """
+    assert_public_url(url)
     host = (urlparse(url).hostname or "").lower().removeprefix("www.")
 
     for domain, handler in _JD_HANDLERS:

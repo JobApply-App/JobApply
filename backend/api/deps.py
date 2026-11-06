@@ -240,8 +240,12 @@ async def _rate_identity(request: Request) -> str:
             sub = await _verified_sub(token)
             if sub:
                 return f"user:{sub}"
-            client = request.client
-            return f"unverified:{client.host if client else 'unknown'}"
+            return f"unverified:{_client_ip(request)}"
+    return f"ip:{_client_ip(request)}"
+
+
+def _client_ip(request: Request) -> str:
+    """The caller's address, seen through the proxies we run behind."""
     client = request.client
     host   = client.host if client else "unknown"
     # Trusted-proxy hop: the Next.js server proxies public traffic from
@@ -252,8 +256,26 @@ async def _rate_identity(request: Request) -> str:
     if host in ("127.0.0.1", "::1", "localhost"):
         forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
         if forwarded:
-            return f"ip:{forwarded}"
-    return f"ip:{host}"
+            return forwarded
+    # Behind Render's load balancer the direct peer is one of a handful of
+    # internal 10.x addresses (production logs, 2026-10-31), so every
+    # anonymous visitor shared a few buckets and one abuser could exhaust
+    # them for everyone. The balancer appends the address it received the
+    # connection from to X-Forwarded-For, so the LAST entry is the real
+    # client; anything before it was sent by the client and is not trusted.
+    if _is_private_peer(host):
+        hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+        if hops:
+            return hops[-1]
+    return host
+
+
+def _is_private_peer(host: str) -> bool:
+    import ipaddress
+    try:
+        return ipaddress.ip_address(host).is_private
+    except ValueError:
+        return False
 
 
 _REDIS = {"client": None, "ready": False}

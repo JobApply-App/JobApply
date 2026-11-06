@@ -67,6 +67,7 @@ CODES: dict[str, int] = {
     "scrape_empty":            422,
     "job_no_description":      400,
     "job_no_url":              422,
+    "invalid_job_url":         422,
     "analysis_failed":         502,
     # AI features
     "ai_unavailable":          503,

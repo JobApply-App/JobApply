@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 
 from backend.core.errors import AppError
 from backend.api.deps import (
+    _client_ip,
     DAILY_ANALYSIS_CAP, DAILY_CHAT_MESSAGE_CAP, DAILY_CV_GENERATION_CAP, CurrentUser, daily_chat_limit,
     get_current_user, llm_rate_limit, optional_user_id, standard_rate_limit,
 )
@@ -1640,7 +1641,7 @@ async def eliya_public_chat(body: PublicChatRequest, request: Request) -> Stream
         raise AppError("empty_message", status_code=422, detail="message must not be empty.")
 
     user_id = await optional_user_id(request)
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = _client_ip(request)
     logger.info(
         "[chat/public] ip=%s session=%s signed_in=%s msg_len=%d history=%d attachments=%d",
         client_ip, body.session_id[:12], bool(user_id), len(body.message),
