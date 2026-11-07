@@ -2,9 +2,6 @@
 
 Stage 2 of the scoring/CV research. Working notes, built up over several rounds. Each round asks narrower questions than the last.
 
-**Recency rule (founder, 2026-11-06).** The AI era moves fast. **Sources from 2024 onward are the evidence base.** Anything older is kept only as **[historical]** background, never as a basis for a decision.
-- Already marked historical: the 2012 Preptel "75%" claim, and the 2021 HBS/Accenture "Hidden Workers" report.
-- Both describe the keyword-filter era before LLM screening.
 
 **Source access.** The research session's network cannot open vendor or academic sites directly (`support.greenhouse.io`, `doc.workday.com`, `arxiv.org` and others refuse to resolve). Approving a research environment that adds them needs claude.ai on a computer or a newer app. Until then, each finding is marked:
 - **[primary]**: the vendor's own documentation, or the paper itself, as quoted in search results;
@@ -12,6 +9,12 @@ Stage 2 of the scoring/CV research. Working notes, built up over several rounds.
 - **[vendor claim]**: a number or promise only the vendor states.
 
 ---
+
+**Evidence weighting (founder, 2026-11-07):**
+- **2026 findings carry the most weight.**
+- **2025 is valid but already older.**
+- **Anything earlier is background.**
+- Everything is still researched, and the notes record where newer work changes older work.
 
 ## Round 1: what the big systems do
 
@@ -402,3 +405,19 @@ Stage 2 of the scoring/CV research. Working notes, built up over several rounds.
 - **Unverified information** the user gave Ariel: counted as **"stated, not yet verified"**, shown as such, and not silently turned into a lower score. *(The founder has adopted this.)*
 - **Never use our own LLM's judgment of our own LLM's CV as proof of quality** (self-preference). Validation needs judgments from outside our models (stage 7).
 - **Two different numbers must not be shown side by side as if comparable.**
+
+---
+
+## 2026 sweep: re-checking stage 2 against the newest evidence (2026-11-07)
+
+| Earlier assumption | 2026 evidence | Status |
+|---|---|---|
+| The industry is moving to per-requirement evaluation with evidence | **Workday Fit & Gap, August 2026** (primary). **Systematized review of recruitment AI through September 2026** (arXiv 2609.04286): "Mature systems still need lexical recall, structured constraints, inexpensive rankers, and human approval"; a credible system must "**distinguish unknown from negative evidence, ground consequential claims**", and "**final-output scores conceal pipeline failures**". | **Strengthened** |
+| "Unknown" should be its own state | **"Beyond the Name", 2026** (arXiv 2609.16501): forcing a choice between two equal CVs **manufactures** a spurious selection ratio of 0.39 with position effects; **allowing ties gives ≥94% ties** for most models. A scorer forced to output a number invents differences. | **Strengthened**: our 0-100 forced output is exactly this design |
+| LLM screeners show racial bias (Wilson & Caliskan, 2024) | **Gao, Jiang & Yan, June 2026** (arXiv 2606.28978), 14 models, 24,024 paired postings each: the 2023 model reproduces the pro-White gap; **every model released in 2024 or later shows a null gap or a pro-Black reversal** (up to −3.01 pp). Same on gender. | **Changed:** bias direction depends on the model generation. 2024 findings about specific models don't transfer to current models; each model must be audited as deployed. |
+| LLM screeners are unstable | **Presentation sensitivity, September 2026** (29.6-41.4% flips, small models). **"Bias in the Tails", 2026** (arXiv 2604.19984, about 1M LLM-written CV summaries, 4 models): **factual content stays stable; evaluative framing ("exceptional", "proven") varies** with the candidate's name, at the extremes. | **Strengthened.** New for CV writing: evaluative adjectives are the unstable, bias-carrying part. Facts are the stable part. |
+| Holistic scores vs per-criterion | **AutoScreen-FW, 2026** (arXiv 2603.18390): open models with a few chosen examples **plus explicit evaluation criteria** beat GPT-5-nano and sometimes GPT-5-mini at CV screening. | **Strengthened:** explicit criteria matter more than model size |
+| Legal exposure of AI screening | **Mobley v. Workday, June 2026:** most of Workday's motion to dismiss was denied; age, disability and California (FEHA) claims proceed; the age collective's opt-in closed 7 March 2026. Allegations, not findings. | **Strengthened:** AI screening is under active litigation |
+| EU AI Act timing | **Digital Omnibus adopted:** Regulation (EU) 2026/1744, in force 27 July 2026. **High-risk Annex III (employment) obligations moved to 2 December 2027.** | **Confirmed** (was "sources differ") |
+| LinkedIn as a search channel | **LinkedIn Hiring Assistant 2** (announced September 2026, rolling out to English customers in November 2026): recruiters type non-keyword criteria that the agent interprets and they confirm. **"Trust signals"** combine verification, ATS data, pre-screening answers and **work history, and flag inconsistencies.** | **New:** CV-to-LinkedIn consistency is now machine-checked. See Research 03 on locking role titles. |
+| Comeet | No 2026 screening announcement found. A 2026 review site lists "Candidate Match Insight Agent" and "Sourcing Agent" without details; plans mention "AI resume reviews". Comeet states its AI "will never make hiring decisions on its own." | **Unchanged.** Still needs the real test. |

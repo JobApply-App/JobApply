@@ -2,7 +2,6 @@
 
 Stage 3 of the scoring/CV research. Working notes, built up over several rounds.
 
-**Recency rule:** sources from 2024 onward are the evidence. Anything older is marked **[historical]**.
 
 **Source marks:**
 - **[primary]**: the original study or the vendor's own page.
@@ -10,6 +9,12 @@ Stage 3 of the scoring/CV research. Working notes, built up over several rounds.
 - **[vendor survey]**: a survey run by a company that sells CV or hiring products. Treat its numbers as directional.
 
 ---
+
+**Evidence weighting (founder, 2026-11-07):**
+- **2026 findings carry the most weight.**
+- **2025 is valid but already older.**
+- **Anything earlier is background.**
+- Everything is still researched, and the notes record where newer work changes older work.
 
 ## Round 1: the AI-era recruiter
 
@@ -165,3 +170,23 @@ Question I asked myself: *if everyone now tailors with AI, does tailoring still 
   3. inconsistency is a top early-rejection reason.
 - **Not yet measured:** how often our CVs actually change a title. To check in stage 6 (generated CVs vs profiles).
 - **A likely direction for the design:** keep the official title (localised in Hebrew is fine). Where the posting's wording differs, put the relevant term in the summary or a bullet, never in the title.
+
+---
+
+## 2026 sweep: re-checking stage 3 against the newest evidence (2026-11-07)
+
+| Earlier assumption | 2026 evidence | Status |
+|---|---|---|
+| Tailoring no longer differentiates (Galdin & Silbert 2025; Cui et al. 2025, freelance) | **Kickresume field experiment, April-June 2026** (vendor, 204 real applications, customer service and sales): a **generic** AI CV got 10% positive responses vs **18% for an AI CV tailored** to each vacancy. | **Refined, not reversed.** In salaried CS/sales hiring in 2026, tailored still beat generic. The freelance studies say tailoring stopped *separating strong from weak candidates* when everyone does it. Both hold: tailoring is **required to stay in the race**, not enough to win it. The vendor sample is small; weight accordingly. |
+| What employers fall back on: hard-to-fake evidence | **CV audit, 2026** (arXiv 2604.01933; 36,880 applications to 9,220 US graduate postings): callback gaps for non-White-male applicants are 18-28% in management roles. **Randomly assigned credentials narrowed the gaps only where applicants are judged against structured criteria**; gaps are smaller where ads mention tests, certifications or background checks. | **Strengthened:** verifiable credentials carry weight, most where screening is structured |
+| Structured elicitation finds what matters | **Jabarian & Henkel, "Voice AI in Firms"** (arXiv 2607.28222 v2, September 2026; natural field experiment, 70,000 applicants): AI-interviewed applicants got **12% more offers**, with more starts and better retention and no productivity loss. The mechanism is "controlled variance": structured yet responsive interviews **collect more hiring-relevant information**. | **New, and directly relevant to Ariel:** structured, adaptive questioning extracts better evidence than unstructured conversation. Supports making Ariel's probing more structured (per requirement), not freer. |
+| Recruiters suspect AI and fraud | **Checkr 2026** (about 3,000 US hiring managers): 86% saw hiring fraud in the past year; **67% suspected AI misrepresentation (up from 59% in 2025)**. **RefAssured, September 2026:** only 16% of HR and hiring managers fully trust an AI screen without humans. **Gartner** (candidates, 2,918): 26% trust AI to judge them fairly, while 52% think it already screens them. [vendor surveys] | **Strengthened:** suspicion is rising year over year. Fabrication risk is the main thing our grounding gate must prevent. |
+| CV/LinkedIn consistency matters | **LinkedIn Hiring Assistant 2** (November 2026 rollout): automated trust signals across verification, work history and pre-screening, **flagging inconsistencies**. | **Strengthened, now automated.** The "role titles are not locked" finding moves up in priority. |
+| Writing quality helps employers see ability (Wiles 2025, pre-LLM data) | No 2026 replication found. | **Unchanged; older evidence.** |
+| A post-LLM causal study of salaried hiring | Still none found; the 2026 vendor experiment above is the closest. | **Gap remains** |
+
+### What the 2026 evidence changes in the working conclusions
+1. **Tailoring:** required, not differentiating. Keep tailoring (2026 salaried data), but put the product's weight on **verifiable, specific evidence**.
+2. **Evaluative language is the risky part of an AI-written CV** ("Bias in the Tails", 2026): "exceptional", "proven track record", "results-driven" vary arbitrarily and carry bias. **Facts are stable.** Our tailor prompt should prefer facts and cut evaluative self-description. To check against the current prompt in stage 6.
+3. **Ariel's interviews should be more structured, per requirement** (Voice AI, 2026). This is now evidence-backed, not just a design preference.
+4. **Title and history consistency is machine-checked** (LinkedIn HA2). Lock role titles to the profile (the recommendation from round 3).
