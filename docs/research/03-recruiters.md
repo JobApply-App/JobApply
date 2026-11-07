@@ -124,3 +124,44 @@ Question I asked myself: *if everyone now tailors with AI, does tailoring still 
 - This is exactly what Ariel's probing collects. **The value of the product moves from "writing" to "extracting true specifics from the user"**, which an LLM alone can't invent.
 - **The user's own edits are part of the value.** The live editor and the "personal touch" step should be encouraged, not skipped.
 - **Clarity beats flourish** (Wiles): short, readable, error-free. And no AI polish for its own sake, since polish is exactly the presentation axis that flips LLM screeners (stage 2) and reads as generic to people (round 1).
+
+---
+
+## Round 3: salaried hiring after LLMs; Israeli recruiters; cross-checking
+
+### Is there a post-LLM causal study of *salaried* hiring?
+- **Not found** after a targeted search (2025-2026). The causal evidence is from freelance platforms (round 2). Lab work exists (LLM screeners, self-preference, gender bias in callbacks: arXiv 2504.21400, not yet read).
+- Hiring-manager surveys exist ("80% say they can identify AI CVs"; "49% dismiss CVs they identify as AI"), but they are self-reported vendor surveys [vendor survey], and the blind test in round 1 (33.5%) contradicts the self-belief.
+- **Status:** an open gap in the literature. I'll check again in later stages and won't draw salaried-market conclusions beyond what round 2 supports.
+
+### Israeli recruiters [secondary: Israeli recruitment firms' and job sites' guides; no representative Israeli survey found]
+- **First screen:**
+  - recent roles, keywords, company names and years of experience;
+  - **about half of recruiters spend up to 30 seconds** on the first screen [Manpower Israel guide].
+- **Red flags:**
+  - unexplained gaps;
+  - **inconsistent dates**;
+  - generic descriptions;
+  - spelling errors [mojob].
+- **Personal details:**
+  - name, phone, email and city are enough; no date of birth or marital status [taasiya].
+  - **No photo in high-tech and international companies** [owlapply].
+- **Military service:**
+  - relevant "only if it relates to the job" [Manpower];
+  - other guides list it as a standard part of an Israeli CV.
+  - Our product keeps it as its own section, and Ariel is told meaningful roles matter. The two views are compatible: **show it; give it bullets only when relevant**.
+- **High-tech:** projects, GitHub and open-source count as much as formal roles. **Recruiters check LinkedIn against the CV** [easystudyai].
+- **Robert Half (Brazil, 774 professionals, via ynet):**
+  - the most common falsifications are **exaggerated technical skills and inflated job titles**;
+  - **58% disqualified candidates early because of inconsistencies in the CV**.
+  - Not Israeli, but consistent with the Israeli guides.
+
+### Finding about our own product: role titles are not locked
+- **Degree and institution** are marked "copy exactly from profile", and education is re-injected from the profile after generation.
+- **The role title** (`experience[].role`) has no such rule in the prompt, and nothing after generation restores the profile's title. The model is free to rewrite it toward the posting's wording.
+- **Why that's a risk:**
+  1. recruiters cross-check LinkedIn;
+  2. inflated or changed titles are a top falsification flag;
+  3. inconsistency is a top early-rejection reason.
+- **Not yet measured:** how often our CVs actually change a title. To check in stage 6 (generated CVs vs profiles).
+- **A likely direction for the design:** keep the official title (localised in Hebrew is fine). Where the posting's wording differs, put the relevant term in the summary or a bullet, never in the title.
