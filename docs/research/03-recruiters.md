@@ -69,3 +69,58 @@ Stage 3 of the scoring/CV research. Working notes, built up over several rounds.
   - Correspondence/audit studies (fake applications measured for callbacks) are the gold standard.
 - **Israeli recruiters specifically:** what Israeli tech and non-tech recruiters say they read first, language expectations, military service, and the place of the "תמצית" (summary).
 - **Hiring managers vs recruiters:** what each screens for.
+
+---
+
+## Round 2: does AI-written or tailored writing actually get people hired? (three causal studies, read in full)
+
+Question I asked myself: *if everyone now tailors with AI, does tailoring still help? And if not, what does?* Three studies answer it from different angles. All three are on online labour platforms (Freelancer.com and a large freelance market), which limits how far they generalise to salaried jobs. See the self-check at the end.
+
+### 1. Better writing helps employers see ability
+**Wiles, Munyikwa & Horton, *Management Science* 71(12), 2025; NBER w30886 [primary].**
+- **Field experiment:** about 500,000 jobseekers. The treated group got algorithmic writing help on their CVs (grammar and clarity). **Hired 8% more often.**
+- **No drop in employer satisfaction.**
+- **Their model:** better writing "does not signal ability but helps employers ascertain ability".
+- **Date caveat:** the experiment predates ChatGPT (the paper is from 2023), and the tool fixed errors and readability; it didn't generate content. **[historical design, 2025 publication]** Read it as "clarity helps the reader judge", not as "AI-generated text helps".
+
+### 2. After LLMs, tailoring stopped carrying information
+**Galdin & Silbert, arXiv 2511.08785, 2025, Freelancer.com [primary].**
+- **Measure:** an LLM measure of how tailored each application is to its posting.
+- **Before LLMs, employers paid a premium for more customised applications. After LLMs, they didn't.**
+- **Structural model:** if written applications become useless as a signal, **top-quintile workers are hired 19% less often and bottom-quintile workers 14% more often.** The market becomes less meritocratic.
+
+### 3. The individual gain is real but small, and fades
+**Cui, Santamarina & Ye (Yale), arXiv 2509.25054 v2, November 2025, Freelancer.com [primary].** An AI cover-letter tool launched on the platform.
+- **Tailoring:**
+  - access raised it by 0.16 SD;
+  - actual use raised it by 1.36 SD.
+- **Callbacks:**
+  - access (everyone offered the tool) **+0.43 percentage points, about +6%** on a 7.02% base;
+  - actual use **+3.56 pp, about +51%**;
+  - **significant only at the 10% level, and the effect "tapered off after two months."**
+- **The signal collapsed:** the correlation between a cover letter's alignment with the posting and callbacks **fell 51%**. **Employers shifted to other signals, "including workers' prior work histories"** (on that platform: review scores and past jobs).
+- **Editing matters (correlational, within worker):** "most workers submit AI-generated drafts with minimal revision", but **more time spent editing the AI draft is associated with higher hiring success.**
+
+### What the three studies say together
+1. **Clarity and readability help** (Wiles). A clean, error-free, easy-to-scan CV lets the reader see ability. This is lasting value.
+2. **Tailoring as such has stopped differentiating** (Galdin & Silbert; Cui et al.). When everyone mirrors the posting, mirroring carries no information. The early advantage for adopters faded within about two months.
+3. **Employers move to evidence that is hard to fake:** work history, track record, verifiable outcomes (Cui et al.).
+4. **Personal input on top of the AI draft goes with better outcomes** (Cui et al., correlational).
+
+### Self-check: what I'm sure of and what I'm not
+- **Sure:** the three results, their sizes and their caveats, read from the papers themselves.
+- **Not sure:** whether freelance platforms generalise to salaried Israeli jobs.
+  - Freelance employers see review scores; salaried recruiters see a CV.
+  - That cuts *both ways*. With no review score, the CV's content (titles, companies, dates, outcomes) **is** the hard-to-fake evidence. That strengthens, not weakens, the conclusion that **concrete, verifiable facts** are what still separates candidates.
+  - **To keep looking for:** a post-LLM study on salaried hiring.
+
+### Implications for our CV generation (input to the final design)
+- **Mirroring the posting is no longer enough.** It's table stakes. Literal keywords still matter for *being found* (stage 2), but they don't differentiate.
+- **What differentiates is the evidence layer:**
+  - real numbers;
+  - scope (team size, accounts, budget);
+  - concrete outcomes;
+  - recognisable companies and titles, stated plainly.
+- This is exactly what Ariel's probing collects. **The value of the product moves from "writing" to "extracting true specifics from the user"**, which an LLM alone can't invent.
+- **The user's own edits are part of the value.** The live editor and the "personal touch" step should be encouraged, not skipped.
+- **Clarity beats flourish** (Wiles): short, readable, error-free. And no AI polish for its own sake, since polish is exactly the presentation axis that flips LLM screeners (stage 2) and reads as generic to people (round 1).
