@@ -192,3 +192,52 @@ Burning Glass Institute + HBS, PDF read [A]: where firms dropped degree requirem
 4. **The displayed score:** bands plus per-requirement reasons is what vendors ship and what the judge literature supports; a raw 0-100 from a zero-shot LLM is what Indeed's own team calls unstable.
 5. **Seniority from requirements, not from title words.**
 6. **Two signals, not one:** fit (chance of being hired) and preference (does the user want it) should be ranked together but shown separately.
+
+---
+
+## 6. Pass 3 (2026-11-10): closing the listed gaps without the founder's help
+
+Each gap from section 4, what was tried, and where it ended.
+
+### 6.1 Closed
+| Gap | Result | Mark |
+|---|---|---|
+| **Oracle Recruiting** | Own docs read. Generative AI rates each application **0 to 5 on four separate categories: Education, Experience, Skills, Profile**, shown as rating bars; admins set the relative weight of education, experience and skills; recruiters can filter by rating; a generated summary sits behind each bar. Off by default. | A |
+| **Workable** | Own help article read ("Using the Workable Agent"). Criteria in 14 categories, each markable **must-have** or **disqualifier**; the agent gives **a normalized score out of 100**, must-haves weighted more; it also weighs "completeness of the candidate profile" and "validity and consistency of provided information". **Auto-advance and auto-disqualify exist as optional settings**; a disqualifier only rejects "if this action is enabled". | A |
+| **Greenhouse 2026 AI in Hiring Report** | The PDF link was behind the form page; found and read (1,200 job seekers, 219 recruiters, 446 hiring managers, US). See 6.3. | A (vendor survey) |
+| **A fifth PDF engine on our Hebrew files** | PDFium (the engine inside Chrome, already installed here as `pypdfium2`) returns the Hebrew lines with the words in reversed order **for our PDFs and for the Word-made control alike**. | A (measured) |
+
+### 6.2 What these change
+- **"No vendor rejects automatically" was too strong.** Workable ships optional automatic disqualification on recruiter-defined disqualifying criteria, and a 0-100 score. The accurate statement: rejection is driven by **explicit criteria the recruiter marked as disqualifying**, and it is opt-in. Greenhouse, Ashby, Eightfold, SmartRecruiters and Workday state that the AI does not reject on its own.
+- **The 0-100 scale is not absent from the market** (Workable). Bands and 0-5 remain the majority (Greenhouse, SmartRecruiters, Oracle, Eightfold, iCIMS tiers). The stronger shared pattern is not the scale but the structure: **named criteria, must-have vs nice-to-have, a reason per criterion**.
+- **Workable scores profile completeness and consistency.** A complete, internally consistent application is itself a scored signal. This supports asking for missing data up front and checking dates and titles for consistency before export.
+- **Hebrew PDF word order is not only our problem.** With PDFium the Word control is reversed too. Tally across engines: Poppler reads both correctly; PyMuPDF and pypdf reverse ours only; PDFium reverses both; pdfminer needs a bidi step for both. So a system's Hebrew handling depends on its own engine and whether it applies bidi reordering. Our file is worse than Word's in two of five engines and equal in three. PDFBox/Tika remain untested.
+
+### 6.3 Greenhouse 2026 AI in Hiring Report (primary)
+- **53% of recruiters review fewer than half of the applications they receive; 21% review fewer than a tenth per role.**
+- Only **21% are "very confident"** their system is not filtering out qualified candidates; **25% do not know what their AI prioritises**.
+- 91% of recruiters and hiring managers have spotted or suspected candidate deception; most common: CV exaggeration (63%), fake references (48%).
+- Hiring managers' top two problems: candidate authenticity (46%) and **telling qualified from unqualified (45%)**. 68% are more involved in hiring than a year ago; 39% run more in-person interviews.
+- **41% of candidates say they have used prompt injections in applications.** This is self-reported in a survey; the measured rate in about 200,000 real CVs was about 1% (Zhang et al., section 2). The two numbers measure different things and the survey figure should not be read as prevalence.
+- 74% of candidates use AI in the job search; 87% want employers to disclose AI use.
+- **For us:** most applications are never read by a person, so being surfaced matters; and the people who do read are primed to distrust polish. Both push toward specific, checkable facts.
+
+### 6.4 A conflict found: do AI skills on a CV help?
+- Stephany et al. (recruiter conjoint, 2026): +8 to 15 points on stated interview intent.
+- **Danilov et al., 2026** (field correspondence experiment, cited in Boyd-Swan & Reynolds): listing advanced AI skills had **no average effect on real callbacks**.
+- **Reading:** a real-callback experiment outweighs stated intent. Section 5.5's note that an AI-tools line is "worth surfacing" is downgraded to **unproven**. I have not read Danilov et al. in full; mark B.
+
+### 6.5 Still open, and why it cannot be closed from here
+| Gap | What was tried | Status |
+|---|---|---|
+| SAP SuccessFactors, primary | sap.com, community.sap.com, learning.sap.com, help.sap.com all return empty from this environment | **C.** Secondary sources agree: skills sorted into exact, related and "easily acquirable"; stack ranking by overall fit; not available for jobs in Germany. |
+| iCIMS method | knowledge base unreachable; public page has no method | **B.** Tiers by skills and experience, per job. |
+| Comeet | support site unreachable; searches return only launch coverage | **C.** Needs the recruiter test. |
+| LinkedIn Future of Recruiting 2026 | only the 2025 edition is published at the known address; 2026 figures appear only in secondary write-ups | **C** |
+| Checkr 2026, UK ICO audit | stub page; 403 | not read |
+| PDFBox / Tika | download, and install through the system package manager, both blocked by the session's safety rules; not worked around | needs the founder's permission |
+| Our scorer's run-to-run stability; our CVs' fabrication and title-change rate | no model API key exists in this environment, and adding one needs the founder | stage 7, with a key |
+| Recruiter eye-tracking after 2018 | searched again; only blogs recycling the 2018 study, one 2023 machine-learning paper on older gaze data | **does not exist** as far as can be found |
+| Representative Israeli recruiter data | Hebrew search: press pieces only (TheMarker June 2026, Mako, Ynet), mostly quoting foreign surveys | **does not exist** publicly; own survey is the only route |
+| Hebrew CV parsing benchmark | none; RChilli lists Hebrew under "basic parsing" only | **does not exist**; our test kit is the substitute |
+| Causal study of CV tailoring in salaried hiring | none found beyond Kickresume's own test | **does not exist** yet |
