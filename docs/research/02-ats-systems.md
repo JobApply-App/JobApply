@@ -427,3 +427,17 @@ Stage 2 of the scoring/CV research. Working notes, built up over several rounds.
 | EU AI Act timing | **Digital Omnibus adopted:** Regulation (EU) 2026/1744, in force 27 July 2026. **High-risk Annex III (employment) obligations moved to 2 December 2027.** | **Confirmed** (was "sources differ") |
 | LinkedIn as a search channel | **LinkedIn Hiring Assistant 2** (announced September 2026, rolling out to English customers in November 2026): recruiters type non-keyword criteria that the agent interprets and they confirm. **"Trust signals"** combine verification, ATS data, pre-screening answers and **work history, and flag inconsistencies.** | **New:** CV-to-LinkedIn consistency is now machine-checked. See Research 03 on locking role titles. |
 | Comeet | No 2026 screening announcement found. A 2026 review site lists "Candidate Match Insight Agent" and "Sourcing Agent" without details; plans mention "AI resume reviews". Comeet states its AI "will never make hiring decisions on its own." | **Unchanged.** Still needs the real test. |
+
+---
+
+## Pass 2 corrections and additions (2026-11-10)
+
+Full detail in `00-gap-map.md`, section 5. Changes that touch this stage:
+
+- **Correction, SmartRecruiters:** round 2 said "1-5 stars" from a secondary source. SmartRecruiters' own Winston Match FAQ describes **four bands (Very high, High, Medium, Low)**, built from separate models for skills, work experience, education, career progression and job-title relevance, weighted per job from real hiring outcomes. [primary]
+- **Eightfold, own page:** deterministic matching models, plain-language reasons, skills shown to the candidate, no autonomous rejection or advancement. [primary]
+- **Textkernel, own FAQ:** Hebrew is in the list of 29 CV-parsing languages. [primary] Possibly beta per the developer docs. [secondary]
+- **Indeed, 2026:** its own team calls zero-shot LLM scores unstable across identical inputs and moved to a deterministic 1-5 grade read from token probabilities. [abstract and intro]
+- **ManpowerGroup, 2026:** production matching fuses semantic vectors with full-text keyword relevance. Literal terms and meaning are both used. [abstract]
+- **Pagan et al., Oct 2026:** Claude and Gemini are now covered. Gemini 3.5 Flash is the most favoured *writer*; Claude Sonnet 4.6 the best *evaluator*; self-preference is not the mechanism. [read]
+- **Still unread in the primary:** SAP SuccessFactors, Oracle, iCIMS knowledge base, Workable, Comeet.

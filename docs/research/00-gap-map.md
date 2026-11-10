@@ -88,25 +88,107 @@ Consolidation pass over stages 1-3 (2026-11-10), before stage 3 continues. For e
 | 2 | Two different formulas shown side by side | A | none |
 | 3 | Local term hard-coded to one user's titles and seniority | A | none |
 | 4 | Confidence barely reaches the match score | A | none |
-| 5 | Real ATSs: per-requirement, coarse categories, human decides | A for Greenhouse, Workday (Aug 2026), Ashby; **C for iCIMS, SAP, SmartRecruiters, Oracle, Eightfold** | read those vendors' own docs |
+| 5 | Real ATSs: per-requirement, coarse categories, human decides | A for Greenhouse, Workday (Aug 2026), Ashby, **SmartRecruiters and Eightfold (own pages, pass 2)**; B for iCIMS (marketing page only); **C for SAP, Oracle** | SAP and Oracle help sites return empty pages from here; iCIMS's knowledge base is unreachable |
 | 6 | Automatic rejection = form answers | A (Workday manual via search, Greenhouse); C elsewhere | Comeet |
 | 7 | Comeet behaviour | C (one vendor blog) | **the recruiter test (reminder set for Nov 11)**; Comeet's support site is unreachable from here |
 | 8 | Holistic LLM scores unstable / per-criterion better | A, with the nuance in section 2 | size of the effect for *our* model and prompt: needs our own measurement (stage 7) |
-| 9 | LLM-written CVs preferred by LLM screeners | A for the models tested; **unknown for Claude and Gemini** | none available; treat as untested |
+| 9 | LLM-written CVs preferred by LLM screeners | A. **Now tested for Claude and Gemini** (Pagan et al., Oct 2026, section 5) | the test used cover letters, not CVs; no CV-only replication with current models |
 | 10 | Tailoring: required, not differentiating | A (freelance, 2025) + B (Kickresume 2026) + A (theory 2026) | still no causal study of salaried hiring |
 | 11 | Evidence beats prose; structured elicitation works | A (three 2026 field experiments) | none |
-| 12 | Recruiters distrust AI-written and fabricated material; rising | B (LinkedIn Aug 2026 survey, primary) + C (Checkr, Greenhouse PDFs) | Greenhouse/Checkr PDFs are on blocked hosts |
+| 12 | Recruiters distrust AI-written and fabricated material; rising | A (LinkedIn Aug 2026 survey; Boyd-Swan & Reynolds Oct 2026 experiment; Greenhouse 2026 candidate report PDF) | Greenhouse *AI in Hiring* and *Benchmark* 2026 PDFs: pages return 404; Checkr page is a stub |
 | 13 | Recruiter first-scan behaviour (titles, companies, dates) | **C; no measured study since 2018** | genuinely thin; no 2024+ eye-tracking exists that I can find |
 | 14 | Israeli recruiters' habits | **C (guides only)** | no representative Israeli data found; candidate for our own small survey |
 | 15 | Role titles not locked in our CVs | A (code) | how often it happens: needs generated CVs (stage 6) |
 | 16 | Hebrew PDF word order | A (root cause measured) | PDFBox/Tika; real ATS |
-| 17 | Skills-based hiring changes little in practice | B (2024 report landing page) | read the PDF; look for a 2026 update |
+| 17 | Skills-based hiring changes little in practice | A (PDF read, pass 2) | it is a 2024 report on 2014-2023 data: background weight only; no 2026 update found |
 | 18 | Regulation (EU AI Act dates, NYC LL144, Mobley v. Workday) | B/C | verify against official texts before relying on dates |
 
 ---
 
-## 4. What remains before stage 3 can be called complete
-1. **Vendor docs still at "secondary":** iCIMS, SAP SuccessFactors, SmartRecruiters (Winston), Oracle, Eightfold, Workable, plus Textkernel/DaXtra on Hebrew.
-2. **Primary PDFs on blocked hosts:** Greenhouse 2026 AI in Hiring and Benchmark reports; LinkedIn Future of Talent 2026; Checkr 2026; Cowgill et al. EdWorkingPaper (Oct 2026); Burning Glass 2024.
-3. **Stage 3 topics not yet started:** hiring manager vs recruiter; CV length, photo and format evidence; referrals; the candidate's side (how many applications, response rates in 2026).
-4. **Things only we can measure:** our scorer's run-to-run stability; how often titles change; Comeet and PDFBox on our PDFs.
+## 4. What remains (updated after pass 2)
+1. **Vendor docs still not read in the primary:** SAP SuccessFactors and Oracle (help sites load as empty shells from here), iCIMS's knowledge base, Workable's AI screening article, Comeet's support site.
+2. **Primary PDFs still missing:** Greenhouse 2026 *AI in Hiring* and *Benchmark* reports (their pages return 404), LinkedIn *Future of Recruiting 2026* (only the 2025 edition is reachable), Checkr 2026, the UK ICO audit (403).
+3. **Stage 3 topics not yet started:** hiring manager vs recruiter; CV length, photo and format evidence; referrals.
+4. **Things only we can measure:** our scorer's run-to-run stability; how often our generated CVs change titles or add facts; Comeet and PDFBox on our PDFs.
+5. **Genuinely absent from the literature (searched, not found):** a post-2018 measured study of where recruiters look; representative Israeli recruiter data; any Hebrew CV parsing benchmark; a causal study of CV tailoring in salaried hiring.
+
+---
+
+## 5. Pass 2 (2026-11-10): 23 more 2026 papers, three primary reports, vendor pages
+
+Solidity here: **A** = read the relevant sections; **B** = abstract and key passages only.
+
+### 5.1 Which model should write the CV? Now tested directly
+**Pagan et al., 30 Oct 2026** (arXiv 2610.41866) [A]. 11 writer models × 9 evaluator models, cover letters for real job ads.
+- **Most favoured writers:** Gemini 3.5 Flash (+0.45), GPT-4o-mini (+0.44), Gemini 3 Flash (+0.36). Locally hosted open models are disfavoured.
+- **Self-preference is not the driver.** Claude Haiku 4.5 shows essentially none. The mechanism is style: how closely the text tracks the ad, and readability.
+- **When the evaluator also sees the CV, the gaps shrink to about ±0.12.** The writing advantage lives mostly in free text judged alone.
+- **Noise:** scoring the same writer twice displaces 7.6-9.5% of candidates.
+- **As evaluator:** Claude Sonnet 4.6 identifies high-fit candidates best (93.6%), Gemini 3.5 Flash 89.6%.
+
+**What this settles:** the founder's question "should CVs be written with Claude instead of Gemini?" has a direct 2026 answer: **no evidence for switching the writer; the current Gemini family is among the most favoured writers.** For *judging*, Claude is a few points better, in line with Castleman (Feb 2026). Limits: cover letters, not CVs; English.
+
+### 5.2 Automated CV improvement fabricates, and prompts alone do not stop it
+**arXiv 2608.26171, Aug 2026** [B]. Automated CV-improvement pipelines introduced fabricated content in **96.7% of outputs**. Prompt guardrails cut fabrication density by 86%, but **50% of outputs still contained at least one fabrication**. A human checkpoint closed most of the rest.
+- **For us:** this is the strongest external support for two things we already suspected: (1) our tailor must be checked by code against the profile, not only instructed (titles, employers, dates, numbers); (2) the user's review step is a safety control, not a courtesy. Stage 6 must measure our own fabrication rate.
+
+### 5.3 The score a job seeker should see
+- **French public employment service, two field experiments** (arXiv 2603.21699) [A]. Recommendations that combine *what the person wants* with *the chance of being hired* beat either alone on clicks and applications. The model ranks jobs by expected value = preference × hiring probability.
+  - **For us:** one number mixing "do I fit" and "do I want it" hides two different things. Our feed should rank on both; the *displayed* fit should be about hiring chance only.
+- **Indeed, 2026** (single-token scoring) [B]. Indeed's own team states that zero-shot LLM scores "produce conflicting reasoning and different scores for identical candidate contexts", even at low temperature. Their fix: read the probability distribution over grades 1-5 in one decoding step, which is deterministic.
+  - **For us:** a second production team confirming finding 8. Our 0-100 semantic and management numbers come from exactly the unstable setup.
+- **Experience-level classification** (arXiv 2610.04304) [B]. Models confuse **Entry and Senior** levels, and title-only reading fails on ambiguous titles; reading the requirements section fixes much of it.
+  - **For us:** direct support for finding 4 ("Junior Customer Success **Manager**" read as manager level). Seniority must come from the requirements text, not the title words.
+- **Rubric judges: how to report agreement** (Rao & Callison-Burch, 2026) [B]. Protocol choices alone (scale, exclusions, pooling) moved reported accuracy from 0.551 to 0.899 on the same verdicts. **Consistency is not validity** (Tiwari, 2026) [B]: two judges were 92-97% self-consistent while correlating only 0.28-0.34 with people.
+  - **For stage 7:** the benchmark must fix its protocol before measuring, and must measure agreement with human judgments, not only run-to-run stability.
+
+### 5.4 Keyword vs semantic screening
+- **Fofanah, 2026** (two papers) [B]. Simulations only: keyword screening rejects qualified candidates through wording differences; semantic matching reduces this. The author states it is "not a measurement of how much real-world friction is artificial".
+  - **Weight:** low. Useful as a framing, not as evidence of how real systems behave.
+- **ManpowerGroup, 2026** [B]: production matching uses **hybrid retrieval**: semantic vectors fused with full-text keyword relevance. **Malt, 2026** [B]: an LLM teacher distilled into a ranking model that outputs per-skill fit scores.
+  - **For us:** real systems use both literal and semantic matching. Exact terms from the job still matter (recruiter search, hybrid retrieval); synonyms are increasingly understood. This agrees with stage 2.
+
+### 5.5 What employers and candidates say in 2026
+- **Boyd-Swan & Reynolds, Oct 2026** (EdWorkingPaper 26-1604; survey experiment on hiring professionals) [A]. *Earlier notes called this "Cowgill et al."; that attribution was wrong.*
+  - Told that AI **substitutes** for a student's effort, employers were clearly less willing to interview and to negotiate salary, **most of all for high-GPA applicants**: strong paper credentials are discounted when they may be AI-earned.
+  - Told that AI **assists**, no penalty.
+  - The only reassurance both groups accepted: **in-person tests**.
+- **Stephany et al., 2026** (1,725 recruiters, UK/US/Germany, conjoint) [B]. Stated AI skills raise interview invitations by **8-15 percentage points**, and partly offset age and lower education; certificates add only moderately over self-declared skills.
+  - **For us:** a truthful "tools I use" line that includes AI tools is worth surfacing in Ariel's questions. Never invent it.
+- **Greenhouse Candidate AI Interview Report 2026** (2,950 active job seekers, five countries; PDF read) [A, vendor survey].
+  - 63% of US job seekers have been interviewed by AI (+12 points in six months); 38% have withdrawn from a process because of it.
+  - **78% of US candidates still tailor applications; only 3% mass-apply with automation; 31% hear back from fewer than a quarter of employers.**
+  - 57% believe their applications are often rejected automatically with no human review; only 21% think employers use AI responsibly.
+- **Wang, 2026** (1,919 US job seekers, preregistered conjoint) [B]. Human involvement mattered more to applicants than any other feature, about as much as cutting wrongful rejections from 30% to 10%.
+- **Surati, Bellini & Black, 2026** (22 recruiter interviews) [B]. Recruiters believe they hold final authority while AI shapes the material they judge from; adoption is often imposed from above; reported efficiency gains are marginal.
+- **Reading:** candidates distrust opaque automation and tailor anyway; employers discount unverifiable polish and trust in-person or verified evidence. Both sides point at the same thing as section 2: **verified, specific evidence over prose**.
+
+### 5.6 Systemic effects
+- **Model monoculture, COLM 2026** [B]. When employers' screeners share correlated biases, the share of candidates rejected by *everyone* rises from 5.6% to 17.3%. Post-trained models were 3.6% less likely to call back older applicants.
+- **Braun et al., 2026** (resume audit, 36,880 applications to 9,220 ads) [B]. Callback gaps are **narrower where screening relies on verifiable, structured criteria** and wider where judgment is subjective.
+- **Barcelona Activa audit, 2026** (497,000 pipeline entries) [B]. Aggregate parity hid large disparities by salary band and age; candidates 55+ were absent from the pipeline.
+- **Kaya et al., Jobindex 2026** [B]. Human plus AI produced fairer candidate lists than either alone.
+- **For us:** structured, verifiable criteria help the candidate too. They are the part of screening least open to arbitrary judgment.
+
+### 5.7 Vendors, read on their own pages
+| Vendor | What their own page says | Mark |
+|---|---|---|
+| **SmartRecruiters Winston Match** (FAQ) | Four bands: **Very high / High / Medium / Low**. Each candidate scored independently on separate models for skills, work experience (titles, seniority, trajectory), education and certifications, career progression, and **job-title relevance**, then combined with weights "based on real-world hiring outcomes" for that job. | A. *Corrects stage 2, which said "1-5 stars" from a secondary source.* |
+| **SmartRecruiters Winston Screen** (FAQ) | AI generates screening questions, scores answers against must-have and nice-to-have criteria, ranks a shortlist. Recruiters review and edit the questions first. | A |
+| **Eightfold** (Responsible AI page) | "Match scores come with plain-language reasoning, candidates can see the skills behind their fit". "Purpose-built, deterministic models". "It does not autonomously reject a candidate or advance one". Bias audits published under NYC LL144. | A |
+| **Ashby** (AI page) | "The AI never 'ranks' or gives numerical ratings to applicants, a human must always be involved"; citations for every AI output; PII redacted before the model. | A (re-confirmed) |
+| **iCIMS** (AI page) | "Rank candidates based on skills and experience"; certified by TrustArc as "explainable and interpretable". No method detail on the public page. | B |
+| **Textkernel** (parser FAQ) | CV parsing in 29 languages, **Hebrew named in the list**; "column layout auto-detection". Search results suggest Hebrew is marked beta in the developer docs; that page is unreachable from here. | A for "Hebrew supported"; C for "beta" |
+
+**What changes:** nothing in the direction, more confidence in it. Five vendors now confirmed on their own pages: coarse bands or criteria, shown reasons, no autonomous rejection. **Title relevance is an explicit scored dimension at SmartRecruiters**, which raises the cost of our tailor changing role titles (finding 15) and the value of an honest, recognisable title.
+
+### 5.8 Skills-based hiring (background, 2024)
+Burning Glass Institute + HBS, PDF read [A]: where firms dropped degree requirements, hires without a degree rose 3.5 points, in 3.6% of roles: **about 97,000 workers a year out of 77 million hires, "not even 1 in 700"**. About 45% of firms changed "in name only". Old data (2014-2023); kept as background for "what the job ad says is not how the hiring manager decides".
+
+### 5.9 What pass 2 changes in our working conclusions
+1. **Writer model:** closed. No case for moving CV writing from Gemini to Claude.
+2. **Judge model:** a small, consistent Claude advantage on judging fit (2 sources, 2026). Worth testing in stage 7 against cost; not a reason to act now.
+3. **Fabrication control moves up the list.** External evidence says prompts cut it but do not remove it. Code-level checks and the user's review are required.
+4. **The displayed score:** bands plus per-requirement reasons is what vendors ship and what the judge literature supports; a raw 0-100 from a zero-shot LLM is what Indeed's own team calls unstable.
+5. **Seniority from requirements, not from title words.**
+6. **Two signals, not one:** fit (chance of being hired) and preference (does the user want it) should be ranked together but shown separately.

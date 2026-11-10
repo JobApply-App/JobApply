@@ -190,3 +190,18 @@ Question I asked myself: *if everyone now tailors with AI, does tailoring still 
 2. **Evaluative language is the risky part of an AI-written CV** ("Bias in the Tails", 2026): "exceptional", "proven track record", "results-driven" vary arbitrarily and carry bias. **Facts are stable.** Our tailor prompt should prefer facts and cut evaluative self-description. To check against the current prompt in stage 6.
 3. **Ariel's interviews should be more structured, per requirement** (Voice AI, 2026). This is now evidence-backed, not just a design preference.
 4. **Title and history consistency is machine-checked** (LinkedIn HA2). Lock role titles to the profile (the recommendation from round 3).
+
+---
+
+## Pass 2 corrections and additions (2026-11-10)
+
+Full detail in `00-gap-map.md`, section 5. Changes that touch this stage:
+
+- **Correction, Kickresume 2026:** the table above reports tailored AI 18% vs generic AI 10%. The same test had **human-written CVs at 31% (single column) and 12% (two columns)**. The single-column human CV was sent first, to the best-matched jobs, so its lead is confounded. **30 of 36 positive responses came from well-matched roles.** Fit decided most outcomes.
+- **Correction, attribution:** the October 2026 employer experiment is **Boyd-Swan & Reynolds** (EdWorkingPaper 26-1604), not Cowgill. Finding: when AI is framed as replacing effort, employers discount strong credentials most; only in-person tests reassured both groups. [read]
+- **Fabrication in automated CV improvement** (arXiv 2608.26171): 96.7% of outputs fabricated; guardrail prompts left 50% with at least one fabrication. [abstract]
+- **AI skills as a hiring signal** (Stephany et al., 1,725 recruiters): +8 to 15 points on interview invitations. [abstract]
+- **Candidates in 2026** (Greenhouse, 2,950 job seekers, PDF read): 78% tailor, 3% mass-apply with automation, 31% hear back from fewer than a quarter of employers, 57% believe they are auto-rejected unseen.
+- **Burning Glass/HBS 2024 PDF read:** "not even 1 in 700 hires"; 45% of firms changed in name only. Background weight.
+- **Structured criteria narrow callback gaps** (Braun et al., 36,880 applications). [abstract]
+- **Still open in this stage:** hiring manager vs recruiter; CV length, photo and format evidence; referrals.
