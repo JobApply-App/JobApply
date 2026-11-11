@@ -2,6 +2,8 @@
 
 Stage 3 of the scoring/CV research. Working notes, built up over several rounds.
 
+> **Read the last section first: "Stage 3, verified" (2026-11-11).** It audits every claim below against its source, corrects six of them, adds the topics that were missing, and states the conclusions with a confidence level. Where the two disagree, the last section wins.
+
 
 **Source marks:**
 - **[primary]**: the original study or the vendor's own page.
@@ -205,3 +207,131 @@ Full detail in `00-gap-map.md`, section 5. Changes that touch this stage:
 - **Burning Glass/HBS 2024 PDF read:** "not even 1 in 700 hires"; 45% of firms changed in name only. Background weight.
 - **Structured criteria narrow callback gaps** (Braun et al., 36,880 applications). [abstract]
 - **Still open in this stage:** hiring manager vs recruiter; CV length, photo and format evidence; referrals.
+
+---
+
+# Stage 3, verified (2026-11-11)
+
+Done in three passes: (1) every claim above re-checked against the text of its source; (2) the missing topics researched; (3) every conclusion re-read against the evidence and given a confidence level.
+
+**Marks:** **A** = I read the relevant passage in the primary source in this pass. **B** = primary source, abstract or summary only. **C** = secondary or vendor claim I could not trace. **None** = searched, nothing reliable exists.
+
+## Part 1: audit of the earlier claims
+
+### Confirmed against the source text
+| Claim | Source text | Mark |
+|---|---|---|
+| Writing help raised hires 8% | Wiles, Munyikwa & Horton: "nearly half a million jobseekers" (480,948), "hired 8% more often". Pre-ChatGPT; the tool fixed errors, it did not generate content. | A |
+| Without written signals, top-quintile workers hired 19% less, bottom 14% more | Galdin & Silbert: exact wording confirmed. This is a **model counterfactual**, not an observed outcome. | A |
+| AI cover-letter tool: +0.43 pp access, +3.56 pp use (+51% on 7.02%), 10% significance, faded after two months | Cui et al.: all confirmed. Also: correlation of tailoring with *offers* fell 79%; one SD more editing time goes with +0.31 pp offer probability. | A |
+| Callback gaps 18-28% in management roles; credentials narrow gaps only under structured criteria | Braun et al.: confirmed. | A |
+| AI-led interviews: 12% more offers | Jabarian & Henkel: 8.70% vs 9.73%; also 18% more job starts. | A |
+| AI-interview report: +17.5 to +20 pp at final interview; AUC +0.18 junior vs +0.08 others | Aka, Palikot et al.: confirmed. **Standard errors are large (8.5 and 11.8 pp)**: the direction is solid, the size is not. | A |
+| Kickresume 2026: 31% / 12% / 18% / 10%; 30 of 36 from well-matched roles | Confirmed, including the vendor's own warning that versions were sent in phases, not head to head. 51 applications per version. | A (vendor, small) |
+| Burning Glass/HBS: fewer than 1 in 700; 37% of firms drove the change; retention +10 pp | Confirmed. 2024 report on 2014-2023 data. | A (old) |
+| LinkedIn Sept 2026: 64% say it is harder to know what is real; top matches 2.6x more likely to be interviewed | Confirmed; the 2.6x is LinkedIn's own product claim. | A |
+
+### Corrected
+| # | What the notes said | What the source supports | Why it matters |
+|---|---|---|---|
+| 1 | LinkedIn Hiring Assistant 2 "flags inconsistencies" | The press release says signals are "brought together in one place": verified status, ATS insights, pre-screening answers, work experience. **Nothing about flagging inconsistencies.** | "Title consistency is now machine-checked" was overstated. Consistency still matters (below), but on other evidence. |
+| 2 | "Bias in the Tails" shows evaluative words in a CV are risky | The paper studies **summaries that LLMs write about candidates**: facts stay stable, the summariser's evaluative framing varies with the name. It says nothing about wording inside the CV. | The advice "prefer facts over self-praise" stays, but as my inference, not as this paper's finding. |
+| 3 | Burning Glass shows "transferable skills don't get credited" | The report measures **degree requirements only**. | Removed. No evidence here either way on transferable skills. |
+| 4 | LinkedIn 2025: "11% integrating, 26% experimenting, 32% not exploring" | The page confirms only the sum: **37% "actively integrating or experimenting", up from 27%**. The split could not be found. | Use 37%. And it is a 2025 figure; see 2026 below. |
+| 5 | "In 2025 most recruiters still read CVs themselves, so writing for a human stays the priority" | Greenhouse 2026 (primary): **53% of recruiters review fewer than half of applications; 21% fewer than a tenth.** | Reversed in emphasis: a CV must first be *surfaced*, then persuade a person. Both, in that order. |
+| 6 | "Structured AI interviews prove Ariel should be more structured" | The studies show structured, adaptive AI interviews collect better hiring information **for employers**. Applying it to Ariel is an analogy. | Kept as a reasonable design direction, labelled as analogy. |
+
+### Downgraded to "could not trace" (C)
+Kept only as colour; nothing below rests on them:
+- "90% report more low-effort applications"; Insight Global 53%; TopResume 33.5% blind test; Resume Now 36% and 62%.
+- Greenhouse "November 2025, 65% of hiring managers". Superseded by the Greenhouse 2026 report read in full.
+- Checkr 2026 (86%, 67% vs 59%), RefAssured, Gartner: the pages are stubs or unreachable.
+- InterviewPal "11 seconds"; ResumeGo.
+- All Israeli guides (Manpower "half spend up to 30 seconds", mojob, taasiya, owlapply, easystudyai), and Robert Half Brazil via ynet.
+
+## Part 2: the topics that were missing
+
+### 2.1 The applicant's real odds (2025-2026 platform data)
+**Ashby Talent Trends** (the ATS's own data; read on its site) [A]:
+- **38 million applications, 93,000 jobs, 2021-2024:** 93.8% of applications are inbound, 4.8% sourced, **1% referred**.
+- **Inbound offer rate fell about 70%: from 7 in 1,000 to 2 in 1,000 applications**, as inbound volume tripled.
+- **Referred candidates: 40% reach an interview; 16% of those interviewed reach an offer.**
+- **Still, inbound applicants are the largest source of hires: 43-52%, and 52% in Q2 2025, a four-year high.** Referrals about 18% of hires, sourced about 16% (250,000 hires, 2021 to mid-2025).
+- Applications arrive in a spike: the **first week brings 2.5-3x the weekly volume** of later weeks.
+- Questions per application form **nearly doubled** in four years; 46.8% of 2024 applications included a long-form question.
+- 82% of 2024 jobs were filled; 97.5% of jobs at companies of 50+ moved at least one candidate to interview. "Ghost jobs" are rarer than surveys claim, on this platform.
+- Ashby's customers are mostly tech and startups. Do not read these as market-wide rates.
+
+**Huntr Q3 2026** (job-tracker data; via Forbes and search summaries, the report itself is unreachable) [C]:
+- Median 102 days to a first offer, up from 78 a year earlier.
+- People who sent 11-20 applications in three months got interviews on 8% of them; people who sent 100+ got 2.4%.
+- **Caution:** this is not proof that applying less causes more interviews. People who apply selectively may differ in other ways.
+
+**Greenhouse Candidate report 2026** [A]: 78% of US candidates tailor; 3% mass-apply with automation; 31% hear back from fewer than a quarter of employers.
+
+**What this says, with confidence:** a cold application has low odds, a referral has far higher odds, and yet about half of hires still come from cold applications. **Fit and targeting are where the applicant has leverage** (also Kickresume: 30 of 36 responses from well-matched roles; LinkedIn Job Match).
+
+### 2.2 Referrals
+- Ashby (above): 1% of applications, about 18% of hires, 40% reach interview. [A]
+- Armstrong & Metaxa, 2025 (448 computing students) [B]: **referrals and family income predicted hiring success; "adding keywords to resumes" and free coding practice did not.**
+- **For us:** the single largest lever in the data is outside the CV. A product that only writes CVs is working on the smaller lever. Worth weighing a referral or networking aid in the feature list (the outreach module exists).
+
+### 2.3 Who screens: recruiter, hiring manager, or software
+- Greenhouse 2026 [A]: 68% of hiring managers say they are **more involved** than a year ago; 39% run more in-person interviews; 61% use software to detect AI in interviews. Hiring managers' top problems: authenticity (46%) and **telling qualified from unqualified (45%)**.
+- Surati, Bellini & Black, 2026 (22 recruiters) [B]: recruiters believe they hold final authority while generative AI shapes the job definition, the summaries and the criteria they judge from.
+- No rigorous study compares what recruiters and hiring managers each look for in a CV. Practitioner pieces say recruiters check must-haves and logistics, hiring managers read for depth. **[None]**
+- **For us:** the CV passes three readers in order: software that surfaces, a recruiter who checks must-haves fast, a hiring manager who reads for substance and is primed to doubt. The top third must show the must-haves plainly; the bullets must hold up to a sceptical expert.
+
+### 2.4 Format, length, photo, gaps
+| Question | Best evidence | Mark | Reading |
+|---|---|---|---|
+| One column or two | Kickresume 2026: 31% vs 12%, confounded by timing. Stage 2: parsers mishandle columns. | C + our stage 2 | Single column is the safe default. All five of our templates already are. |
+| One page or two | Only ResumeGo (a CV-writing company; sources disagree on its year and size). | **None** | No reliable evidence. Do not build rules on it. |
+| Quantified achievements "+40% callbacks" | Traces to an undocumented TalentWorks analysis. No experiment isolates numbers in bullets. | **None** | Plausible, unproven. The 2026 experiments support *verified specifics* generally, not this number. |
+| Applying early "8x" | TalentWorks 2017, 1,600 applications. Ashby confirms the first-week volume spike, not an advantage. | C | Unproven. |
+| Dates vs years of experience | **Kristal et al., Nature Human Behaviour 2022**, preregistered UK audit, 9,022 applications: listing each job with **years worked instead of dates** raised callbacks about 8% vs a CV with no gap, about 15% vs a CV with a visible gap. | B (2022, peer-reviewed) | The strongest causal result on CV *format* that exists. Old by our rule, never contradicted. A candidate option for users with gaps; conflicts with recruiters' wish for dates, so it would need testing, not a default. |
+| Photo | **Ruffle & Shtudiner (Israel)**: 5,312 CVs to 2,656 openings. Attractive men gained from a photo; **women without a photo got more callbacks than women with one, attractive or plain**. | B (about 2010, Israeli) | Old, but it is the only Israeli field evidence. Supports our no-photo default. |
+| Name and ethnicity in Israel | Israeli correspondence tests (Law & Ethics of Human Rights, 2015): significant discrimination against Arab and Mizrahi applicants with identical CVs. | B (old) | Background. Supports structured, criteria-based presentation, which narrows gaps (Braun 2026). |
+| AI skills on the CV | Stephany et al. 2026, stated intent: +8 to 15 pp. **Danilov et al. ("The Elusive Returns to AI Skills"), real applications: no average effect on callbacks**; positive only for vacancies listing few skills and in low-AI industries; such CVs seen as slightly lower in social skills. | B, conflicting | Real behaviour outweighs stated intent. **No general advice to add AI skills.** |
+
+### 2.5 Trust, fraud and AI-written material (2026)
+- Greenhouse 2026 [A]: 91% of recruiters and hiring managers suspected or caught deception in the past year; most common: **CV exaggeration (63%)**, fake references (48%). 74% of candidates use AI in the search.
+- Boyd-Swan & Reynolds, Oct 2026 [A]: employers discount credentials they think AI earned, most for the strongest paper profiles; only in-person tests reassure.
+- Two independent 2026 theory papers reach the same result: **Ashlagi et al.** and **Qian & Yu ("strategic feature collapse")**: as polished material gets cheap, the rational employer falls back on **observable quality: qualifications and work history**, and offers a separate tested route for those the observables exclude. [A/B]
+- arXiv 2608.26171 [B]: automated CV improvement fabricated in 96.7% of outputs; prompts alone left half with a fabrication.
+- **Reading:** the reader assumes inflation. Anything the CV says that the profile, LinkedIn or an interview cannot back up is a liability, not an asset.
+
+### 2.6 Israel
+- No representative Israeli data on recruiter behaviour exists publicly. **[None]** Hebrew press in 2026 (TheMarker, Calcalist, Mako, Ynet) quotes foreign surveys and individual founders.
+- Market context, from press reports of official figures [C]: about 131,000-143,000 open jobs economy-wide during 2026; in high-tech about 17,000-18,000 open roles against about 15,000 registered tech job seekers, with **only about 10% of open tech roles at junior level**; Calcalist headlines a junior's chance of being hired in tech at 5%.
+- **Reading:** the Israeli junior market is tight in exactly the segment the founder complained about. This is context for the product's honesty about odds, not evidence about CV content.
+
+## Part 3: conclusions, with confidence
+
+| # | Conclusion | Confidence | Rests on |
+|---|---|---|---|
+| 1 | **Fit decides most outcomes.** Applying to roles the person really fits matters more than how the CV is written. | **High** | Ashby funnel; Kickresume 30/36; LinkedIn Job Match; Huntr (weak) |
+| 2 | **Polish has lost value; verifiable facts have gained it.** Employers respond to cheap polish by leaning on work history, qualifications and tested evidence. | **High** | Two theory papers 2026; Cui 2025; Boyd-Swan 2026; Greenhouse 2026; three AI-interview experiments |
+| 3 | **Tailoring is required but does not differentiate.** Skipping it costs; doing it does not win. | **Medium-high** | Cui and Galdin (freelance, causal); Kickresume (salaried, small, vendor); 78% of candidates tailor. No causal salaried study exists. |
+| 4 | **Clear, error-free, easy-to-scan writing helps.** | **Medium** | One large experiment, pre-LLM. Not replicated since. |
+| 5 | **Never state what the user cannot back up.** Fabrication and inflation are what readers now look for, and automated CV tools produce them by default. | **High** | Greenhouse 2026; arXiv 2608.26171; Boyd-Swan 2026 |
+| 6 | **Keep titles, employers and dates exactly as they are in the profile.** | **Medium-high** | Title relevance is a scored dimension (SmartRecruiters); Workable scores "validity and consistency"; exaggeration is the top fraud flag. *Not* on LinkedIn "flagging", which I had wrong. How often our CVs change titles is still unmeasured. |
+| 7 | **The CV has to be surfaced before it is read.** Literal must-have terms from the posting, single column, standard headings. | **High** | Greenhouse 2026 review rates; stage 2 vendor docs and parsing tests |
+| 8 | **A referral beats any CV change.** | **High** for the size of the gap; **medium** for causation (referred people may be better fits) | Ashby; Armstrong & Metaxa |
+| 9 | **Juniors are hit hardest**, because their CVs carry the least information. Extra verified evidence helps them most. | **Medium-high** | Ashlagi theory; Stanford AUC result (large SE); Israeli market context (C) |
+| 10 | **Structured, per-requirement elicitation produces better evidence** than free conversation. Applying this to Ariel is an analogy. | **Medium** | Jabarian & Henkel; Aka et al. |
+| 11 | No-photo, single-column defaults are right for Israel. | **Medium** | Ruffle & Shtudiner (old); parsing tests |
+
+### What I am not confident about, and will not build rules on
+- CV length; numbers in bullets as a specific effect; applying early; AI skills as a line item; how long a recruiter looks and where; what Israeli recruiters do differently. Each is either unproven or unstudied.
+- The size of any effect in the **Israeli salaried** market. Almost all causal evidence is from US or freelance settings.
+
+### What would move these to near-certain
+Only our own data can: (a) the recruiter test with the kit; (b) tracking interview outcomes per application in the product, which no outside study can replace; (c) a short survey of Israeli recruiters. Outside reading has reached the point of diminishing returns for this stage: the last three passes changed emphasis and corrected my wording, but did not overturn conclusions 1, 2, 5 or 7.
+
+## What this means for the product (inputs to the decisions, not decisions)
+1. **Lead with fit, honestly.** A trustworthy "should I apply" signal is worth more than CV polish. This raises the priority of fixing the match score (stage 1).
+2. **The CV writer's job is to state verified facts clearly in the posting's terms**, and to refuse to invent. Code-level checks against the profile, not only prompt instructions.
+3. **Ariel's value is producing evidence** the CV can carry: scope, numbers, outcomes, per requirement.
+4. **Tell users the odds and the levers**, including the one outside the CV (referrals).
+5. **Measure outcomes in the product.** Interview-rate tracking is the only way to settle what outside research cannot.
