@@ -39,7 +39,7 @@ Stage 4 of the scoring/CV research (2026-11-11). Question: how do the tools a jo
 
 ## 2. Patterns across the market
 
-1. **Every "ATS score" sold to job seekers is the vendor's own keyword comparison.** No tool reproduces a score that an employer's system produces. Three vendors say so in writing (Rezi, Careerflow, Jobscan). Confidence: high.
+1. **Every "ATS score" sold to job seekers is the vendor's own keyword comparison.** No tool reproduces a score that an employer's system produces. Two vendors say so in writing (Rezi, Jobscan). Careerflow says its score measures only keyword alignment between two documents, yet in the same article tells users to aim for 55-60% "to pass initial screening", which implies a link it does not show. Confidence: high.
 2. **The targets are arbitrary and incompatible.** "Good" is 55-60% at Careerflow, 75% at Jobscan, 80% at Teal, 85 at Resume Worded, 90 at Rezi. The same number means different things in each tool, and none publishes evidence for its threshold. Confidence: high.
 3. **The mature tools split the number in two:** *match to this job* and *quality of the document*. Careerflow, Teal, Resume Worded and Rezi all keep them apart. Confidence: high.
 4. **The direction of travel is from a bare percentage to a list:** covered / partial / missing per requirement (Careerflow, Huntr, LinkedIn's free summary), with bands in place of digits (LinkedIn High/Medium/Low, Huntr poor/fair/great). This matches what the employer-side systems do (stage 2). Confidence: medium-high.
