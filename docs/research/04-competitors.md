@@ -121,3 +121,61 @@ These are observational numbers from each vendor's users. They show association,
 6. **Refusing to invent is a sellable feature.** 63% of AI users report false details added to their CV.
 7. **Referral help is becoming standard** in the newest tools. It was the largest lever in stage 3.
 8. **Be honest about odds for juniors and for people applying below their level.**
+
+---
+
+## 7. Two Israeli products the founder asked about (read 2026-11-11)
+
+Both were opened in a real browser. Everything behind a login was not seen. **Weight:** these are product pages and legal documents, not evidence about hiring. They show what Israeli competitors offer and promise, nothing about what works.
+
+### Tobi (tobi2.com)
+**What it is** [A: landing page, terms of use, privacy policy v1.0 dated 15 Oct 2026]:
+- An "AI agent that finds relevant jobs and submits your CV across the web". The public site is only a login page, a one-minute video and the legal pages. "1,500+ people already using the tool".
+- Operated by Colors Intelligence Ltd, Tel Aviv, which also has products named Colors and "CV Ai".
+- The logos on the page list its targets: LinkedIn, Indeed, Glassdoor, AllJobs, Drushim, JobMaster, Jobnet, Ethosia, Comeet, Greenhouse, Lever, Ashby, Workday, SmartRecruiters and others.
+
+**How it works, from its own legal text:**
+- The user uploads a CV, sets preferences and names target sites in a chat. Tobi opens those sites in a **cloud browser**, the user logs in to their own accounts there (typing directly, or handing credentials to the chat for that session), and Tobi then **finds jobs, rates their fit with AI, decides whether to apply, fills the forms, answers screening questions from a stored "answers bank", and submits**.
+- **No approval per application.** The terms say submissions happen "automatically, on the basis of its fit assessment, without your individual approval of each submission", and that a submission "cannot usually be cancelled or corrected".
+- "AI output" is defined to include the **fit score, the decision to apply, the choice of CV, wording adjustments and answers to questions**. The company disclaims any error in all of them, and also "an irrelevant submission, a duplicate, a submission to your current employer or to a competitor".
+- The terms state that many sites forbid automation, that the user picks the sites and carries that risk, and that the company is not liable if a target site restricts or blocks the user's account.
+- Paid by monthly subscription plus internal "tokens" consumed per action.
+- It keeps a full activity log: jobs found, fit ratings, decisions, what was sent, screenshots of the filled forms.
+- **How the fit score is computed is not published anywhere.**
+
+**Observations:**
+- The privacy policy still contains an unfilled placeholder, "[storage locations]", in the section on data leaving Israel. A sign the legal text was generated or templated and not finished.
+- This is the mass-apply model. The evidence gathered so far points against it: selective appliers get interviews at about three times the rate of volume appliers (Huntr 2026, observational); LinkedIn caps automated applying; and recruiters are drowning in volume (stage 3).
+- **Worth taking:** the activity log and the stored answers to screening questions. Stage 2 found that screening questions, not CV text, drive automatic rejection, and Ashby's data shows forms now ask twice as many questions as four years ago. Helping a user answer them well and consistently has real value, with the user approving.
+- **Not worth taking:** applying without the user's approval, and logging in to the user's accounts on other sites. Both shift legal and reputational risk onto the user, and conflict with our "never invent, never act behind the user's back" position.
+
+### Secret Hunter (secrethunter.io)
+**What it is** [A: home page, premium page, employer page, footer; the blog, the "state of jobs" page and the AI-matches page did not load content or need a login]:
+- An Israeli job-search site whose pitch is supply: "We pull secret jobs straight from company career pages", "we scan over 4,130 companies in Israel".
+- Free: search, saved searches, a job tracker, WhatsApp and Telegram job channels, mobile and desktop apps.
+- **Premium, 59 NIS a month:** alerts "two hours before everyone", the full job database, a "CV agent" that tailors the CV per job "and makes sure it passes ATS screening", unlimited AI CV checks, and **automatic applying to "8,000+ jobs"** ("while you sleep").
+- "AI Matches": "every job is ranked and surfaced only if it fits you". **No method or scale is published.**
+- A "Referrals Network" page exists and is empty ("No referrers yet").
+- Employer side: paid job promotion, ads in its channels, a candidate database, and a **Comeet integration**. Its own figures to advertisers: 35K monthly active users, 38K channel subscribers, 28K email subscribers.
+
+**Observations:**
+- Its real asset is **job supply and distribution** (career-page scanning, WhatsApp and Telegram), not scoring. This is the area the founder's list already has under "job supply". It is also the hardest part to copy quickly.
+- Its income comes from both sides: job seekers pay for speed and automation, employers pay for exposure. A product that takes employers' money to promote jobs has a weaker claim to an honest fit signal. Our one-sided model is an advantage for "should I apply" honesty.
+- "Passes ATS screening" is the same unsupported promise as elsewhere in this market (section 4).
+- **Worth taking:** direct career-page sourcing as the supply strategy; job alerts on channels people already use (WhatsApp, Telegram); speed of alert as a paid benefit.
+
+### What the two add to the picture
+1. Both Israeli products compete on **automation and volume** (apply for me) and on **supply** (jobs others miss). Neither competes on honesty of fit or on the quality of evidence in the CV. That space is open locally.
+2. Neither publishes how it rates fit. In Israel, as abroad, the score is a black box.
+3. Both lean on automatic applying, which the 2026 data and LinkedIn's own policy point against.
+
+---
+
+## 8. Founder decisions recorded on 2026-11-11
+These settle open points from stages 3 and 4. They are product decisions, not research findings.
+
+1. **Source weighting:** many competitor sites are themselves built and written with AI. Use them for ideas only. Conclusions rest on verified research first (peer-reviewed or primary data), vendor material second.
+2. **CV length:** **one page is the default.** Two pages stay available as an option where the case needs it. (The data is unsettled, so this is a judgment call, and a reasonable one.)
+3. **Photo:** **none for now**, for privacy reasons.
+4. **Fabrication and AI-style writing:** a standing priority. The CV must contain nothing the profile does not support, no unrelated words, and no AI-writing tells; it should read in the plain, correct register of a CV. A dedicated research stage on how to build the CV follows (stage 6).
+5. **Running the same CV through several competitor tools:** deferred. To be done later with the founder's sign-ins, and it can run on a cheaper model. Reminder kept here so it is not lost.
