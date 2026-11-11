@@ -192,3 +192,118 @@ In the order the evidence suggests they matter:
 8. **Shorten the prompt drastically** once the quotas are gone; move rules that code can enforce into code.
 9. **Review the word scrubber** for replacements that damage meaning, and build a Hebrew counterpart from real examples with native readers.
 10. **Measure before and after** (section 6). Without that, every item above is a reasoned bet.
+
+---
+
+# Second pass: the wider evidence (2026-11-12)
+
+The founder asked for much more evidence on this stage, from many studies, including the criticisms. This pass adds about 50 sources. About 45 were opened on arXiv and read at abstract level; the ones marked **A** were read further. Search-only items are marked **C**.
+
+**How to read this part:** each heading is one question. Under it: what the studies found, where they disagree, and what it means for our CV builder. Section 16 gives the updated confidence table.
+
+## 9. Is invention really the default, or only in some tasks?
+
+**It depends on the task, and the difference matters for us.**
+
+| Finding | Source | Mark |
+|---|---|---|
+| Rewriting and "improving" a document: unsupported claims in 96.7% of CVs | Takano 2026 | A |
+| Summarising clinical trials (GPT-4o, Claude Sonnet 4.6, Gemini 2.5 Flash; 1,800 summaries): **"unsupported claims" was the dominant failure for all three models** | Williams 2026 | B |
+| Summarising science: LLM summaries were **nearly five times more likely than human ones to state conclusions more broadly than the source** (4,900 summaries, 10 models); happened "even when explicitly prompted for accuracy"; **newer models did worse** | Peters & Chin-Yee, Royal Society Open Science 2025 | B |
+| Patient summaries of radiology reports (18,000 pairs, six models): even the best model **failed to carry over a changed certainty word in 22% of summaries and a severity word in 21%** | Stanford group, Nov 2026 | B |
+| Summaries versus human-written references: people's references are still more faithful and informative; model output wins on fluency; and different models write alike ("stylistic homogeneity") | Liu et al. 2026 | B |
+| **Against the trend:** asked direct questions about a document, five current models **never invented an absent fact (0 of 5,760 probes)**; when overloaded they refused instead | Eliav 2026 | A |
+| **Against the trend:** revising patent claims with retrieved material, four current models showed no detectable copying-in of outside templates (9,600 calls) | 2026, arXiv 2609.36550 | B |
+
+**Reading:** models are now fairly reliable at *reporting what a text says*. They become unreliable when asked to *make it better, shorter, broader or more impressive*. A CV builder is the second kind of task. The specific failures to expect are: adding, broadening, and **dropping the small limiting words** ("basic", "assisted", "pilot", "part-time"). The last one recurs across four independent studies and is the hardest for a person to notice.
+
+**Confidence that rewriting tasks invite unsupported and broadened claims: high** (five studies, three domains, peer-reviewed among them).
+
+## 10. Does a longer, stricter prompt help?
+
+- **Eliav, July 2026** (five models including Claude Sonnet 5 and Gemini Flash; rule count raised from 10 to 160) [A]: **the share of responses that followed every rule fell to zero by 80 rules, "for every model, every format, and both placements"**. Formatting the rules as markdown, plain text or tables made no reliable difference. *Not peer reviewed; a synthetic task.*
+- **Jaroslawicz et al., 2025** (20 models) [A]: same direction; best models 68% at 500 rules.
+- Two more 2025 benchmarks agree [C].
+- **PACT, 2026** (rule-following under pressure, 48 scenarios) [B]: compliance with standing rules varies widely across models when a shortcut is convenient.
+- **Our prompt has well over 100 rules.** On this evidence, the realistic expectation is that some rules are broken in every single generation, and we do not control which.
+- **Critique:** both main studies count rules of one simple kind in an artificial task. Real prompts mix important and trivial rules, and a model may keep the important ones. That is plausible and untested.
+- **Reading:** fewer rules, and every rule that code can enforce moved into code. **Confidence: medium-high.**
+
+## 11. Do the prompt techniques we rely on have support?
+
+| Technique in our prompt | Evidence | Verdict |
+|---|---|---|
+| **Expert persona** ("You are a 20-year veteran Tech Recruiter") | Wharton, Dec 2025 (six models): expert personas did not improve factual accuracy; when they mattered they more often hurt [B]. **Disputed:** a March 2026 paper argues that study's design hid real effects [B]. | **Unsettled.** No evidence it helps accuracy. May shape tone. Not worth defending, not proven harmful. |
+| **Self-audit** ("run a self-audit before output", "re-check until ≥ 3") | Medical question answering, 2026: asking the model to critique and revise itself "does not consistently improve accuracy" and can add new errors [B]. A claim-splitting study, 2026: an instruction that *licenses self-correction* made the model replace what the source said with its own belief in 4.3% of claims, against 0.2-0.5% with a neutral instruction [B]. | **Weak, and can backfire.** A self-check inside the same call is not a check. |
+| **Worked examples with numbers** (our sample bullets: "22%", "98%", "40+ suppliers") | Studies of in-context examples: output clusters around the examples, and with more examples models reproduce them [C, three papers 2024]. | **Real risk.** Our prompt warns against copying, and our fact check would flag a leaked number, so the damage is limited. |
+| **Temperature 0** | Peters & Chin-Yee and "Grounded Optimization" both recommend low temperature [B/A]. | **Supported.** |
+| **Asking the user when the profile is silent** | Takano 2026; a deployed government assistant that routes unclear requests to a clarifying question (2026) [B]; "Pause or Fabricate" (2026) [B]. | **Supported.** |
+
+## 12. How should the output be checked?
+
+- **Split into claims, check each against the source.** This is the standard design in 2026 (several papers) [B]. It can run on small, cheap models.
+- **A second model does not automatically make it safer.** One 2026 study required a language model *and* a separate entailment model to agree before accepting a claim; **accuracy went down**, because correct answers were overturned [A]. Double-checking has to be designed, not just added.
+- **AI judges of faithfulness are swayed by cues** such as length and stated confidence; forcing them to quote evidence before scoring reduced this [B, 2026].
+- **Human reviewers pass text that is mostly right.** "Averaging bias", 2026: people's overall "faithful" labels tracked the *average* sentence, so summaries with a real local error were often approved [B]. This matches Takano's reviewer missing half of the subtle changes.
+- **Showing people which claims are backed helps a great deal.** "Provenance Density", 2026 (81 participants): with a display of which claims were verified, people separated true from invented text (effect size d = 1.82); with no signal they could not [A]. A plain "made with AI" label did not help and lowered trust in true content too.
+- **Omission is a separate error and needs its own check** (medical summarisation, Stanford 2026; "Grounded Optimization") [B].
+- **Stricter grounding costs readability** (4,500 health summaries, 2026): more faithful text was harder to read [B]. A real trade-off, not a free win.
+- **Reading for us:** our fact check covers numbers and names. The evidence points to adding (1) a check for *qualifier changes and broadened claims*, (2) a check for *dropped content*, and (3) a user-facing view marking each line as "from your profile" or "reworded" or "new, please confirm". **Confidence that a provenance view improves the user's review: medium** (one good study, different domain).
+
+## 13. Does "humanizing" the text work?
+
+- **"Humanized but Still True?", Oct 2026** (11 commercial humanizer tools) [A]: **every tool changed or dropped at least one checkable detail in 35-65% of documents**; counting only numbers and names, 10 of 11 tools still altered one in 20% or more. The tools are scored publicly on evading detectors and on overall similarity, which does not notice a changed number. No reliable trade-off was found between keeping facts and evading detection.
+- **Russell et al., 2025** [A]: practised readers still identified humanized text.
+- **Reading:** rewriting a finished CV to "sound human" is a second chance to corrupt facts and does not fool an experienced reader. Our own scrubber is much narrower (a fixed word list and dashes), which is the safer kind, but the lesson holds: **do the style work before the fact check, never after it.** In our pipeline the scrubber runs *before* the grounding gate, which is the right order; the Hebrew pass runs after it, protected by its own number and name invariants.
+
+## 14. Can anyone actually tell, and does it cost the applicant?
+
+| Finding | Source | Mark |
+|---|---|---|
+| Practised LLM users identify AI text almost perfectly; occasional users are near chance and overconfident | Russell et al., ACL 2025 | A |
+| Recruiters shown AI-written cover letters did no better than chance | Tilburg (Abbas Nejad et al.), two field experiments, accepted at the Journal of Labor Economics 2026 | C |
+| **AI-improved cover letters scored higher but did not get more interview invitations**: the gains were in the generic opening and closing, while recruiters attend to personal motivation and clarity. Told that applicants used AI, recruiters valued unaided letters more | same Tilburg study | C |
+| **Admissions essays (7,500 applications, 2020-2025):** AI raised writing quality, yet **applicants with AI-written essays were admitted less often than comparable non-users**; in an experiment, officers often recognised AI writing and rated essays they believed AI-written lower | Isley et al. (Harvard), Sept 2026 | B |
+| Expert writers preferred human writing 82.7% of the time over prompted AI; **lay readers consistently preferred the AI text** | 2026, arXiv 2601.18353 | B |
+| Automatic detectors are unreliable: on human-written text their false-positive rates ranged from 0% to 100% across 13 detectors, and professional editing changed the scores | 135,389 document pairs, Aug 2026 | B |
+| AI-based screening tools scored an AI-written CV up to 50% higher than the human-written equivalent | Privacy International, 2026 | C |
+| Stage 2: LLM screeners favour LLM-written text; stage 3: hiring managers say they distrust it | earlier stages | A |
+
+**Reading, and it is not one-sided:**
+- **Software screeners tend to reward AI-polished text. Experienced human readers tend to penalise text they believe is AI-written. Casual readers cannot tell and may prefer it.**
+- So "sounding like AI" is a risk with exactly the readers who decide late in the process (hiring managers, practised recruiters), and no help with them.
+- The Tilburg and Harvard results agree on the important point: **polish in the generic parts earns nothing; the specific, personal content is what readers weigh.**
+- **Confidence: medium.** Admissions and cover letters are not CVs, and two of these I know only through summaries.
+
+## 15. Language: Hebrew
+- **Translation trades fluency against faithfulness.** 130,486 translated paragraphs, 2026 [B]: the more natural a translation read, the less faithful it tended to be, for people and for machine translation alike. Our Hebrew pass asks for natural Israeli Hebrew and is fenced by invariants on numbers, dates and names; **meaning shifts that involve none of those are not fenced.**
+- **Grammatical gender is hard for models** (French, Arabic, Hindi benchmark, 15 models, 2026) [B]. Hebrew was not tested. Our choice of first-person past-tense verbs, which are the same for both genders, sidesteps most of it.
+- A multilingual detector benchmark (2026) covers eight languages; Hebrew is not among them [B].
+- **Still no study of AI-writing markers or CV quality in Hebrew. [None]**
+
+## 16. Updated conclusions
+
+| # | Conclusion | Before | Now |
+|---|---|---|---|
+| 1 | Rewriting tasks invite unsupported and broadened claims | High | **High**, now on five studies in three domains |
+| 2 | The most missed error is a dropped or changed limiting word | Medium | **Medium-high** (four independent studies) |
+| 3 | A prompt with this many rules cannot be fully followed | Medium-high | **Medium-high** (a second, 2026, study; both use artificial tasks) |
+| 4 | Self-audit instructions inside the same prompt are a weak safeguard | not stated | **Medium** |
+| 5 | The expert persona line helps | assumed | **Unsettled; no support** |
+| 6 | Checking claim by claim against the profile is the right design | High | **High**; but adding a second checker can hurt if combined naively |
+| 7 | Showing the user what is backed and what is new makes their review effective | Medium | **Medium** (stronger evidence for the idea, still not from our domain) |
+| 8 | A "humanizer" step is harmful | not stated | **High** (11 of 11 tools altered facts) |
+| 9 | Experienced human readers penalise text they believe is AI-written | Medium | **Medium** (new: admissions data, Tilburg) |
+| 10 | AI polish of generic parts earns nothing with human readers | Medium | **Medium-high** (Tilburg, Harvard, stage 3's Cui et al.) |
+| 11 | Stricter grounding makes text somewhat harder to read | not stated | **Medium** (one large study) |
+| 12 | Models rarely invent when simply reporting what a source says | not stated | **Medium** (one large 2026 test). This is why "pass the model only supported terms and ask it to state them" is a sound design |
+
+### What changed in my own view during this pass
+- I had treated "models invent" as a general fact. The wider reading shows it is specific to *improving and rewriting*. That makes the design direction clearer, not weaker: reduce the "improve" freedom, increase the "report" structure.
+- I had not weighed the cost side. Grounding reduces readability somewhat, and a badly combined second checker reduced accuracy in one study. Neither is a reason to hold back; both are reasons to measure.
+- The reader evidence is mixed in a way I under-stated: casual readers like AI prose. The case against AI-sounding CVs rests on *experienced* readers and on the generic-polish-earns-nothing result, not on a universal dislike.
+
+### Still not known
+- Rates for **our** system (section 6): needs a key.
+- Anything about Hebrew.
+- Whether recruiters penalise a CV, as distinct from a cover letter or essay, that they believe is AI-written. The nearest studies are adjacent, not direct.
