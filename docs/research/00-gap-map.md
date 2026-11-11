@@ -129,7 +129,7 @@ Solidity here: **A** = read the relevant sections; **B** = abstract and key pass
 **What this settles:** the founder's question "should CVs be written with Claude instead of Gemini?" has a direct 2026 answer: **no evidence for switching the writer; the current Gemini family is among the most favoured writers.** For *judging*, Claude is a few points better, in line with Castleman (Feb 2026). Limits: cover letters, not CVs; English.
 
 ### 5.2 Automated CV improvement fabricates, and prompts alone do not stop it
-**arXiv 2608.26171, Aug 2026** [B]. Automated CV-improvement pipelines introduced fabricated content in **96.7% of outputs**. Prompt guardrails cut fabrication density by 86%, but **50% of outputs still contained at least one fabrication**. A human checkpoint closed most of the rest.
+**arXiv 2608.26171, Aug 2026** [B]. Automated CV-improvement pipelines introduced fabricated content in **96.7% of outputs**. Prompt guardrails cut fabrication density by 86%, but **50% of outputs still contained at least one fabrication**. A human checkpoint removed the gravest errors but cut the overall count by only 59%, and missed subtle changes about half the time. *(Corrected 2026-11-12 after reading the paper in full; I had written that it "closed most of the rest".)*
 - **For us:** this is the strongest external support for two things we already suspected: (1) our tailor must be checked by code against the profile, not only instructed (titles, employers, dates, numbers); (2) the user's review step is a safety control, not a courtesy. Stage 6 must measure our own fabrication rate.
 
 ### 5.3 The score a job seeker should see
