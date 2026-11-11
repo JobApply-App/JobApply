@@ -307,3 +307,145 @@ The founder asked for much more evidence on this stage, from many studies, inclu
 - Rates for **our** system (section 6): needs a key.
 - Anything about Hebrew.
 - Whether recruiters penalise a CV, as distinct from a cover letter or essay, that they believe is AI-written. The nearest studies are adjacent, not direct.
+
+---
+
+# Third pass: how the CV should look and read (2026-11-12)
+
+The founder asked for design and writing insights: what the CV should look like, in what order, in which fonts, with which words, and how to use the information we already hold.
+
+**An honest note on this evidence.** Research on CV *design* is thin and mostly old. The peer-reviewed experiments are from 1988-2019; the 2026 material is vendor data, which shows association only. Reading and typography research is solid but was not done on CVs. So this part combines three kinds of source, marked as usual: **A** read in the source or measured in our own files, **B** abstract or a summary of the source, **C** secondary. Where a popular rule has nothing behind it, that is said.
+
+## 17. What our five templates do today (measured in the files)
+
+| | Classic | Modern | Executive | Minimalist | Tech Modern |
+|---|---|---|---|---|---|
+| Font | Times New Roman | Inter (sans) + Source Serif | Georgia | Helvetica / Arial | Segoe UI / Arial |
+| Bullet text size | 8.5 pt | 9 pt | 8.5 pt | 8 pt | **8 pt** |
+| Smallest text | 8 pt | 7 pt | 7.5 pt | 7.5 pt | **6.5 pt** |
+| Dates: size and colour | 8.5 pt, dark grey | 8 pt, **pale grey** | 8 pt, **pale grey** | 7.5 pt, **pale grey** | 7 pt, **pale grey** |
+| Columns | one | one | one | one | **main column + dark sidebar** |
+| Italics | yes | a little | yes | no | no |
+
+- **Order in all five:** name, target title, contact line, summary, experience, education, then skills, languages, military service, volunteering.
+- **Section headings:** uppercase with widened letter-spacing in all five.
+- **The pale grey used for dates** in four templates (`#94A3B8`, `#A1A1AA`) has a contrast of **2.56 to 1** against white. The accessibility standard for small text is 4.5 to 1.
+- **Correction to earlier notes:** I wrote in stage 2 that all five templates are single-column. Tech Modern has a sidebar holding skills, languages and military service, with light text on a dark background.
+- Hebrew uses the embedded Heebo font; italics were already removed for Hebrew.
+
+## 18. Size and legibility
+
+- **Critical print size.** Vision research (Legge and colleagues; a review in the Journal of Vision) [B]: reading speed is flat across a wide range of sizes and **drops sharply below a "critical print size", about 0.2 degrees of letter height for people with normal sight**. At a normal reading distance of 40 cm that works out to roughly **8 pt** type (my arithmetic, and it varies with the font's letter proportions).
+- People with mild vision loss read 10 pt at 144 words a minute and 16 pt at 163; the authors argue minimum print size should rise above 10 pt [B].
+- Reading is **slowed, not stopped**, below the critical size.
+- **What this means for us:** our bullet text (8-9 pt) sits *at* the threshold for a reader with perfect sight, and our small text (6.5-7.5 pt) is below it. Dates, among the first things a recruiter looks for (stage 3), are both small and pale in four templates. Anyone over 45, anyone reading a printout, and anyone viewing the page fitted to a laptop screen is reading below comfortable size.
+- **Why the templates are small:** to fit one page. This is a direct trade-off with the one-page default. It is solved by saying less, not by shrinking type.
+- **Confidence: medium-high** that body text under 9 pt and pale small text cost readability; the exact threshold depends on font and reader.
+
+## 19. Which font
+
+- **No font is best for everyone.** Wallace et al., ACM TOCHI 2022 (352 readers) [B]: reading speed differed by **35% between a person's fastest and slowest font**, with no loss of comprehension, and the best font differed from person to person.
+- **Familiar beats exotic.** Legibility reviews [C]: familiarity with a typeface speeds reading; serif versus sans-serif makes no reliable difference.
+- **Appropriateness matters for impression.** Shaikh & Fox (2008) [B]: the same CV in a typeface judged appropriate for the job made the applicant seem more knowledgeable, professional and trustworthy than in a neutral or unsuitable typeface.
+- **Easy to read is judged more true and more intelligent.** Reber & Schwarz (1999) [B]: the same statement was believed less when printed in a hard-to-read form. Oppenheimer (2006, five experiments) [B]: needlessly complex words *and* hard-to-read fonts lowered ratings of the author's intelligence.
+- **Hebrew:** one trial of a dyslexia-oriented Hebrew font (230+ participants) found modest gains mainly for dyslexic readers, and no overall difference between serif and sans-serif [C]. No study of Hebrew fonts in CVs or business documents. **[None]**
+- **Reading:** the choice among common, well-made fonts matters little. What matters is that the font is ordinary, clean and familiar, and that the page is easy to read. Our five font choices are all acceptable. **Offering many fonts is not where value lies.**
+
+## 20. Layout
+
+- **TheLadders eye-tracking, 2018** [C, a company's own study, sample size not given; the only eye-tracking work on CVs]:
+  - the worst-performing CVs had a "cluttered look and feel, characterized by long sentences, multiple columns, and very little white space", and "a poor layout that doesn't guide the eye down the page";
+  - recruiters scan titles and subheadings; the report recommends making them bold;
+  - short, declarative accomplishment statements did better than paragraph-length descriptions.
+  - the 2012 edition: the six things looked at are name, current title and company, previous title and company, their dates, and education.
+- **Formal beats creative.** Arnulf, Tegner & Larssen, 2010 (90 raters, half of them professional recruiters) [B]: a formal layout was preferred over coloured or artistic designs for shortlisting. One later study reportedly found the opposite for a graphic layout [C]. **Not settled; the safer reading is conservative.**
+- **Margins help.** Chaparro et al., 2004 [B]: text with margins was read with better speed and comprehension than text without.
+- **Bullets help recall of the listed items**, across five experiments, **less so when the items are unlike each other**, and they reduce attention to nearby prose [B].
+- **Columns:** stage 2 (our measurements and Enhancv's 357 tests): a second column breaks reading order in some extraction engines.
+- **Reading for us:**
+  1. One column, clear bold role titles, visible dates, generous margins, and real white space between roles.
+  2. Tech Modern's sidebar is the one template that goes against the layout evidence and the parsing evidence at once.
+  3. A page packed to the edges to "feel full" (a rule in our prompt) is the cluttered pattern that did worst.
+
+## 21. Order of sections
+
+- **No experiment compares section orders.** No peer-reviewed study compares chronological with skills-first ("functional") CVs on real outcomes either. **[None]** Career sites assert that recruiters distrust the functional format; none cites data.
+- What exists:
+  - the eye-tracking finding that the eye goes to current title, company and dates first [C];
+  - Risavy's 2017 review of the CV literature [B]: write clear, concise CVs "with additional attention given to the Experience and Education sections"; and notes most of this literature is old;
+  - Huntr 2025 (157,445 tailored CVs) [A, vendor]: CVs that led to interviews had a summary 92.7% of the time against 89.3% for the rest; the difference is tiny.
+- **Reading:** our order (summary, experience, education, then skills and the rest) matches what little evidence exists and what readers expect. There is no basis for changing it. For a recent graduate with little experience, putting education above experience is conventional; no study supports or contradicts it.
+
+## 22. Dates and gaps
+
+- **Behavioural Insights Team trial, UK, 2019-2020** (9,022 real applications; the same experiment later published in Nature Human Behaviour) [B]: writing each job's duration as a **number of years in place of calendar dates raised positive callbacks by 4.8 percentage points (14.6%)**; it worked best for high-skill and full-time roles. A 2.5-year gap, explained or not, made no significant difference in this trial, which the authors note does not match earlier studies.
+- Huntr Q1 2026 [A, vendor]: interview rates start to fall after about six months out of work.
+- **Reading:** the strongest causal finding on CV *formatting* that exists, and it conflicts with recruiters' wish to see dates. A candidate for an optional layout for users with gaps, to be tested, not a default.
+
+## 23. Writing: what to say and how
+
+### What has evidence
+| Rule | Evidence | Mark |
+|---|---|---|
+| **No spelling or grammar errors** | Martin-Lacroux & Lacroux, 2016 (536 recruiters): spelling errors hurt shortlisting chances **as much as lacking professional experience**; recruiters who spell poorly themselves penalised less. The CVs tested had five or more errors. | B |
+| **Plain words over impressive ones** | Oppenheimer 2006: needless long words lowered the author's rated intelligence. Matches stage 6's "AI vocabulary" finding from another angle. | B |
+| **Job-related statements of competence help** | Earl, Bright & Adams (1998), replicated: adding statements of competencies relevant to the job raised managers' ratings; where on the page they appeared made no difference. | C |
+| **Self-praise unrelated to the job hurts** | Knouse and colleagues (1988, 1994): impression-management statements improved ratings when tied to the job and **lowered them when not**. One study of 81 managers rated CVs with such tactics unfavourably on nearly every dimension. A later study of real CVs found some self-focused tactics helped. Mixed. | C |
+| **Concrete over abstract** | Hansen & Wänke, 2010: the same content was judged more probably true in concrete wording. The original study has been criticised and a preregistered replication exists whose result I could not read. | C, contested |
+| **Short, separate statements** | TheLadders 2018; Huntr 2025: interviewed CVs averaged **4.4 bullets per role at about 160 characters**, against 4.7 at 157 for the rest. | C / A (vendor) |
+| **Clear, error-free prose** | Wiles et al. (stage 3): +8% hires. | A |
+| **Detail in cover text relates to interviews** | Wingate et al., 2025, Int. J. of Selection and Assessment (183 job seekers): more detail, clarity and structure went with more interviews and faster employment. Known to me through summaries. | C |
+
+### What has no evidence
+- **"Power words" and lists of strong verbs.** I found no experiment showing that any set of verbs improves ratings or callbacks. Vendor pages recommend them "because ATS keyword matching favors them", which stages 2 and 4 do not support.
+- **The "achieved X, measured by Y, by doing Z" formula** (stage 6, first pass).
+- **Accomplishments versus duties** as a tested contrast: asserted everywhere, tested nowhere I could find. It is plausible, and consistent with "concrete and job-related".
+- **Recruiters reading personality from a CV:** they do it, and it is mostly wrong. Burns, Christiansen and colleagues (2014) [B]: such inferences had low agreement between raters and little validity. So there is no reliable "tone" to engineer.
+
+### What this adds up to
+The evidence supports a short list, and it is the same list as the anti-fabrication rules:
+1. Say what the person did, in the job's own terms where true.
+2. Use the plainest accurate word.
+3. One fact per line; keep lines to roughly one and a half printed lines.
+4. Give a number when the person has one.
+5. Do not praise; describe.
+6. Zero language errors.
+
+**A "strong word" is a specific one.** "Reduced" is stronger than "optimized" because it says what happened, not because it is on a list. A verb list in a prompt produces the repeated, formulaic openings that practised readers recognise as AI writing.
+
+## 24. Using the information we already hold
+
+What we have per user that a plain CV tool does not: a profile with evidence per skill, verified or not, dated; answers to Ariel's questions; and the job's requirements.
+
+1. **Select before writing.** Decide in code which experiences and facts bear on this job's requirements; give the model those. This also solves length: the page fits because less is said, not because the type is small.
+2. **Order by relevance within a role, and keep the most distinctive facts.** One 2026 paper named the quiet loss of "the most distinctive accomplishments" as a failure type of its own.
+3. **Prefer verified facts for prominent positions** (summary, first bullet of the latest role). Unverified ones can appear lower, or prompt a confirmation.
+4. **Use the user's own numbers and words** from Ariel's answers verbatim where they are clear. Their phrasing is the least "AI-sounding" text we have. Huntr: 88% of job seekers say their CV leaves out important work, and a third say putting numbers on results is the hardest part; this is what Ariel is for.
+5. **Skills list:** Huntr 2025: interviewed and non-interviewed CVs listed almost the same number of skills (26.5 vs 26.0). Count does not matter; relevance and backing elsewhere on the page do. Our cap of 20, ordered by relevance to the job, is reasonable.
+6. **LinkedIn link:** present on 71.7% of interviewed CVs against 64.3% of the rest (Huntr 2025). Weak evidence; cheap to include when the user has one.
+7. **Certifications:** interviewed CVs listed slightly *fewer* (1.06 vs 1.23). List the relevant ones only.
+
+## 25. Design insights, in order of how well they are supported
+
+| # | Insight | Support | What it would change |
+|---|---|---|---|
+| 1 | **Raise the minimum text size**; nothing under about 8.5-9 pt, bullets 9.5-10 pt | Vision research (strong, not CV-specific) | All five templates; needs less text per page |
+| 2 | **Dates in dark text**, same size as body | Contrast standard (measured: 2.56:1 today) + dates are a first-glance item | Four templates |
+| 3 | **Fit the page by selecting content, not by shrinking** | Follows from 1, and from the fabrication evidence | Generation logic and the "feel full" rule |
+| 4 | **One column everywhere**; retire or rework the sidebar template | Parsing tests (ours, Enhancv's) + eye-tracking report | Tech Modern |
+| 5 | **Bold role titles; clear white space between roles; real margins** | Eye-tracking report; margins experiment | Check each template |
+| 6 | **Conservative look**; colour only as a thin accent | One experiment, one contrary | Already true of four templates |
+| 7 | **Avoid italics for running text and light text on dark** | Fluency research; general legibility | Classic, Executive, Tech Modern |
+| 8 | **Plain headings**; consider dropping wide letter-spacing | Our own stage 1 note that letter-spaced headings broke text search in an extracted PDF | All five; worth a parsing check |
+| 9 | **Fewer templates, better made**, not more fonts | Wallace 2022: no font wins; differences are personal | Product choice |
+| 10 | **Optional "years" format** for users with gaps | One large field trial | New option, to be tested |
+| 11 | **A spelling and grammar pass on every export**, in both languages | 536-recruiter experiment | New check; Hebrew needs a native-quality checker |
+
+### What I would not change on the evidence
+- Section order.
+- The choice among our current fonts.
+- One page as the default (the founder's decision; the data on length is unsettled).
+
+### Not known
+- Anything measured on Hebrew CVs: fonts, size, order, wording.
+- Whether any of the above moves interview rates for our users. Items 1, 2 and 4 are safe on general grounds; the rest are best treated as things to test.
