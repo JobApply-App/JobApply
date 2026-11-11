@@ -295,6 +295,7 @@ Kept only as colour; nothing below rests on them:
 | AI skills on the CV | Stephany et al. 2026, stated intent: +8 to 15 pp. **Danilov et al. ("The Elusive Returns to AI Skills"), real applications: no average effect on callbacks**; positive only for vacancies listing few skills and in low-AI industries; such CVs seen as slightly lower in social skills. | B, conflicting | Real behaviour outweighs stated intent. **No general advice to add AI skills.** |
 
 ### 2.5 Trust, fraud and AI-written material (2026)
+- Greenhouse 2026 [A]: 53% of recruiters review fewer than half of applications and 21% fewer than a tenth; 25% are not confident their system isn't filtering out qualified people (numbers checked against the page layout).
 - Greenhouse 2026 [A]: 91% of recruiters and hiring managers suspected or caught deception in the past year; most common: **CV exaggeration (63%)**, fake references (48%). 74% of candidates use AI in the search.
 - Boyd-Swan & Reynolds, Oct 2026 [A]: employers discount credentials they think AI earned, most for the strongest paper profiles; only in-person tests reassure.
 - Two independent 2026 theory papers reach the same result: **Ashlagi et al.** and **Qian & Yu ("strategic feature collapse")**: as polished material gets cheap, the rational employer falls back on **observable quality: qualifications and work history**, and offers a separate tested route for those the observables exclude. [A/B]

@@ -215,7 +215,7 @@ Each gap from section 4, what was tried, and where it ended.
 
 ### 6.3 Greenhouse 2026 AI in Hiring Report (primary)
 - **53% of recruiters review fewer than half of the applications they receive; 21% review fewer than a tenth per role.**
-- Only **21% are "very confident"** their system is not filtering out qualified candidates; **25% do not know what their AI prioritises**.
+- Only **21% are "very confident"** their system is well tuned; **25% are not confident** it isn't filtering out qualified candidates; 8% do not know what their AI prioritises. *(Corrected 2026-11-11 after checking the page layout: an earlier version attached 25% to the wrong statement.)*
 - 91% of recruiters and hiring managers have spotted or suspected candidate deception; most common: CV exaggeration (63%), fake references (48%).
 - Hiring managers' top two problems: candidate authenticity (46%) and **telling qualified from unqualified (45%)**. 68% are more involved in hiring than a year ago; 39% run more in-person interviews.
 - **41% of candidates say they have used prompt injections in applications.** This is self-reported in a survey; the measured rate in about 200,000 real CVs was about 1% (Zhang et al., section 2). The two numbers measure different things and the survey figure should not be read as prevalence.
