@@ -2,6 +2,38 @@
 
 Stage 5 of the scoring/CV research (2026-11-12). The founder's model: the score should reflect how sure the system is of the user's data. When unverified information comes in (for example through Ariel), that should be visible, with its reason. Adopted earlier: label such data "stated, not yet verified" instead of penalising it.
 
+## In plain words (added 2026-11-12, after the founder said the first version was unclear)
+
+**The one question this stage answers:** when the system is not sure about something in the user's profile, what should the user see?
+
+**A worked example.** Dana applies to a Customer Success role with five requirements:
+
+| Requirement in the job | What we know about Dana |
+|---|---|
+| 2+ years in Customer Success | In her CV, with dates and employer. **Confirmed.** |
+| Salesforce | She told Ariel yesterday she used it. Nothing else backs it yet. **Said, not confirmed.** |
+| Onboarding new customers | Half a line in her CV. **Partly.** |
+| SQL | She said she does not know it. **Missing.** |
+| Fluent English | Nothing in the profile either way. **We don't know.** |
+
+**How this looks today:** one number, for example "58". Dana cannot tell whether 58 is good, what pulled it down, or what to do. And when she told Ariel about Salesforce, the confidence number for that skill started low, so sharing more looked like a penalty.
+
+**What the research points to instead:**
+1. **A word, not a digit, for the overall result:** "Good match".
+2. **The five lines above, shown as they are**, each with its state.
+3. **A next step on the uncertain lines:** "Confirm Salesforce: one short question", "Tell us about your English".
+4. **When something changes, one plain sentence saying why**, taken from what actually happened: "Salesforce was added from your chat with Ariel and is waiting for confirmation." Never a silent drop.
+
+**Why each of those four, in one line each:**
+1. People read a bare percentage in different ways (section 10), and the tools on the market cannot even agree on what "good" is (stage 4).
+2. A few clear states work better for ordinary users than fine-grained numbers (section 3).
+3. Telling Dana "we don't know" does not make her trust us less (section 2), and an AI model will not say "I don't know" unless it is built in (section 4).
+4. A personal score shown with its main reasons improved real behaviour in a 400,000-person experiment (section 5), and reasons written freely by an AI model can be confidently wrong (section 5).
+
+**What stays undecided:** the exact words, the number of states, and whether old confirmations should fade with time. Those are product decisions for after the research.
+
+---
+
 **Questions for this stage**
 1. Does showing uncertainty cost trust?
 2. In what form should uncertainty be shown: a number, a range, words, a state?
@@ -166,3 +198,39 @@ Whether our users apply more to strong matches and less to weak ones after the d
 5. **"Unknown" is the default** when the profile holds no evidence for a requirement, and it is an invitation ("tell Ariel"), not a gap.
 6. **Time decay already lowers confidence silently.** If it stays, it needs its own plain reason ("last confirmed 14 months ago"). Whether old evidence should decay at all is a product decision the founder has not yet made.
 7. **Overoptimism is the norm among job seekers**, so an honest display will feel low to some users at first. The copy should state odds plainly and point to the lever (confirm, add evidence, or pick a better-matched role).
+
+---
+
+## 10. Second pass: more findings (2026-11-12)
+
+### What does a percentage mean to the person reading it?
+- **Gigerenzer et al., Risk Analysis 2005** (street survey in five cities) [B, background]: asked what "30% chance of rain tomorrow" means, most people outside New York gave a wrong reading: that it will rain 30% of the time, or over 30% of the area. The authors' conclusion: **always say what the percentage is a percentage of.** No recent replication found.
+- **For us:** "65% match" has the same problem. 65% of what? Of the requirements? A 65% chance of an interview? Readers will each pick one. A band with the list of requirements underneath removes the question.
+
+### Do explanations to job seekers work? Honest answer: they are liked, and their effect is small
+- **Schellingerhout et al., 2023-2024** (job recommender explanations; co-design interviews, then 30 participants: candidates, recruiters, company representatives) [A, small samples]:
+  - **candidates preferred brief, plain-text explanations** "that allow them to quickly judge potential matches"; hiring-side users were split between text and graphs;
+  - **showing real explanations versus random, nonsensical ones barely changed participants' opinion of the system**; the upward trend with real explanations was not statistically significant;
+  - participants "still largely rely on their knowledge and intuition, often disregarding the explanations".
+- **Reading:** this tempers section 5. An explanation as decoration does little. What the FICO experiment and the range-explanation study support is narrower: **a reason the person can act on** ("confirm X", "this role asks for Y, which you do not have"). Keep explanations short, in text, and tied to a next step. **Confidence in "explanations raise trust" drops to low-medium; confidence in "one actionable reason helps" stays medium.**
+
+### Feedback about the task helps; feedback about the person can hurt
+- **Kluger & DeNisi, Psychological Bulletin 1996** (meta-analysis, 607 effect sizes) [B, background, still the standard reference; cited unchanged by a 2026 meta-analysis]: feedback improved performance on average, **but more than a third of feedback interventions made performance worse**. Their explanation: feedback works less well the more it directs attention to the self and away from the task.
+- **For us:** "You are a weak candidate (42)" points at the person. "This role asks for SQL; your profile does not show it" points at the task. The same information, and the research predicts different effects. This supports per-requirement lines over a verdict on the person.
+
+### Progress meters
+- **Nunes & Dreze, Journal of Consumer Research 2006** [B, background]: people given a head start toward a goal (some progress already credited) were more likely to finish and finished faster. Later replications are mixed, and no published test of a profile-completeness meter was found.
+- **For us:** weak support for showing "3 of 5 requirements confirmed" as progress the user can complete. Low confidence; an idea, not a finding.
+
+### Letting the user correct the scorer
+- **Chopra et al. (UC Berkeley), 2026**, "Attune" [B]: an interface where people steer an LLM scorer directly: correct a score, say "this should be between 4 and 6", add or remove a criterion. Built because users of LLM scorers need to adjust the logic, not only read the result.
+- **For us:** Careerflow's "mark this requirement as irrelevant" (stage 4) is the crude version. A user who can say "this requirement does not apply to me" or "I do have this" gives us data and feels in control. Whether it should change the score is a separate decision.
+
+### Updated confidence table
+| Conclusion | Before | After this pass |
+|---|---|---|
+| Show a band and the list of requirements, not a bare percentage | Medium | **Medium-high** (reference-class problem added) |
+| Explanations raise trust | Medium | **Low-medium** (real vs random explanations: no significant difference) |
+| One short, actionable reason per change helps | Medium-high | **Medium** (kept, narrowed to actionable reasons) |
+| Phrase feedback about the requirement, not the person | not stated | **Medium** (old but large meta-analysis) |
+| A progress meter helps people confirm items | not stated | **Low** |
