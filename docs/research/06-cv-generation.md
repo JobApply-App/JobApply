@@ -449,3 +449,151 @@ What we have per user that a plain CV tool does not: a profile with evidence per
 ### Not known
 - Anything measured on Hebrew CVs: fonts, size, order, wording.
 - Whether any of the above moves interview rates for our users. Items 1, 2 and 4 are safe on general grounds; the rest are best treated as things to test.
+
+**Founder decision, 2026-11-12:** the "years in place of dates" format (section 22, insight 10) is **not** adopted for now.
+
+---
+
+# Fourth pass: what 1,500 example CVs actually look like (2026-11-12)
+
+The founder asked for a systematic look at sites that display large numbers of CVs. I downloaded and parsed a sample from five sites and measured each CV the same way.
+
+## 26. What was collected
+
+| Source | What it is | Sample |
+|---|---|---|
+| **Kickresume, "hired by" samples** | CVs contributed by users who got a job at a named employer (Apple, IBM, Amazon, universities, small firms). Names are replaced; the text is the person's own. | **332 CVs, 4,212 experience lines** |
+| Kickresume, site-written samples | Samples that repeat the site's own stock phrases ("Achieved a GPA of 3.98", "Employee of the Month"). I separated these out by those phrases. | 371 CVs |
+| Kickresume, unclear | No employer named, no stock phrases. | 97 CVs |
+| Enhancv examples | Written by the vendor for each job title. | 288 CVs, 3,696 lines |
+| Careerflow examples | Written by the vendor; published November 2026. | 203 CVs, 1,827 lines |
+| BeamJobs examples | Vendor-written. Lines extracted from 150 pages. | 672 lines |
+| Novorésumé examples | Vendor-written. Lines extracted from 87 pages. | 504 lines |
+
+**Total: 1,291 fully parsed CVs plus 1,176 lines from two more sites.** 12 pages failed to parse and are excluded.
+
+**How to read this, honestly:**
+- The 332 "hired by" CVs are the only ones written by real applicants. They show what real CVs of people who were hired look like. **They do not show that the CV caused the hire**, and there is no comparison group of people who were not hired.
+- They skew international (many European), early-career, and several years old.
+- Everything else is the vendors' idea of a good CV, much of it machine-written. Per the founder's instruction it is treated as a picture of what the market sells, not as evidence.
+- My separation of real from site-written samples is by stock phrases, so some site-written samples may remain in the "real" group.
+
+## 27. The main finding: real CVs and vendor examples differ most on numbers
+
+| | Lines containing a number | Lines with a % sign | CVs where 80%+ of lines have a number | CVs with no number at all in the experience section |
+|---|---|---|---|---|
+| **Real, hired (332)** | **15.5%** | 4.5% | **2.7%** | **38.8%** |
+| Kickresume site-written | 14.2% | 9.8% | 0.8% | 44.4% |
+| Novorésumé | 69.6% | 22.4% | n/a | n/a |
+| BeamJobs | 82.7% | 60.0% | n/a | n/a |
+| Enhancv | 50.5% | 44.3% | 19.4% | 0% |
+| Careerflow (Nov 2026) | **100%** | 31.4% | **100%** | 0% |
+
+- **A number in every line is a vendor pattern.** Among real CVs of people who were hired, about one line in six has a number, and more than a third of the CVs have none.
+- **Our prompt requires a number in every line that can carry one.** A CV that follows it will resemble the vendor examples, and will be unlike nearly all real CVs in this sample.
+- This does not show that numbers hurt. Stage 4's vendor data hinted that a number in the *summary* goes with more interviews. It shows that **uniform quantification is not what real successful CVs look like**, and stage 6's first pass showed what the demand for numbers does to accuracy.
+- Enhancv's examples have a visible formula: a verb, then "enhancing / ensuring / resulting in" something "by 20%". The word "enhancing" appears 112 times per 1,000 lines there, against 2 per 1,000 in real CVs.
+
+## 28. Length and shape of a line
+
+| | Median line length | Middle half | Lines over 240 characters |
+|---|---|---|---|
+| **Real, hired** | **91 characters** | 62-137 | 4.1% |
+| Kickresume site-written | 111 | 89-139 | 0.5% |
+| Enhancv | 117 | 108-128 | 0% |
+| Careerflow | 104 | 92-123 | 0.1% |
+| BeamJobs | 117 | n/a | n/a |
+| Novorésumé | 103 | n/a | n/a |
+
+- Real lines are **shorter and far more varied in length**. Vendor lines cluster tightly around one length: Enhancv's middle half spans only 20 characters.
+- **Our prompt asks for 55-240 characters and says "rich multi-clause bullets (up to 240 chars) are preferred".** That is about twice the length of a typical real line. Huntr's data (stage 4) put lines on interviewed CVs near 160 characters, so the truth for a strong CV is probably between 90 and 160, not 240.
+- **Uniformity itself is the tell.** Every vendor corpus is more regular than the real one, in length, in opening verb and in structure.
+
+## 29. Opening words
+
+| | Share of lines opening with one of the ten most common first words | Lines opening with a past-tense verb |
+|---|---|---|
+| **Real, hired** | **21.5%** | 50.4% |
+| Novorésumé | 27.0% | n/a |
+| BeamJobs | 28.9% | n/a |
+| Careerflow | 40.7% | 53.3% |
+| Kickresume site-written | 44.1% | 94.0% |
+| Enhancv | 48.3% | 86.8% |
+
+- Real CVs use a wide spread of opening words (1,112 different first words across 4,212 lines). Vendor examples recycle a small set.
+- Most common in real CVs: developed, managed, conducted, collaborated, provided, led, assisted, implemented. Ordinary verbs.
+- **Half of real lines do not start with a past-tense verb at all.** They start with a noun ("Coordination of..."), a present-tense verb for a current job ("Run social media accounts"), or "Responsible for" (22 per 1,000 lines). Our prompt bans all of these outright.
+- I am not claiming those forms are good writing. The point is narrower: **a CV in which every line opens with a punchy past-tense verb is a recognisable house style of CV tools.** Present tense for a current role is simply normal.
+
+## 30. Words associated with AI writing, per 1,000 lines
+
+| Word | Real, hired | Enhancv | Careerflow (Nov 2026) |
+|---|---|---|---|
+| enhancing | 1.9 | 112.0 | 0 |
+| ensuring | 29.7 | 91.5 | 0 |
+| resulting in | 36.8 | 80.4 | 0 |
+| utilized | 5.7 | 38.1 | 0 |
+| facilitated | 7.4 | 33.5 | 1.1 |
+| cross-functional | 9.7 | 40.6 | 0.5 |
+| comprehensive | 13.5 | 42.2 | 0 |
+| effectively | 13.3 | 43.3 | 0 |
+| streamlined | 4.3 | 18.9 | 0 |
+| spearheaded | 9.3 | 13.8 | 0 |
+
+- **Real people do use these words**, at low rates. A blanket ban is harsher than reality; what marks machine text is the *rate*.
+- **The newest vendor corpus has already scrubbed them all.** Careerflow's November 2026 examples contain essentially none of these words, and plain verbs throughout, yet they are instantly recognisable: every single line has a number, lines are one length, and each CV follows one mould.
+- **So the tell has moved from vocabulary to structure.** This matches stage 6's reading of the detection research (vocabulary first, formula second), and it means our word scrubber is fighting last year's problem. What needs guarding now is sameness: line length, line shape, a number everywhere.
+
+## 31. Sections and their order in real CVs
+
+| Measure | Real, hired (332) |
+|---|---|
+| Starts with a summary or profile | 73% |
+| Has a summary at all | 74%; median 332 characters (middle half 240-448) |
+| Has experience / education / skills | 93% / 95% / 87% |
+| Experience placed before education | 74% |
+| Hobbies or interests | 42% |
+| Certifications or courses | 36% |
+| Volunteering | 24% |
+| Awards | 19% |
+| References | 6% |
+| Roles listed | median 3 |
+| Lines per role | median 4 (middle half 2-5) |
+| Words in the whole CV | **median 345** (middle half 267-509) |
+| Written as bullet lists | 75% of roles |
+| Dates as month and year | 92% of dated roles |
+
+- **Most common order: summary, experience, education, skills, then extras.** This is our order.
+- **Real CVs are short: about 350 words.** Vendor examples run 450-600. A one-page CV at a readable type size holds roughly 400-450 words, so the one-page default and larger type are compatible **if we write as much as real people do and no more**.
+- **Our summary limit (360 characters) matches the real median.**
+- **Summaries are where real people use clichés:** "proven track record" in 15% of real summaries, "dynamic" 12%, "results-driven" 10%, "seeking" 20%. Vendor examples have mostly dropped them. Clichés are common, not effective; there is no evidence either way on outcomes.
+- 31% of the real CVs list a date of birth and 23% a nationality, a European habit. We do not, and Israeli guidance agrees.
+
+## 32. Visual design on these sites
+
+- **Enhancv (288 examples, read from the page code):** nearly all use one sans-serif body font (Inter); 248 use uppercase section headings; 206 show skill or language levels as dots or sliders; none has a photo; 130 are one page and 158 are two. Roughly half use the site's two-column layouts.
+- **Kickresume (32 sample images viewed by eye):** most are two-column or have a coloured side band; many show skills as bars or stars; strong header colours are common; photos are rare.
+- **Reading:** the template business sells visual variety: columns, colour, rating bars. None of it has evidence behind it, two-column layouts fail in some parsers (stages 2 and 4), and a rating bar ("Python ●●●●○") carries no checkable information and cannot be read by software at all.
+- **Our plain single-column templates are closer to the evidence than the market is.** The gap in ours is type size and contrast (section 25), not a lack of decoration.
+
+## 33. What this pass changes
+
+| # | Finding from the sample | Consequence for our builder |
+|---|---|---|
+| 1 | Numbers appear in about 1 line in 6 of real hired CVs; in every line of the newest vendor examples | Remove "every bullet must carry a number". Use numbers the user has, where they have them. A number in the summary and in the first line of the latest role, if true, is a reasonable aim |
+| 2 | Real lines are about 90 characters, varied | Drop the preference for 240-character lines; aim for one to one-and-a-half printed lines; allow natural variation |
+| 3 | Real CVs use many different openings, including present tense for a current job | Stop forcing one sentence shape; allow present tense for the current role; keep banning empty filler, but by meaning, not by a fixed list of opening phrases |
+| 4 | The newest machine-written CVs are clean of "AI words" and still obvious | Add checks for sameness: spread of line lengths, repeated openings, share of lines with numbers, repeated sentence skeletons |
+| 5 | Real CVs run about 350 words | Fit one page by writing less. This is what makes larger type possible |
+| 6 | Our section order is the common one | Keep it |
+| 7 | Hobbies appear in 42% of real CVs, volunteering in 24% | Optional sections should be available when the user has something real to put there; no evidence they help or hurt |
+| 8 | Template sites sell columns, colour and rating bars | Do not follow. Never add skill-level bars |
+
+**Confidence:** high on the descriptive facts (measured on 1,291 CVs with the same code). Low to medium on what they imply for outcomes: this sample shows what real hired CVs look like, not which features got them hired.
+
+**A check on myself:** the "real" group could differ from the vendor groups for reasons other than authorship (older, more junior, more European). Juniors have fewer numbers to report. So the true gap for experienced candidates is probably smaller than 15% against 100%. It is still far too large to be explained that way: even among real CVs, only 2.7% have numbers in most lines.
+
+## 34. Still missing for this stage
+- **Hebrew CVs.** None of these sites has a Hebrew corpus. The Israeli sites that might (AllJobs, Drushim, JobMaster) do not publish CVs. This remains the largest hole.
+- **Outcome-linked data of our own.** Only tracking which of our generated CVs lead to interviews will tell us which of these features matter.
+- **Our own output measured the same way.** The parser built for this pass can be pointed at our generated CVs to report the same numbers (share of lines with a number, line-length spread, opening-word concentration). That makes "does our CV look like a real one or like a vendor sample" a measurable question for stage 7.
