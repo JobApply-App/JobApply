@@ -336,3 +336,10 @@ Only our own data can: (a) the recruiter test with the kit; (b) tracking intervi
 3. **Ariel's value is producing evidence** the CV can carry: scope, numbers, outcomes, per requirement.
 4. **Tell users the odds and the levers**, including the one outside the CV (referrals).
 5. **Measure outcomes in the product.** Interview-rate tracking is the only way to settle what outside research cannot.
+
+### Added from stage 4 (2026-11-11)
+Vendor data read in stage 4 changes three rows above. Detail in `04-competitors.md`, section 3.
+- **CV length:** was "no reliable evidence". Huntr's 2026 data (tens of thousands of applications) shows two pages doing at least as well as one, with its two reports disagreeing on how much. Still unsettled, but "one page only" has no support.
+- **Photo (conclusion 11):** Enhancv's 2026 customer data points the opposite way from the Israeli field experiment. Confidence in "no photo" drops from medium to **low-medium**; the parsing argument for single column is unaffected.
+- **Tailoring (conclusion 3):** Huntr 2026 shows tailored CVs at about twice the interview rate of untailored. Observational. Strengthens "required".
+- **Overqualification:** Huntr shows experienced people get fewer interviews on entry-level titles. Real employers do penalise it.
