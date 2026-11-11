@@ -234,3 +234,17 @@ Whether our users apply more to strong matches and less to weak ones after the d
 | One short, actionable reason per change helps | Medium-high | **Medium** (kept, narrowed to actionable reasons) |
 | Phrase feedback about the requirement, not the person | not stated | **Medium** (old but large meta-analysis) |
 | A progress meter helps people confirm items | not stated | **Low** |
+
+---
+
+## 11. Founder decisions on this stage (2026-11-12)
+
+1. **The overall result stays a number.** The score is what sets the product apart, and it is not replaced by a word. The research idea is taken in an adapted form: the number is shown **together with** what the user has and what is missing for this job.
+2. **Reflect capabilities per job:** show the user which required capabilities exist in the profile and which are missing.
+3. **Feedback is about the fit to the role, never about the person.** Not "weak candidate"; "less suited to this role".
+4. **Hedge clearly:** state that the result is based on the information currently in the profile and on AI systems. Hedge as much as is reasonable.
+5. Everything else in this stage is agreed.
+
+**Two things the evidence asks of a number, if the number stays** (for the design stage, not a reopening of the decision):
+- say what it is a number *of* (section 10: an unexplained percentage is read differently by different people);
+- it must be stable from one run to the next (stage 2 and Indeed's 2026 paper: a raw LLM score is not). This is a technical requirement on how the number is produced.
