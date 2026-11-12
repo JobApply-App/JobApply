@@ -597,3 +597,90 @@ The founder asked for a systematic look at sites that display large numbers of C
 - **Hebrew CVs.** None of these sites has a Hebrew corpus. The Israeli sites that might (AllJobs, Drushim, JobMaster) do not publish CVs. This remains the largest hole.
 - **Outcome-linked data of our own.** Only tracking which of our generated CVs lead to interviews will tell us which of these features matter.
 - **Our own output measured the same way.** The parser built for this pass can be pointed at our generated CVs to report the same numbers (share of lines with a number, line-length spread, opening-word concentration). That makes "does our CV look like a real one or like a vendor sample" a measurable question for stage 7.
+
+---
+
+# Fifth pass: Hebrew CV examples and the founder's list of sites (2026-11-12)
+
+The founder sent eight sites to review. Each was opened and read; the full examples were parsed with the same kind of code as the fourth pass.
+
+## 35. What each site turned out to be
+
+| Site | What is there | What was taken | Notes |
+|---|---|---|---|
+| **Nayeret** (nayeret.ai) | 13 full Hebrew CVs by role, each with tips, "ready sentences" with placeholders, common mistakes | all 13 | Plain Israeli Hebrew, no long dashes. Says the details are invented. |
+| **Custro** (custro.com/he) | 10 full Hebrew CVs by role (updated Aug 2026); 3 downloadable templates and 11 shown in its editor | all 10, plus the template page and its guidance | The most explicit guidance on layout and file format of any site reviewed. |
+| **Wizlu** (wizlu.co.il) | 11 full CVs, mostly senior hi-tech roles, in Hebrew with heavy English | 11 (the page is built in JavaScript; read through a real browser) | Calls them "real" examples; the details are fictional (`noa.cohen@example.com`). Uses long dashes and check marks. |
+| **CV Hebrew** (cv-hebrew.com) | Says "hundreds of examples"; in fact about 12 profession pages, each a long guide, published 2022-2023 | 12 pages read | No full CVs to measure. Older advice (e.g. "never more than one page"; an example role dated 2001-2004). |
+| **Kickresume** | Already sampled in the fourth pass (800 pages). Its AI writer page has a separate gallery of "AI-generated resume examples". | confirmed the split | The fourth pass separated real "hired by" CVs from site-written ones; the AI gallery is a third kind, kept out. |
+| **Resume Worded** | 334 example pages | 60 pages, 1,186 lines | 64% of lines with a number; top ten opening words cover 48% of lines. Same vendor pattern as section 27. |
+| **Novorésumé** | Sampled in the fourth pass | 87 pages | |
+| **Zety** | Refuses automated access | none | |
+
+**All 34 Hebrew CVs are written by the sites, with invented details.** None is a real applicant's CV. They show what Israeli CV sites recommend in 2026, not what works. Real Hebrew CVs are still the missing piece.
+
+## 36. Hebrew examples, measured (34 CVs, 192 experience lines)
+
+| | Nayeret (13) | Custro (10) | Wizlu (11) |
+|---|---|---|---|
+| Lines with a number | 55% | 91% | 87% |
+| Median line length | 62 characters | 69 | 62 |
+| Lines opening with a first-person past verb (הובלתי, בניתי, ניהלתי) | 50% | 63% | 22% |
+| Lines containing an English term | 18% | 30% | 91% |
+| Median words per CV | 163 | 145 | 203 |
+| Has a summary | 12 of 13 | **none** in the full examples (offered separately as two versions) | 10 of 11 |
+| Military / national service section | 5 of 13 | 8 of 10 | 0 of 11 |
+
+**Section order, as each site uses it:**
+- Nayeret: תקציר › ניסיון תעסוקתי › (שירות צבאי / לאומי) › השכלה › (קורסים ותעודות) › כישורים › שפות
+- Custro: ניסיון תעסוקתי › שירות צבאי › השכלה › כישורים וכלים › שפות
+- Wizlu: תקציר מקצועי › תחומי מומחיות › ניסיון תעסוקתי › השכלה והסמכות › כלים וטכנולוגיות › שפות
+
+## 37. What the Hebrew sites agree on (and how it compares with ours)
+
+| Point | What the sites say | Our product today | Gap |
+|---|---|---|---|
+| **Summary heading** | Nayeret: **"תקציר"**. Wizlu: "תקציר מקצועי". Custro's guide: "התקציר". **None uses "תמצית".** | **"תמצית"**, with a code comment calling "תקציר מקצועי" a calque | **Our choice is the minority form.** "תקציר" is plain, used by two of three sites, and is not a calque. Worth the founder's decision |
+| **Military service** | Placed **right after experience**, before education (Custro 8 of 10; Nayeret whenever present). Custro: for a released soldier "the military service *is* the experience": build it like a job with 3-4 lines and numbers | Placed near the **end** of the page, after skills and languages | Move it up for Hebrew CVs, at least when it is recent or substantial |
+| **National service** | Nayeret's heading: **"שירות צבאי / לאומי"** | "שירות צבאי" only | Users who did national service (שירות לאומי) have no correct heading |
+| **Length** | One page up to about five years of experience; two acceptable after (Nayeret, Custro). Custro: "always one full, balanced page, not a page and a half" | One page by default (founder's decision) | Consistent. The "about five years" threshold is a reasonable rule for when to offer two |
+| **Photo and personal details** | No photo; no ID number, age, marital status or parents' names (Nayeret, Custro) | None of these | Consistent |
+| **Columns and rating bars** | Custro: one column, standard headings, no tables, no text boxes, nothing in the document header; the one two-column template is labelled "check against ATS". Nayeret: no columns and no skill bars ("JavaScript 80%"): "screening systems don't read them and recruiters don't understand what they mean" | Four single-column templates; Tech Modern has a sidebar | Same conclusion as section 25: retire or rework the sidebar |
+| **Fonts** | Custro: use fonts present on every computer (Arial, Times New Roman) in Word files; send PDF unless Word is requested | Embedded Heebo in PDF | PDF with an embedded font is the safe case; only matters if we offer Word export |
+| **File name** | Custro: full name and role, e.g. "דנה-לוי-מנהלת-שיווק.pdf", never "קורות חיים סופי 3" | Already sends a proper UTF-8 file name (`resumes.py`) | Check that it contains the name and role |
+| **Contact line** | Name, a title line under it, then city · phone · email · LinkedIn on one or two lines | Same | Consistent |
+
+## 38. Writing Hebrew lines: what the examples show
+
+- **Three verb forms are in use:**
+  - first-person past ("הובלתי", "בניתי", "צמצמתי"): the most common in Nayeret and Custro. Gender-neutral, which is why our Hebrew pass already uses it;
+  - present tense for a current role ("מלמדת", "מנהלת", "מוביל"): common in all three, and **gendered**;
+  - verbal nouns ("ניהול", "הובלת", "השקת"): Wizlu's dominant style (ניהול alone opens 14 lines). Gender-neutral and compact.
+  - **Insight:** now that we hold the user's chosen Hebrew form (stage of PR #136), present tense for the current role becomes possible in the right gender. Verbal nouns are the neutral fallback. A CV where every line opens "הובלתי / בניתי / ניהלתי" has the same sameness problem as section 29.
+- **English inside Hebrew** depends on the field: about 18% of lines in general roles (teacher, bookkeeper, nurse), 91% in senior hi-tech. Our localisation keeps the job's English terms, which matches the hi-tech pattern; for non-tech roles the examples are almost all Hebrew.
+- **Hebrew lines are short**: median about 64 characters, against 91 in real English CVs. Hebrew is compact (prefixes attach to words), so the same content takes fewer characters. A character limit tuned for English is about 40% too generous for Hebrew.
+- **AI-style markers in Hebrew examples:** Wizlu's lines use long dashes and English-in-brackets; Nayeret and Custro use plain hyphens and full Hebrew sentences. This matches the Israeli press list of Hebrew AI tells (stage 6, section 4), which I could now see in practice: the long dash is the most visible one.
+- **Numbers:** two of the three Hebrew sites put a number in nearly every line, and Custro instructs "an achievement line with a number in every section". The same vendor pattern as section 27, now in Hebrew.
+
+## 39. Ideas worth borrowing (inspiration, not evidence)
+
+1. **"What the reader looks for first", per role.** Nayeret opens each example with the three things the reader checks first (for a teacher: subjects and grades taught, teaching licence, and what changed for the pupils). That is a ready-made rule for choosing the summary and the first line of the latest role.
+2. **Sentences with blanks instead of invented numbers.** Nayeret's "ready sentences" look like: "הכנתי [X] כיתות לבגרות ב-[X] יחידות, עם שיעור זכאות של [X]%". The structure is offered; **the number must come from the person.** This is the honest version of what our prompt does wrong: in place of asking the model for a number, Ariel can ask the user to fill the blank, and the line is only used when they do.
+3. **Common-mistakes lists per role**, written for the user: for example "do not write 'loves children'; show it through what you did".
+4. **A two-version summary**, one for someone moving into the role, one for someone experienced in it (Custro).
+5. **Custro's copy-paste test**: copy all the text from the PDF into a plain text file; if the order is scrambled, a screening system will see it scrambled. A simple check we can run automatically on every export.
+
+## 40. What this pass changes
+
+| # | Change suggested by the Hebrew examples | Strength |
+|---|---|---|
+| 1 | Consider "תקציר" in place of "תמצית" for the Hebrew summary heading | Medium (three sites; no outcome data) |
+| 2 | Move military service up, after experience, in Hebrew CVs | Medium (consistent across sites; matches how Israeli readers treat service) |
+| 3 | Offer "שירות צבאי / לאומי" so national-service users have a correct heading | High (a correctness fix, not a preference) |
+| 4 | Shorter line limits for Hebrew than for English | Medium (measured) |
+| 5 | Vary verb forms; allow present tense in the user's chosen gender for the current role, verbal nouns as the neutral option | Medium |
+| 6 | Use "fill the blank" questions for numbers in place of asking the model for numbers | High that it prevents invented numbers; medium that it improves the CV |
+| 7 | Add the copy-paste reading-order check to every export | High (cheap, and directly tests the failure the Hebrew word-order research found in stage 2) |
+| 8 | **Scrub the Hebrew output for AI markers.** Checked in the code: the word-and-dash scrubber runs *before* the Hebrew pass (`tailor.py` lines 1871 and 1901), and the Hebrew pass (`cv_localize.py`) has no scrubber of its own. Its instructions to the model also contain ten long dashes, which tends to invite the same in the output. **So a Hebrew CV can currently ship with long dashes.** A small fix: run the scrubber again after localisation, and remove the dashes from that prompt | High (a confirmed gap against the founder's standing rule) |
+
+**Still missing:** real Hebrew CVs of people who were hired. Everything Hebrew in this document is still either the sites' recommendations or our own reasoning.
