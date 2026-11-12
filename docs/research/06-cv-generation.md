@@ -809,3 +809,31 @@ The previous pass said "none uses תמצית". **That was wrong;** it was based 
 | 5 | Drop "a number in every bullet" | High (now also Hebrew recruiter evidence) | Waiting (already proposed) |
 | 6 | Never let site statistics ("6 seconds", "75% rejected automatically") into product text | High | Rule to keep |
 | 7 | Reading-order check on every export | High | Waiting (section 40, item 7) |
+
+## 48. Founder decisions on service and line form, and the research behind the second (2026-11-12)
+
+**Service placement (decided, implemented in commit 07b950c).** The founder rejected a rule based on years of experience. The system is meant to be tailored per person: a former major or captain, or someone whose service role is relevant to the job, keeps its weight even after ten years of civilian work. The final rule:
+- The tailoring model decides how much to write about the service, for this person and this job. It writes 2 to 3 lines when the role is relevant to the job, when it was a senior or representative role (an officer with command or staff responsibility, or an owner of people, budget or systems), when it is a large part of the working life, or when the job asks for operational leadership. Otherwise it writes one line.
+- The layout follows that choice: service with lines of its own goes right after Experience; a single line goes right after Education. This applies in every language.
+- Service is never dropped (the old prompt dropped it for engineering roles). A rank the profile states may follow the function in brackets, and the Hebrew pass renders it as the Hebrew rank.
+
+**How lines should be written: what recruiters expect.** Sources read in full:
+
+| Source | What it says | Lines in its own examples |
+|---|---|---|
+| AllJobs guide | Verbal nouns, not first person ("הכנת מצגות", "ניהול עובדים") | 5 full examples: verbal nouns throughout ("פיתוח ותחזוקה", "הובלת כיתה") |
+| Drushim, "how recruiters look at your CV" | "ניהלתי צוות – לא. ניהול צוות – כן" | |
+| Drushim guide | "Don't settle for what you did; show what you achieved" | |
+| Reichman University career center | No first or third person; "verbs or verbal nouns only" | |
+| Tel Aviv University career center | "Active verbs", no vague terms | 2 examples: verbal nouns ("גיוס", "מיון", "קליטת עובדים") |
+| Embuild (placement company) | | 90 lines: all verbal nouns, none in first person |
+| **Manpower** (placement company) | **First person where you want to highlight your own contribution** ("יזמתי, הובלתי"); the company description in third person | |
+| GoldenJob, EasyStudy, Custro, Nayeret | Teach first-person past verbs | Mostly first person |
+
+**Reading:** the two forms do different jobs. Scope and responsibility, meaning what the role covered, is written as verbal nouns: the established, neutral and compact recruiter register. A result the candidate personally drove can be in first person, which is exactly Manpower's point: it makes the contribution theirs. All the sources agree on what matters more than the form: achievements over duties, relevance to the job, and no inflation. None of this is experimental evidence; these are practitioners' guides, weighted toward those who hire.
+
+**Implemented (founder's direction, "adaptive, not one fixed form"):** the Hebrew pass now chooses the form line by line. Verbal nouns are the default for scope; first-person past is allowed for the strongest one or two achievement lines of a role. It never uses "אני", never third person, never "אחראי/ת על", and never opens three lines in a row with the same word. The previous rule, "every line opens with a first-person past verb", is gone.
+
+**Canva:** the founder asked for design inspiration from Canva's thousands of CV templates (not the founder's own design). Canva runs a security check that blocks automated browsers on every page, including the public template galleries and their images. I did not try to get around it. A search confirms Israeli creators publish Hebrew CV templates there, for example one creator with 138 templates and a 13-template "דרושים • קורות חיים • HR" collection. Ways to reach them, all needing the founder:
+1. Run the research from a session that drives the founder's own Chrome (Claude in Chrome, from the desktop app). This is the cleanest route, since Canva then sees an ordinary signed-in browser.
+2. Save a set of Canva templates (screenshots or exported PDFs) into a folder and upload them here.

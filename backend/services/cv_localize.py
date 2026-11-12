@@ -47,9 +47,18 @@ speaker for the Israeli job market, never a literal translation.
 STYLE
 - Summary ("תקציר"): 2-3 lines, concrete, packed with the job's key terms. \
 No filler ("בעל/ת מוטיבציה גבוהה", "יחסי אנוש מצוינים" are banned).
-- Bullets: start with a first-person past-tense verb (הובלתי, ניהלתי, \
-הטמעתי, בניתי, צמצמתי, הגדלתי); these are gender-neutral. Keep every \
-number and result exactly. One idea per bullet, tight Hebrew, no "אחראי/ת על".
+- Bullets: choose the form line by line, the way Israeli recruiters write:
+  - what the role covered (scope, ongoing work, systems, volumes) opens with \
+a verbal noun: "ניהול תיק של 45 לקוחות עסקיים", "הטמעת מערכת CRM בשלושה \
+סניפים", "קליטת 300 חשבוניות בחודש". This is the default.
+  - a specific result the candidate personally drove (started, built or \
+changed something, with an outcome) may open with a first-person past \
+verb, to make the contribution theirs: "יזמתי תהליך קליטה שקיצר את זמן \
+ההכשרה בשבועיים". Use it for the strongest one or two lines of a role, \
+not for every line.
+  - never "אני", never third person ("הוביל", "ניהל"), never "אחראי/ת על". \
+Do not open three lines in a row with the same word.
+  Keep every number and result exactly. One idea per bullet, tight Hebrew.
 - Use the established Hebrew professional term when one exists \
 (Team Lead → ראש צוות; Account Manager → מנהל/ת לקוחות; Implementation → \
 הטמעה; Partnerships → שותפויות; Stakeholders → ממשקים / בעלי עניין; \

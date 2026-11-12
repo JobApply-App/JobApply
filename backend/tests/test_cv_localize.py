@@ -116,3 +116,13 @@ def test_the_hebrew_prompt_itself_carries_no_long_dashes():
 
 def test_national_service_is_kept_as_national_service():
     assert "שירות לאומי" in cv_localize._SYSTEM
+
+
+def test_line_form_is_chosen_per_line_not_one_fixed_form():
+    """Israeli recruiters write scope as verbal nouns ("ניהול", "הטמעת") and
+    keep first person for a result the candidate drove (AllJobs, Drushim,
+    Manpower; research doc 06 section 48). No single form for every line."""
+    s = cv_localize._SYSTEM
+    assert "start with a first-person past-tense verb" not in s
+    assert "verbal noun" in s and "This is the default" in s
+    assert "first-person past" in s and "never third person" in s
