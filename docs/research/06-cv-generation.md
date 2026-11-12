@@ -640,8 +640,8 @@ The founder sent eight sites to review. Each was opened and read; the full examp
 
 | Point | What the sites say | Our product today | Gap |
 |---|---|---|---|
-| **Summary heading** | Nayeret: **"תקציר"**. Wizlu: "תקציר מקצועי". Custro's guide: "התקציר". **None uses "תמצית".** | **"תמצית"**, with a code comment calling "תקציר מקצועי" a calque | **Our choice is the minority form.** "תקציר" is plain, used by two of three sites, and is not a calque. Worth the founder's decision |
-| **Military service** | Placed **right after experience**, before education (Custro 8 of 10; Nayeret whenever present). Custro: for a released soldier "the military service *is* the experience": build it like a job with 3-4 lines and numbers | Placed near the **end** of the page, after skills and languages | Move it up for Hebrew CVs, at least when it is recent or substantial |
+| **Summary heading** | Nayeret: **"תקציר"**. Wizlu: "תקציר מקצועי". Custro's guide: "התקציר". None of *these three* uses "תמצית" (**corrected in section 42: AllJobs does**). | **"תמצית"**, with a code comment calling "תקציר מקצועי" a calque | **Our choice is the minority form.** "תקציר" is plain, used by two of three sites, and is not a calque. Worth the founder's decision |
+| **Military service** | Placed **right after experience**, before education (Custro 8 of 10; Nayeret whenever present). (**Narrower than it looked: recruiter-run sites differ, see section 43.**) Custro: for a released soldier "the military service *is* the experience": build it like a job with 3-4 lines and numbers | Placed near the **end** of the page, after skills and languages | Move it up for Hebrew CVs, at least when it is recent or substantial |
 | **National service** | Nayeret's heading: **"שירות צבאי / לאומי"** | "שירות צבאי" only | Users who did national service (שירות לאומי) have no correct heading |
 | **Length** | One page up to about five years of experience; two acceptable after (Nayeret, Custro). Custro: "always one full, balanced page, not a page and a half" | One page by default (founder's decision) | Consistent. The "about five years" threshold is a reasonable rule for when to offer two |
 | **Photo and personal details** | No photo; no ID number, age, marital status or parents' names (Nayeret, Custro) | None of these | Consistent |
@@ -683,4 +683,129 @@ The founder sent eight sites to review. Each was opened and read; the full examp
 | 7 | Add the copy-paste reading-order check to every export | High (cheap, and directly tests the failure the Hebrew word-order research found in stage 2) |
 | 8 | **Scrub the Hebrew output for AI markers.** Checked in the code: the word-and-dash scrubber runs *before* the Hebrew pass (`tailor.py` lines 1871 and 1901), and the Hebrew pass (`cv_localize.py`) has no scrubber of its own. Its instructions to the model also contain ten long dashes, which tends to invite the same in the output. **So a Hebrew CV can currently ship with long dashes.** A small fix: run the scrubber again after localisation, and remove the dashes from that prompt | High (a confirmed gap against the founder's standing rule) |
 
+**Done (2026-11-12, founder decision, commit 9ed9e37):** items 1, 2, 3 and 8. The Hebrew summary heading is now "תקציר"; in Hebrew CVs, service sits in the main column right after experience and before education (English is unchanged); national service and civic service get their own heading ("שירות לאומי", "שירות אזרחי"); and the Hebrew output is scrubbed after localisation, with no long dashes left in its prompt. Verified in all five templates, with real PDF extraction tests passing.
+
 **Still missing:** real Hebrew CVs of people who were hired. Everything Hebrew in this document is still either the sites' recommendations or our own reasoning.
+
+---
+
+# Sixth pass (2026-11-12): the founder's list of Israeli sites, checked one by one
+
+The founder sent about 30 links: Israeli job boards and placement companies, CV builders, template galleries and writing guides. Each was opened in a real browser (text and full-page screenshot); template images and downloadable files were saved and read; one builder was driven by hand. Raw material stays in the session scratchpad. This pass matters more than the earlier Hebrew pass because it reaches **sites run by recruiters and placement companies**, not only AI-built CV vendors.
+
+## 41. What each site turned out to be
+
+| Site | Who runs it | What was there | Reached? |
+|---|---|---|---|
+| AllJobs (builder page, full guide, 2023 article) | Israel's largest job board | Official guide ("7 parts"), 7 Hebrew template images | Yes |
+| Drushim (builder intro, article 296) | Major job board | Builder intro, article on how much experience to list | Yes (builder needs an account) |
+| Embuild | Placement company | Builder with 5 templates and **10 full example CVs by profession** | Yes, and the builder was driven by hand |
+| GoldenJob | Placement company | Long guide (May 2024) | Yes |
+| JobsSeek | Job site | Guide plus **3 Word and PDF template files** | Yes, files downloaded |
+| WorkFinder | Job board | Builder, 35 templates (6 free/premium viewed) | Yes |
+| Click Jobs | Job board | Builder form (needs registration to download) | Yes |
+| BMate | CV-writing service since 2007 | Short guidance page (2019 era) | Yes |
+| NoBsResume | International free builder | One full Hebrew example | Yes |
+| ResumeBird, ResumeCoach, CVWizard | International template companies | Landing pages, one Hebrew example (ResumeBird) | Yes |
+| OwlApply | International AI tool | 60 templates, 22 marked ATS | Yes |
+| WPS, MobiSystems, Notion | Office/notes software | Word/Notion template galleries | Yes |
+| EnResume, EasyStudyAI | Small Israeli tools | Blog posts | Yes |
+| taasuka.gov.il (two pages) | Israeli Employment Service | | **No: the government site answers 403 from outside Israel** |
+| JobNinja | Job site | | **No: Cloudflare blocks automated access** |
+| Barak L | CV service | | **No: connection reset** |
+| Canva (design link and two searches) | | | **No: login required and 403 on every public page.** The design link is a private design that only the founder can open |
+| Google image search | | | Not reachable from this environment |
+
+**Still worth doing by hand:** the Employment Service pages (open them from Israel and save as PDF), and the founder's own Canva design.
+
+## 42. The summary heading: both words are in use
+
+The previous pass said "none uses תמצית". **That was wrong;** it was based on three AI-built sites.
+
+| Heading | Where |
+|---|---|
+| **תקציר** / תקציר מקצועי | Embuild (all 10 examples), JobsSeek (3 files and guide), WorkFinder, EasyStudy, ResumeBird, and earlier Nayeret, Wizlu, Custro |
+| **תמצית** | **AllJobs: its official guide and all 7 templates**; BMate |
+| Others | "פסקת פרופיל אישי" (GoldenJob), "סיכום מקצועי" (NoBs, a translation), "אודות" (Click Jobs), "על עצמי" (JobsSeek, no-experience file) |
+
+**Reading:** "תקציר" is the more common word on today's sites, and "תמצית" is the established word of the largest board. Neither reads as wrong to an Israeli recruiter, and there is no outcome data either way. The founder's switch to "תקציר" stands; it was a choice between two correct words, not a fix.
+
+## 43. Where military service goes: the earlier evidence was too narrow
+
+| Placement | Sources |
+|---|---|
+| **After education** | **AllJobs guide (its 7-part order) and all 7 AllJobs templates**; JobsSeek classic and hi-tech files; GoldenJob and BMate (at the end, after education and skills) |
+| **One line at the bottom**, under "נוסף" ("שירות צבאי מלא, מש"קית ת"ש") | **Embuild: 9 of its 10 examples** |
+| **Right after experience** | Custro (8 of 10) and Nayeret: the two AI-built vendors the previous pass relied on |
+| **Moved up and written like a job** | When there is little or no work experience: JobsSeek's no-experience file (education, then service with bullets, then experience); Embuild's no-experience example (service appears in the summary); GoldenJob ("if most of your experience was in the service, describe it in more detail") |
+
+**Honest reading:** the sites run by recruiters and placement companies do **not** put service right after experience for people who have work experience. They keep it short and low on the page. They move it up and expand it only when the service *is* the experience: a young or recently released candidate.
+
+**What this means for the change made today (commit 9ed9e37):** service now always sits right after experience in Hebrew CVs. That suits a junior candidate, but it does not match the recruiter convention for someone with several years of work. **Recommended rule, for the founder's decision:**
+- Work experience of about two years or more: service goes after education, kept to one or two lines (role, unit, years).
+- Little or no work experience, or service ended recently: service stays where it is now, after experience, written like a job.
+- National service and civic service follow the same rule under their own heading (already done).
+
+## 44. How lines are written: recruiters use verbal nouns
+
+- **AllJobs guide, explicitly:** do not write in first person ("הכנתי מצגות", "ניהלתי אנשים") because it reads like a personal story. Use **verbal nouns** ("הכנת מצגות", "ניהול עובדים", "יצירת שיתופי פעולה").
+- **GoldenJob:** "avoid writing in the first person" (although its own example line starts "הובלתי").
+- **Embuild, measured:** 90 experience lines across 10 examples. **None** starts with a first-person past verb; they open with "הכנת", "ניהול", "קליטת", "תיאום", "טיפול". About a quarter contain a number. The median line is 47 characters.
+- **First person** ("הובלתי", "פיתחתי", "הגדלתי") is what the content sites teach: EasyStudy, GoldenJob's example, Custro, Nayeret.
+
+**Our product today:** the Hebrew prompt (`cv_localize.py`) tells the model to start *every* line with a first-person past verb. That is the vendor style, not the recruiter style. Verbal nouns are also gender-neutral, and shorter in Hebrew.
+
+**Recommendation for the founder's decision:** make verbal nouns the default for Hebrew lines, with first person allowed occasionally for a standout achievement. This also helps against the sameness problem in section 29 (every line opening "הובלתי / בניתי / ניהלתי").
+
+## 45. Other findings, briefly
+
+- **Numbers:** recruiter-written examples put a number in about a quarter of lines (Embuild), close to the 15.5% measured in real hired English CVs (section 27). The template companies put one in every line. This is more support for dropping the "number in every bullet" rule.
+- **Font size and spacing:** AllJobs recommends Arial 11 in black, section headings up to 12, and line spacing of 1.35 to 1.5. GoldenJob says 11 to 12. EasyStudy says 10 to 12, with margins of at least 1.5 cm. JobsSeek's file uses Arial at about 10.6. Our templates use 6.5 to 9 pt (section 18). This is the strongest agreement anywhere in this research, and it supports enlarging our text.
+- **Photo:** the recruiter guides advise against one (AllJobs, Embuild, EasyStudy; JobsSeek says "not required"). Builders show photos to sell templates: WorkFinder's samples all have one, Click Jobs asks for an upload, and AllJobs has one in 2 of 7. The founder's no-photo decision matches the guides.
+- **Age:** AllJobs templates show a birth year, and its guide suggests an "age anchor" such as the service years. The other guides say to leave age out. We leave it out; the law forbids age discrimination, and privacy comes first.
+- **Skill ratings:** Click Jobs asks the user to rate each skill from 1 to 5. That is the pattern Nayeret and stage 2 warn against, because systems can't read it and recruiters can't interpret it.
+- **Translated foreign templates are a warning sign.**
+  - ResumeBird's Hebrew sample is a lawyer who presents cases "to judges and juries" (Israel has no juries), lists a job in Los Angeles, gives a full street address, and opens with "רקורד מוכח" and "להט ומסירות לצדק".
+  - OwlApply's Hebrew ATS page shows English American CVs only.
+  - NoBs' Hebrew example uses third-person masculine verbs ("הוביל", "הנחה") and "סיכום מקצועי", which reads as machine translation.
+  - **This is exactly what our Hebrew pass must not produce.**
+- **Statistics on these sites are unreliable.**
+  - Recruiters supposedly read a CV for 6 seconds "according to LinkedIn and Glassdoor" (EasyStudy), 7 seconds (GoldenJob), or 10 to 30 seconds (AllJobs).
+  - Click Jobs gives both 15 and 6 seconds on the same page.
+  - EasyStudy says 75% of companies reject CVs "automatically". Stage 2 found automatic keyword rejection to be largely a myth.
+  - None of these figures should reach our product text.
+- **Machine-written Hebrew in the guides themselves:** EasyStudy's 2026 guide is full of long dashes, the same marker we just removed from our output.
+- **Reading order in another site's PDF:** text extracted from JobsSeek's Hebrew PDF comes out scrambled. Brackets are mirrored, numbers stick to the next word ("כתבו2", "עם6"), and a range such as "2 to 3" splits across lines. This is the failure stage 2 described, seen in a real file. It supports item 7 of section 40, a copy-paste reading-order check on every export. Our own PDFs pass the Hebrew heading extraction tests.
+
+## 46. How the builders work (the mechanics, for our own flow)
+
+- **The common flow:** choose a template, fill a form split into sections, watch a live preview, then download a PDF. Embuild, WorkFinder, NoBs, CVWizard, ResumeCoach and ResumeBird all follow it.
+- **Starting from an existing file:** WorkFinder and ResumeCoach parse an uploaded CV into the form ("AI breaks it into the form"). We already do this.
+- **Gates:**
+  - Click Jobs, Drushim and AllJobs need registration or a profile on the board.
+  - NoBs keeps everything in the browser, with no account at all.
+  - EnResume, WorkFinder (premium), ResumeBird and ResumeCoach charge at download.
+  - Embuild and JobsSeek are free with no signup.
+- **What Embuild does well (driven by hand):**
+  - Each section shows a "done / missing" dot.
+  - Every field has a plain example placeholder, e.g. "two or three lines: what you do, how many years, and what you are looking for now".
+  - Validation is inline ("צריך מספר טלפון").
+  - There are five templates of the same content, switchable at any time.
+  - **Example CVs by profession** (customer service, bookkeeper, warehouse, no experience, and others) open straight in the builder.
+  - Each example comes with "what to write" notes for that profession. For a bookkeeper, for instance: name your certificate grade (סוג 2 / סוג 3) and list which entries you post yourself.
+- **Ideas worth borrowing (inspiration, not evidence):**
+  - Per-profession "what recruiters look for" notes shown next to the user's own lines. These would come from the job description in our case, not from a fixed list.
+  - A placeholder sentence per field written in plain Israeli Hebrew.
+  - The profession examples as a "see what good looks like" link in the editor.
+
+## 47. What this pass changes
+
+| # | Change | Strength | Status |
+|---|---|---|---|
+| 1 | Correct section 37: "תמצית" *is* used, by AllJobs. "תקציר" stays as a choice between two correct words | High (direct observation) | Recorded here |
+| 2 | Make service placement depend on experience: after education for experienced candidates, after experience (as today) for juniors | **High that recruiter sites do this**; no outcome data | **Waiting on the founder.** Today's code always puts it after experience |
+| 3 | Hebrew lines: verbal nouns by default in place of first person | Medium-high (the largest board's guide plus one placement company's 90 lines, against content sites) | **Waiting on the founder** |
+| 4 | Body text at 10.5 to 11 pt, headings up to 12 | High (every guide that gives a number agrees) | Waiting (already proposed in section 25) |
+| 5 | Drop "a number in every bullet" | High (now also Hebrew recruiter evidence) | Waiting (already proposed) |
+| 6 | Never let site statistics ("6 seconds", "75% rejected automatically") into product text | High | Rule to keep |
+| 7 | Reading-order check on every export | High | Waiting (section 40, item 7) |
