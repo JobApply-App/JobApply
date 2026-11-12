@@ -116,24 +116,41 @@ def test_hebrew_summary_heading_is_takzir(template_id):
     assert "תקציר" in html and "תמצית" not in html
 
 
-@pytest.mark.parametrize("template_id", TEMPLATES)
-def test_hebrew_cv_places_service_right_after_experience(template_id):
-    """Israeli CVs put service after experience, before education (founder
-    decision 2026-11-12; docs/research/06-cv-generation.md section 37)."""
-    html = render_html(HE_CV, template_id, user_id="u")
+DETAILED = {**HE_CV, "military_service": {**HE_CV["military_service"],
+                                          "key_responsibilities": ["ניהול חמ״ל של 40 חיילים."]}}
+
+
+def _order(html, *marks):
     body = html[html.index("<body"):]
-    exp, mil, edu = body.index("ניסיון תעסוקתי"), body.index("שירות צבאי"), body.index(">השכלה<")
+    return [body.index(m) for m in marks]
+
+
+@pytest.mark.parametrize("template_id", TEMPLATES)
+def test_service_with_lines_of_its_own_follows_experience(template_id):
+    """Founder decision 2026-11-12: service that needs text sits right after
+    Experience; how much text it gets is the tailoring model's call per person."""
+    html = render_html(DETAILED, template_id, user_id="u")
+    exp, mil, edu = _order(html, "ניסיון תעסוקתי", "שירות צבאי", ">השכלה<")
     assert exp < mil < edu
-    assert body.count("שירות צבאי") == 1          # not rendered twice
-    assert "קצין מבצעים" in body
+    assert html.count("שירות צבאי") == 1 and "ניהול חמ״ל" in html
 
 
 @pytest.mark.parametrize("template_id", TEMPLATES)
-def test_english_cv_keeps_service_with_the_side_sections(template_id):
-    html = render_html(EN_CV, template_id, user_id="u")
-    body = html[html.index("<body"):]
-    assert body.count("Military Service") == 1
-    assert body.index("Military Service") > body.index("Education")
+def test_one_line_service_follows_education(template_id):
+    html = render_html(HE_CV, template_id, user_id="u")
+    edu, mil = _order(html, ">השכלה<", "שירות צבאי")
+    assert edu < mil
+    assert html.count("שירות צבאי") == 1 and "קצין מבצעים" in html
+
+
+@pytest.mark.parametrize("template_id", TEMPLATES)
+def test_english_follows_the_same_rule(template_id):
+    short = render_html(EN_CV, template_id, user_id="u")
+    edu, mil = _order(short, "Education", "Military Service")
+    assert edu < mil and short.count("Military Service") == 1
+    detailed = render_html({**EN_CV, "military_service": DETAILED["military_service"]}, template_id, user_id="u")
+    exp, mil, edu = _order(detailed, "Experience", "Military Service", "Education")
+    assert exp < mil < edu
 
 
 @pytest.mark.parametrize("template_id", TEMPLATES)

@@ -49,3 +49,14 @@ def test_a_civilian_job_mentioning_the_air_force_stays_a_job(monkeypatch):
 def test_military_is_not_a_required_employer(monkeypatch):
     monkeypatch.setattr(tailor_module, "_resolve_profile", lambda _uid: PROFILE)
     assert [e["company"] for e in tailor_module._required_profile_employers("u1")] == ["Wix"]
+
+
+def test_how_much_service_to_write_is_a_judgement_not_a_years_rule():
+    """Founder decision 2026-11-12: a former major with ten years of civilian
+    work keeps the service detail when it matters; weight and relevance decide."""
+    from backend.agents import tailor
+    p = tailor._SYSTEM_PROMPT
+    assert "ten years of civilian experience does not" not in p
+    assert "never\n    a rule about years" in p
+    assert "Purely technical SWE roles: OMIT" not in p
+    assert "lieutenant\n        colonel" in p

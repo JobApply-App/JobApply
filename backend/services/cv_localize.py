@@ -81,7 +81,9 @@ KEY_TERMS unchanged; generic skills in Hebrew.
 - military_service: Hebrew role and unit as the IDF names them. When the \
 entry is national service (שירות לאומי) or civic service (שירות אזרחי), keep \
 it as that kind of service and name the role and organisation the way that \
-service does; never turn it into military service.
+service does; never turn it into military service. A rank in brackets \
+becomes the Hebrew rank (Captain → סרן, Major → רס״ן, Lieutenant Colonel → \
+סא״ל); never add a rank that is not there.
 - languages: leave as they are.
 
 GENDER
