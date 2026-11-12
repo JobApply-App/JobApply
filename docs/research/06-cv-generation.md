@@ -822,7 +822,7 @@ The previous pass said "none uses תמצית". **That was wrong;** it was based 
 | Source | What it says | Lines in its own examples |
 |---|---|---|
 | AllJobs guide | Verbal nouns, not first person ("הכנת מצגות", "ניהול עובדים") | 5 full examples: verbal nouns throughout ("פיתוח ותחזוקה", "הובלת כיתה") |
-| Drushim, "how recruiters look at your CV" | "ניהלתי צוות – לא. ניהול צוות – כן" | |
+| Drushim, "how recruiters look at your CV" | "ניהלתי צוות - לא. ניהול צוות - כן" | |
 | Drushim guide | "Don't settle for what you did; show what you achieved" | |
 | Reichman University career center | No first or third person; "verbs or verbal nouns only" | |
 | Tel Aviv University career center | "Active verbs", no vague terms | 2 examples: verbal nouns ("גיוס", "מיון", "קליטת עובדים") |
