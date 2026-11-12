@@ -104,3 +104,47 @@ def test_hebrew_pages_embed_one_hebrew_font_and_no_italics():
     assert "font-family: 'Heebo'" in html and "data:font/woff2;base64," in html
     assert "font-style: normal !important" in html
     assert "Heebo" not in render_html(EN_CV, "t2_modern", user_id="u"), "English CVs keep their template fonts"
+
+
+NATIONAL = {**HE_CV, "military_service": {"role_title": "רכזת קליטה בשירות לאומי", "unit_type": "בית חולים שערי צדק",
+                                         "dates": "2018 - 2020", "key_responsibilities": ["ליוויתי 40 מתנדבות חדשות."]}}
+
+
+@pytest.mark.parametrize("template_id", TEMPLATES)
+def test_hebrew_summary_heading_is_takzir(template_id):
+    html = render_html(HE_CV, template_id, user_id="u")
+    assert "תקציר" in html and "תמצית" not in html
+
+
+@pytest.mark.parametrize("template_id", TEMPLATES)
+def test_hebrew_cv_places_service_right_after_experience(template_id):
+    """Israeli CVs put service after experience, before education (founder
+    decision 2026-11-12; docs/research/06-cv-generation.md section 37)."""
+    html = render_html(HE_CV, template_id, user_id="u")
+    body = html[html.index("<body"):]
+    exp, mil, edu = body.index("ניסיון תעסוקתי"), body.index("שירות צבאי"), body.index(">השכלה<")
+    assert exp < mil < edu
+    assert body.count("שירות צבאי") == 1          # not rendered twice
+    assert "קצין מבצעים" in body
+
+
+@pytest.mark.parametrize("template_id", TEMPLATES)
+def test_english_cv_keeps_service_with_the_side_sections(template_id):
+    html = render_html(EN_CV, template_id, user_id="u")
+    body = html[html.index("<body"):]
+    assert body.count("Military Service") == 1
+    assert body.index("Military Service") > body.index("Education")
+
+
+@pytest.mark.parametrize("template_id", TEMPLATES)
+def test_national_service_gets_its_own_heading(template_id):
+    html = render_html(NATIONAL, template_id, user_id="u")
+    assert "שירות לאומי" in html
+    assert ">שירות צבאי<" not in html
+
+
+def test_english_national_service_heading():
+    cv = {**EN_CV, "military_service": {"role_title": "National Service volunteer", "unit_type": "Shaare Zedek",
+                                         "dates": "2018 - 2020", "key_responsibilities": []}}
+    html = render_html(cv, "t1", user_id="u")
+    assert "National Service" in html and ">Military Service<" not in html

@@ -201,14 +201,17 @@ _LABELS: dict[str, dict[str, str]] = {
         "summary": "Professional Summary", "summary_short": "Summary",
         "experience": "Experience", "education": "Education", "skills": "Skills",
         "languages": "Languages", "military": "Military Service",
+        "national_service": "National Service", "civic_service": "Civic Service",
         "volunteering": "Volunteering", "relevant": "Relevant:",
     },
     "he": {
-        # "תמצית" is the Israeli CV term for the summary; "תקציר מקצועי" is a
-        # calque of "Professional Summary".
-        "summary": "תמצית", "summary_short": "תמצית",
+        # "תקציר" is the heading Israeli CV sites use (Nayeret, Custro, Wizlu;
+        # docs/research/06-cv-generation.md section 37). The founder chose it
+        # over "תמצית" on 2026-11-12.
+        "summary": "תקציר", "summary_short": "תקציר",
         "experience": "ניסיון תעסוקתי", "education": "השכלה", "skills": "כישורים",
         "languages": "שפות", "military": "שירות צבאי",
+        "national_service": "שירות לאומי", "civic_service": "שירות אזרחי",
         "volunteering": "התנדבות", "relevant": "קורסים רלוונטיים:",
     },
 }
@@ -395,6 +398,61 @@ def _build_languages(languages: list[dict], L: dict | None = None, locale: str =
     )
 
 
+_NATIONAL_RE = re.compile(r"שירות\s+לאומי|\bnational\s+service\b|\bsherut\s+leumi\b", re.I)
+_CIVIC_RE = re.compile(r"שירות\s+אזרחי|\bcivic\s+service\b|\bcivil(ian)?\s+service\b", re.I)
+
+
+def _service_label(mil: dict, L: dict) -> str:
+    """
+    Heading for the service section. The same field holds IDF service, national
+    service (שירות לאומי) and civic service (שירות אזרחי); a "Military Service"
+    heading over national service misdescribes the candidate. The kind is read
+    from the entry's own text, and military stays the default.
+    """
+    text = " ".join(str(mil.get(k) or "") for k in ("role_title", "unit_type"))
+    if _CIVIC_RE.search(text):
+        return L.get("civic_service", L["military"])
+    if _NATIONAL_RE.search(text):
+        return L.get("national_service", L["military"])
+    return L["military"]
+
+
+def _build_military_main(mil: dict | None, L: dict | None = None) -> str:
+    """
+    The service section laid out like a job, for the main column right after
+    experience. Israeli CVs place service there (docs/research/06-cv-generation.md
+    section 37), and in Hebrew CVs it is often the reader's main evidence of
+    early responsibility. Uses the experience markup so every template already
+    styles it, including Tech Modern whose sidebar styles assume a dark background.
+    """
+    if not mil or not mil.get("role_title"):
+        return ""
+    L = L or _LABELS["en"]
+    role  = _t(mil.get("role_title", ""), 45)
+    unit  = _t(mil.get("unit_type",  ""), 60)
+    dates = _t(_format_year_range(mil.get("dates", "")), 20)
+    responsibilities = [str(r).strip() for r in (mil.get("key_responsibilities") or []) if str(r).strip()]
+    resp_html = (
+        f'<ul class="bullets">{"".join(f"<li>{_e(r)}</li>" for r in responsibilities[:3])}</ul>'
+        if responsibilities else ""
+    )
+    return (
+        f'<div class="main-sec">'
+        f'  <h2 class="sec-title">{_service_label(mil, L)}</h2>'
+        f'  <div class="exp-entry">'
+        f'    <div class="entry-hdr">'
+        f'      <div class="entry-meta">'
+        f'        <span class="entry-role">{role}</span>'
+        f'        <span class="entry-company">{unit}</span>'
+        f'      </div>'
+        f'      <span class="entry-dates">{dates}</span>'
+        f'    </div>'
+        f'    {resp_html}'
+        f'  </div>'
+        f'</div>'
+    )
+
+
 def _build_military(mil: dict | None, L: dict | None = None) -> str:
     """
     Render the military-service block, or nothing at all.
@@ -426,7 +484,7 @@ def _build_military(mil: dict | None, L: dict | None = None) -> str:
 
     return (
         f'<div class="side-sec">'
-        f'  <h2 class="sec-title">{(L or _LABELS["en"])["military"]}</h2>'
+        f'  <h2 class="sec-title">{_service_label(mil, L or _LABELS["en"])}</h2>'
         f'  <div class="entry-hdr">'
         f'    <div class="entry-meta">'
         f'      <span class="mil-role">{role}</span>'
@@ -503,7 +561,14 @@ def _flatten(cv_data: dict, user_id: str, contact: dict | None = None,
     flat["education_blocks"]     = _build_education(clean.get("education",  []), L)
     flat["skills_section"]       = _build_skills(clean.get("skills", {}), L)
     flat["languages_section"]    = _build_languages(clean.get("languages", []), L, locale)
-    flat["military_section"]     = _build_military(clean.get("military_service"), L)
+    # Hebrew CVs: service goes right after experience, laid out like a job
+    # (founder decision 2026-11-12). English CVs keep it with the side sections.
+    if locale in _RTL_LOCALES:
+        flat["military_main"]    = _build_military_main(clean.get("military_service"), L)
+        flat["military_section"] = ""
+    else:
+        flat["military_main"]    = ""
+        flat["military_section"] = _build_military(clean.get("military_service"), L)
     flat["volunteering_section"] = _build_volunteering(clean.get("volunteering", ""), L)
 
     return flat
