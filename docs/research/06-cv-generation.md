@@ -837,3 +837,157 @@ The previous pass said "none uses תמצית". **That was wrong;** it was based 
 **Canva:** the founder asked for design inspiration from Canva's thousands of CV templates (not the founder's own design). Canva runs a security check that blocks automated browsers on every page, including the public template galleries and their images. I did not try to get around it. A search confirms Israeli creators publish Hebrew CV templates there, for example one creator with 138 templates and a 13-template "דרושים • קורות חיים • HR" collection. Ways to reach them, all needing the founder:
 1. Run the research from a session that drives the founder's own Chrome (Claude in Chrome, from the desktop app). This is the cleanest route, since Canva then sees an ordinary signed-in browser.
 2. Save a set of Canva templates (screenshots or exported PDFs) into a folder and upload them here.
+
+---
+
+# Seventh pass (2026-11-12): Canva's CV templates, through the founder's own Chrome
+
+## 49. What Canva's templates look like, and which parts of that design we can use
+
+This section answers the open item at the end of section 48. The founder's own Chrome (Claude in Chrome) ran Canva's in-app template search while signed in. It only viewed template previews: it opened no template in the editor, created no design, and did not open the founder's own designs.
+
+### What was collected and how
+
+- **39 searches:**
+  - **Hebrew:** "קורות חיים" alone, and with הייטק, מינימליסטי, מעוצב, סטודנט, מנהל, ללא ניסיון, מתכנת, מעצבת, מורה, אקדמי, שירות לקוחות, מכירות, עברית, לחייל משוחרר, מהנדס, אחות, רואה חשבון, עם תמונה, יוצר תוכן; also "קו״ח" and "רזומה".
+  - **English:** resume, cv, ATS resume, software engineer, tech, executive, manager, customer service, creative, graphic designer, academic cv, teacher, minimalist, professional, nurse, sales, student, and hebrew resume.
+- **What came back:**
+  - **2,211 distinct templates** were recorded (title and preview image), 80 to 250 per search.
+  - **1,506** of them are CVs by title. The rest were cover letters, job ads and timetables, which Canva's broad search mixes in.
+  - Every search reports about 20,000 matches, so it ranks the whole CV catalogue rather than filtering it.
+- **Measured by machine on all 1,506 preview images (1131 × 1600 px):**
+  - page background;
+  - how much strong colour the page carries;
+  - the main accent hue.
+- **Measured by eye on a stratified sample of 224** (32 per role group, chosen by a fixed random seed), plus the top 32 results of the plain Hebrew search:
+  - columns or sidebar;
+  - photo;
+  - rating bars, dots or stars;
+  - dark page;
+  - type style.
+
+  An automatic column detector was tried first. When checked against the images it **missed about a quarter of the multi-column pages**, so the column counts below come from the visual coding only.
+- **Text size** was estimated from the spacing of text lines in the full-size preview images, for the 224 sampled templates. It is a rough method; treat it as ±1 pt.
+- **Israeli creators:** the creators of every Hebrew-titled CV template were looked up, and their collections were opened:
+  - Marina Zlochin, 20K followers, collection "משאבי אנוש - תבניות בעברית" (38 items, 7 of them CVs);
+  - שחר אהרוני, 3.7K followers, collection "דרושים • קורות חיים • HR" (13 items, 3 of them CVs; the rest are job-ad posts).
+- **Limits:**
+  - One coder (me), no second rater.
+  - Canva's ranking may depend on the signed-in account.
+  - Template pages do not name their fonts, so fonts are identified by eye.
+  - **No template was exported to PDF and run through a parser here.** Exporting would have meant creating designs in the founder's account. Statements about how parsers read these layouts rest on stage 2 and section 20, not on a new test.
+
+**Screenshots:** contact sheets per role group, the Hebrew templates enlarged, and type close-ups are kept locally in `docs/research/canva-shots/`. The folder is excluded from git, and that is deliberate: this repository is public, and the images are other people's designs. The templates named below can be opened at `https://www.canva.com/templates/<id>/`.
+
+### The market in numbers
+
+**Layout (sample of 224; "multi" means a sidebar or two or more columns of text side by side):**
+
+| Group (searches) | One reading flow | Multi-column | Photo | Rating bars/dots/stars |
+|---|---|---|---|---|
+| Tech (הייטק, מתכנת, מהנדס, software engineer, tech) | 11 | 21 | 18 | 5 |
+| Management (מנהל, executive, manager, רואה חשבון) | 5 | 27 | 20 | 1 |
+| Service, sales, nursing | 5 | 27 | 18 | 3 |
+| Creative (מעוצב, מעצבת, creative, graphic designer, יוצר תוכן) | 6 | 26 | 25 | 9 |
+| Academia and teaching | 5 | 27 | 21 | 4 |
+| Entry level (סטודנט, ללא ניסיון, student, חייל משוחרר) | 5 | 27 | 16 | 1 |
+| **"ATS resume"** | **14** | **18** | **18** | 1 |
+| **All 224** | **51 (23%)** | **173 (77%)** | **136 (61%)** | **24 (11%)** |
+
+**Colour (all 1,506, by machine):**
+- **88%** of pages are white, 3% cream, 3% tinted and **6% dark**.
+- **42%** carry almost no strong colour; outside a photo, colour is usually a single accent.
+- **By title words:** "white" 714, "modern" 540, "black" 411, "minimal(ist)" 401 and 374, "professional" 397, **"blue" 323** (plus "navy" 28), "simple" 298. Then green 114, beige 111, creative 104, pink 94, brown 93, grey 177.
+- The machine's hue count over-reports red and orange, because skin tones in photos fall in that range. **The title words are the better colour signal.**
+
+**Type:**
+- **Body text:** the median line pitch is **15 to 17 pt** in every group, and the median ink height of a line is about 9 pt. That puts body text at **about 10 to 11 pt with roughly 1.5 line spacing.** It is the same figure the Israeli guides give (section 45), and well above ours (6.5 to 9 pt, section 17).
+- **The name** is by far the largest element, roughly three to five times the body size (estimated by eye).
+- **Families seen (identified by eye):**
+  - geometric sans in the Montserrat/Poppins style: the default for corporate, tech and service;
+  - Arial-like grotesques on the plain "ATS" pages;
+  - very wide or letter-spaced capitals for names and headings ("C A H A Y A  D E W I");
+  - a serif display face for names in management and academia;
+  - handwritten and script names in creative and teaching templates, about one in six of those groups.
+
+### What separates the role groups
+
+| Group | Look | Colour | Typical extras |
+|---|---|---|---|
+| **Tech** | Navy or charcoal sidebars, dark pages (8% of the group), a photo in a circle | Blue in 29% of titles, black in 31% | Skill bars and dots in "Programming languages"; "Tech stack" chips |
+| **Management** | The most conservative: white pages, a navy or charcoal sidebar or top bar, serif or spaced-capital name, summary first | Black 32%, blue 21%, pink 1% | "Executive snapshot" box, "Key achievements" |
+| **Service, sales, nursing** | Friendly: rounded photos, teal or soft-blue blocks, contact icons | Blue 29% | Language bars; nurses almost always shown with a photo |
+| **Creative** | The most decoration: pastel or pink backgrounds, illustrations, florals, stickers, polaroid photos, huge display words ("resume") | Pink 15% (2% or less elsewhere except academia); the highest colour load (75th percentile 0.18, against 0.01 for "ATS") | The most rating bars (9 of 32); handwritten names |
+| **Academia** | Mostly teacher templates: playful and pastel, some serif | Beige or brown 17% | **Hardly any real academic CVs** (publications, grants, courses taught). "academic cv" returns ordinary two-column pages |
+| **Entry level** | Generic student layouts; "חייל משוחרר" returns English student templates with nothing Israeli about them | Blue 27% | "Objective" sections, a lot of empty space |
+| **"ATS"** | Plainer: 14 of 32 in one flow, no dark pages, almost no colour | Black 40% | **But 18 of 32 are still multi-column and 18 still carry a photo.** The label is a search keyword, not a property |
+
+### How the content is written (both languages)
+
+- **English templates:**
+  - The section names are "Profile / About me / Summary", "Work experience", "Education", "Skills" (often shown as bars), "Languages" (often as bars), "References" (names and phone numbers, or "available upon request"), and "Hobbies / Interests".
+  - The text is mostly Lorem ipsum, or one generic paragraph reused across templates.
+  - A role line is "Title / Company / City" with the dates beside it. The bullets open with past-tense verbs.
+- **Hebrew templates** (10 CVs with Hebrew titles among the 1,506, all by the two creators above; 7 of the top 32 for "קורות חיים" are in Hebrew):
+  - **Section names:**
+    - Marina Zlochin's set: "פרופיל מקצועי", "ניסיון תעסוקתי", "מיומנויות אישיות", "השכלה", "שפות", "תחומי עניין", "יצירת קשר".
+    - שחר אהרוני: "תקציר הקריירה", "ניסיון מקצועי", "השכלה", "מיומנויות", "שפות", "פרטים נוספים", "הערות" (the CV ends with "המלצות ניתן לצרף"); in another of hers, "אודות", "ניסיון תעסוקתי", "השכלה", "כישורים".
+  - **Role line:** "2022 - היום | מנהלת שיווק ודיגיטל" or "יוני 2020 - היום | מנהלת כח אדם | חברת XYZ". Dates come first, then a vertical bar, then the role and the company.
+  - **Bullets are verbal nouns throughout:** "בניית והוצאה לפועל של תוכניות שיווק", "ניהול קמפיינים ברשתות החברתיות", "יצירת תוכן", "עבודה שוטפת מול ספקים". That is the recruiter register from sections 44 and 48, **and the one our Hebrew pass now uses by default.** Latin words such as "Google" sit inside Hebrew lines.
+  - **No Hebrew template has a military service section.**
+  - Sample names are female ("נועה לוי", "תמר כהן", "ישראלה ישראלי"), with feminine role titles ("מנהלת").
+  - The single-column template repeats the name and contact details in a footer.
+  - **Type:** names are set in a tall, condensed, bold Hebrew display face, or in a slanted display face, with a photo beside them. The body is a plain Hebrew sans that looks like Assistant or Heebo.
+  - **Layout:**
+    - 9 of 10 are right-to-left in two columns: a narrow tinted column holds profile, skills, languages and contact, and the main column holds experience and education.
+    - 1 of 10 is a single column with a pink header band.
+    - 6 of 10 have a photo.
+    - Colours are cream and brown, pastel pink, sky blue, or black and white.
+- **The Hebrew gap:** Canva's Hebrew searches return mostly English templates. Across 21 Hebrew searches only these 10 Hebrew CV templates turned up, and 7 of them are one content set in different colours. **A well-made right-to-left Hebrew CV is close to absent from the largest template library.** This is room for us, not a lack of demand: Canva counts 20,000 CV templates in total.
+
+### Design language we can adopt (it survives a parser and has support)
+
+1. **The name as the one large element**, about two and a half to four times body size, with the target role in a smaller line beneath and **contact details on one text line** under that. Canva does this in nearly every template, and it matches what recruiters look at first (section 20).
+2. **Body text at 10 to 11 pt and line spacing of about 1.4 to 1.5.** Canva (measured here), the Israeli guides (section 45) and the vision research (section 18) all point the same way. **This is the strongest single takeaway.**
+3. **One accent colour, used only on headings, thin rules and the name.** The market's restraint on white pages (88% white, 42% with no strong colour) is compatible with the "conservative look" evidence (section 20).
+4. **An accent chosen by role family, as a quiet signal:**
+   - navy or charcoal for management and finance;
+   - blue or teal for tech, service and health;
+   - a warmer accent such as terracotta or plum for creative roles;
+   - near-black for academia and law.
+
+   This borrows Canva's role coding without its layouts. The "typeface appropriate to the job" result (Shaikh & Fox, section 19) supports letting the look fit the field; the colour mapping itself is a convention, not evidence.
+5. **Thin rules under section headings, and white space between roles**, in place of boxes.
+6. **The role line:** bold title, then company, with dates on the same line, dark and at body size. In Hebrew, the Israeli templates' order "dates | role | company" is familiar to local readers and worth offering.
+7. **Hebrew headings from the local templates:** "ניסיון תעסוקתי" / "ניסיון מקצועי", "השכלה", "שפות", "תקציר" (section 42). "תחומי עניין" and "פרטים נוספים" are optional sections that local readers recognise.
+8. **A full-width tinted header band** holding the name and contact as real text is acceptable. It keeps a single reading flow. The colour must keep 4.5:1 contrast.
+
+### Structures that parsing systems read badly (do not adopt)
+
+| Structure | How common on Canva | Why to avoid it |
+|---|---|---|
+| **Sidebars and two or more columns** | **77%** of the sample; 9 of 10 Hebrew templates; 18 of 32 even under "ATS" | Extraction mixes the reading order (stage 2; Enhancv's 357 tests; section 20). Right-to-left Hebrew adds a second ordering problem (section 45: JobsSeek's PDF came out scrambled) |
+| **Text boxes and framed blocks** (boxed sections, tabs, cards, pastel blocks in Hebrew templates) | Common in creative, entry-level and Hebrew templates | In a design tool each box is a separate positioned frame with no reading order. Parsers read frames in drawing order or drop them |
+| **Rating bars, dots and stars** for skills and languages | **11%** overall, 28% in creative | Software cannot read them, and recruiters cannot interpret "●●●○○" (sections 32 and 45) |
+| **Icons in place of words** (phone, mail and pin icons with no label) | In most templates with a photo | The icon is an image; if the label is dropped, "phone" disappears with it. Keep the word or the plain value |
+| **Photo** | **61%** | Israeli guides advise against it (section 45); the founder decided on no photo; it also invites bias |
+| **Light text on dark backgrounds, and dark pages** | 6% of pages fully dark; dark sidebars are common | Legibility (section 25, item 7); and when the background is a separate shape, text can extract as white on white |
+| **Script, handwritten and very wide letter-spaced display type** for names and headings | About one in six creative and teaching templates; spaced capitals are common everywhere | Letter-spaced headings break text search in an extracted PDF (our own finding, section 25, item 8); script is read more slowly (section 19) |
+| **Timelines with dots and connectors, progress circles, skill "chips" in shapes** | Common in tech and creative | The decoration carries information that only the drawing holds |
+| **Contact details only in a footer or header region** | One of the Hebrew templates repeats them in the footer | Some parsers skip page headers and footers; keep contact in the body |
+
+**A note on the "ATS" label:** Canva's "ATS" templates are plainer, but most still have columns and photos. If our product says "ATS-safe", that must stay a property we test (stage 2), never a style name.
+
+### What this pass changes
+
+| # | Change | Strength | Status |
+|---|---|---|---|
+| 1 | Body text to 10 to 11 pt, line spacing about 1.4 to 1.5 | High: Canva measured here, Israeli guides, vision research | Waiting (section 25, item 1; section 47, item 4). Now triple-sourced |
+| 2 | Keep one reading flow; retire or rework Tech Modern's sidebar | High (parsing evidence); the market does the opposite, and that is a sales choice, not evidence | Waiting (section 25, item 4) |
+| 3 | An accent colour per role family, applied only to headings, rules and the name | Medium: market convention plus the appropriateness study; no outcome data | **For the founder's decision** |
+| 4 | Offer the Israeli role-line order ("2022 - היום \| תפקיד \| חברה") in Hebrew CVs | Medium: what the local templates and guides show | **For the founder's decision** |
+| 5 | Never show ratings, icons without labels, photos, or text in boxes | High | Already true of our templates; keep it as a rule |
+| 6 | Say "ATS-safe" only for what our parsing tests confirm | High | Rule to keep |
+| 7 | A right-to-left Hebrew single-column CV is a gap in the largest template library | Observation (10 Hebrew templates in 1,506) | For the product and marketing story; any claim must match what we can show |
+
+**Still open:** exporting a handful of Canva templates to PDF and running them through our parsing tests would turn the right-hand column of the "do not adopt" table from inference into measurement. It needs designs created in an account, so it is the founder's call.
