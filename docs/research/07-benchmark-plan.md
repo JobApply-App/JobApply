@@ -1,6 +1,6 @@
 # Stage 7: the benchmark (plan, not yet run)
 
-Written 2026-11-13. Status: **plan awaiting the founder's approval. No model call has been made.**
+Written 2026-11-13. Status: **plan approved by the founder on 2026-11-13. The test set is written (`benchmark/`). No model call has been made.**
 
 ## 1. What this stage is for
 
@@ -50,17 +50,17 @@ A model is used as a checker only in part C, and only for a factual question: "i
 | 9 | Combat officer released a year ago, first civilian job | military service as the main experience |
 | 10 | Marketing manager who worked at the target company 4 years ago | prior employer (principle 2) |
 | 11 | Bookkeeper returning after a 5-year gap | gap, older experience |
-| 12 | Full-stack developer, 4 years, profile written in Hebrew | Hebrew input |
+| 12 | Full-stack developer, 4 years, English profile against Hebrew job ads | cross-language input |
 
 Profiles 3, 6, 9 and 12 also get Hebrew CVs in part C.
 
-**3 jobs per person = 36 pairs:** one strong fit, one partial fit, one clear non-fit (a named hard requirement is missing). Job texts are realistic length (1,500-4,000 characters), half Hebrew and half English, modelled on the real ads collected in stages 2-6 but with invented companies.
+**3 jobs per person = 36 pairs:** one strong fit, one partial fit, one clear non-fit (a named hard requirement is missing). Job texts are 550-1,600 characters (Hebrew ads are the shorter ones), all well above the product's 300-character thin-JD cutoff. 18 are Hebrew and 18 English, with invented companies.
 
-**Variants made from those pairs** (no new writing, all mechanical):
+**Variants made from those pairs.** The first, third, fourth and fifth are mechanical. The second needs writing and is done after the founder's ranking, since it does not affect it:
 - thin job description (cut below 300 characters) for 6 pairs;
-- the same job paraphrased, and the same job translated to the other language, for all 36;
+- the same job paraphrased, and the same job translated to the other language, for the 12 partial-fit jobs (one per person), where a score has the most room to move;
 - the profile's skills list in a different order, for all 36;
-- for profile 10: the same job with the company name changed to one the person never worked at;
+- for profile 10: the partial-fit job with its company name changed to her past employer. The base job names a company she never worked at, so the prior-employer boost cannot disturb the base order;
 - for profile 4: the same job asking for 5 years and for 15 years.
 
 ## 5. What is measured, and the pass line fixed in advance
@@ -71,8 +71,8 @@ Stage 0 showed that protocol choices alone moved a reported accuracy from 0.55 t
 | Measure | How | Pass line |
 |---|---|---|
 | A1. Run-to-run spread | each of the 36 pairs scored 5 times; spread = max minus min of the composite | spread ≤ 3.0 points on at least 90% of pairs; no pair above 8.0 |
-| A2. Paraphrase | same job reworded | composite moves ≤ 5.0 on 90% of pairs |
-| A3. Language | same job in Hebrew and in English | composite moves ≤ 5.0 on 90% of pairs |
+| A2. Paraphrase | same job reworded, 12 jobs | composite moves ≤ 5.0 on 11 of 12 |
+| A3. Language | same job in Hebrew and in English, 12 jobs | composite moves ≤ 5.0 on 11 of 12 |
 | A4. Skill order | same profile, skills reordered | composite moves ≤ 3.0 on 90% of pairs |
 
 ### Part B: is the order right
@@ -81,7 +81,7 @@ Stage 0 showed that protocol choices alone moved a reported accuracy from 0.55 t
 | B1. Order by construction | for each person: strong > partial > non-fit | all 3 in order for at least 10 of 12 people; strong above non-fit for all 12 |
 | B2. Gap size | strong minus non-fit | at least 20.0 points on 10 of 12 |
 | B3. Thin job description | 6 thin variants | every one ≤ 30.0, with both LLM sub-scores exactly 0.0 |
-| B4. Prior employer | profile 10 | semantic ≥ 85.0 and management ≥ 80.0 with the real company; both lower with the changed name |
+| B4. Prior employer | profile 10's partial-fit job | with the past employer's name: semantic ≥ 85.0 and management ≥ 80.0, and neither lower than with the base name |
 | B5. Overqualified | profile 4 | score for the 5-year job is not lower than for the 15-year job by more than 3.0 |
 | B6. Pivot | profile 3's strong-fit job | scores within 10.0 of profile 1's strong-fit score |
 | B7. Founder's order | founder ranks the 3 jobs for each person without seeing scores | reported as agreement out of 12; no pass line, because it is one judge |
@@ -126,7 +126,7 @@ Sizes are estimated from the code, not measured: the scorer template is 5,681 ch
 
 | Part | Calls | Per call | Estimate |
 |---|---|---|---|
-| A + B scoring | about 330 scorer calls (36 x 5 repeats, plus about 150 variants; thin-JD variants make no call) | about 4,000 in, 500 out = $0.0065 | **$2-4** |
+| A + B scoring | about 245 scorer calls (36 x 5 repeats, plus about 65 variants; thin-JD variants make no call) | about 4,000 in, 500 out = $0.0065 | **$2-4** |
 | C, English CVs | 64 | tailor + grounding + occasional refine = about $0.15 | **$8-12** |
 | C, Hebrew CVs | 32 | the above plus the Hebrew step = about $0.23 | **$6-9** |
 | C, checker | 96 | about 7,000 in, 2,500 out = $0.04 | **$3-5** |

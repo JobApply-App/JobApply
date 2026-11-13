@@ -1,0 +1,189 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p08
+why: academia moving to industry; long history, few business words
+profile:
+  name: Yael Zohar
+  email: yael.zohar@example.com
+  phone: "050-555-0108"
+  location: Rehovot, Israel
+  title: Postdoctoral Researcher, Molecular Biology
+  summary: >-
+    Molecular biologist with a Ph.D. and 3 years of postdoctoral research on
+    gene regulation in immune cells. Hands-on with CRISPR screens, flow
+    cytometry and RNA sequencing analysis in R. Looking for a first role in
+    industry.
+  experience:
+    - role: Medic
+      company: IDF, Medical Corps
+      period: 2007 - 2009
+      bullets:
+        - "Served as a medic in a battalion aid station"
+        - "Taught first-aid refreshers to 200 soldiers"
+    - role: Research Assistant
+      company: Tel Aviv University, Department of Biochemistry
+      period: 2012 - 2014
+      bullets:
+        - "Ran western blots, PCR and cell culture for a lab studying protein degradation"
+        - "Kept the lab's cell-line stocks and ordering"
+    - role: Ph.D. Researcher
+      company: Weizmann Institute of Science
+      period: 2015 - 2021
+      bullets:
+        - "Studied how a family of transcription factors controls T-cell activation"
+        - "Built and ran a genome-wide CRISPR knockout screen in primary T cells"
+        - "Analysed RNA sequencing data in R (DESeq2) and wrote the lab's analysis pipeline"
+        - "Published 2 first-author papers and 3 co-author papers in peer-reviewed journals"
+        - "Supervised 2 M.Sc. students and 3 rotation students"
+    - role: Postdoctoral Researcher
+      company: Weizmann Institute of Science
+      period: 2021 - Present
+      bullets:
+        - "Lead a project on exhaustion of T cells in tumours, in collaboration with a hospital oncology unit"
+        - "Run multi-colour flow cytometry panels (18 colours) and cell sorting"
+        - "Wrote a research grant that won 900,000 NIS over 3 years"
+        - "Set up single-cell RNA sequencing in the lab and trained 4 lab members"
+        - "Present at international conferences, 2 invited talks"
+  education:
+    - degree: B.Sc. Biology
+      institution: Tel Aviv University
+      period: 2009 - 2012
+      honors: Magna cum laude
+      coursework: ""
+    - degree: M.Sc. Biochemistry
+      institution: Tel Aviv University
+      period: 2012 - 2014
+      honors: ""
+      coursework: Thesis on protein degradation
+    - degree: Ph.D. Immunology
+      institution: Weizmann Institute of Science
+      period: 2015 - 2021
+      honors: Dean's prize for Ph.D. students, 2020
+      coursework: ""
+  skills:
+    categories:
+      - label: Lab
+        items: [CRISPR screens, Flow cytometry, Cell sorting, Primary T-cell culture, RNA sequencing, Single-cell RNA sequencing, PCR, Western blot]
+      - label: Analysis
+        items: [R, DESeq2, Seurat, FlowJo, GraphPad Prism]
+      - label: Research
+        items: [Experimental design, Scientific writing, Grant writing, Supervising students, Conference talks]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: English, level: Fluent}
+  volunteering: Gives science talks in high schools through a national outreach programme, 4 a year.
+
+jobs:
+  - id: p08-j1
+    title: Scientist, Immuno-Oncology
+    company: Arbel Therapeutics
+    location: Ness Ziona
+    language: en
+    fit: strong
+    requirements:
+      - {req: "Ph.D. in immunology or related", met: true, evidence: "Ph.D. Immunology, Weizmann"}
+      - {req: "Hands-on T-cell biology", met: true, evidence: "T-cell activation and exhaustion projects"}
+      - {req: "Multi-colour flow cytometry", met: true, evidence: "18-colour panels, sorting"}
+      - {req: "CRISPR in primary cells", met: true, evidence: "genome-wide screen in primary T cells"}
+      - {req: "Postdoc or industry experience (0-3 years)", met: true, evidence: "3 years postdoc"}
+      - {req: "Data analysis in R or Python", met: true, evidence: "R, DESeq2, Seurat"}
+    text: |
+      Arbel Therapeutics is a biotech company developing cell therapies for solid tumours. We are 70 people in Ness Ziona.
+
+      We are hiring a Scientist for the immuno-oncology discovery team.
+
+      What you will do
+      - Design and run experiments on T-cell function and exhaustion in tumour models.
+      - Develop and run multi-colour flow cytometry panels and cell-sorting experiments.
+      - Use CRISPR editing in primary human T cells to test new targets.
+      - Analyse sequencing data together with our computational biologists.
+      - Present results to the research leadership and write study reports.
+      - Guide a research associate.
+
+      What we need
+      - Ph.D. in immunology, molecular biology or a related field.
+      - Hands-on experience in T-cell biology.
+      - Strong multi-colour flow cytometry skills.
+      - Experience with CRISPR in primary cells.
+      - 0-3 years of postdoctoral or industry experience.
+      - Ability to analyse your own data in R or Python.
+
+      Nice to have
+      - Single-cell RNA sequencing.
+      - Experience with tumour models or clinical samples.
+
+      On site, Ness Ziona.
+
+  - id: p08-j2
+    title: Regional Sales Manager, Medical Devices
+    company: Kestrel Surgical
+    location: Central Israel
+    language: en
+    fit: none
+    requirements:
+      - {req: "5+ years of B2B sales with a quota", met: false, evidence: "no sales experience"}
+      - {req: "Selling to hospitals and surgeons", met: false, evidence: "research collaboration with a hospital, not sales"}
+      - {req: "Managing a sales pipeline in a CRM", met: false, evidence: "none"}
+      - {req: "Life-science background", met: true, evidence: "Ph.D."}
+    text: |
+      Kestrel Surgical sells orthopaedic implants and surgical instruments to hospitals.
+
+      We are looking for a Regional Sales Manager for the central region.
+
+      What you will do
+      - Own the sales target for 9 hospitals in the centre of the country.
+      - Build relationships with surgeons, operating-room managers and purchasing departments.
+      - Attend surgeries to support the use of our products.
+      - Manage your pipeline and forecasts in Salesforce.
+      - Run tenders and price negotiations with hospital purchasing.
+
+      What we need
+      - 5+ years of B2B sales experience with a personal quota. This is a hard requirement.
+      - Experience selling medical devices or pharmaceuticals to hospitals.
+      - Experience managing a pipeline in a CRM.
+      - A record of meeting sales targets.
+      - A driving licence and willingness to travel daily.
+
+      Nice to have
+      - A degree in life sciences or nursing.
+      - Experience in orthopaedics.
+
+      Field role, central Israel. Company car.
+
+  - id: p08-j3
+    title: Senior Bioinformatics Scientist
+    company: Genoma Lab
+    location: Tel Aviv
+    language: en
+    fit: partial
+    requirements:
+      - {req: "Ph.D. in a life-science or computational field", met: true, evidence: "Ph.D. Immunology"}
+      - {req: "Single-cell RNA sequencing analysis", met: true, evidence: "set it up in the lab, Seurat"}
+      - {req: "Strong Python and software engineering (Git, testing, pipelines)", met: false, evidence: "R only; a lab pipeline, no software practice"}
+      - {req: "Cloud computing and workflow tools (Nextflow or Snakemake)", met: false, evidence: "not in the profile"}
+      - {req: "3+ years of full-time computational work", met: false, evidence: "analysis was part of wet-lab projects"}
+    text: |
+      Genoma Lab provides single-cell and spatial sequencing analysis to pharma companies.
+
+      We are hiring a Senior Bioinformatics Scientist for the analysis platform team.
+
+      What you will do
+      - Build and maintain production pipelines for single-cell RNA sequencing and spatial data.
+      - Write well-tested Python packages used by the whole analysis group.
+      - Run pipelines at scale on AWS with Nextflow.
+      - Develop new analysis methods with our customers' scientists.
+      - Review code and guide two bioinformaticians.
+
+      What we need
+      - Ph.D. in bioinformatics, computational biology or a life-science field with heavy computation.
+      - Deep experience analysing single-cell RNA sequencing data.
+      - Strong Python and real software-engineering practice: Git, tests, code review, packaging.
+      - Experience with cloud computing and a workflow tool such as Nextflow or Snakemake.
+      - 3+ years of full-time computational work.
+
+      Nice to have
+      - Immunology or oncology background.
+      - Experience with spatial transcriptomics.
+
+      Hybrid, Tel Aviv.
+
+expected_order: [p08-j1, p08-j3, p08-j2]

@@ -1,0 +1,190 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p04
+why: overqualified for most jobs (CLAUDE.md principle 3)
+profile:
+  name: Ruth Avni
+  email: ruth.avni@example.com
+  phone: "053-555-0104"
+  location: Modiin, Israel
+  title: VP Operations
+  summary: >-
+    Operations executive with 18 years in logistics and e-commerce fulfilment.
+    Has run operations of up to 320 people across 3 sites, owned budgets of
+    60 million NIS, and led two warehouse-system replacements.
+  experience:
+    - role: Logistics Officer (Captain)
+      company: IDF, Technology and Logistics Directorate
+      period: 2001 - 2006
+      bullets:
+        - "Commanded a supply platoon of 30 soldiers, then served as logistics officer of a brigade"
+        - "Planned supply for exercises of up to 2,000 soldiers"
+    - role: Operations Planner
+      company: Garron Logistics
+      period: 2007 - 2011
+      bullets:
+        - "Planned daily distribution routes for 70 trucks serving 400 retail stores"
+        - "Built the demand forecast for peak seasons with the sales team"
+        - "Cut empty return trips by 15% by pairing deliveries with supplier pickups"
+    - role: Warehouse Operations Manager
+      company: Garron Logistics
+      period: 2011 - 2016
+      bullets:
+        - "Managed a 22,000 sqm distribution centre with 110 employees in 2 shifts"
+        - "Led the move from a paper process to a warehouse management system (WMS) in 8 months"
+        - "Raised picking accuracy from 97.1% to 99.6%"
+        - "Owned the site's safety programme, with zero lost-time accidents for 3 years"
+    - role: Director of Operations
+      company: Solvane Commerce
+      period: 2016 - 2020
+      bullets:
+        - "Ran fulfilment for an online retailer shipping 25,000 orders a day at peak"
+        - "Managed 5 managers and 180 employees, with a budget of 35 million NIS"
+        - "Negotiated carrier contracts that lowered delivery cost per order by 12%"
+        - "Opened a second fulfilment site in the south in 10 months"
+    - role: VP Operations
+      company: Solvane Commerce
+      period: 2020 - Present
+      bullets:
+        - "Member of the executive team, responsible for fulfilment, customer service and procurement: 320 people across 3 sites"
+        - "Own an operating budget of 60 million NIS and report monthly to the board"
+        - "Led the replacement of the WMS and the introduction of sorting automation, raising throughput by 40%"
+        - "Reduced late deliveries from 6.5% to 2.1% over 2 years"
+        - "Built the operations leadership team: hired 3 directors and promoted 2 from within"
+  education:
+    - degree: B.A. Economics and Logistics
+      institution: Bar-Ilan University
+      period: 2006 - 2009
+      honors: ""
+      coursework: ""
+    - degree: MBA
+      institution: Reichman University
+      period: 2014 - 2016
+      honors: ""
+      coursework: Operations strategy, finance
+  skills:
+    categories:
+      - label: Operations
+        items: [Fulfilment, Warehouse management, Distribution, Procurement, Customer service operations, Capacity planning]
+      - label: Leadership
+        items: [Executive management, Budget ownership, Hiring, Carrier and supplier negotiation]
+      - label: Systems
+        items: [WMS, ERP (SAP), Excel, Power BI]
+      - label: Methods
+        items: [Lean, KPIs, Safety management]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: English, level: Fluent}
+  volunteering: Board member of a food-rescue non-profit since 2019, advising on logistics.
+
+jobs:
+  - id: p04-j1
+    title: Operations Manager
+    company: Pinecrest Fulfilment
+    location: Shoham
+    language: en
+    fit: strong   # she exceeds every requirement; overqualification must not lower the score
+    years_token: "at least 15 years"   # variant replaces this with "at least 5 years"
+    requirements:
+      - {req: "at least 15 years in logistics or fulfilment operations", met: true, evidence: "18 years"}
+      - {req: "Managing a warehouse or fulfilment site with 80+ people", met: true, evidence: "110, 180, then 320 people"}
+      - {req: "WMS experience", met: true, evidence: "led two WMS projects"}
+      - {req: "Budget and KPI ownership", met: true, evidence: "35M and 60M NIS budgets"}
+      - {req: "Carrier management", met: true, evidence: "carrier contracts at Solvane"}
+    text: |
+      Pinecrest Fulfilment runs e-commerce fulfilment for 60 online brands from our centre in Shoham, shipping about 12,000 orders a day.
+
+      We are looking for an Operations Manager to run the site.
+
+      What you will do
+      - Manage the daily operation: receiving, storage, picking, packing and dispatch, with 90 employees in 2 shifts.
+      - Lead 4 shift managers and build the team under them.
+      - Own the site's KPIs: accuracy, on-time dispatch, cost per order, safety.
+      - Work with our WMS vendor on improvements and with the carriers on pickup and service levels.
+      - Prepare and manage the site's annual budget.
+
+      What we need
+      - at least 15 years of experience in logistics or fulfilment operations.
+      - Experience managing a warehouse or fulfilment site with 80 or more employees.
+      - Hands-on experience with a warehouse management system (WMS).
+      - Experience owning a budget and operational KPIs.
+      - Experience managing carriers and service levels.
+
+      Nice to have
+      - E-commerce fulfilment background.
+      - Lean or continuous-improvement training.
+
+      On site, Shoham.
+
+  - id: p04-j2
+    title: Chief Operating Officer
+    company: Halcyon Biologics
+    location: Rehovot
+    language: en
+    fit: partial
+    requirements:
+      - {req: "15+ years in operations, 5+ at executive level", met: true, evidence: "18 years, VP since 2020 (4-5 years)"}
+      - {req: "Pharmaceutical or biotech manufacturing (GMP)", met: false, evidence: "logistics and e-commerce only"}
+      - {req: "Experience with FDA or EMA regulated operations", met: false, evidence: "none"}
+      - {req: "Budget ownership and board reporting", met: true, evidence: "60M NIS, monthly board reports"}
+      - {req: "Building a leadership team", met: true, evidence: "hired 3 directors"}
+    text: |
+      Halcyon Biologics develops and manufactures biologic drugs for rare diseases. We have 260 employees and one manufacturing site in Rehovot.
+
+      We are hiring a Chief Operating Officer, reporting to the CEO.
+
+      What you will do
+      - Lead manufacturing, supply chain, quality operations and facilities.
+      - Prepare the manufacturing site for commercial scale and for regulatory inspections.
+      - Own the operating budget and report to the board.
+      - Build the operations leadership team as the company grows from clinical to commercial stage.
+      - Manage relationships with contract manufacturers and key suppliers.
+
+      What we need
+      - 15+ years in operations, including at least 5 years at executive level.
+      - Experience in pharmaceutical or biotech manufacturing under GMP. This is a hard requirement.
+      - Experience leading operations regulated by the FDA or EMA, including inspections.
+      - Experience owning a large budget and reporting to a board.
+      - A record of building and developing a leadership team.
+
+      Nice to have
+      - Experience with biologics or sterile manufacturing.
+      - A degree in engineering or life sciences.
+
+      On site, Rehovot.
+
+  - id: p04-j3
+    title: Senior Frontend Developer
+    company: Brassline Studio
+    location: Tel Aviv
+    language: en
+    fit: none
+    requirements:
+      - {req: "6+ years of frontend development", met: false, evidence: "no software development in the profile"}
+      - {req: "React and TypeScript", met: false, evidence: "none"}
+      - {req: "Leading technical work", met: false, evidence: "led people and operations, not software"}
+    text: |
+      Brassline Studio builds web products for fintech companies.
+
+      We are looking for a Senior Frontend Developer to lead the frontend of a new trading dashboard.
+
+      What you will do
+      - Build complex, data-heavy interfaces in React and TypeScript.
+      - Set the frontend architecture: state management, component library, testing.
+      - Work with designers on interaction details and performance.
+      - Review code and mentor two developers.
+      - Work with the backend team on API design.
+
+      What we need
+      - 6+ years of frontend development. This is a hard requirement.
+      - Deep experience with React and TypeScript.
+      - Experience with real-time data in the browser (WebSockets) and with charts.
+      - Strong testing habits: unit, integration and end to end.
+      - Experience leading the technical side of a project.
+
+      Nice to have
+      - Fintech or trading background.
+      - Experience with design systems.
+
+      Hybrid, Tel Aviv.
+
+expected_order: [p04-j1, p04-j2, p04-j3]

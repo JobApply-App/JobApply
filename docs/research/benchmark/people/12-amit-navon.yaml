@@ -1,0 +1,175 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p12
+why: English profile against Hebrew job ads (the cross-language case). Gets a Hebrew CV in part C.
+# The plan said "profile written in Hebrew". The product stores every profile in
+# English (see the comment in TailorAgent.tailor on cv_locale), so a Hebrew
+# stored profile is not a state the product has. The cross-language test is the
+# Hebrew job ads.
+profile:
+  name: Amit Navon
+  email: amit.navon@example.com
+  phone: "054-555-0112"
+  location: Jerusalem, Israel
+  title: Full-Stack Developer
+  summary: >-
+    Full-stack developer with 4 years of experience building web products in
+    React and Node.js. Works across the stack, from database schema to the
+    interface, in a team of 6.
+  experience:
+    - role: QA Tester (student job)
+      company: Lantern Apps
+      period: 2019 - 2020
+      bullets:
+        - "Tested a mobile banking app by hand before each release"
+        - "Wrote 40 automated checks in Cypress"
+    - role: Junior Full-Stack Developer
+      company: Mapleway Tech
+      period: 2020 - 2022
+      bullets:
+        - "Built screens in React and TypeScript for a property-management web app"
+        - "Wrote REST endpoints in Node.js (Express) on PostgreSQL"
+        - "Fixed 150 bugs in the first year and wrote unit tests in Jest"
+    - role: Full-Stack Developer
+      company: Mapleway Tech
+      period: 2022 - Present
+      bullets:
+        - "Built the tenant payments feature end to end: database schema, API and interface, used by 12,000 tenants"
+        - "Moved the frontend build from Webpack to Vite, cutting build time from 4 minutes to 40 seconds"
+        - "Added server-side caching with Redis that cut the dashboard load time from 3.2 seconds to 0.9"
+        - "Review code for 2 junior developers"
+        - "Deploy with Docker and GitHub Actions to AWS"
+  education:
+    - degree: B.Sc. Software Engineering
+      institution: Azrieli College of Engineering, Jerusalem
+      period: 2016 - 2020
+      honors: ""
+      coursework: Web development, databases, algorithms, final project in React
+  skills:
+    categories:
+      - label: Frontend
+        items: [React, TypeScript, JavaScript, HTML, CSS, Vite]
+      - label: Backend
+        items: [Node.js, Express, PostgreSQL, Redis, REST APIs]
+      - label: Tools
+        items: [Git, Docker, GitHub Actions, AWS, Jest, Cypress]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: English, level: Fluent}
+  volunteering: Mentors a team in a high-school coding competition, 2 hours a week.
+
+jobs:
+  - id: p12-j1
+    title: רופא/ה וטרינר/ית
+    company: המרפאה הווטרינרית גבעת שאול
+    location: ירושלים
+    language: he
+    fit: none
+    requirements:
+      - {req: "Veterinary licence in Israel", met: false, evidence: "software engineering degree"}
+      - {req: "D.V.M.", met: false, evidence: "none"}
+      - {req: "2+ years in a small-animal clinic", met: false, evidence: "none"}
+    text: |
+      המרפאה הווטרינרית גבעת שאול היא מרפאה לחיות מחמד עם 4 רופאים.
+
+      אנחנו מחפשים רופא/ה וטרינר/ית נוסף/ת לצוות.
+
+      מה כולל התפקיד
+      - קבלת קהל, בדיקות וטיפול בכלבים ובחתולים.
+      - ביצוע ניתוחים שגרתיים וטיפולי שיניים.
+      - פענוח בדיקות דם, צילומי רנטגן ואולטרסאונד.
+      - ליווי בעלי החיים ובעליהם במצבי חירום.
+      - תורנויות ערב וסופי שבוע לפי סבב.
+
+      דרישות
+      - רישיון לעסוק ברפואה וטרינרית בישראל. דרישת חובה.
+      - תואר דוקטור לרפואה וטרינרית.
+      - שנתיים ומעלה של ניסיון במרפאה לחיות מחמד.
+      - יחסי אנוש טובים וסבלנות.
+
+      יתרון
+      - ניסיון בכירורגיה של רקמות רכות.
+      - ניסיון באולטרסאונד.
+
+      משרה מלאה או חלקית, ירושלים.
+
+  - id: p12-j2
+    title: מפתח/ת Full Stack
+    company: נופית מערכות נדל"ן
+    location: ירושלים
+    language: he
+    fit: strong
+    requirements:
+      - {req: "3+ years as a full-stack developer", met: true, evidence: "4 years"}
+      - {req: "React and TypeScript", met: true, evidence: "both, daily"}
+      - {req: "Node.js", met: true, evidence: "Express endpoints"}
+      - {req: "SQL database", met: true, evidence: "PostgreSQL"}
+      - {req: "Automated tests", met: true, evidence: "Jest, Cypress"}
+      - {req: "Docker and CI/CD", met: true, evidence: "Docker, GitHub Actions"}
+    text: |
+      נופית מערכות נדל"ן מפתחת מערכת לניהול נכסים להשכרה, שמשמשת 300 חברות ניהול.
+
+      אנחנו מחפשים מפתח/ת Full Stack לצוות של 7 מפתחים.
+
+      מה כולל התפקיד
+      - פיתוח יכולות חדשות מקצה לקצה: מסד נתונים, שרת וממשק.
+      - פיתוח צד לקוח ב-React וב-TypeScript.
+      - פיתוח צד שרת ב-Node.js ועבודה עם PostgreSQL.
+      - כתיבת בדיקות אוטומטיות והשתתפות בסקירות קוד.
+      - עבודה עם Docker ועם תהליכי CI/CD.
+      - עבודה צמודה עם מנהלת המוצר ועם המעצב.
+
+      דרישות
+      - 3 שנות ניסיון ומעלה כמפתח/ת Full Stack.
+      - ניסיון ב-React וב-TypeScript.
+      - ניסיון ב-Node.js.
+      - ניסיון עם מסד נתונים מסוג SQL.
+      - ניסיון בכתיבת בדיקות אוטומטיות.
+      - ניסיון עם Docker ועם CI/CD.
+
+      יתרון
+      - ניסיון במערכות תשלומים.
+      - ניסיון עם AWS.
+      - רקע בתחום הנדל"ן.
+
+      משרה היברידית, ירושלים.
+
+  - id: p12-j3
+    title: ראש/ת צוות פיתוח Backend
+    company: סיגמא סייבר
+    location: תל אביב
+    language: he
+    fit: partial
+    requirements:
+      - {req: "7+ years of backend development", met: false, evidence: "4 years, full stack"}
+      - {req: "2+ years leading a development team", met: false, evidence: "reviews code for 2 juniors, no team"}
+      - {req: "Node.js", met: true, evidence: "Express"}
+      - {req: "Go or Java", met: false, evidence: "neither"}
+      - {req: "SQL databases and Redis", met: true, evidence: "PostgreSQL, Redis"}
+      - {req: "AWS and Docker", met: true, evidence: "both"}
+    text: |
+      סיגמא סייבר מפתחת מערכת לזיהוי הונאות בתשלומים מקוונים.
+
+      אנחנו מחפשים ראש/ת צוות לצוות ה-Backend של מנוע ההחלטות.
+
+      מה כולל התפקיד
+      - ניהול צוות של 6 מפתחי Backend: גיוס, חניכה והערכות.
+      - תכנון הארכיטקטורה של שירותים שמטפלים ב-5,000 בקשות בשנייה.
+      - פיתוח מעשי ב-Go וב-Node.js.
+      - אחריות על זמינות השירותים ועל תורנויות הצוות.
+      - עבודה מול צוות מדעני הנתונים ומול מנהלי המוצר.
+
+      דרישות
+      - 7 שנות ניסיון ומעלה בפיתוח Backend.
+      - שנתיים ומעלה בניהול צוות פיתוח.
+      - ניסיון ב-Node.js, וכן ב-Go או ב-Java.
+      - ניסיון עם מסדי נתונים מסוג SQL ועם Redis.
+      - ניסיון עם AWS ועם Docker.
+      - ניסיון במערכות עם עומסים גבוהים.
+
+      יתרון
+      - ניסיון עם Kafka.
+      - רקע בפינטק או בסייבר.
+
+      משרה היברידית, תל אביב.
+
+expected_order: [p12-j2, p12-j3, p12-j1]

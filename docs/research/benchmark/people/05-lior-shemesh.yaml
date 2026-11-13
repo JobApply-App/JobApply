@@ -1,0 +1,176 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p05
+why: '"Manager" in a title that manages customers, not people (stage 0 finding 4). Hebrew job ads.'
+profile:
+  name: Lior Shemesh
+  email: lior.shemesh@example.com
+  phone: "050-555-0105"
+  location: Givatayim, Israel
+  title: Customer Success Manager
+  summary: >-
+    Customer success manager with 5 years in B2B SaaS. Manages a book of 45
+    mid-market accounts worth 2.1 million dollars in annual revenue. Has never
+    managed employees.
+  experience:
+    - role: Signals NCO
+      company: IDF, C4I Corps
+      period: 2013 - 2016
+      bullets:
+        - "Ran the help desk of a base communications centre serving 800 users"
+        - "Trained 12 new soldiers on the ticketing procedure"
+    - role: Technical Support Representative
+      company: Meridale Software
+      period: 2018 - 2020
+      bullets:
+        - "Answered 40 tickets a day by chat and email for an HR software product"
+        - "Kept a customer satisfaction score of 96% over 2 years"
+        - "Wrote 60 help-centre articles that reduced repeat questions on payroll setup"
+    - role: Customer Success Manager
+      company: Meridale Software
+      period: 2020 - 2022
+      bullets:
+        - "Managed 70 small-business accounts from onboarding to renewal"
+        - "Ran onboarding calls and trained customers' HR teams on the product"
+        - "Reached 93% renewal on the book in 2021"
+    - role: Customer Success Manager, Mid-Market
+      company: Tallow CRM
+      period: 2022 - Present
+      bullets:
+        - "Manage 45 mid-market accounts worth 2.1 million dollars in annual recurring revenue"
+        - "Net revenue retention of 108% in 2023 through renewals and seat expansion"
+        - "Run quarterly business reviews with customers' sales directors"
+        - "Flag churn risk from usage data in Gainsight and build recovery plans with the account executive"
+        - "Bring the top 10 customer requests to the product team each quarter"
+  education:
+    - degree: B.A. Communication and Management
+      institution: The College of Management
+      period: 2016 - 2019
+      honors: ""
+      coursework: ""
+  skills:
+    categories:
+      - label: Customer success
+        items: [Onboarding, Renewals, Quarterly business reviews, Churn prevention, Upsell, Customer training]
+      - label: Tools
+        items: [Gainsight, Salesforce, Zendesk, Intercom, Excel]
+      - label: Other
+        items: [Presenting to executives, Writing help content]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: English, level: Fluent}
+  volunteering: ""
+
+jobs:
+  - id: p05-j1
+    title: מנהל/ת צוות הצלחת לקוחות
+    company: אורביט שירותי ענן
+    location: תל אביב
+    language: he
+    fit: partial   # the work is his field, but the job is managing people and he never has
+    requirements:
+      - {req: "5+ years in customer success in SaaS", met: true, evidence: "5 years as CSM"}
+      - {req: "at least 2 years managing a team of employees", met: false, evidence: "never managed employees"}
+      - {req: "Owning retention targets", met: true, evidence: "93% renewal, 108% NRR on his own book"}
+      - {req: "Hiring and developing team members", met: false, evidence: "none"}
+      - {req: "Gainsight or similar", met: true, evidence: "Gainsight"}
+    text: |
+      אורביט שירותי ענן מפתחת מערכת לניהול תשתיות ענן, עם 600 לקוחות עסקיים בישראל ובאירופה.
+
+      אנחנו מחפשים מנהל/ת צוות הצלחת לקוחות, שינהל צוות של 7 מנהלי הצלחת לקוחות וידווח לסמנכ"לית הלקוחות.
+
+      מה כולל התפקיד
+      - ניהול ישיר של 7 עובדים: גיוס, חניכה, שיחות משוב והערכות שנתיות.
+      - אחריות על יעדי השימור וההרחבה של כל הצוות.
+      - בניית תהליכי עבודה: קליטת לקוח, פגישות רבעוניות, טיפול בלקוחות בסיכון.
+      - ליווי אישי של הלקוחות הגדולים ביותר ברגעים קריטיים.
+      - עבודה שוטפת עם מכירות, מוצר ותמיכה.
+
+      דרישות
+      - 5 שנות ניסיון ומעלה בהצלחת לקוחות בחברת SaaS.
+      - לפחות שנתיים של ניהול צוות עובדים. דרישת חובה.
+      - ניסיון באחריות על יעדי שימור והכנסות.
+      - ניסיון בגיוס ובפיתוח עובדים.
+      - ניסיון עם Gainsight או מערכת דומה.
+      - אנגלית ברמה גבוהה.
+
+      יתרון
+      - ניסיון מול לקוחות טכניים.
+      - רקע בתמיכה טכנית.
+
+      משרה היברידית, תל אביב.
+
+  - id: p05-j2
+    title: מנהל/ת הצלחת לקוחות
+    company: נטיב פתרונות שכר
+    location: רמת גן
+    language: he
+    fit: strong
+    requirements:
+      - {req: "3+ years as a CSM in B2B SaaS", met: true, evidence: "5 years"}
+      - {req: "Managing a portfolio and renewals", met: true, evidence: "45 accounts, 2.1M ARR"}
+      - {req: "Running quarterly reviews with senior customer contacts", met: true, evidence: "QBRs with sales directors"}
+      - {req: "Salesforce and a CS platform", met: true, evidence: "Salesforce, Gainsight"}
+      - {req: "HR or payroll software background (advantage)", met: true, evidence: "Meridale HR software"}
+    text: |
+      נטיב פתרונות שכר מפתחת מערכת שכר ונוכחות בענן, שמשמשת כ-1,800 עסקים בישראל.
+
+      אנחנו מחפשים מנהל/ת הצלחת לקוחות לתיק של כ-50 לקוחות בינוניים.
+
+      מה כולל התפקיד
+      - ליווי הלקוחות מרגע הקליטה ועד החידוש השנתי.
+      - הדרכת צוותי משאבי אנוש וחשבות שכר אצל הלקוח.
+      - פגישות רבעוניות עם מנהלים בכירים אצל הלקוח, כולל הצגת נתוני שימוש.
+      - זיהוי לקוחות בסיכון נטישה ובניית תוכנית לשימורם.
+      - זיהוי הזדמנויות להרחבה והעברתן למכירות.
+      - העברת בקשות ומשוב לצוות המוצר.
+
+      דרישות
+      - 3 שנות ניסיון ומעלה כמנהל/ת הצלחת לקוחות בחברת SaaS לעסקים.
+      - ניסיון בניהול תיק לקוחות ובאחריות על חידושים.
+      - ניסיון בהובלת פגישות מול דרג בכיר אצל הלקוח.
+      - שליטה ב-Salesforce ובמערכת לניהול הצלחת לקוחות.
+      - עברית ואנגלית ברמה גבוהה.
+
+      יתרון
+      - רקע במערכות משאבי אנוש או שכר.
+      - ניסיון קודם בתמיכה טכנית.
+
+      משרה היברידית, רמת גן.
+
+  - id: p05-j3
+    title: מנהל/ת כספים
+    company: גלבוע תעשיות מזון
+    location: עפולה
+    language: he
+    fit: none
+    requirements:
+      - {req: "CPA licence", met: false, evidence: "B.A. Communication and Management"}
+      - {req: "7+ years in finance, 3 as controller or finance manager", met: false, evidence: "none"}
+      - {req: "Financial statements and budget ownership", met: false, evidence: "none"}
+      - {req: "Managing employees", met: false, evidence: "never managed employees"}
+    text: |
+      גלבוע תעשיות מזון היא יצרנית מזון קפוא עם 240 עובדים ומפעל בעפולה.
+
+      אנחנו מחפשים מנהל/ת כספים, שינהל את מחלקת הכספים וידווח למנכ"ל.
+
+      מה כולל התפקיד
+      - ניהול מחלקת כספים של 6 עובדים: הנהלת חשבונות, שכר וגבייה.
+      - הכנת דוחות כספיים רבעוניים ושנתיים ועבודה מול רואי החשבון המבקרים.
+      - בניית התקציב השנתי ומעקב חודשי אחר הביצוע.
+      - ניהול תזרים המזומנים והקשר עם הבנקים.
+      - תמחיר מוצרים וניתוח רווחיות לפי קו ייצור.
+
+      דרישות
+      - רישיון רואה חשבון. דרישת חובה.
+      - 7 שנות ניסיון ומעלה בכספים, מהן לפחות 3 כחשב/ת או כמנהל/ת כספים.
+      - ניסיון בהכנת דוחות כספיים ובניהול תקציב.
+      - ניסיון בניהול עובדים.
+      - שליטה במערכת ERP, רצוי פריוריטי.
+
+      יתרון
+      - ניסיון בחברה תעשייתית.
+      - ניסיון בתמחיר.
+
+      משרה מלאה, עפולה.
+
+expected_order: [p05-j2, p05-j1, p05-j3]

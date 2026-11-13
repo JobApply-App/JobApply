@@ -1,0 +1,179 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p11
+why: returning to work after a 5-year gap; older experience. Hebrew job ads.
+profile:
+  name: Orna Biton
+  email: orna.biton@example.com
+  phone: "050-555-0111"
+  location: Ashdod, Israel
+  title: Bookkeeper
+  summary: >-
+    Certified bookkeeper (level 3) with 11 years of experience in an
+    accounting office and at an import company. Returned to work in 2024
+    after 5 years at home with her children, and refreshed her skills with a
+    Priority course.
+  experience:
+    - role: Bookkeeper (level 2)
+      company: Mizrahi and Co., Accountants
+      period: 2006 - 2011
+      bullets:
+        - "Kept the books of 35 small businesses: invoices, receipts and bank reconciliations"
+        - "Prepared the two-monthly VAT reports and advance tax payments"
+        - "Prepared the material for the annual reports for the accountants"
+    - role: Senior Bookkeeper (level 3)
+      company: Sela Import and Trading
+      period: 2011 - 2019
+      bullets:
+        - "Ran the bookkeeping of an import company with a turnover of 80 million NIS up to the trial balance"
+        - "Handled suppliers abroad: foreign-currency payments, letters of credit and customs files"
+        - "Prepared monthly bank and credit-card reconciliations for 9 accounts"
+        - "Managed payments to 200 suppliers and the collection follow-up for 150 customers"
+        - "Trained and supervised 2 junior bookkeepers"
+        - "Took part in moving the company's books from Hashavshevet to Priority"
+    - role: Career break (raising children)
+      company: ""
+      period: 2019 - 2024
+      bullets:
+        - "Kept the books of the family's small business on a voluntary basis: about 40 invoices a month"
+    - role: Bookkeeper (part time)
+      company: Dekel Building Materials
+      period: 2024 - Present
+      bullets:
+        - "Keep the books of a building-materials shop in Priority, 3 days a week"
+        - "Prepare VAT reports, supplier payments and bank reconciliations"
+        - "Cleared a backlog of 5 months of unreconciled bank lines in the first 6 weeks"
+  education:
+    - degree: Bookkeeping certificate, level 3 (senior bookkeeper)
+      institution: Ministry of Labour
+      period: 2010 - 2011
+      honors: ""
+      coursework: ""
+    - degree: Priority ERP for bookkeepers (80 hours)
+      institution: Ashdod College
+      period: 2024
+      honors: ""
+      coursework: ""
+  skills:
+    categories:
+      - label: Bookkeeping
+        items: [Double-entry bookkeeping, Bank reconciliations, VAT reports, Supplier payments, Collections, Trial balance, Foreign-currency payments, Import files]
+      - label: Software
+        items: [Priority, Hashavshevet, Excel]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: French, level: Conversational}
+    - {language: English, level: Basic}
+  volunteering: Treasurer of the school parents' committee, 2021 - 2023.
+
+jobs:
+  - id: p11-j1
+    title: מנהל/ת חשבונות סוג 3
+    company: אופק ייבוא ושיווק
+    location: אשדוד
+    language: he
+    fit: strong
+    requirements:
+      - {req: "Level 3 bookkeeping certificate", met: true, evidence: "certified 2011"}
+      - {req: "5+ years as a bookkeeper", met: true, evidence: "13 years of work, 11 before the break"}
+      - {req: "Bookkeeping up to trial balance", met: true, evidence: "Sela Import"}
+      - {req: "Import: foreign currency and customs files", met: true, evidence: "letters of credit, customs files"}
+      - {req: "Priority", met: true, evidence: "course in 2024 and current job"}
+    text: |
+      אופק ייבוא ושיווק מייבאת כלי בית ומשווקת אותם לרשתות ולחנויות.
+
+      אנחנו מחפשים מנהל/ת חשבונות סוג 3 למחלקת הכספים.
+
+      מה כולל התפקיד
+      - הנהלת חשבונות מלאה עד מאזן בוחן.
+      - התאמות בנקים וכרטיסי אשראי.
+      - טיפול בספקים בחו"ל: תשלומים במטבע חוץ, אשראי דוקומנטרי ותיקי יבוא.
+      - תשלומים לספקים ומעקב אחר גבייה מלקוחות.
+      - הכנת דוחות מע"מ ומקדמות.
+      - הכנת חומר לדוח השנתי עבור רואה החשבון.
+
+      דרישות
+      - תעודת מנהל/ת חשבונות סוג 3. דרישת חובה.
+      - 5 שנות ניסיון ומעלה בהנהלת חשבונות.
+      - ניסיון בהנהלת חשבונות עד מאזן בוחן.
+      - ניסיון בחברת יבוא, כולל מטבע חוץ ותיקי יבוא.
+      - שליטה בפריוריטי.
+      - שליטה טובה באקסל.
+
+      יתרון
+      - ניסיון בהדרכת מנהלי חשבונות צעירים.
+      - מגורים באשדוד או בסביבה.
+
+      משרה מלאה, אשדוד. אפשרות ל-80% משרה.
+
+  - id: p11-j2
+    title: חשב/ת
+    company: רותם אנרגיה
+    location: קריית גת
+    language: he
+    fit: partial
+    requirements:
+      - {req: "CPA licence or B.A. in accounting", met: false, evidence: "level 3 bookkeeping certificate"}
+      - {req: "Preparing financial statements", met: false, evidence: "prepared material for the accountants, up to trial balance"}
+      - {req: "Deep bookkeeping knowledge", met: true, evidence: "11 years"}
+      - {req: "Supervising bookkeepers", met: true, evidence: "2 junior bookkeepers"}
+      - {req: "Priority", met: true, evidence: "course and current job"}
+    text: |
+      רותם אנרגיה מתקינה מערכות סולאריות למפעלים ולמבני ציבור.
+
+      אנחנו מחפשים חשב/ת שידווח לסמנכ"ל הכספים.
+
+      מה כולל התפקיד
+      - אחריות על סגירה חודשית ועל הדוחות הכספיים הרבעוניים והשנתיים.
+      - ניהול 3 מנהלות חשבונות.
+      - עבודה מול רואי החשבון המבקרים ומול רשויות המס.
+      - בקרה תקציבית וניתוח סטיות.
+      - שיפור תהליכי העבודה במחלקה ובמערכת הפריוריטי.
+
+      דרישות
+      - רישיון רואה חשבון או תואר ראשון בחשבונאות.
+      - ניסיון בהכנת דוחות כספיים.
+      - ידע מעמיק בהנהלת חשבונות.
+      - ניסיון בניהול מנהלי חשבונות.
+      - שליטה בפריוריטי ובאקסל.
+
+      יתרון
+      - ניסיון בחברת פרויקטים.
+      - ניסיון במשרד רואי חשבון.
+
+      משרה מלאה, קריית גת.
+
+  - id: p11-j3
+    title: מורה לאנגלית לחטיבת ביניים
+    company: בית הספר אורנים
+    location: אשדוד
+    language: he
+    fit: none
+    requirements:
+      - {req: "Teaching certificate", met: false, evidence: "none"}
+      - {req: "B.A. in English or education", met: false, evidence: "no academic degree"}
+      - {req: "English at a very high level", met: false, evidence: "Basic English"}
+      - {req: "Experience with teenagers", met: false, evidence: "none in the profile"}
+    text: |
+      בית הספר אורנים באשדוד מחפש מורה לאנגלית לכיתות ז' עד ט'.
+
+      מה כולל התפקיד
+      - הוראת אנגלית ב-5 כיתות, 22 שעות שבועיות.
+      - בניית תוכנית עבודה שנתית לפי תוכנית הלימודים של משרד החינוך.
+      - הכנת מבחנים, בדיקתם ומתן משוב לתלמידים.
+      - קשר שוטף עם הורים והשתתפות בישיבות צוות.
+      - ליווי תלמידים מתקשים בקבוצות קטנות.
+
+      דרישות
+      - תעודת הוראה. דרישת חובה.
+      - תואר ראשון באנגלית או בחינוך.
+      - אנגלית ברמה גבוהה מאוד, בכתב ובעל פה.
+      - ניסיון בעבודה עם בני נוער.
+      - יכולת ניהול כיתה.
+
+      יתרון
+      - ניסיון בהוראה בחטיבת ביניים.
+      - היכרות עם כלים דיגיטליים להוראה.
+
+      היקף משרה: 80%.
+
+expected_order: [p11-j1, p11-j2, p11-j3]
