@@ -874,8 +874,8 @@ This section answers the open item at the end of section 48. The founder's own C
 - **Limits:**
   - One coder (me), no second rater.
   - Canva's ranking may depend on the signed-in account.
-  - Template pages do not name their fonts, so fonts are identified by eye.
-  - **No template was exported to PDF and run through a parser here.** Exporting would have meant creating designs in the founder's account. Statements about how parsers read these layouts rest on stage 2 and section 20, not on a new test.
+  - Template pages do not name their fonts, so fonts in the sample are identified by eye. The 8 exported PDFs (below) name their embedded fonts, and those names are exact.
+  - The parsing test (below) covers 8 templates, chosen to represent the layouts, not drawn at random.
 
 **Screenshots:** contact sheets per role group, the Hebrew templates enlarged, and type close-ups are kept locally in `docs/research/canva-shots/`. The folder is excluded from git, and that is deliberate: this repository is public, and the images are other people's designs. The templates named below can be opened at `https://www.canva.com/templates/<id>/`.
 
@@ -909,6 +909,12 @@ This section answers the open item at the end of section 48. The founder's own C
   - very wide or letter-spaced capitals for names and headings ("C A H A Y A  D E W I");
   - a serif display face for names in management and academia;
   - handwritten and script names in creative and teaching templates, about one in six of those groups.
+- **Exact fonts in the 5 English PDFs exported below:**
+  - Arimo (the plain template);
+  - Montserrat with Open Sans (corporate sidebar);
+  - DO Sans with Arial (creative);
+  - DM Serif Display with Poppins and Roboto (dark tech);
+  - Now with TT Interphases Mono (boxed).
 
 ### What separates the role groups
 
@@ -937,7 +943,7 @@ This section answers the open item at the end of section 48. The founder's own C
   - **No Hebrew template has a military service section.**
   - Sample names are female ("נועה לוי", "תמר כהן", "ישראלה ישראלי"), with feminine role titles ("מנהלת").
   - The single-column template repeats the name and contact details in a footer.
-  - **Type:** names are set in a tall, condensed, bold Hebrew display face, or in a slanted display face, with a photo beside them. The body is a plain Hebrew sans that looks like Assistant or Heebo.
+  - **Type** (exact names, from the exported PDFs below): Marina Zlochin's set uses **Cooperative** (a condensed bold display face) for the name and headings, with **OS Aran** for body text. שחר אהרוני uses **Assistant** in one template and **Ploni** (AAA) in another. A photo usually sits beside the name.
   - **Layout:**
     - 9 of 10 are right-to-left in two columns: a narrow tinted column holds profile, skills, languages and contact, and the main column holds experience and education.
     - 1 of 10 is a single column with a pink header band.
@@ -990,4 +996,62 @@ This section answers the open item at the end of section 48. The founder's own C
 | 6 | Say "ATS-safe" only for what our parsing tests confirm | High | Rule to keep |
 | 7 | A right-to-left Hebrew single-column CV is a gap in the largest template library | Observation (10 Hebrew templates in 1,506) | For the product and marketing story; any claim must match what we can show |
 
-**Still open:** exporting a handful of Canva templates to PDF and running them through our parsing tests would turn the right-hand column of the "do not adopt" table from inference into measurement. It needs designs created in an account, so it is the founder's call.
+### Parsing test: 8 Canva templates exported to PDF (2026-11-13, founder's approval)
+
+**Method:**
+- Copies of 8 templates were created in the founder's Canva account, with the template text unchanged, and exported as A4 PDF through the Canva connector.
+- Each PDF was read by:
+  - PyMuPDF in its default order;
+  - PyMuPDF sorted by position;
+  - pdfplumber;
+  - pdfminer;
+  - **our own upload extractor, `_extract_pdf` in `backend/services/cv_aggregator_service.py`**, which runs pdfplumber with `layout=True` and then a per-line right-to-left fix, with PyMuPDF as fallback.
+- Poppler's pdftotext, the best Hebrew reader in stage 2, is not installed here and was not run.
+- The PDFs and the extracted text stay in the session scratchpad.
+
+**The templates:**
+
+| PDF | Canva template | Layout |
+|---|---|---|
+| EN plain | EAHOVhcaY5k "Interior Designer" | One column, no photo |
+| EN corporate | EAHGzXR0X24 "Modern Corporate CV" | Photo, blue sidebar box, two columns |
+| EN creative | EAHC8Q3cxW4 "Content Creator" | Pink, polaroid photo, stickers, two columns |
+| EN dark tech | EAFEPQZdOSo "Programmer" | Full dark page, rotated "RESUME", label column |
+| EN boxed | EAFKBVTrL64 "Web Developer CV" | Bordered boxes, monospace headings, 2 pages |
+| HE two-column | EAHUblnUg0w (Marina Zlochin) | Right-to-left, photo, tinted side column |
+| HE one column | EAF7HVabHx4 (שחר אהרוני) | Right-to-left, one column, pink header band |
+| HE two-column B&W | EAGTKRLuNeI (שחר אהרוני) | Right-to-left, label column plus main column |
+
+**Results:**
+
+1. **Every PDF has real, extractable text.** Fonts are embedded and no page is an image. "Canva PDFs can't be read" is a myth; *the order* is the problem.
+2. **One column survives; two columns do not.**
+   - **EN plain:** pdfplumber and our extractor read it top to bottom correctly.
+   - **EN corporate:** every column-aware reader (pdfplumber, our extractor, PyMuPDF sorted) **interleaves the sidebar with the main column line by line.** "Innovative and disciplined leader with 2019 - Present SENIOR OPERATIONS MANAGER" is one extracted line.
+   - **EN boxed:** the contact box runs into the job bullets ("…specializes in providing a range of online Click here for my portfolio").
+   - **EN creative:** the skills column runs into experience ("…analyzed performance to improve Social Media Management").
+3. **Design-tool drawing order breaks readers that follow the file's own order.** PyMuPDF's default is what our extractor falls back to, and what many LLM pipelines use. It reads text in the order Canva drew it:
+   - **EN corporate:** all section headings come first ("Profile, Work Experience, Achievements, Executive Snapshot, Strategic Skills"), then the paragraphs without them. The two job titles appear together, separated from their bullets, and "2015 - 2019" lands at the very end.
+   - **EN creative:** **bullets end up under the wrong job.** "Planned and created multimedia content…" (the current role) is printed before "Junior Content Creator", so a reader following the text attaches it to the junior role.
+   - **EN plain:** even the one-column template comes out with the second job first and the "PROFESSIONAL EXPERIENCE" heading after its content.
+
+   **One column is necessary, but it is not enough in a design-tool PDF:** the drawing order must also be the reading order. Our own templates are HTML rendered by Chromium, so the text is written in document order, and they passed this check in stage 2.
+4. **Rotated and decorative text turns into noise.** The rotated word "RESUME" on the dark page extracts as "**EMUSER**" in pdfplumber and in our extractor.
+5. **Hebrew:**
+   - **The letters come out right in our extractor**: its right-to-left fix works on Canva's Hebrew. Raw pdfplumber and pdfminer reverse every letter, as stage 2 found.
+   - **HE one column:** read in the right order by our extractor, section by section. Only the date runs are slightly disturbed ("יוני - 2020 היום | מנהלת כוח אדם | חברת XYZ").
+   - **HE two-column:** our extractor interleaves the profile column with the experience column in every line ("מנהלת שיווק ודיגיטל בעלת ניסיון של 6 • 2022 - היום | מנהלת שיווק ודיגיטל").
+   - **HE B&W two-column:** one line holds the profile text, the company and the role ("לורם איפסום…, ⟂ חברה כלשהי ⟂ מנהלת לקוחות"). PyMuPDF in default order prints all headings first, then all job titles ("מנהלת לקוחות" four times), then all companies, separated from the dates and descriptions. **Nothing ties a role to its dates.**
+   - **PyMuPDF sorted by position** reverses the word order inside each Hebrew line, the same Chromium-style failure as stage 2.
+6. **Rating bars, icons and photos carry nothing.**
+   - The skill bars in the creative and corporate templates are shapes: the skill names extract, and the level does not exist in the text.
+   - The contact icons extract as nothing, so the phone and e-mail stand without labels. They are still recognisable by their pattern.
+
+**What this means:**
+- **For our templates:** the "do not adopt" table above is now measured rather than inferred, for columns, boxes, rotated or decorative text, and ratings, in both languages. Keep one column, and keep the HTML-to-PDF path, whose text order follows the document.
+- **For our upload path (a finding about our own product):** many users will upload a CV they built in Canva, and 77% of Canva's templates are multi-column. For those uploads, `_extract_pdf` hands the profile builder text where sidebar and main column are mixed line by line. In a Hebrew two-column CV, roles and dates can come apart entirely. That text is what the profile analyser and the LLM receive.
+  - Ways to fix it, **not done here**:
+    - extract with a column-aware method, for example PyMuPDF `get_text("blocks")` with the blocks grouped by column;
+    - or send the page image to a vision model when the text shows two-column interleaving.
+  - **To raise as its own task** in the CV-ingestion stage (stage 2 flagged the Hebrew word-order part of this already).
+- **The 8 copies remain in the founder's Canva account** (titles as the templates, created 2026-11-13). Delete them there if they are not wanted.
