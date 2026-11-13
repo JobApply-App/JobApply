@@ -112,8 +112,8 @@ There is no pass line for part C. It is a comparison of the two prompts and a ba
 6. **Write-up** as `docs/research/07-benchmark-results.md`, with every failing pair listed.
 
 Technical points that shape the runner:
-- Scoring takes a profile as a dict (`compute_match_score_async`), so parts A and B need no database.
-- The tailor reads the profile by `user_id` from the database (`TailorAgent`, `GroundingGate.for_user`). **We have one Supabase project and it is production.** The benchmark must not write invented users into it. The runner will point `DATABASE_URL` at a local throwaway database for part C. Whether the tailor path runs on the SQLite fallback or needs a local Postgres is checked in the pilot.
+- **Corrected 2026-11-13:** scoring is not database-free. It reads the person's Confidence Matrix, knockout preferences, skill depth and location from the database, and most of those reads fall back silently when the rows are missing. So every invented person is ingested through the product's own CV-upload path (`_ingest_cv_full`) before anything is scored. See section 10.
+- The tailor reads the profile by `user_id` from the database (`TailorAgent`, `GroundingGate.for_user`). **We have one Supabase project and it is production.** The benchmark must not write invented users into it. The runner uses a local Postgres database, `jobapply_bench`, built with the same recipe CI uses (`benchmark/setup_local_db.sh`), and refuses to start on any database that is not on localhost. SQLite does not work: the profile code uses Postgres-only SQL.
 - The runner calls the product's own code path (`call_llm` with the product's models and temperature), not a copy of the prompt. A copy would drift from what users get.
 - Every model call logs its token use to a file, and the runner stops if spending passes the cap.
 - Per CLAUDE.md "empty results are not evidence": the runner fails loudly if a CV comes back empty, a score call is skipped, or the grounding step raises. A missing value is never recorded as 0.
@@ -126,16 +126,18 @@ Sizes are estimated from the code, not measured: the scorer template is 5,681 ch
 
 | Part | Calls | Per call | Estimate |
 |---|---|---|---|
-| A + B scoring | about 245 scorer calls (36 x 5 repeats, plus about 65 variants; thin-JD variants make no call) | about 4,000 in, 500 out = $0.0065 | **$2-4** |
+| Ingest | 24 uploads (12 people, twice: normal and skills reordered), each with a background title-terms call | about $0.06 | **$1-2** |
+| A + B scoring | about 285 scores (36 x 5 repeats, 36 with skills reordered, about 32 variants). Each score is 2 model calls (JD parser on Sonnet, then the scorer on Haiku), plus one structuring call per ad and one culture call per company | about $0.025 | **$8-12** |
 | C, English CVs | 64 | tailor + grounding + occasional refine = about $0.15 | **$8-12** |
 | C, Hebrew CVs | 32 | the above plus the Hebrew step = about $0.23 | **$6-9** |
 | C, checker | 96 | about 7,000 in, 2,500 out = $0.04 | **$3-5** |
 | Pilot and re-runs after fixes | | | **$3-6** |
-| **Total** | | | **about $22-36** |
+| **Total** | | | **about $29-46** |
 
-- **Proposed hard cap: $50.** The runner stops there.
+- **Hard cap: $50**, approved by the founder. The runner stops there. The revised estimate leaves little room under it, so the pilot's measured numbers decide whether the full run fits.
+- **These are Anthropic prices.** Production answers with Gemini first (section 10). A run that mirrors production needs Gemini's price entered before it starts; the runner refuses to guess it.
 - The pilot replaces these estimates with measured numbers before the full run.
-- After the first run, repeating **parts A and B only** after a scoring change costs about $3. Repeating everything costs about $30.
+- After the first run, repeating **parts A and B only** after a scoring change costs about $10. Repeating everything costs about $40.
 - Not included: the tokens Claude Code uses to write the profiles and the runner. That is part of the normal subscription, not the API key.
 - The Batch API would halve the price, but it bypasses `call_llm`, so it would test a copy of the pipeline. Not used.
 
@@ -151,3 +153,18 @@ Sizes are estimated from the code, not measured: the scorer template is 5,681 ch
 1. Approve the $50 cap and the pilot?
 2. Approve the 12 profile types, or swap any for a type closer to the users we expect first?
 3. The pass lines in section 5 are proposals. Any that should be stricter or looser before we see results?
+4. **Which model should the benchmark measure?** (a) What production uses: Gemini first, Claude as fallback. This needs the Gemini key enabled locally and Gemini's price. (b) Claude only, which is what the local key file gives today but is not what users get. (c) Both, at roughly double the scoring cost. Recommendation: (a), because the point of the benchmark is what users see.
+
+## 10. What building the runner showed (2026-11-13)
+
+The runner (`benchmark/run_benchmark.py`) was run end to end in dry mode, where the model is replaced by a stub and nothing is spent. Getting it to run showed five things the plan had wrong or had not seen. None has been measured yet with a real model.
+
+1. **Production does not answer with Claude first.** `llm_client.call_llm` sends every eligible call to `gemini-flash-latest` when `GEMINI_API_KEY` is set, and falls back to Anthropic only on failure. Production has that key. The local `backend/.env` has it commented out. So a local run with only the Anthropic key measures Claude Haiku and Sonnet, which is not what users get. **This needs a founder decision: see section 9, question 4.** The runner records which model answered every call, so the results always say which case was measured.
+2. **Scoring depends on database state** (corrected in section 6). People are ingested through the real upload path into a local Postgres.
+3. **Every score is at least two model calls, and the first one rewrites the job ad.** `compute_match_score_async` first sends the ad to `JDParserAgent` (Sonnet 4.6, on every call, not cached). The scorer then sees the parser's condensed text, not the ad. Two consequences to measure in the pilot:
+   - Run-to-run change in the score can come from the parser as well as from the scorer.
+   - The 300-character thin-JD cutoff is applied to the condensed text. A real but short ad could be condensed below 300 characters and then be scored as if it were empty (both LLM sub-scores 0.0, composite at most about 30). Our Hebrew ads are 550-800 characters, so they will show whether this happens. The runner marks every such case `NO-LLM-PART` and never averages it in.
+4. **An upload also starts a background model call** (`title_search_terms`) that expands the person's titles for job search. It is part of the real cost of an upload.
+5. **The stored profile is thinner than the CV.** The upload step keeps one or two sentences per role, not the bullets. For part C this means the fact check must compare the generated CV against what the product stored, and separately against the original CV text, because a detail can be lost at upload and then "invented" back.
+
+**Not built yet:** the part C runner (CV generation and the fact checker), the 12 reworded and 12 translated job ads, and the script that turns `scores.jsonl` into the pass or fail table of section 5.
