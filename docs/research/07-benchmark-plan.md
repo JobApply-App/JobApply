@@ -176,3 +176,15 @@ The runner (`benchmark/run_benchmark.py`) was run end to end in dry mode, where 
    So for any user who is not a product or customer-success manager, this part of the score says nothing about fit, and Hebrew titles never match it. It enters the LLM composite at 30%, and that composite is 60% of the final score. The pilot will show how much of the order it distorts. It also explains part of why a thin job description scores about 28-30 "for an exact title match": that figure is true only for product-manager titles.
 
 **Not built yet:** the part C runner (CV generation and the fact checker) and the script that turns `scores.jsonl` into the pass or fail table of section 5. The 12 reworded and 12 translated job ads are written (`benchmark/variants.yaml`).
+
+## 11. Budget decision and the free route (2026-11-14)
+
+The founder prefers to spend nothing on this benchmark and will not pay more than about $15 in total. Changes:
+
+- **Cap lowered to $15** (the runner's default).
+- **The fact checker no longer uses the API.** The claims check of part C is done inside the Claude Code session that runs the benchmark, which the subscription covers. It is still a different vendor from the Gemini model that writes the CVs.
+- **What needs no model was run first**: `benchmark/free_checks.py`, results in `07-benchmark-results.md` part 0. It already fails measure A3 and shows the local score orders the jobs correctly for 1 of 12 people.
+- **Parts A, B and C can run at no cost on a Gemini free-tier key.** Google AI Studio issues keys with a free tier that is rate-limited, not billed. The runner now resumes where it stopped, so a rate limit only makes the run take longer. With the Anthropic account out of credit there is no paid fallback either: if Gemini refuses a call, the call fails and is reported, and nothing is charged.
+- **Blocked on a working Gemini key.** The local one is rejected with 401.
+
+One thing to check outside this benchmark: if production uses the same Anthropic account, its fallback is not working either, and any Gemini failure in production reaches the user as an error.

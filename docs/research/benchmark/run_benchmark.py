@@ -265,9 +265,18 @@ async def step_score(people: list[dict], ledger: Ledger, repeats: int) -> int:
 
     structured: dict[str, str | None] = json.loads(STRUCTURED.read_text()) if STRUCTURED.exists() else {}
     failures = 0
+    # A free-tier key is rate-limited, so a run may stop part-way. Rows already
+    # written are skipped on the next run; nothing is scored (or paid for) twice.
+    done = set()
+    if SCORES.exists() and not ledger.dry_run:
+        for line in SCORES.read_text().splitlines():
+            r = json.loads(line)
+            done.add((r["person"], r["job"], r["profile_variant"], r["variant"], r["repeat"]))
 
     async def score_once(p, job, profile_variant, variant, title, company, text, repeat):
         nonlocal failures
+        if (p["id"], job["id"], profile_variant, variant, repeat) in done:
+            return
         uid = user_id_for(p["id"], profile_variant)
         entities = list(get_entity_breakdown(uid, ENGINE))
         if not entities:
