@@ -24,3 +24,7 @@ python docs/research/benchmark/run_benchmark.py score  --dry-run --people p01,p0
 `--dry-run` replaces the model with a stub and spends nothing. A real run drops `--dry-run` and adds `--env-file <path to backend/.env>`, from which only the model API keys are read.
 
 The runner refuses to start unless `DATABASE_URL` is a localhost database whose name contains `bench`. Run it from a checkout that has no `backend/.env`, or one whose `backend/.env` points at that local database: where the file exists it overrides the shell.
+
+## After a run
+- `analyze.py` turns `results/scores.jsonl` into the pass/fail table of plan section 5 (parts A and B).
+- `skills_dimension_check.py` runs the product's hard-skills dimension on the 36 base pairs, with no model. Needs `DATABASE_URL` pointing at the local benchmark database and a finished score step.

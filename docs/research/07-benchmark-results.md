@@ -64,10 +64,97 @@ CLAUDE.md says this "caps un-hydrated jobs at about 28-30 points for an exact ti
 
 `_find_prior_employer` finds "Verdane Outdoor" for profile 10 when the job names that company, and nothing when it names another. Over the other 67 job variants there are 0 false detections. The word-boundary rule of principle 2 holds on this set. Whether the model then honours the score floors needs a model run.
 
-## Parts A, B and C: not run
+## Parts A and B: the model run (2026-11-14)
 
-The pilot was started on 2026-11-14 and stopped at the first model call with nothing spent:
-- The Gemini key in the local `backend/.env` was rejected (HTTP 401). It does not have the usual `AIza...` shape of a Gemini API key.
-- The fallback then failed too: the Anthropic account behind the local key has no credit ("credit balance is too low").
+The first attempt stopped at the first call with nothing spent: the local Gemini key was rejected (HTTP 401) and the Anthropic account had no credit. The founder replaced the key and added credit, and the run then completed.
 
-See the plan, section 11, for what is needed to run them at no cost.
+- 12 people ingested twice each (base and skills reordered) through the product's own upload path, into the local benchmark database. Nothing was written to production.
+- 248 scores: 36 pairs x 5 runs, 36 with reordered skills, 12 paraphrases, 12 translations, 6 thin, 1 prior employer, 1 with the years lowered.
+- 0 failed calls. 0 non-thin scores came back without the LLM part. Every one of the 668 model calls was answered by `gemini-flash-latest`; the Anthropic fallback was never used.
+- Cost by the runner's ledger: **$1.17**, against the $15 cap. That figure uses the assumed list price for `gemini-flash-latest` ($0.75 / $3.75 per million tokens) and does not count thinking tokens, so the bill may differ somewhat.
+- Tables below come from `benchmark/analyze.py`. Where a pair has 5 runs, its score is the median.
+
+### Verdict by measure
+
+| Measure | Result | Verdict |
+|---|---|---|
+| A1 run-to-run spread | 30 of 36 pairs within 3.0 (83%, line is 90%); largest 5.4 (line is 8.0) | FAIL |
+| A2 paraphrase | 11 of 12 within 5.0 | PASS |
+| A3 language | 11 of 12 within 5.0 | PASS |
+| A4 skill order | 34 of 36 within 3.0 | PASS |
+| B1 order | strong > partial > none for 12 of 12 people | PASS |
+| B2 gap | strong minus none at least 20.0 for 12 of 12 (23.5 to 38.3) | PASS |
+| B3 thin description | 6 of 6 at most 30.0 with both LLM sub-scores 0.0 | PASS |
+| B4 prior employer | semantic 62.0 -> 87.0, management 75.0 -> 84.0, total 38.7 -> 50.1 | PASS |
+| B5 overqualified | 58.4 for both the 15-year and the 5-year ad | PASS |
+| B6 pivot | 62.4 against 58.9, difference 3.5 | PASS |
+| B7 founder's order | not done yet | - |
+
+The order is right for every person, on a set where the local score alone got 1 of 12. The model part of the score is doing the work.
+
+### B1 and B2: order and gap
+
+| Person | Strong | Partial | None | Order right | Strong above none | Gap strong-none |
+|---|---|---|---|---|---|---|
+| p01 | 58.9 | 41.1 | 33.4 | yes | yes | 25.5 |
+| p02 | 53.5 | 42.9 | 15.2 | yes | yes | 38.3 |
+| p03 | 62.4 | 47.8 | 29.9 | yes | yes | 32.5 |
+| p04 | 58.4 | 31.6 | 29.8 | yes | yes | 28.6 |
+| p05 | 58.4 | 48.7 | 25.4 | yes | yes | 33.0 |
+| p06 | 56.2 | 42.4 | 25.0 | yes | yes | 31.2 |
+| p07 | 55.1 | 31.9 | 20.2 | yes | yes | 34.9 |
+| p08 | 53.0 | 34.3 | 22.9 | yes | yes | 30.1 |
+| p09 | 55.4 | 39.2 | 28.1 | yes | yes | 27.3 |
+| p10 | 49.8 | 38.7 | 26.3 | yes | yes | 23.5 |
+| p11 | 54.8 | 32.3 | 20.0 | yes | yes | 34.8 |
+| p12 | 53.5 | 31.9 | 17.2 | yes | yes | 36.3 |
+
+B1: full order right for 12 of 12, strong above none for 12 of 12. PASS
+B2: gap >= 20.0 for 12 of 12. PASS
+
+### A1: where the score is not steady
+
+The 6 pairs above the 3.0 line: p03-j3 (5.1), p07-j1 (5.4), p04-j2 (3.4), p11-j2 (3.3), p12-j3 (3.3), p11-j3 (3.6). Five of the six are partial fits. Strong fits are steady: all 12 have a spread of 1.8 or less. The movement comes from the semantic sub-score, which on a partial fit ranges by up to 14 points between runs of the same input (p07-j1: 28.0 to 42.0).
+
+Full table: `benchmark/results/analysis.md` is not committed (the `results/` folder is ignored); rerun `analyze.py` to rebuild it.
+
+### A3: a correction to part 0.2
+
+Part 0.2 said measure A3 "already fails on the local score alone". In the live path it passes, 11 of 12. Part 0 computed the local score on the raw ad; the product computes it after its JD parser has rewritten the ad into condensed English, and there the Hebrew ads get a local score of 56.8, not 44.8. The title still matters (p03-j3 falls from 94.0 to 56.8 local when its title is in Hebrew, and that is the one job that fails, moving 8.8), but the damage is smaller than part 0 predicted. Part 0.1 stands: the local score still does not track fit.
+
+### Finding 1: the hard-skills dimension scores 0.0 for every job
+
+No strong fit scores above 62.4, although the model gives those same pairs a semantic score of 84.0 to 96.0. The range of the composite over all 36 jobs is 15.2 to 62.4:
+
+- strong: 49.8 to 62.4, median 55.2
+- partial: 31.6 to 48.7, median 39.0
+- none: 15.2 to 33.4, median 25.2
+- all 36: 15.2 to 62.4
+
+The cause is in the deterministic 40% of the score. For p01's strong fit the product logged `skills=0.0 depth=15.0 domain=50.0 impact=44.0 -> structural=21.1`, and the final blend was `0.60 x 84.0 + 0.40 x 24.0 = 58.9`.
+
+`score_hard_skills` in `backend/services/match_dimensions.py` compares each JD requirement with the profile's skill names: equal after normalising, equal through the taxonomy, or every word of the requirement contained in one skill name. The requirements it is given are whole sentences from the structuring pass ("Production experience in Python or Go"). The profile skills are single terms ("python", "go"). A sentence never equals a term and its words are never all inside one term, so nothing matches. The same happens when the structure is missing and the heuristic splitter is used, because it also returns the requirement lines.
+
+`benchmark/skills_dimension_check.py` runs the product's own function, unchanged and with no model, on all 36 pairs, with the requirement lists the product produced during the run:
+
+- strong: 0 of 12 above 0.0
+- partial: 0 of 12 above 0.0
+- none: 0 of 12 above 0.0
+
+Each row had 4 to 7 must-haves and 10 to 20 profile skills, so the check did run; it matched 0 of them every time. p01 has Python, Go, PostgreSQL, Kafka and AWS in the profile and all five are named in the ad's requirements.
+
+What it means for a user: 35% of the structural score is a constant 0.0, so a perfect candidate is shown a match of about 50 to 62 out of 100. The order survives because the constant is the same for every job. The number the user sees does not.
+
+This was measured on invented profiles in a local database. It has not been checked against a real production profile. The mechanism does not depend on the profile, so the same result is expected there, but that is an expectation.
+
+### Finding 2: the management sub-score follows the person, not the job
+
+For a senior candidate the management score is high even for a job they do not fit: p01 gets 75.0 to 85.0 against a non-fit job, p03 75.0 to 82.0, p04 75.0 to 90.0, p09 75.0 to 85.0. For p02, p05, p07, p08, p11 and p12 it is 5.0 to 35.0 against a non-fit, and for the two team leads without a senior title (p06, p10) 60.0 to 75.0. It carries 0.20 of the LLM bucket, so it lifts every job of a senior person by a similar amount and is why p01's non-fit job (33.4) scores above p04's and p11's partial fits (31.6, 32.3). Within one person's feed this changes little. It would matter if scores were ever compared across people or against a fixed threshold.
+
+### Finding 3: the local score has 5 values
+
+After the parser, 28 of the 36 base jobs have a local score of exactly 56.8, whatever the job or the person. Part 0.1 stands in the live path.
+
+## Part C: not run
+
+The CV generation runner and the in-session fact check are not built yet. Founder's ranking (B7): not done yet; `benchmark/ranking-sheet.md`.

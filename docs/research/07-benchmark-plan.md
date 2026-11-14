@@ -188,3 +188,5 @@ The founder prefers to spend nothing on this benchmark and will not pay more tha
 - **Blocked on a working Gemini key.** The local one is rejected with 401.
 
 One thing to check outside this benchmark: if production uses the same Anthropic account, its fallback is not working either, and any Gemini failure in production reaches the user as an error.
+
+**Update, later the same day:** the founder replaced the Gemini key and added Anthropic credit. Parts A and B ran in full for $1.17 by the ledger, all on Gemini. Results: `07-benchmark-results.md`.
