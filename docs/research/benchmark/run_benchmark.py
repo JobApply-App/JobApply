@@ -46,12 +46,24 @@ LEDGER = RESULTS / "ledger.jsonl"
 SCORES = RESULTS / "scores.jsonl"
 STRUCTURED = RESULTS / "structured.json"
 
-# USD per million tokens (input, output). Anthropic rows: pricing table dated
-# 2026-11-03. Add a row for any other model before running; see --price.
+# USD per million tokens (input, output). Add a row for any other model before
+# running; see --price.
+#   Anthropic rows: pricing table dated 2026-11-03.
+#   gemini-flash-latest: Google's pricing page read 2026-11-14 does not say which
+#   model the alias points to. Both stable Flash models listed there
+#   (gemini-3.6-flash, gemini-3.8-flash) cost $0.75 / $3.75 until 2026-12-31
+#   and $1.50 / $7.50 from 2027-01-01, so that price is used.
+#   Gemini bills thinking tokens as output, and llm_client reports only the
+#   visible reply, so Gemini cost here is a slight undercount. The product
+#   sets thinking_budget=1, which keeps it small; check the pilot's ledger
+#   against Google's billing page.
 PRICES: dict[str, tuple[float, float]] = {
     "claude-haiku-4-5": (1.0, 5.0),
     "claude-sonnet-4-6": (3.0, 15.0),
+    "gemini-flash-latest": (0.75, 3.75),
 }
+_VARIANTS_FILE = HERE / "variants.yaml"
+VARIANTS: dict = yaml.safe_load(_VARIANTS_FILE.read_text(encoding="utf-8")) if _VARIANTS_FILE.exists() else {}
 THIN_PEOPLE = ("p01", "p03", "p05", "p07", "p09", "p11")
 REPEATS = 5
 
@@ -113,11 +125,8 @@ def job_variants(person: dict, job: dict) -> list[tuple[str, str, str, str]]:
         low = job["years_token"].replace("15", "5")
         assert low != job["years_token"]
         out.append(("years5", title, company, text.replace(job["years_token"], low)))
-    for kind in ("paraphrase", "translation"):
-        f = HERE / "variants" / f"{job['id']}.{kind}.yaml"
-        if f.exists():
-            v = yaml.safe_load(f.read_text(encoding="utf-8"))
-            out.append((kind, v["title"], v.get("company", company), v["text"].strip()))
+    for kind, v in (VARIANTS.get(job["id"]) or {}).items():   # paraphrase, translation
+        out.append((kind, v["title"], v.get("company", company), v["text"].strip()))
     for name, _t, _c, body in out:
         assert body.strip(), f"{job['id']} {name}: empty job text"
     return out

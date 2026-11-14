@@ -7,6 +7,7 @@ Plan and findings: `../07-benchmark-plan.md`. Everything here is invented: the p
 | `people/*.yaml` | 12 people. Each has a full profile, 3 job ads (strong, partial and no fit) and the requirement checklist that fixes the expected order. |
 | `build_sheet.py` | Validates the people files and builds `ranking-sheet.md` for the founder's blind ranking. `ranking-key.json` maps the sheet's letters back to job ids. |
 | `setup_local_db.sh` | Creates the local Postgres database `jobapply_bench` with the recipe CI uses. |
+| `variants.yaml` | A reworded and a translated version of each of the 12 partial-fit job ads. |
 | `run_benchmark.py` | Ingests the people through the product's CV-upload path and scores their jobs the way the feed does. Writes `results/`. |
 
 ## Running

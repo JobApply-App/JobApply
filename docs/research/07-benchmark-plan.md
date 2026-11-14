@@ -17,6 +17,8 @@ Stages 1-6 produced claims we could not test without running our own model. Stag
 - **Profiles are invented.** No real user data. Each profile is a full, realistic person written for this benchmark.
 - **No recruiter is available.** The founder will judge if needed, and prefers an automated judge if that is more correct.
 - **Cost must be estimated before anything runs.** See section 7.
+- **The benchmark measures what production uses: Gemini first, Claude as fallback** (decided 2026-11-14).
+- **Hard cap of $50** and a pilot on 2 people first.
 
 ## 3. Who decides what the right answer is
 
@@ -135,7 +137,8 @@ Sizes are estimated from the code, not measured: the scorer template is 5,681 ch
 | **Total** | | | **about $29-46** |
 
 - **Hard cap: $50**, approved by the founder. The runner stops there. The revised estimate leaves little room under it, so the pilot's measured numbers decide whether the full run fits.
-- **These are Anthropic prices.** Production answers with Gemini first (section 10). A run that mirrors production needs Gemini's price entered before it starts; the runner refuses to guess it.
+- **The table above is at Anthropic prices and is now the upper bound.** The founder chose to measure what production uses, where `gemini-flash-latest` answers first. Google's pricing page (read 2026-11-14) lists both stable Flash models at $0.75 in / $3.75 out per million tokens until 2026-12-31, and double that from 2027-01-01. It does not say which model the `-latest` alias points to, so that price is an assumption. At that price the scoring, upload and CV-writing calls cost roughly a quarter of the Sonnet figures, and the whole benchmark comes to roughly **$12-20**, with the fact checker (kept on Claude, so that it is a different vendor from the writer) the largest single part.
+- Two things can push it back up: Gemini failing or being rate-limited, in which case the product silently falls back to Claude at Claude's price; and Gemini's thinking tokens, which are billed as output but not reported by `llm_client`. The ledger records which model answered every call, and the pilot's total is to be compared with Google's billing page.
 - The pilot replaces these estimates with measured numbers before the full run.
 - After the first run, repeating **parts A and B only** after a scoring change costs about $10. Repeating everything costs about $40.
 - Not included: the tokens Claude Code uses to write the profiles and the runner. That is part of the normal subscription, not the API key.
@@ -153,7 +156,7 @@ Sizes are estimated from the code, not measured: the scorer template is 5,681 ch
 1. Approve the $50 cap and the pilot?
 2. Approve the 12 profile types, or swap any for a type closer to the users we expect first?
 3. The pass lines in section 5 are proposals. Any that should be stricter or looser before we see results?
-4. **Which model should the benchmark measure?** (a) What production uses: Gemini first, Claude as fallback. This needs the Gemini key enabled locally and Gemini's price. (b) Claude only, which is what the local key file gives today but is not what users get. (c) Both, at roughly double the scoring cost. Recommendation: (a), because the point of the benchmark is what users see.
+4. **Answered 2026-11-14: (a), what production uses.** The question was: which model should the benchmark measure? (a) What production uses: Gemini first, Claude as fallback. This needs the Gemini key enabled locally and Gemini's price. (b) Claude only, which is what the local key file gives today but is not what users get. (c) Both, at roughly double the scoring cost. Recommendation: (a), because the point of the benchmark is what users see.
 
 ## 10. What building the runner showed (2026-11-13)
 
@@ -167,4 +170,9 @@ The runner (`benchmark/run_benchmark.py`) was run end to end in dry mode, where 
 4. **An upload also starts a background model call** (`title_search_terms`) that expands the person's titles for job search. It is part of the real cost of an upload.
 5. **The stored profile is thinner than the CV.** The upload step keeps one or two sentences per role, not the bullets. For part C this means the fact check must compare the generated CV against what the product stored, and separately against the original CV text, because a detail can be lost at upload and then "invented" back.
 
-**Not built yet:** the part C runner (CV generation and the fact checker), the 12 reworded and 12 translated job ads, and the script that turns `scores.jsonl` into the pass or fail table of section 5.
+6. **30% of the LLM part of every score is fixed to one kind of candidate.** `compute_local_proxy_score(job_title, jd_text)` does not read the user's profile. It gives 90 points to titles containing "product manager" and similar, 68 to customer-success and account-manager titles, 28 to every other title, and compares the job's seniority to a fixed level 4 ("manager"). This is readable from the code and showed in the dry run, with no model involved:
+   - For the backend engineer (profile 1), "Senior Backend Engineer" and "Senior iOS Engineer" get the same local score, 56.8.
+   - For the customer success manager (profile 5), all three Hebrew titles get 44.8, and the same team-lead job translated to English ("Customer Success Team Manager") gets 80.8, because the title list is English only.
+   So for any user who is not a product or customer-success manager, this part of the score says nothing about fit, and Hebrew titles never match it. It enters the LLM composite at 30%, and that composite is 60% of the final score. The pilot will show how much of the order it distorts. It also explains part of why a thin job description scores about 28-30 "for an exact title match": that figure is true only for product-manager titles.
+
+**Not built yet:** the part C runner (CV generation and the fact checker) and the script that turns `scores.jsonl` into the pass or fail table of section 5. The 12 reworded and 12 translated job ads are written (`benchmark/variants.yaml`).
