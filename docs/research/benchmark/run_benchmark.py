@@ -20,7 +20,7 @@ Safety rules built in:
   - --env-file copies ONLY the model API keys into the environment. It never
     reads DATABASE_URL or any Supabase setting.
   - Every model call is written to results/ledger.jsonl with its token use
-    and cost. The run stops when total spend reaches --cap (default $50).
+    and cost. The run stops when total spend reaches --cap (default $15).
   - A model whose price is not in PRICES stops the run. Cost is never guessed.
   - --dry-run makes no network call: the provider functions are replaced by a
     stub, so the database and scoring plumbing can be checked for free.
@@ -349,7 +349,7 @@ def main() -> None:
     ap.add_argument("--people", default="", help="comma-separated ids, e.g. p01,p05 (default: all 12)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--env-file", help="file to read ANTHROPIC_API_KEY / GEMINI_API_KEY from, and nothing else")
-    ap.add_argument("--cap", type=float, default=50.0, help="total spend in USD at which the run stops")
+    ap.add_argument("--cap", type=float, default=15.0, help="total spend in USD at which the run stops")
     ap.add_argument("--repeats", type=int, default=REPEATS)
     ap.add_argument("--price", action="append", default=[], metavar="MODEL=IN,OUT",
                     help="USD per million tokens for a model not in PRICES")
