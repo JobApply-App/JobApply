@@ -1,0 +1,173 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p02
+why: entry level; models confuse Entry and Senior (stage 0, section 5.3)
+profile:
+  name: Shira Kleiner
+  email: shira.kleiner@example.com
+  phone: "052-555-0102"
+  location: Haifa, Israel
+  title: Junior Data Analyst
+  summary: >-
+    Data analyst with 1 year of experience in e-commerce reporting. Writes SQL
+    daily, builds dashboards in Tableau, and has a statistics degree with a
+    final project on customer churn.
+  experience:
+    - role: Operations Sergeant
+      company: IDF, Air Force
+      period: 2016 - 2018
+      bullets:
+        - "Scheduled shifts for a unit of 45 soldiers and kept the weekly readiness report"
+        - "Rebuilt the unit's attendance sheet in Excel so the weekly report took 30 minutes and not 3 hours"
+    - role: Teaching Assistant, Introduction to Statistics
+      company: University of Haifa
+      period: 2021 - 2022
+      bullets:
+        - "Ran weekly exercise sessions for 60 first-year students"
+        - "Graded assignments and wrote worked solutions in R"
+    - role: Student Analyst (part time)
+      company: Brightcart
+      period: 2022 - 2023
+      bullets:
+        - "Pulled weekly sales numbers with SQL from BigQuery for the category managers"
+        - "Checked data quality on the orders table and reported 12 recurring errors to the data engineers"
+    - role: Junior Data Analyst
+      company: Brightcart
+      period: 2023 - Present
+      bullets:
+        - "Own the weekly sales and returns dashboards in Tableau for 6 category managers"
+        - "Analysed the returns process and found that 2 product lines caused 31% of returns, which led to a supplier change"
+        - "Wrote the SQL for the monthly marketing-attribution report"
+        - "Ran an A/B test analysis on the checkout page with the product manager, using Python (pandas, scipy)"
+  education:
+    - degree: B.A. Statistics and Economics
+      institution: University of Haifa
+      period: 2019 - 2022
+      honors: Dean's list 2021
+      coursework: Regression, probability, econometrics, final project on predicting customer churn in R
+  skills:
+    categories:
+      - label: Analysis
+        items: [SQL, BigQuery, Excel, Python, pandas, R]
+      - label: Visualisation
+        items: [Tableau, Google Sheets]
+      - label: Methods
+        items: [A/B testing, Regression, Descriptive statistics]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: English, level: Fluent}
+    - {language: Russian, level: Conversational}
+  volunteering: Tutors high-school students in mathematics at a community centre in Haifa, 2 hours a week since 2022.
+
+jobs:
+  - id: p02-j1
+    title: Data Analyst
+    company: Fennick Market
+    location: Haifa
+    language: en
+    fit: strong
+    requirements:
+      - {req: "1-2 years as a data analyst", met: true, evidence: "1 year full time plus 1 year as a student"}
+      - {req: "Strong SQL", met: true, evidence: "daily SQL on BigQuery"}
+      - {req: "A BI tool (Tableau, Looker or Power BI)", met: true, evidence: "Tableau dashboards"}
+      - {req: "Degree in a quantitative field", met: true, evidence: "B.A. Statistics and Economics"}
+      - {req: "Experience with A/B test analysis", met: true, evidence: "checkout page test"}
+    text: |
+      Fennick Market is an online marketplace for home and garden products, with 300 sellers and about 90,000 orders a month.
+
+      We are looking for a Data Analyst to join a team of four. You will work directly with the commercial and marketing teams.
+
+      What you will do
+      - Build and maintain dashboards for sales, returns and seller performance.
+      - Answer business questions with SQL: why a category dropped, which sellers are late, where customers leave the funnel.
+      - Analyse A/B tests on the site together with the product team.
+      - Keep an eye on data quality and flag problems to the data engineers.
+      - Present findings clearly to people who are not analysts.
+
+      What we need
+      - 1-2 years of experience as a data analyst.
+      - Strong SQL. You will be tested on it.
+      - Experience with a BI tool: Tableau, Looker or Power BI.
+      - A degree in statistics, economics, industrial engineering or a similar quantitative field.
+      - Some experience analysing A/B tests.
+      - Good Hebrew and English.
+
+      Nice to have
+      - Python or R.
+      - E-commerce background.
+
+      Haifa office, hybrid.
+
+  - id: p02-j2
+    title: Head of Data Science
+    company: Ostrava Insurance Tech
+    location: Tel Aviv
+    language: en
+    fit: none
+    requirements:
+      - {req: "10+ years in data science, 4+ managing data scientists", met: false, evidence: "1 year of experience, never managed"}
+      - {req: "Machine-learning models in production", met: false, evidence: "none"}
+      - {req: "M.Sc. or Ph.D. in a quantitative field", met: false, evidence: "B.A. only"}
+      - {req: "Python", met: true, evidence: "pandas, scipy for one analysis"}
+    text: |
+      Ostrava Insurance Tech builds pricing and fraud models for car and home insurers in Europe.
+
+      We are hiring a Head of Data Science to lead a group of 12 data scientists and ML engineers and to report to the CTO.
+
+      What you will do
+      - Set the modelling roadmap for pricing, fraud and claims.
+      - Manage and grow the group: hiring, career development, performance.
+      - Own model quality in production: monitoring, drift, retraining policy.
+      - Work with regulators' requirements for model explainability in the EU.
+      - Represent data science to customers and to the board.
+
+      What we need
+      - 10+ years in data science or machine learning, with at least 4 years managing data scientists.
+      - A track record of machine-learning models running in production at scale.
+      - M.Sc. or Ph.D. in statistics, computer science, mathematics or similar.
+      - Deep knowledge of Python and the modern ML stack.
+      - Experience presenting to executives and customers.
+
+      Nice to have
+      - Insurance or credit-risk background.
+      - Experience with EU model-governance rules.
+
+      Tel Aviv, hybrid.
+
+  - id: p02-j3
+    title: Data Analyst, Product Analytics
+    company: Tavola Games
+    location: Tel Aviv
+    language: en
+    fit: partial
+    requirements:
+      - {req: "3+ years as a product or data analyst", met: false, evidence: "1 year full time"}
+      - {req: "Strong SQL", met: true, evidence: "daily SQL"}
+      - {req: "Python for analysis", met: true, evidence: "pandas and scipy, used once on a test"}
+      - {req: "Event-based product analytics (Amplitude or Mixpanel)", met: false, evidence: "not in the profile"}
+      - {req: "A/B testing", met: true, evidence: "checkout page test"}
+    text: |
+      Tavola Games makes casual mobile games played by 6 million people a month.
+
+      We are looking for a Data Analyst for the product analytics team, working with the game designers and product managers of our two largest titles.
+
+      What you will do
+      - Define and track the product metrics for new features: retention, session length, conversion.
+      - Design and analyse A/B tests, usually 10 to 15 running at a time.
+      - Build funnels and cohorts in Amplitude and dig deeper with SQL and Python.
+      - Model player behaviour: churn risk, spend segments.
+      - Bring recommendations to the weekly product review.
+
+      What we need
+      - 3+ years of experience as a product analyst or data analyst.
+      - Strong SQL and solid Python for analysis.
+      - Hands-on experience with event-based product analytics tools such as Amplitude or Mixpanel.
+      - Real experience designing A/B tests, including sample size and stopping rules.
+      - A degree in a quantitative field.
+
+      Nice to have
+      - Gaming or consumer-app background.
+      - Experience with dbt.
+
+      Tel Aviv, hybrid.
+
+expected_order: [p02-j1, p02-j3, p02-j2]

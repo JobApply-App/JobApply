@@ -1,0 +1,184 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p09
+why: military service is the main experience; first civilian job. Hebrew job ads. Gets a Hebrew CV in part C.
+profile:
+  name: Ido Carmeli
+  email: ido.carmeli@example.com
+  phone: "052-555-0109"
+  location: Kfar Saba, Israel
+  title: Operations Coordinator
+  summary: >-
+    Former infantry company commander (Captain) with 6 years of service,
+    released in 2024. Led 110 soldiers, planned training and logistics under
+    pressure, and has worked for the past year as an operations coordinator
+    at a delivery company while studying management.
+  experience:
+    - role: Squad Commander and Platoon Sergeant
+      company: IDF, Infantry Brigade
+      period: 2018 - 2019
+      bullets:
+        - "Led a squad of 10, then served as sergeant of a platoon of 32 soldiers"
+        - "Responsible for the platoon's equipment and daily routine"
+    - role: Platoon Commander (Lieutenant)
+      company: IDF, Infantry Brigade
+      period: 2020 - 2022
+      bullets:
+        - "Commanded a platoon of 32 soldiers after officers' course"
+        - "Planned and ran the platoon's training programme: 16 weeks, 4 instructors"
+        - "Held personal talks with every soldier each month and handled welfare cases with the unit's welfare officer"
+    - role: Deputy Company Commander and Company Commander (Captain)
+      company: IDF, Infantry Brigade
+      period: 2022 - 2024
+      bullets:
+        - "Commanded a company of 110 soldiers and 4 officers"
+        - "Planned operations and training for the company, coordinating with battalion staff, logistics and medical teams"
+        - "Managed vehicles, equipment and supplies worth several million NIS with no loss in two annual audits"
+        - "Selected and trained 6 squad commanders each cycle"
+        - "Wrote the after-action reviews for the company and presented them to the battalion commander"
+    - role: Operations Coordinator
+      company: Zariz Deliveries
+      period: 2024 - Present
+      bullets:
+        - "Coordinate the daily work of 35 couriers from the Sharon-area depot"
+        - "Build the daily route plan and reassign deliveries when couriers are absent"
+        - "Cut late deliveries at the depot from 9% to 5% in 8 months by changing the loading order"
+        - "Handle customer escalations passed on from the service centre"
+  education:
+    - degree: B.A. Management (in progress, year 2 of 3)
+      institution: The Open University
+      period: 2024 - Present
+      honors: ""
+      coursework: Organisational behaviour, statistics, introduction to finance
+    - degree: Officers' course
+      institution: IDF Officers School (Bahad 1)
+      period: 2019 - 2020
+      honors: ""
+      coursework: ""
+  skills:
+    categories:
+      - label: Leadership
+        items: [Leading large teams, Training and instruction, Personal talks and welfare, Selecting junior leaders]
+      - label: Operations
+        items: [Planning, Logistics coordination, Equipment and inventory control, After-action reviews, Route planning]
+      - label: Tools
+        items: [Excel, Google Workspace]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: English, level: Good}
+  volunteering: Reserve duty as a company commander, about 30 days a year.
+
+jobs:
+  - id: p09-j1
+    title: מנהל/ת משמרת במרכז לוגיסטי
+    company: מרלו"ג השרון
+    location: כפר סבא
+    language: he
+    fit: strong
+    requirements:
+      - {req: "Experience leading a team of 20+ people", met: true, evidence: "110 soldiers; 35 couriers"}
+      - {req: "Some experience in logistics or operations", met: true, evidence: "Zariz Deliveries, company logistics"}
+      - {req: "Planning daily work and handling absences", met: true, evidence: "daily route plan, reassignments"}
+      - {req: "Responsibility for equipment and inventory", met: true, evidence: "two clean audits"}
+      - {req: "Excel", met: true, evidence: "listed"}
+      - {req: "Released officers welcome", met: true, evidence: "Captain, released 2024"}
+    text: |
+      מרלו"ג השרון הוא מרכז לוגיסטי שמפיץ מוצרי מזון יבשים ל-500 נקודות מכירה באזור השרון והמרכז.
+
+      אנחנו מחפשים מנהל/ת משמרת למשמרת הבוקר.
+
+      מה כולל התפקיד
+      - ניהול משמרת של 30 מלקטים, מלגזנים ועובדי הפצה.
+      - תכנון העבודה היומי לפי ההזמנות וטיפול בהיעדרויות.
+      - אחריות על עמידה ביעדי המשמרת: דיוק ליקוט ויציאה בזמן.
+      - אחריות על הציוד ועל המלאי במשמרת, כולל ספירות.
+      - שמירה על נוהלי הבטיחות והדרכת עובדים חדשים.
+      - דיווח יומי למנהל התפעול.
+
+      דרישות
+      - ניסיון בניהול צוות של 20 עובדים ומעלה.
+      - ניסיון כלשהו בלוגיסטיקה או בתפעול.
+      - יכולת תכנון עבודה יומית וקבלת החלטות תחת לחץ.
+      - ניסיון באחריות על ציוד ומלאי.
+      - שליטה טובה באקסל.
+
+      יתרון
+      - קצינים משוחררים מתפקידי פיקוד או לוגיסטיקה.
+      - היכרות עם מערכת לניהול מחסן.
+
+      משרה מלאה, כפר סבא. משמרת בוקר, 06:00 עד 15:00.
+
+  - id: p09-j2
+    title: מנהל/ת תפעול אזורי
+    company: שביט קמעונאות
+    location: נתניה
+    language: he
+    fit: partial
+    requirements:
+      - {req: "5+ years of civilian operations management", met: false, evidence: "1 year as coordinator"}
+      - {req: "Managing managers across several sites", met: true, evidence: "commanded 4 officers; military, not civilian sites"}
+      - {req: "Owning a budget and profit and loss", met: false, evidence: "none"}
+      - {req: "Retail experience", met: false, evidence: "none"}
+      - {req: "Academic degree", met: false, evidence: "in progress, year 2 of 3"}
+    text: |
+      שביט קמעונאות היא רשת של 42 חנויות לבית ולגינה.
+
+      אנחנו מחפשים מנהל/ת תפעול לאזור השרון, שיהיה אחראי על 11 חנויות.
+
+      מה כולל התפקיד
+      - ניהול 11 מנהלי חנויות ואחריות על כ-160 עובדים.
+      - אחריות על התוצאות של האזור: מכירות, עלות שכר, פחת ורווח.
+      - בניית תקציב אזורי ומעקב חודשי.
+      - ביקורים שבועיים בחנויות ובקרה על נראות, מלאי ושירות.
+      - גיוס ופיתוח מנהלי חנויות.
+      - עבודה מול מטה הרשת: רכש, שיווק ומשאבי אנוש.
+
+      דרישות
+      - 5 שנות ניסיון ומעלה בניהול תפעול בחברה אזרחית.
+      - ניסיון בניהול מנהלים בכמה אתרים.
+      - ניסיון באחריות על תקציב ועל רווח והפסד.
+      - ניסיון בקמעונאות.
+      - תואר ראשון.
+      - רישיון נהיגה ונכונות לנסיעות יומיות.
+
+      יתרון
+      - ניסיון ברשת של מוצרים לבית.
+      - רקע פיקודי בצבא.
+
+      משרה מלאה, אזור השרון. רכב צמוד.
+
+  - id: p09-j3
+    title: עורך/ת דין מסחרי
+    company: לוינסון, אשכנזי ושות'
+    location: תל אביב
+    language: he
+    fit: none
+    requirements:
+      - {req: "Licence to practise law in Israel", met: false, evidence: "no law degree"}
+      - {req: "LL.B.", met: false, evidence: "B.A. Management in progress"}
+      - {req: "2-4 years in commercial law after internship", met: false, evidence: "none"}
+      - {req: "Drafting contracts in English", met: false, evidence: "none"}
+    text: |
+      משרד לוינסון, אשכנזי ושות' מלווה חברות טכנולוגיה וקרנות השקעה.
+
+      אנחנו מחפשים עורך/ת דין למחלקה המסחרית.
+
+      מה כולל התפקיד
+      - ניסוח הסכמים מסחריים: הסכמי רישוי, הפצה, שירותים וסודיות.
+      - ליווי שוטף של חברות טכנולוגיה בצמיחה.
+      - השתתפות בעסקאות השקעה ובבדיקות נאותות.
+      - מתן חוות דעת ללקוחות ועבודה מול עורכי דין בחו"ל.
+
+      דרישות
+      - רישיון עריכת דין בישראל. דרישת חובה.
+      - תואר ראשון במשפטים.
+      - 2 עד 4 שנות ניסיון במשפט מסחרי אחרי ההתמחות.
+      - ניסיון בניסוח הסכמים באנגלית ברמה גבוהה מאוד.
+      - יכולת עבודה עצמאית מול לקוחות.
+
+      יתרון
+      - התמחות במשרד מוביל בתחום ההייטק.
+      - תואר נוסף במנהל עסקים או בחשבונאות.
+
+      משרה מלאה, תל אביב.
+
+expected_order: [p09-j1, p09-j2, p09-j3]

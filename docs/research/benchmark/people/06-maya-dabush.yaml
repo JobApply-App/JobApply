@@ -1,0 +1,186 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p06
+why: service work with few keywords. Hebrew job ads. Gets a Hebrew CV in part C.
+profile:
+  name: Maya Dabush
+  email: maya.dabush@example.com
+  phone: "052-555-0106"
+  location: Beer Sheva, Israel
+  title: Call Centre Team Lead
+  summary: >-
+    Team lead with 7 years in a telecom call centre, the last 3 leading a team
+    of 14 representatives. Known for bringing new representatives up to target
+    quickly and for calming difficult calls.
+  experience:
+    - role: Company Clerk
+      company: IDF, Southern Command
+      period: 2013 - 2015
+      bullets:
+        - "Handled personnel requests for a company of 120 soldiers"
+        - "Kept leave and attendance records and prepared the weekly report for the commander"
+    - role: Sales Assistant
+      company: Almog Fashion
+      period: 2015 - 2017
+      bullets:
+        - "Served customers and worked the till in a clothing shop in a busy mall"
+        - "Was the shop's top seller in 5 of 12 months in 2016"
+    - role: Customer Service Representative
+      company: Telnora
+      period: 2017 - 2019
+      bullets:
+        - "Answered about 70 calls a day on billing and mobile plans"
+        - "Stayed above the centre's targets for call length and customer satisfaction for 8 quarters"
+        - "Chosen to answer escalated calls from customers who asked to disconnect"
+    - role: Senior Representative, Retention
+      company: Telnora
+      period: 2019 - 2021
+      bullets:
+        - "Handled customers who asked to leave, keeping 62% of them against a centre average of 48%"
+        - "Trained 20 new representatives on the retention script and the billing system"
+        - "Wrote the centre's guide for handling complaints about roaming charges"
+    - role: Team Lead
+      company: Telnora
+      period: 2021 - Present
+      bullets:
+        - "Lead a team of 14 representatives in the retention department"
+        - "Raised the team's customer satisfaction score from 4.1 to 4.5 out of 5 in one year"
+        - "Listen to 30 recorded calls a week and hold a personal feedback talk with each representative every two weeks"
+        - "Build the team's weekly shift schedule and handle absences"
+        - "Cut the time for a new representative to reach target from 10 weeks to 6"
+  education:
+    - degree: High school diploma (full bagrut)
+      institution: Makif Gimel High School, Beer Sheva
+      period: 2009 - 2012
+      honors: ""
+      coursework: ""
+    - degree: Team leaders course (60 hours)
+      institution: Telnora internal academy
+      period: 2021
+      honors: ""
+      coursework: Feedback talks, shift planning, labour law basics
+  skills:
+    categories:
+      - label: Service
+        items: [Customer retention, Complaint handling, Call quality monitoring, Billing questions]
+      - label: Team
+        items: [Feedback talks, Training new staff, Shift scheduling]
+      - label: Systems
+        items: [CRM, Billing system, Excel]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: English, level: Good}
+    - {language: Arabic, level: Conversational}
+  volunteering: ""
+
+jobs:
+  - id: p06-j1
+    title: אח/ות מוסמך/ת למחלקה פנימית
+    company: המרכז הרפואי נווה דרום
+    location: באר שבע
+    language: he
+    fit: none
+    requirements:
+      - {req: "Registered nurse licence", met: false, evidence: "no nursing education"}
+      - {req: "B.A. in nursing", met: false, evidence: "high school diploma"}
+      - {req: "Hospital experience", met: false, evidence: "none"}
+      - {req: "Shift work", met: true, evidence: "call-centre shifts"}
+    text: |
+      המרכז הרפואי נווה דרום מגייס אחים ואחיות מוסמכים למחלקה פנימית ב'.
+
+      מה כולל התפקיד
+      - טיפול סיעודי ישיר במטופלים במחלקה של 38 מיטות.
+      - מתן תרופות, מעקב אחר סימנים חיוניים וביצוע פעולות סיעודיות.
+      - קבלת מטופלים ושחרורם, כולל הדרכה למטופל ולמשפחה.
+      - תיעוד במערכת הרשומה הרפואית.
+      - עבודה בצוות עם רופאים, פיזיותרפיסטים ועובדים סוציאליים.
+
+      דרישות
+      - רישיון אח/ות מוסמך/ת ממשרד הבריאות. דרישת חובה.
+      - תואר ראשון בסיעוד.
+      - נכונות לעבודה במשמרות, כולל לילות, סופי שבוע וחגים.
+      - יחסי אנוש טובים ויכולת עבודה תחת לחץ.
+
+      יתרון
+      - ניסיון במחלקה פנימית או בבית חולים.
+      - קורס על-בסיסי.
+
+      היקף משרה: 75% עד 100%.
+
+  - id: p06-j2
+    title: מנהל/ת מוקד שירות לקוחות
+    company: שקד ביטוח ישיר
+    location: באר שבע
+    language: he
+    fit: partial
+    requirements:
+      - {req: "5+ years in call centres", met: true, evidence: "7 years"}
+      - {req: "Managing a centre of 40+ people including team leads", met: false, evidence: "leads 14 representatives, no team leads under her"}
+      - {req: "Owning a centre budget and service-level targets", met: false, evidence: "team targets only"}
+      - {req: "Quality monitoring and coaching", met: true, evidence: "30 calls a week, feedback talks"}
+      - {req: "Workforce and shift planning", met: true, evidence: "weekly shift schedule for her team"}
+    text: |
+      שקד ביטוח ישיר היא חברת ביטוח רכב ודירה שמוכרת ונותנת שירות בטלפון ובאתר.
+
+      אנחנו מחפשים מנהל/ת למוקד שירות הלקוחות בבאר שבע.
+
+      מה כולל התפקיד
+      - ניהול מוקד של 55 נציגים ו-4 ראשי צוותים.
+      - אחריות על יעדי המוקד: זמן המתנה, פתרון בשיחה ראשונה ושביעות רצון.
+      - ניהול תקציב המוקד ותכנון כוח האדם לפי תחזית השיחות.
+      - בקרת איכות וחניכה של ראשי הצוותים.
+      - עבודה מול מחלקות התביעות, המכירות והרגולציה.
+      - דיווח חודשי להנהלה.
+
+      דרישות
+      - 5 שנות ניסיון ומעלה במוקדי שירות.
+      - ניסיון בניהול מוקד של 40 עובדים ומעלה, כולל ניהול ראשי צוותים.
+      - ניסיון באחריות על תקציב ועל יעדי רמת שירות.
+      - ניסיון בבקרת איכות ובחניכת עובדים.
+      - ניסיון בתכנון משמרות וכוח אדם.
+
+      יתרון
+      - רקע בביטוח או בפיננסים.
+      - תואר ראשון.
+
+      משרה מלאה, באר שבע.
+
+  - id: p06-j3
+    title: ראש/ת צוות שימור לקוחות
+    company: גלים תקשורת
+    location: באר שבע
+    language: he
+    fit: strong
+    requirements:
+      - {req: "2+ years leading a team in a call centre", met: true, evidence: "3 years, 14 representatives"}
+      - {req: "Customer retention experience", met: true, evidence: "retention department since 2019"}
+      - {req: "Call monitoring and feedback talks", met: true, evidence: "30 calls a week, talks every two weeks"}
+      - {req: "Training new representatives", met: true, evidence: "trained 20, cut ramp time to 6 weeks"}
+      - {req: "Shift scheduling", met: true, evidence: "weekly schedule"}
+    text: |
+      גלים תקשורת מספקת אינטרנט וטלוויזיה ל-350,000 משקי בית.
+
+      אנחנו מחפשים ראש/ת צוות למחלקת שימור הלקוחות במוקד בבאר שבע.
+
+      מה כולל התפקיד
+      - ניהול צוות של 12 עד 15 נציגי שימור.
+      - האזנה לשיחות ושיחות משוב אישיות עם כל נציג.
+      - אחריות על יעדי הצוות: שיעור שימור, שביעות רצון ואורך שיחה.
+      - קליטה והכשרה של נציגים חדשים.
+      - בניית סידור עבודה שבועי וטיפול בהיעדרויות.
+      - טיפול בשיחות מורכבות שהנציגים מעבירים.
+
+      דרישות
+      - שנתיים ומעלה בניהול צוות במוקד שירות או מכירות.
+      - ניסיון בשימור לקוחות.
+      - ניסיון בהאזנה לשיחות ובמתן משוב.
+      - ניסיון בהכשרת נציגים חדשים.
+      - ניסיון בבניית סידור עבודה.
+      - שליטה באקסל ובמערכות CRM.
+
+      יתרון
+      - רקע בתקשורת או בסלולר.
+      - ערבית או רוסית.
+
+      משרה מלאה במשמרות, באר שבע.
+
+expected_order: [p06-j3, p06-j2, p06-j1]
