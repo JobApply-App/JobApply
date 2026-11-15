@@ -121,6 +121,69 @@ def test_transferable_floor_applies_only_with_adjacent_signal():
     assert unrelated == 0.0   # no adjacency — the floor must not rescue this
 
 
+def test_requirement_sentence_is_matched_by_a_skill_it_names():
+    """
+    The requirement lists that reach this function in production are whole
+    sentences (jd_structure_service's `requirements`, or the heuristic
+    splitter's lines), not bare terms. A sentence that names a skill the
+    profile holds must count as covered. Before this, every real job scored
+    0.0 here (docs/research/07-benchmark-results.md, finding 1).
+    """
+    score, matched, missing, equivalences = score_hard_skills(
+        must_haves=[
+            "7+ years of backend development",
+            "Production experience in Python or Go",
+            "Deep experience with PostgreSQL at scale (schema design, query tuning, migrations)",
+            "Experience with event-driven systems, Kafka or similar",
+        ],
+        nice_haves=["Terraform and observability tooling such as Datadog"],
+        profile_skills=["Python", "Go", "PostgreSQL", "Kafka", "Terraform"],
+    )
+    assert missing == ["7+ years of backend development"]   # names no skill the profile lists
+    assert len(matched) == 3
+    assert score == 80.0            # 0.80 x 3/4 + 0.20 x 1/1
+    assert equivalences == []       # the skill is in the sentence literally
+
+
+def test_requirement_sentence_matches_through_a_taxonomy_synonym():
+    equivalence = {"postgresql": {"postgresql", "postgres"}}
+    score, matched, _, equivalences = score_hard_skills(
+        must_haves=["Strong Postgres experience in production"],
+        nice_haves=[],
+        profile_skills=["PostgreSQL"],
+        equivalence=equivalence,
+    )
+    assert score == 100.0
+    assert equivalences == ["Strong Postgres experience in production ≈ postgresql"]
+
+
+def test_requirement_sentence_matches_whole_words_only():
+    """'react' must not be found inside 'reactive', nor 'java' inside 'javascript'."""
+    assert _equivalent("Experience with reactive JavaScript systems", {"react", "java"}) is None
+    assert _equivalent("Experience with React and Java", {"java"}) == "java"
+    # A two-word skill must appear as that phrase, in order.
+    assert _equivalent("Review of machine code and learning plans", {"machine learning"}) is None
+    assert _equivalent("3 years of machine learning in production", {"machine learning"}) == "machine learning"
+
+
+def test_one_and_two_letter_skills_need_their_capital_letter_in_a_sentence():
+    """'Go' the language is not the verb in 'go to market' or 'Go-to-market'."""
+    assert _equivalent("Own the go to market plan for the region", {"go"}) is None
+    assert _equivalent("Experience with Go-to-market planning", {"go"}) is None
+    assert _equivalent("Production experience in Python or Go", {"go"}) == "go"
+    assert _equivalent("Statistics in R or Python", {"r"}) == "r"
+
+
+def test_unrelated_profile_still_scores_zero_on_sentences():
+    score, matched, _, _ = score_hard_skills(
+        must_haves=["Veterinary licence in Israel", "2+ years in a small-animal clinic"],
+        nice_haves=[],
+        profile_skills=["React", "TypeScript", "Node.js", "PostgreSQL"],
+    )
+    assert matched == []
+    assert score == 0.0
+
+
 def test_jd_with_no_stated_requirements_scores_neutral_not_zero():
     """Missing information is not evidence of a bad match."""
     score, _, _, _ = score_hard_skills([], [], ["Python"])
