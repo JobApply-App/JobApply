@@ -155,6 +155,29 @@ For a senior candidate the management score is high even for a job they do not f
 
 After the parser, 28 of the 36 base jobs have a local score of exactly 56.8, whatever the job or the person. Part 0.1 stands in the live path.
 
+## Parts A and B again, after #164 and #165 (2026-11-17)
+
+Same 248 scores, with the skills fix (#164), years lines no longer counted as skills, and the local title score dropped from the full formula (#165). All on `gemini-flash-latest`, no failed calls, no 60/60 fallbacks.
+
+| Measure | Before | After |
+|---|---|---|
+| A1 run-to-run spread within 3.0 | FAIL 30/36, largest 5.4 | FAIL 24/36, largest 11.1 |
+| A2 paraphrase | PASS 11/12 | PASS 12/12 |
+| A3 language | PASS 11/12 | FAIL 8/12 |
+| A4 skill order | PASS 34/36 | FAIL 29/36 |
+| B1 order strong > partial > none | PASS 12/12 | PASS 12/12 |
+| B2 gap strong to none, at least 20 | PASS 12/12, gaps 23.5-38.3 | PASS 12/12, gaps 42.2-67.7 |
+| B6 pivot (p03 vs p01, within 10) | PASS 3.5 | FAIL 14.9 |
+| Composite range | 15.2-62.4 | 7.5-86.3 (strong 70.1-86.3, none 7.5-29.4) |
+
+**Order got much better, stability got worse.** Both have one cause. The local score was a near-constant (56.8 for 28 of 36 jobs) carrying 18% of the total. It hid the order and it also damped the model's noise. Without it, the management sub-score carries 17% instead of 12%, and that sub-score swings between runs: 35-75 on p10-j3, 45-75 on p12-j2, 55-80 on p06-j1. Those are the pairs that fail A1.
+
+**B6 shows the structural half is tool-literal.** p03 (product manager) and p01 (backend) get the same model scores on their strong jobs (95/92 and 96/95), but structural 34 against 66 before impact. p03's requirements are written as abilities ("owning a product area with an engineering squad", "product analytics, including funnels, cohorts, and A/B tests"); the profile says "a/b testing", and no line names a single tool. Matching by skill name works for jobs that list tools and fails for jobs that describe work. The local score used to give product-manager titles 94 and hid this.
+
+**What would fix each:**
+- Stability: the management sub-score's spread, measured here for the first time on its own. Options: score it twice and average, or give it less weight.
+- Structural for ability-worded jobs: judge each requirement line as met, partly met or not met, with the model reading the profile, and let code compute coverage from those verdicts. The same verdicts would carry the years check (which roles count toward "8+ years of X").
+
 ## Part C: the generated CVs (2026-11-17, counts only)
 
 96 CV requests: 48 with today's prompt, 48 with the quotas removed (`benchmark/cv_prompts.py`). All on `gemini-flash-latest`, about $1.6 by the ledger. Counts from `benchmark/count_cv.py`; the reading check of each claim is not done yet.
