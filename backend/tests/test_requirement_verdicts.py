@@ -134,7 +134,7 @@ async def test_scorer_returns_credits_and_sees_numbered_dated_roles(monkeypatch)
                           "years_required": 8, "roles": [1, 2]}],
     }))
     with patch.object(svc, "call_llm", new=fake):
-        sem, mgmt, brief, gaps, credits = await svc._llm_dual_score(
+        sem, mgmt, brief, gaps, credits, _ = await svc._llm_dual_score(
             cv, "jd " * 200, "Head of Partnerships", requirements=[_REQS[0]])
     prompt = fake.call_args.kwargs["messages"][0]["content"]
     assert "[1] Partnerships Manager @ A (2018 - 2022)" in prompt   # most recent first
@@ -150,6 +150,6 @@ async def test_malformed_verdicts_never_cost_the_scores(monkeypatch):
         "missing_critical_capabilities": [], "requirements": "not a list",
     }))
     with patch.object(svc, "call_llm", new=fake):
-        sem, mgmt, brief, _, credits = await svc._llm_dual_score(
+        sem, mgmt, brief, _, credits, _ = await svc._llm_dual_score(
             {"experience": []}, "jd " * 200, "PM", requirements=["SQL"])
     assert (sem, mgmt, brief, credits) == (80, 70, "ok", {})

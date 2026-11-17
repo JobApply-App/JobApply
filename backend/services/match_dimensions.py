@@ -491,14 +491,24 @@ def score_depth_breadth(
 # Dimension 3 — domain context & prior employer
 # ═════════════════════════════════════════════════════════════════════════════
 
+_DOMAIN_FIT_SCORE = {"same": 100.0, "adjacent": 75.0, "different": 50.0}
+
+
 def score_domain_context(
     jd_text: str,
     target_company: str,
     profile_domains: list[str],
     experience: list[dict],
+    domain_fit: Optional[str] = None,
 ) -> tuple[float, Optional[str], list[str]]:
     """
     Domain continuity, with a hard floor for prior employment at the target.
+
+    domain_fit is the scorer's judgement of this job's industry against the
+    candidate's domains and experience: same 100, adjacent 75, different 50.
+    When it is absent (the scorer failed) the domain names are looked for in
+    the JD text, as before. Either way a different field is 50, the same as
+    no signal: a career change is not a penalty (CLAUDE.md principle 3).
 
     Returns (score 0-100, legacy company or None, notes).
 
@@ -516,6 +526,10 @@ def score_domain_context(
         notes.append(f"Prior employment at {legacy} — strongest available fit signal.")
         return LEGACY_FLOOR, legacy, notes
 
+    if domain_fit in _DOMAIN_FIT_SCORE:
+        notes.append(f"Domain fit judged by the scorer: {domain_fit}.")
+        return _DOMAIN_FIT_SCORE[domain_fit], None, notes
+
     jd_norm = _norm(jd_text)
     if not profile_domains or not jd_norm:
         return 50.0, None, ["No domain signal available — scored neutral."]
@@ -523,7 +537,7 @@ def score_domain_context(
     hits = [d for d in profile_domains if _norm(d) and _norm(d) in jd_norm]
     if not hits:
         # Adjacent-but-unnamed domains are common; a miss here is weak evidence.
-        return 40.0, None, ["No explicit domain overlap with the JD."]
+        return 50.0, None, ["No explicit domain overlap with the JD — scored neutral."]
 
     ratio = len(hits) / max(1, len(profile_domains))
     score = 55.0 + 45.0 * min(1.0, ratio * 2.0)
@@ -692,6 +706,7 @@ def compute_dimensions(
     equivalence: Optional[dict[str, set[str]]] = None,
     now_year: Optional[int] = None,
     credits: Optional[dict[str, float]] = None,
+    domain_fit: Optional[str] = None,
 ) -> DimensionScores:
     """
     Compute all four dimensions and their blend. Pure — every input is passed
@@ -725,7 +740,7 @@ def compute_dimensions(
         profile_skills, skill_depth, required_years, equivalence, now_year,
     )
     domain_score, legacy, domain_notes = score_domain_context(
-        jd_text, target_company, profile_domains, experience,
+        jd_text, target_company, profile_domains, experience, domain_fit,
     )
 
     return DimensionScores(
