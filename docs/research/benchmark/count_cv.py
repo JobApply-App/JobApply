@@ -90,13 +90,25 @@ def check(row: dict) -> dict:
     companies = set(roles_by_company)
     degrees = {_norm(e.get("degree")) for e in person.get("education") or []}
 
-    invented_employers = [e.get("company") for e in cv.get("experience") or []
-                          if _norm(e.get("company")) and _norm(e.get("company")) not in companies]
-    invented_degrees = [e.get("degree") for e in cv.get("education") or []
-                        if _norm(e.get("degree")) and _norm(e.get("degree")) not in degrees]
-    changed_titles = [f"{e.get('company')}: {e.get('role')}" for e in cv.get("experience") or []
-                      if _norm(e.get("company")) in companies
-                      and _norm(e.get("role")) not in roles_by_company[_norm(e.get("company"))]]
+    def known_company(name: str) -> str | None:
+        # A shortened name ("Tel Aviv University" for "..., Department of
+        # Biochemistry") is the same employer.
+        n = _norm(name)
+        return next((c for c in companies if c and (n == c or c.startswith(n) or n.startswith(c))), None)
+
+    # Hebrew CVs translate names and degrees, so string comparison would flag
+    # every one. They are left to the reading check.
+    hebrew = row.get("locale") == "he"
+    invented_employers = [] if hebrew else [
+        e.get("company") for e in cv.get("experience") or []
+        if _norm(e.get("company")) and known_company(e.get("company")) is None]
+    invented_degrees = [] if hebrew else [
+        e.get("degree") for e in cv.get("education") or []
+        if _norm(e.get("degree")) and _norm(e.get("degree")) not in degrees]
+    changed_titles = [] if hebrew else [
+        f"{e.get('company')}: {e.get('role')}" for e in cv.get("experience") or []
+        if known_company(e.get("company"))
+        and _norm(e.get("role")) not in roles_by_company[known_company(e.get("company"))]]
     ad_terms = sorted(t for t in _ad_terms(job["text"]) if _has(written, t, exact_case=True) and not _has(source, t)
                       and not (t.endswith("s") and _has(source, t[:-1])))
     new_numbers = sorted(_numbers(written) - _numbers(source))
@@ -120,6 +132,9 @@ def main() -> None:
     path = HERE / "results" / "cvs.jsonl"
     rows = [json.loads(l) for l in path.read_text().splitlines() if l.strip()] if path.exists() else []
     rows = [r for r in rows if not r["dry_run"]]
+    errors = Counter(r["prompt"] for r in rows if r["type"] == "error")
+    print(f"errors before a retry succeeded or gave up, by prompt: {dict(errors)}")
+    rows = list({(r["job"], r["prompt"], r["run"]): r for r in rows}.values())   # latest attempt
     kinds = Counter((r["prompt"], r["type"]) for r in rows)
     print(f"rows: {len(rows)} | by prompt and outcome: {dict(sorted(kinds.items()))}\n")
     cvs = [(r, check(r)) for r in rows if r["type"] == "cv"]

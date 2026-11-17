@@ -155,6 +155,29 @@ For a senior candidate the management score is high even for a job they do not f
 
 After the parser, 28 of the 36 base jobs have a local score of exactly 56.8, whatever the job or the person. Part 0.1 stands in the live path.
 
-## Part C: not run
+## Part C: the generated CVs (2026-11-17, counts only)
 
-The CV generation runner and the in-session fact check are not built yet. Founder's ranking (B7): not done yet; `benchmark/ranking-sheet.md`.
+96 CV requests: 48 with today's prompt, 48 with the quotas removed (`benchmark/cv_prompts.py`). All on `gemini-flash-latest`, about $1.6 by the ledger. Counts from `benchmark/count_cv.py`; the reading check of each claim is not done yet.
+
+| | Today's prompt | Without quotas |
+|---|---|---|
+| CVs produced | 43 | 42 |
+| Writer asked the user questions instead | 5 | 6 |
+| Invalid JSON the product could not repair (all succeeded on retry) | 9 | 2 |
+| CVs with an invented employer or degree (English CVs) | 5 | 4 |
+| Job titles changed (English CVs) | 11 | 6 |
+| Ad terms in the CV that are nowhere in the profile (median, max) | 0, 2 | 0, 2 |
+| Numbers in the CV that are nowhere in the profile (median, max) | 0, 2 | 0, 2 |
+| Banned words, long dashes | 0, 0 | 0, 0 |
+
+**The hard-rule failures, by name.** Both happen with either prompt, so they are not caused by the quotas:
+- **p11, a 5-year career break became a job.** The profile says "Career break (raising children), 2019-2024" and that she kept the family business's books voluntarily. Three CVs list "Bookkeeper, Family Small Business, 2019-2024" as employment.
+- **p08, a role listed as a degree.** Six CVs add "Ph.D. Researcher" as a fourth education entry beside the real Ph.D. Immunology.
+
+**Title changes.** Most are shortenings ("Teaching Assistant, Introduction to Statistics" to "Teaching Assistant, Statistics"; "(in-house)" dropped). Two kinds change the claim: "(part time)" removed from p11's current job (5 CVs, both prompts), and once, with today's prompt only, all three of p11's titles inflated ("Senior Bookkeeper & Team Mentor", "Bookkeeper & Client Account Manager", "Bookkeeper & Administrative Coordinator") for a job she does not fit.
+
+**What the counts show.** On this set, the quotas do not make the model add job terms or numbers that the profile lacks: median 0 for both. They go with more changed titles (11 against 6) and more broken JSON (9 against 2). The two hard failures come from somewhere other than the quotas.
+
+**Not covered yet.** Unsupported claims and strengthened wording ("helped with" becoming "led") need the reading check. Hebrew CVs are skipped by the string checks because names and degrees are translated.
+
+Founder's ranking (B7): not done yet; `benchmark/ranking-sheet.md`.
