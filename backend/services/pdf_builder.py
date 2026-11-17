@@ -201,14 +201,17 @@ _LABELS: dict[str, dict[str, str]] = {
         "summary": "Professional Summary", "summary_short": "Summary",
         "experience": "Experience", "education": "Education", "skills": "Skills",
         "languages": "Languages", "military": "Military Service",
+        "national_service": "National Service", "civic_service": "Civic Service",
         "volunteering": "Volunteering", "relevant": "Relevant:",
     },
     "he": {
-        # "תמצית" is the Israeli CV term for the summary; "תקציר מקצועי" is a
-        # calque of "Professional Summary".
-        "summary": "תמצית", "summary_short": "תמצית",
+        # "תקציר" is the heading Israeli CV sites use (Nayeret, Custro, Wizlu;
+        # docs/research/06-cv-generation.md section 37). The founder chose it
+        # over "תמצית" on 2026-11-12.
+        "summary": "תקציר", "summary_short": "תקציר",
         "experience": "ניסיון תעסוקתי", "education": "השכלה", "skills": "כישורים",
         "languages": "שפות", "military": "שירות צבאי",
+        "national_service": "שירות לאומי", "civic_service": "שירות אזרחי",
         "volunteering": "התנדבות", "relevant": "קורסים רלוונטיים:",
     },
 }
@@ -395,46 +398,62 @@ def _build_languages(languages: list[dict], L: dict | None = None, locale: str =
     )
 
 
-def _build_military(mil: dict | None, L: dict | None = None) -> str:
+_NATIONAL_RE = re.compile(r"שירות\s+לאומי|\bnational\s+service\b|\bsherut\s+leumi\b", re.I)
+_CIVIC_RE = re.compile(r"שירות\s+אזרחי|\bcivic\s+service\b|\bcivil(ian)?\s+service\b", re.I)
+
+
+def _service_label(mil: dict, L: dict) -> str:
     """
-    Render the military-service block, or nothing at all.
+    Heading for the service section. The same field holds IDF service, national
+    service (שירות לאומי) and civic service (שירות אזרחי); a "Military Service"
+    heading over national service misdescribes the candidate. The kind is read
+    from the entry's own text, and military stays the default.
+    """
+    text = " ".join(str(mil.get(k) or "") for k in ("role_title", "unit_type"))
+    if _CIVIC_RE.search(text):
+        return L.get("civic_service", L["military"])
+    if _NATIONAL_RE.search(text):
+        return L.get("national_service", L["military"])
+    return L["military"]
 
-    Reads the canonical CVDataSchema names (role_title/unit_type). A missing or
-    None section produces an empty string rather than a bare heading — absent
-    must mean absent, since a "Military Service" title with nothing under it is
-    worse than omitting the section for a candidate who did not serve.
 
-    key_responsibilities is optional and usually empty: it earns page space only
-    for candidates whose service IS the leadership evidence (a recent graduate),
-    which is why the <ul> is omitted entirely when the list is empty rather than
-    rendered as an empty container that still costs vertical rhythm.
+def _military_has_detail(mil: dict | None) -> bool:
+    """True when the service carries lines of its own, not just role, unit and dates."""
+    return bool(mil) and any(str(r).strip() for r in (mil.get("key_responsibilities") or []))
+
+
+def _build_military_main(mil: dict | None, L: dict | None = None) -> str:
+    """
+    The service section in the main column, laid out like a job. Placed right
+    after Experience when it has lines of its own, otherwise after Education
+    as a single line (docs/research/06-cv-generation.md sections 43 and 48).
+    Uses the experience markup so every template already styles it, including
+    Tech Modern whose sidebar styles assume a dark background.
     """
     if not mil or not mil.get("role_title"):
         return ""
+    L = L or _LABELS["en"]
     role  = _t(mil.get("role_title", ""), 45)
-    unit  = _t(mil.get("unit_type",  ""), 60)   # canonical unit strings run to ~41 chars
+    unit  = _t(mil.get("unit_type",  ""), 60)
     dates = _t(_format_year_range(mil.get("dates", "")), 20)
-    # unit is optional — omit the span entirely so ::before separators (used by
-    # some templates) don't leave a dangling "—" when there's no unit text.
-    unit_html = f'<span class="mil-unit">{unit}</span>' if unit else ""
-
     responsibilities = [str(r).strip() for r in (mil.get("key_responsibilities") or []) if str(r).strip()]
     resp_html = (
         f'<ul class="bullets">{"".join(f"<li>{_e(r)}</li>" for r in responsibilities[:3])}</ul>'
         if responsibilities else ""
     )
-
     return (
-        f'<div class="side-sec">'
-        f'  <h2 class="sec-title">{(L or _LABELS["en"])["military"]}</h2>'
-        f'  <div class="entry-hdr">'
-        f'    <div class="entry-meta">'
-        f'      <span class="mil-role">{role}</span>'
-        f'      {unit_html}'
+        f'<div class="main-sec">'
+        f'  <h2 class="sec-title">{_service_label(mil, L)}</h2>'
+        f'  <div class="exp-entry">'
+        f'    <div class="entry-hdr">'
+        f'      <div class="entry-meta">'
+        f'        <span class="entry-role">{role}</span>'
+        f'        <span class="entry-company">{unit}</span>'
+        f'      </div>'
+        f'      <span class="entry-dates">{dates}</span>'
         f'    </div>'
-        f'    <span class="entry-dates">{dates}</span>'
+        f'    {resp_html}'
         f'  </div>'
-        f'  {resp_html}'
         f'</div>'
     )
 
@@ -503,7 +522,19 @@ def _flatten(cv_data: dict, user_id: str, contact: dict | None = None,
     flat["education_blocks"]     = _build_education(clean.get("education",  []), L)
     flat["skills_section"]       = _build_skills(clean.get("skills", {}), L)
     flat["languages_section"]    = _build_languages(clean.get("languages", []), L, locale)
-    flat["military_section"]     = _build_military(clean.get("military_service"), L)
+    # Where service goes follows how much the CV says about it (founder
+    # decision 2026-11-12): with lines of its own it reads as experience and
+    # sits right after Experience; as a single line it sits after Education.
+    # How much to say is decided per candidate by the tailoring model (role
+    # relevance, rank and weight of the role, how much of the career it is),
+    # never by a years-of-experience threshold. Same rule in every language.
+    mil = clean.get("military_service")
+    block = _build_military_main(mil, L)
+    if _military_has_detail(mil):
+        flat["military_main"], flat["military_after_education"] = block, ""
+    else:
+        flat["military_main"], flat["military_after_education"] = "", block
+    flat["military_section"] = ""
     flat["volunteering_section"] = _build_volunteering(clean.get("volunteering", ""), L)
 
     return flat

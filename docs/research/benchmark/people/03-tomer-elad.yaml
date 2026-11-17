@@ -1,0 +1,177 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p03
+why: career pivot, QA to product (CLAUDE.md principle 3). Gets a Hebrew CV in part C.
+profile:
+  name: Tomer Elad
+  email: tomer.elad@example.com
+  phone: "054-555-0103"
+  location: Petah Tikva, Israel
+  title: Product Manager
+  summary: >-
+    Product manager with 2 years in product after 4 years in QA and QA
+    leadership at the same B2B SaaS company. Knows the product from the bug
+    reports up, and now owns the onboarding and billing areas.
+  experience:
+    - role: QA Engineer
+      company: Hadria Systems
+      period: 2018 - 2020
+      bullets:
+        - "Tested the web and mobile apps of a field-service SaaS product used by 900 business customers"
+        - "Wrote 300 automated UI tests in Selenium and Python"
+        - "Wrote the bug reports that support and product used, including steps, impact and affected customers"
+    - role: QA Team Lead
+      company: Hadria Systems
+      period: 2020 - 2022
+      bullets:
+        - "Led 5 QA engineers across 3 development squads"
+        - "Introduced a release checklist that cut post-release hotfixes from 9 a quarter to 3"
+        - "Sat in product discovery meetings and wrote acceptance criteria for every story"
+        - "Ran the beta programme with 25 customers and summarised their feedback for the product team"
+    - role: Associate Product Manager
+      company: Hadria Systems
+      period: 2022 - 2023
+      bullets:
+        - "Moved from QA into product, owning the customer onboarding flow"
+        - "Interviewed 30 new customers and found that the data-import step caused most drop-offs"
+        - "Shipped a guided import that raised onboarding completion from 54% to 71%"
+    - role: Product Manager
+      company: Hadria Systems
+      period: 2023 - Present
+      bullets:
+        - "Own onboarding and billing, working with a squad of 6 engineers and a designer"
+        - "Wrote the roadmap and PRDs for self-service plan changes, which cut billing tickets by 40%"
+        - "Define and track the squad's metrics in Mixpanel: activation, time to first job, plan upgrades"
+        - "Work with sales and customer success on the top 20 customer requests each quarter"
+  education:
+    - degree: B.Sc. Industrial Engineering and Management
+      institution: Afeka College of Engineering
+      period: 2014 - 2018
+      honors: ""
+      coursework: Information systems, statistics, operations research
+  skills:
+    categories:
+      - label: Product
+        items: [Roadmapping, PRDs, User interviews, Discovery, Prioritisation, Acceptance criteria]
+      - label: Data
+        items: [Mixpanel, SQL, A/B testing]
+      - label: Tools
+        items: [Jira, Figma, Confluence]
+      - label: QA background
+        items: [Selenium, Python, Test planning, Release management]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: English, level: Fluent}
+  volunteering: ""
+
+jobs:
+  - id: p03-j1
+    title: Senior Machine Learning Engineer
+    company: Vantrell AI
+    location: Tel Aviv
+    language: en
+    fit: none
+    requirements:
+      - {req: "5+ years building ML models", met: false, evidence: "none"}
+      - {req: "PyTorch or TensorFlow", met: false, evidence: "none"}
+      - {req: "M.Sc. in computer science or similar", met: false, evidence: "B.Sc. Industrial Engineering"}
+      - {req: "Python", met: true, evidence: "test automation only"}
+    text: |
+      Vantrell AI builds computer-vision models that inspect products on factory lines.
+
+      We are hiring a Senior Machine Learning Engineer for the detection team.
+
+      What you will do
+      - Train and improve object-detection and segmentation models in PyTorch.
+      - Build the training and evaluation pipelines, including data versioning.
+      - Optimise models to run on edge devices at 30 frames a second.
+      - Work with customers' data: labelling strategy, hard cases, drift.
+      - Review research papers and bring useful ideas into production.
+
+      What we need
+      - 5+ years of hands-on experience building machine-learning models. This is a hard requirement.
+      - Deep experience with PyTorch or TensorFlow.
+      - Strong Python and good software-engineering habits.
+      - M.Sc. in computer science, electrical engineering or similar.
+      - Experience taking a model from research to production.
+
+      Nice to have
+      - ONNX, TensorRT, or experience with edge hardware.
+      - Publications in computer vision.
+
+      Tel Aviv, on site 4 days a week.
+
+  - id: p03-j2
+    title: Product Manager
+    company: Dovetail Field
+    location: Tel Aviv
+    language: en
+    fit: strong
+    requirements:
+      - {req: "2+ years as a product manager in B2B SaaS", met: true, evidence: "2 years as APM and PM at Hadria"}
+      - {req: "Owning a product area with an engineering squad", met: true, evidence: "onboarding and billing, 6 engineers"}
+      - {req: "User research and discovery", met: true, evidence: "30 customer interviews"}
+      - {req: "Working with product metrics", met: true, evidence: "Mixpanel, activation, upgrades"}
+      - {req: "Writing clear requirements", met: true, evidence: "PRDs, acceptance criteria"}
+    text: |
+      Dovetail Field makes scheduling and invoicing software for small service businesses: electricians, cleaners, installers. 4,000 businesses use it every day.
+
+      We are looking for a Product Manager to own the activation area: everything from sign-up to the first invoice sent.
+
+      What you will do
+      - Own the roadmap for onboarding and activation, with a squad of 5 engineers and a designer.
+      - Talk to customers every week and turn what you learn into clear problems to solve.
+      - Write requirements that engineers and QA can build and test from.
+      - Define the metrics for your area and follow them: activation rate, time to first invoice, conversion to paid.
+      - Work with sales, support and customer success on what customers ask for.
+
+      What we need
+      - 2+ years of experience as a product manager in a B2B SaaS product.
+      - Experience owning a product area together with an engineering squad.
+      - Real experience with user research and discovery.
+      - Comfort with product data: funnels, cohorts, A/B tests.
+      - Clear writing in English.
+
+      Nice to have
+      - Experience with onboarding, billing or self-service flows.
+      - A technical background such as QA or development.
+
+      Hybrid, Tel Aviv.
+
+  - id: p03-j3
+    title: Senior Product Manager, Marketplace Growth
+    company: Kindlewood
+    location: Tel Aviv
+    language: en
+    fit: partial
+    requirements:
+      - {req: "5+ years in product management", met: false, evidence: "2 years in product"}
+      - {req: "B2C marketplace or consumer experience", met: false, evidence: "B2B SaaS only"}
+      - {req: "Growth experiments and A/B testing", met: true, evidence: "A/B testing listed, onboarding conversion work"}
+      - {req: "Owning metrics and a roadmap", met: true, evidence: "squad metrics and roadmap"}
+      - {req: "User research", met: true, evidence: "30 interviews"}
+    text: |
+      Kindlewood is a consumer marketplace for second-hand furniture, with 1.2 million monthly visitors.
+
+      We are hiring a Senior Product Manager to lead marketplace growth: bringing buyers back and getting more sellers to list.
+
+      What you will do
+      - Own the growth roadmap for the buyer side, with two squads.
+      - Run a high pace of experiments: 8 to 10 A/B tests a month across web and app.
+      - Work on pricing, promotions and referral mechanics with marketing.
+      - Balance the two sides of the marketplace: supply, demand and trust.
+      - Mentor two product managers.
+
+      What we need
+      - 5+ years of product management experience.
+      - Experience in a B2C marketplace or a large consumer product.
+      - A strong record with growth experiments and A/B testing.
+      - Experience owning metrics and a roadmap for more than one squad.
+      - Strong user-research habits.
+
+      Nice to have
+      - Experience with payments or logistics in a marketplace.
+      - SQL.
+
+      Hybrid, Tel Aviv.
+
+expected_order: [p03-j2, p03-j3, p03-j1]

@@ -92,3 +92,37 @@ async def test_tailor_passes_the_jd_keywords_the_cv_already_has(monkeypatch):
                         lambda jd: {"uat", "onboarding", "kubernetes"})
     await tailor._localize_hebrew(CV, "jd", "u1", None)
     assert captured["terms"] == ["onboarding", "uat"], "only terms the CV already contains"
+
+
+async def test_long_dashes_from_the_hebrew_pass_are_scrubbed(monkeypatch):
+    """The AI-marker scrub ran before this pass, so a dash the Hebrew model
+    wrote reached the PDF. The localized output is scrubbed itself now."""
+    he = _hebrew(CV)
+    he["summary"] = "מומחה/ית הטמעה — מנהל/ת תהליכי Onboarding עבור 1,000 לקוחות B2B SaaS."
+    he["experience"][0]["bullets"][0] = "הובלתי מחזורי UAT – ואישור QA עבור 12 גרסאות."
+    _model_returns(monkeypatch, he)
+    out = await localize_cv_to_hebrew(CV, "jd", [])
+    text = json.dumps(out, ensure_ascii=False)
+    assert "—" not in text and "–" not in text
+    assert "1,000" in out["summary"] and "12" in out["experience"][0]["bullets"][0]
+
+
+def test_the_hebrew_prompt_itself_carries_no_long_dashes():
+    """Long dashes in the instructions invite long dashes in the output."""
+    for text in (cv_localize._SYSTEM, *cv_localize._GENDER_RULES.values()):
+        assert "—" not in text and "–" not in text
+    assert "תקציר" in cv_localize._SYSTEM and "תמצית" not in cv_localize._SYSTEM
+
+
+def test_national_service_is_kept_as_national_service():
+    assert "שירות לאומי" in cv_localize._SYSTEM
+
+
+def test_line_form_is_chosen_per_line_not_one_fixed_form():
+    """Israeli recruiters write scope as verbal nouns ("ניהול", "הטמעת") and
+    keep first person for a result the candidate drove (AllJobs, Drushim,
+    Manpower; research doc 06 section 48). No single form for every line."""
+    s = cv_localize._SYSTEM
+    assert "start with a first-person past-tense verb" not in s
+    assert "verbal noun" in s and "This is the default" in s
+    assert "first-person past" in s and "never third person" in s

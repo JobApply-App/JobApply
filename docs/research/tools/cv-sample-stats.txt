@@ -1,0 +1,117 @@
+
+================ kick_real  n=332
+sections per CV (median): 6.0 | words per CV median: 344.5 IQR 267 509
+first section: [('summary', '73.2%'), ('experience', '12.7%'), ('education', '9.3%'), ('skills', '2.1%')]
+presence: [('education', '94.6%'), ('experience', '93.1%'), ('skills', '86.7%'), ('summary', '73.5%'), ('interests', '42.2%'), ('certifications', '36.1%'), ('volunteering', '23.5%'), ('awards', '19.3%'), ('references', '6.3%'), ('projects', '5.7%'), ('publications', '3.6%'), ('languages', '3.6%')]
+education before experience: 26.3% (of 304)
+top orders:
+    11.1% summary > experience > education > skills > volunteering
+    7.5% summary > experience > education > skills
+    5.4% summary > experience > education > skills > interests
+    4.5% summary > experience > education > skills > certifications
+    3.6% summary > education > experience > skills > interests
+    3.0% summary > experience > education > skills > awards
+roles per CV median: 3 | bullets/lines per role median: 4 IQR 2 5
+bullet length chars: median 91.0 IQR 62 137 | >240 chars: 4.1%
+bullets with a digit: 15.5% (of 4212) | with I/my/me: 3.3%
+entries written as bullet lists: 75.2%
+summary length chars: median 331.5 IQR 240 448 | has summary: 74.1%
+skills items median: 4
+date format in role heads: {'MM/YYYY': 966, 'YYYY': 80}
+top first words: [('developed', '3.3%'), ('managed', '3.1%'), ('conducted', '2.8%'), ('collaborated', '2.7%'), ('provided', '2.4%'), ('led', '1.6%'), ('assisted', '1.5%'), ('implemented', '1.4%'), ('responsible', '1.4%'), ('created', '1.3%'), ('i', '1.1%'), ('worked', '1.1%'), ('coordinated', '1.1%'), ('ensured', '1.0%'), ('oversaw', '1.0%'), ('designed', '0.9%'), ('successfully', '0.9%'), ('maintained', '0.9%'), ('prepared', '0.9%'), ('spearheaded', '0.8%'), ('performed', '0.8%'), ('demonstrated', '0.7%'), ('assist', '0.6%'), ('ensure', '0.6%'), ('identified', '0.6%'), ('executed', '0.6%'), ('supported', '0.5%'), ('established', '0.5%')]
+first-word concentration: top10 share 21.5% | distinct 1112
+other headings: [('cognitive traits', 15), ('social traits', 14), ('emotional traits', 13), ('graphs', 10), ('social media', 8), ('strenghts', 4), ('educación', 4), ('core qualifications', 4), ('i am..', 3), ('leadership experience', 3), ('habilidades', 3), ('licenses', 3), ('perfil', 3), ('experiencia laboral', 3)]
+contact labels: [('email address', '85.5%'), ('phone number', '84.3%'), ('address', '38.9%'), ('web', '32.5%'), ('date of birth', '30.7%'), ('nationality', '22.6%'), ('phone', '5.7%'), ('', '3.6%'), ('e-mail address', '3.6%'), ('e-mail', '3.0%'), ('email', '1.8%'), ('linkedin', '1.5%')]
+
+================ kick_other  n=97
+sections per CV (median): 6 | words per CV median: 275 IQR 245 329
+first section: [('summary', '74.2%'), ('education', '18.6%'), ('experience', '4.1%'), ('languages', '1.0%')]
+presence: [('education', '97.9%'), ('experience', '95.9%'), ('skills', '92.8%'), ('summary', '74.2%'), ('certifications', '43.3%'), ('interests', '38.1%'), ('volunteering', '33.0%'), ('awards', '17.5%'), ('publications', '3.1%'), ('references', '1.0%'), ('languages', '1.0%')]
+education before experience: 45.2% (of 93)
+top orders:
+    22.7% summary > experience > education > skills > volunteering
+    9.3% summary > education > experience > skills > interests
+    7.2% summary > experience > education > skills
+    6.2% summary > experience > education > skills > certifications
+    5.2% education > experience > skills > interests
+    4.1% education > experience > skills
+roles per CV median: 2 | bullets/lines per role median: 4 IQR 3 5
+bullet length chars: median 111.0 IQR 81 155 | >240 chars: 0.9%
+bullets with a digit: 14.0% (of 784) | with I/my/me: 0.1%
+entries written as bullet lists: 100.0%
+summary length chars: median 368.0 IQR 264 460 | has summary: 74.2%
+skills items median: 4.0
+date format in role heads: {'MM/YYYY': 177, 'YYYY': 8}
+top first words: [('collaborated', '7.4%'), ('developed', '7.3%'), ('conducted', '7.0%'), ('managed', '4.3%'), ('provided', '4.1%'), ('assisted', '2.7%'), ('implemented', '2.2%'), ('utilized', '2.0%'), ('led', '2.0%'), ('designed', '1.5%'), ('maintained', '1.5%'), ('recognized', '1.4%'), ('coordinated', '1.4%'), ('created', '1.4%'), ('facilitated', '1.4%'), ('monitored', '1.3%'), ('executed', '1.3%'), ('ensured', '1.1%'), ('directed', '1.1%'), ('organized', '1.1%'), ('prepared', '1.1%'), ('produced', '1.0%'), ('mentored', '1.0%'), ('contributed', '1.0%'), ('participated', '1.0%'), ('demonstrated', '1.0%'), ('delivered', '1.0%'), ('established', '1.0%')]
+first-word concentration: top10 share 40.6% | distinct 185
+other headings: [('core qualifications', 4), ('cognitive traits', 4), ('emotional traits', 4), ('social traits', 4), ('graphs', 2), ('programming languages', 1), ('licenses', 1), ('license', 1), ('adobe creative suite', 1), ('performances', 1), ('profession profile', 1), ('resumen profesional', 1), ('habilidades', 1), ('experiencia laboral', 1)]
+contact labels: [('email address', '80.4%'), ('phone number', '78.4%'), ('web', '47.4%'), ('nationality', '20.6%'), ('address', '19.6%'), ('phone', '12.4%'), ('date of birth', '11.3%'), ('e-mail address', '10.3%'), ('e-mail', '7.2%'), ('telefón', '5.2%'), ('národnosť', '1.0%'), ('dátum narodenia', '1.0%')]
+
+================ kick_tmpl  n=371
+sections per CV (median): 6 | words per CV median: 272 IQR 244 298
+first section: [('summary', '92.5%'), ('education', '7.0%'), ('experience', '0.3%'), ('skills', '0.3%')]
+presence: [('education', '100.0%'), ('experience', '99.7%'), ('skills', '97.8%'), ('summary', '92.5%'), ('certifications', '90.6%'), ('volunteering', '82.5%'), ('interests', '30.2%'), ('awards', '4.9%'), ('references', '0.5%'), ('publications', '0.5%')]
+education before experience: 14.1% (of 370)
+top orders:
+    80.6% summary > experience > education > skills > volunteering
+    3.0% summary > education > experience > skills > certifications
+    1.9% education > experience > skills > certifications
+    1.9% summary > experience > education > skills > certifications
+    1.6% summary > education > experience > skills > interests
+    1.3% education > experience > skills
+roles per CV median: 1.0 | bullets/lines per role median: 5.0 IQR 4 5
+bullet length chars: median 111.0 IQR 89 139 | >240 chars: 0.5%
+bullets with a digit: 14.2% (of 2120) | with I/my/me: 0.0%
+entries written as bullet lists: 98.9%
+summary length chars: median 393 IQR 342 446 | has summary: 92.5%
+skills items median: 9
+date format in role heads: {'MM/YYYY': 470, 'YYYY': 4}
+top first words: [('recognized', '9.7%'), ('collaborated', '6.8%'), ('conducted', '6.6%'), ('developed', '5.4%'), ('managed', '4.7%'), ('provided', '2.8%'), ('oversaw', '2.1%'), ('assisted', '2.1%'), ('implemented', '2.0%'), ('executed', '2.0%'), ('maintained', '1.9%'), ('spearheaded', '1.8%'), ('prepared', '1.7%'), ('achieved', '1.7%'), ('acknowledged', '1.5%'), ('led', '1.4%'), ('produced', '1.4%'), ('designed', '1.4%'), ('identified', '1.3%'), ('monitored', '1.3%'), ('communicated', '1.3%'), ('created', '1.3%'), ('analyzed', '1.1%'), ('coordinated', '1.0%'), ('supported', '1.0%'), ('utilized', '1.0%'), ('organized', '1.0%'), ('actively', '0.9%')]
+first-word concentration: top10 share 44.1% | distinct 197
+other headings: [('core qualifications', 2), ('social media', 2), ('key competences', 1), ('projects / internships', 1), ('skills / stregths', 1), ('highlights of expertise', 1), ('profile summary', 1), ('skills set menu', 1), ('articles', 1), ('skills & qualifications', 1), ('licenses', 1), ('recent work history', 1), ('extra-curricular experience', 1)]
+contact labels: [('email address', '96.5%'), ('phone number', '96.2%'), ('address', '26.4%'), ('web', '16.7%'), ('nationality', '7.3%'), ('phone', '2.4%'), ('e-mail address', '2.2%'), ('e-mail', '1.3%'), ('date of birth', '0.8%'), ('telefón', '0.5%'), ('mobile phone', '0.3%'), ('instagram', '0.3%')]
+
+================ enh  n=288
+sections per CV (median): 8.0 | words per CV median: 456.0 IQR 441 479
+first section: [('summary', '96.9%'), ('experience', '2.8%'), ('awards', '0.3%')]
+presence: [('skills', '100.0%'), ('experience', '100.0%'), ('education', '100.0%'), ('summary', '99.7%'), ('awards', '97.2%'), ('interests', '94.1%'), ('languages', '93.8%'), ('projects', '16.3%'), ('certifications', '3.1%'), ('volunteering', '2.8%')]
+education before experience: 0.0% (of 288)
+top orders:
+    25.7% summary > experience > education > languages > awards
+    22.9% summary > skills > experience > education > awards
+    10.1% summary > experience > languages > education > awards
+    9.7% summary > experience > education > skills > languages
+    6.2% summary > experience > languages > skills > education
+    3.5% summary > skills > experience > education > projects
+roles per CV median: 3.0 | bullets/lines per role median: 4 IQR 4 5
+bullet length chars: median 117.0 IQR 108 128 | >240 chars: 0.0%
+bullets with a digit: 50.5% (of 3696) | with I/my/me: 0.1%
+entries written as bullet lists: 100.0%
+summary length chars: median 354 IQR 316 391 | has summary: 99.7%
+skills items median: 1
+date format in role heads: {}
+top first words: [('collaborated', '9.1%'), ('developed', '7.3%'), ('led', '5.5%'), ('implemented', '4.8%'), ('conducted', '4.6%'), ('managed', '4.4%'), ('utilized', '3.8%'), ('facilitated', '3.2%'), ('assisted', '3.1%'), ('coordinated', '2.5%'), ('provided', '2.0%'), ('enhanced', '1.9%'), ('worked', '1.8%'), ('designed', '1.5%'), ('spearheaded', '1.4%'), ('analyzed', '1.3%'), ('streamlined', '1.3%'), ('mentored', '1.3%'), ('executed', '1.1%'), ('fostered', '1.1%'), ('successfully', '1.1%'), ('demonstrated', '1.1%'), ('supported', '1.1%'), ('monitored', '1.0%'), ('maintained', '1.0%'), ('contributed', '1.0%'), ('improved', '1.0%'), ('prepared', '0.9%')]
+first-word concentration: top10 share 48.3% | distinct 250
+other headings: [('training / courses', 284), ('contacts', 23), ('eligibility summary', 1)]
+pages: {2: 158, 1: 130} | columns: {6: 32, 5: 72, 4: 165, 7: 15, 8: 4}
+body font: [('Inter', 285), ('PT Sans', 1), ('EB Garamond', 1), ('Open Sans', 1)]
+body size px: [('14', 233), ('13', 49), ('12', 5), ('16', 1)]
+accent colours: [('#1E90FF', 63), ('#343334', 37), ('#008CFF', 36), ('#1AB0B3', 32), ('#6F7878', 27), ('#002B7F', 15), ('#22405C', 15), ('#554444', 15)]
+
+================ cf  n=203
+sections per CV (median): 7 | words per CV median: 592 IQR 540 654
+first section: [('summary', '100.0%')]
+presence: [('skills', '100.0%'), ('projects', '100.0%'), ('summary', '100.0%'), ('experience', '100.0%'), ('education', '100.0%')]
+education before experience: 100.0% (of 203)
+top orders:
+    100.0% summary > education > skills > experience > projects
+roles per CV median: 3 | bullets/lines per role median: 3 IQR 3 3
+bullet length chars: median 104 IQR 92 123 | >240 chars: 0.1%
+bullets with a digit: 100.0% (of 1827) | with I/my/me: 0.1%
+entries written as bullet lists: 100.0%
+summary length chars: median 435 IQR 382 504 | has summary: 100.0%
+skills items median: 23
+date format in role heads: {'MM/YYYY': 609}
+top first words: [('built', '9.9%'), ('cut', '8.6%'), ('raised', '3.9%'), ('led', '3.2%'), ('supported', '3.0%'), ('received', '2.7%'), ('ran', '2.6%'), ('hold', '2.4%'), ('reduced', '2.2%'), ('managed', '2.2%'), ('lead', '2.2%'), ('grew', '1.8%'), ('own', '1.8%'), ('designed', '1.8%'), ('wrote', '1.6%'), ('delivered', '1.5%'), ('handled', '1.4%'), ('produced', '1.2%'), ('completed', '1.1%'), ('prepared', '1.1%'), ('coordinated', '1.1%'), ('manage', '1.1%'), ('run', '1.0%'), ('identified', '1.0%'), ('maintained', '0.9%'), ('held', '0.9%'), ('resolved', '0.8%'), ('support', '0.8%')]
+first-word concentration: top10 share 40.7% | distinct 282
+other headings: [('extra-curricular activities', 203), ('leadership', 203)]

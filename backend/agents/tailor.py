@@ -334,7 +334,8 @@ reframe each selected role's bullets in JD vocabulary.
     1. Omit the lowest-scoring role (if DROP RULE satisfied).
     2. Omit coursework from education entries.
     3. Omit volunteering if it carries no JD signal.
-    4. Remove military sidebar if purely optional for this JD type.
+    4. Shorten military service to its one line (no key_responsibilities)
+       when its lines carry no signal for THIS JD. Never drop it entirely.
     5. Reduce a secondary role to 1-2 bullets to reclaim space.
   Goal: the page should feel FULL — dense, substantive, no visual gaps.
   An empty bottom third is worse than a dropped low-signal role.
@@ -384,8 +385,8 @@ reframe each selected role's bullets in JD vocabulary.
   support.
 
 ── MILITARY SERVICE ──────────────────────────────────────────────────────────
-  CS / PM / Leadership roles: INCLUDE in sidebar (discipline, operational credibility).
-  Purely technical SWE roles: OMIT.
+  Always include it when the profile has it (Israeli recruiters look for it).
+  How much to write is decided per candidate: see MILITARY SERVICE below.
   NEVER place in experience array.
 
 ── VOLUNTEERING (Perach) ─────────────────────────────────────────────────────
@@ -666,10 +667,29 @@ RULES:
     Hebrew rank, never a bare rank on its own.
   • unit_type may keep the real unit name — it is a factual identifier, and
     Israeli recruiters read it. Do not invent a "translation" of a unit.
-  • key_responsibilities: only when the service is genuinely load-bearing —
-    a recent graduate, a career-changer, or a JD asking for operational
-    leadership. A candidate with ten years of civilian experience does not
-    need them, and the page budget is better spent on recent work.
+  • HOW MUCH TO WRITE is a judgement about THIS candidate and THIS job, never
+    a rule about years. The layout follows your choice: with
+    key_responsibilities the service is shown right after Experience as a
+    full entry; without them it is one line (role, unit, dates) after
+    Education.
+    Write 2-3 key_responsibilities when ANY of these is true:
+      - the service role is relevant to the target job: the same function,
+        domain, skills or systems the JD asks for (an intelligence analyst
+        applying for data analysis, a logistics officer for operations, a
+        technology unit role for an engineering job);
+      - it was a senior or representative role: an officer with command or
+        staff responsibility (for example captain, major or lieutenant
+        colonel), a commander of people, or an owner of a budget, a system
+        or a programme. Ten years of civilian work does not cancel this: a
+        former major who led 200 people keeps that on the page;
+      - it is a large part of the candidate's working life: little or no
+        civilian experience, or service that ended recently;
+      - the JD asks for operational leadership, security clearance, defence
+        or public-sector experience.
+    Otherwise leave key_responsibilities empty: the one line is enough.
+  • Rank: when the profile states an officer rank and it shows the weight of
+    the role, it may follow the function in brackets, "Company commander
+    (Captain)". Never a bare rank, never a rank the profile does not state.
   • Scale is the most transferable signal there is: headcount supervised,
     systems owned, budget held. Use the number from the profile. NEVER invent
     one — an invented headcount is a lie on a CV, and the reader may well ask

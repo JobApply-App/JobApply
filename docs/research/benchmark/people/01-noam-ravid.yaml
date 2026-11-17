@@ -1,0 +1,179 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p01
+why: plain hi-tech baseline, senior backend engineer
+profile:
+  name: Noam Ravid
+  email: noam.ravid@example.com
+  phone: "050-555-0101"
+  location: Ramat Gan, Israel
+  title: Senior Backend Engineer
+  summary: >-
+    Backend engineer with 9 years of experience building payment and logistics
+    services in Python and Go. Designs services that stay up under load, and
+    has led a team of 4 for the last 2 years.
+  experience:   # oldest first, as the product stores it
+    - role: Software Developer
+      company: IDF, Mamram
+      period: 2012 - 2015
+      bullets:
+        - "Built internal logistics tools in Java and Oracle used by about 600 users"
+        - "Wrote the nightly sync job between two supply systems, cutting manual reconciliation from 3 hours to 20 minutes"
+    - role: Backend Developer
+      company: Pelagon Freight
+      period: 2016 - 2019
+      bullets:
+        - "Developed shipment-tracking services in Python (Django, Celery) on PostgreSQL"
+        - "Moved the tracking API from a single server to AWS ECS with autoscaling"
+        - "Added integration tests that brought release rollbacks down from about 1 in 5 to 1 in 20"
+        - "On-call rotation for a system handling 40,000 shipments a day"
+    - role: Senior Backend Engineer
+      company: Corvina Pay
+      period: 2019 - 2022
+      bullets:
+        - "Designed the ledger service in Go, processing 3 million transactions a day on PostgreSQL"
+        - "Introduced Kafka for payment events, replacing a polling design and cutting settlement delay from 15 minutes to under 1"
+        - "Led the PCI DSS remediation for the backend team with the security lead"
+        - "Mentored 3 junior engineers"
+    - role: Backend Team Lead
+      company: Corvina Pay
+      period: 2022 - Present
+      bullets:
+        - "Lead a team of 4 backend engineers owning the ledger and payouts services"
+        - "Cut p99 latency of the payouts API from 900 ms to 220 ms by redesigning the database access layer"
+        - "Run design reviews and the quarterly planning for the team with the product manager"
+        - "Reduced AWS cost for the team's services by 28% through right-sizing and reserved capacity"
+  education:
+    - degree: B.Sc. Computer Science
+      institution: Bar-Ilan University
+      period: 2015 - 2018
+      honors: ""
+      coursework: Distributed systems, databases, operating systems
+  skills:
+    categories:
+      - label: Languages
+        items: [Python, Go, SQL, Java]
+      - label: Data and messaging
+        items: [PostgreSQL, Kafka, Redis]
+      - label: Cloud and tooling
+        items: [AWS, ECS, Docker, Terraform, GitHub Actions, Datadog]
+      - label: Practices
+        items: [System design, Code review, On-call, Mentoring]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: English, level: Fluent}
+  volunteering: ""
+
+jobs:
+  - id: p01-j1
+    title: Staff Data Platform Engineer
+    company: Quarrystone Data
+    location: Tel Aviv
+    language: en
+    fit: partial
+    requirements:
+      - {req: "8+ years backend or data engineering", met: true, evidence: "9 years"}
+      - {req: "Kafka in production", met: true, evidence: "Corvina Pay payment events"}
+      - {req: "Spark and Scala, hands-on", met: false, evidence: "neither appears in the profile"}
+      - {req: "Airflow and a data lake (S3, Iceberg or Delta)", met: false, evidence: "not in the profile"}
+      - {req: "Python and SQL", met: true, evidence: "skills and all roles"}
+    text: |
+      Quarrystone Data builds the data platform that retail chains use to plan stock and pricing. Our platform ingests about 2 billion events a day from stores and online channels.
+
+      We are looking for a Staff Data Platform Engineer to own the batch and streaming layers of the platform.
+
+      What you will do
+      - Design and run our Spark jobs (Scala) that turn raw events into the tables our analysts and models use.
+      - Own the Airflow deployment and the standards for writing and testing pipelines.
+      - Evolve our data lake on S3 with Iceberg tables: partitioning, compaction, schema changes.
+      - Work with the streaming team on Kafka topics and delivery guarantees.
+      - Set technical direction for a group of 10 data engineers and review their designs.
+
+      What we need
+      - 8+ years in backend or data engineering.
+      - Hands-on production experience with Spark, and strong Scala.
+      - Experience running Airflow at scale and working with a data lake (Iceberg or Delta).
+      - Kafka in production.
+      - Strong Python and SQL.
+      - Experience leading technical decisions across teams.
+
+      Nice to have
+      - Experience with dbt, Trino or ClickHouse.
+      - Retail or supply-chain background.
+
+      Hybrid, 3 days a week in our Tel Aviv office.
+
+  - id: p01-j2
+    title: Senior iOS Engineer
+    company: Marlowe Health
+    location: Herzliya
+    language: en
+    fit: none
+    requirements:
+      - {req: "5+ years of native iOS development in Swift", met: false, evidence: "no mobile work anywhere in the profile"}
+      - {req: "Apps shipped to the App Store", met: false, evidence: "none"}
+      - {req: "UIKit and SwiftUI", met: false, evidence: "none"}
+      - {req: "Experience working with REST APIs", met: true, evidence: "built them, from the server side"}
+    text: |
+      Marlowe Health makes an app that helps people with chronic conditions track treatment and talk to their care team. More than 400,000 people use it every month.
+
+      We are hiring a Senior iOS Engineer for the patient app team.
+
+      What you will do
+      - Build new features in Swift using SwiftUI, and maintain the older UIKit screens.
+      - Own releases to the App Store, including phased rollout and crash monitoring.
+      - Work with design on accessibility: Dynamic Type, VoiceOver, contrast.
+      - Integrate with HealthKit and with our REST and GraphQL APIs.
+      - Review code and help set the architecture of the app (we use a modular MVVM structure).
+
+      What we need
+      - 5+ years of native iOS development in Swift. This is a hard requirement.
+      - At least two apps you helped ship to the App Store.
+      - Strong knowledge of UIKit and SwiftUI, Combine or async/await.
+      - Experience with offline storage (Core Data or SQLite) and with consuming REST APIs.
+      - Care for the details of a medical product: privacy, reliability, clear UI.
+
+      Nice to have
+      - HealthKit, Bluetooth devices, or experience in a regulated product.
+
+      Hybrid, Herzliya.
+
+  - id: p01-j3
+    title: Senior Backend Engineer
+    company: Lumenroute
+    location: Tel Aviv
+    language: en
+    fit: strong
+    requirements:
+      - {req: "7+ years backend development", met: true, evidence: "9 years"}
+      - {req: "Python or Go in production", met: true, evidence: "both, Pelagon and Corvina"}
+      - {req: "PostgreSQL at scale", met: true, evidence: "ledger, 3M transactions a day"}
+      - {req: "Event-driven systems (Kafka or similar)", met: true, evidence: "Kafka for payment events"}
+      - {req: "AWS", met: true, evidence: "ECS, cost reduction"}
+      - {req: "Mentoring or leading engineers", met: true, evidence: "team lead of 4"}
+    text: |
+      Lumenroute is a routing and dispatch platform for delivery fleets. Our customers run 1.5 million deliveries a week through our APIs.
+
+      We are looking for a Senior Backend Engineer to join the core platform team, which owns the order, routing and billing services.
+
+      What you will do
+      - Design and build backend services in Go and Python.
+      - Own services end to end: design, code, deployment, monitoring and on-call.
+      - Improve the performance and reliability of our PostgreSQL-backed services as volume grows.
+      - Work with event-driven flows on Kafka between the order and billing systems.
+      - Mentor engineers on the team and take part in design reviews.
+
+      What we need
+      - 7+ years of backend development.
+      - Production experience in Python or Go (both is a plus).
+      - Deep experience with PostgreSQL at scale: schema design, query tuning, migrations.
+      - Experience with event-driven systems, Kafka or similar.
+      - Experience running services on AWS with containers.
+      - Experience mentoring or leading other engineers.
+
+      Nice to have
+      - Background in payments, billing or logistics.
+      - Terraform and observability tooling such as Datadog.
+
+      Hybrid, 2 days a week in Tel Aviv.
+
+expected_order: [p01-j3, p01-j1, p01-j2]   # strong, partial, none

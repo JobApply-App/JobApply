@@ -104,3 +104,64 @@ def test_hebrew_pages_embed_one_hebrew_font_and_no_italics():
     assert "font-family: 'Heebo'" in html and "data:font/woff2;base64," in html
     assert "font-style: normal !important" in html
     assert "Heebo" not in render_html(EN_CV, "t2_modern", user_id="u"), "English CVs keep their template fonts"
+
+
+NATIONAL = {**HE_CV, "military_service": {"role_title": "רכזת קליטה בשירות לאומי", "unit_type": "בית חולים שערי צדק",
+                                         "dates": "2018 - 2020", "key_responsibilities": ["ליוויתי 40 מתנדבות חדשות."]}}
+
+
+@pytest.mark.parametrize("template_id", TEMPLATES)
+def test_hebrew_summary_heading_is_takzir(template_id):
+    html = render_html(HE_CV, template_id, user_id="u")
+    assert "תקציר" in html and "תמצית" not in html
+
+
+DETAILED = {**HE_CV, "military_service": {**HE_CV["military_service"],
+                                          "key_responsibilities": ["ניהול חמ״ל של 40 חיילים."]}}
+
+
+def _order(html, *marks):
+    body = html[html.index("<body"):]
+    return [body.index(m) for m in marks]
+
+
+@pytest.mark.parametrize("template_id", TEMPLATES)
+def test_service_with_lines_of_its_own_follows_experience(template_id):
+    """Founder decision 2026-11-12: service that needs text sits right after
+    Experience; how much text it gets is the tailoring model's call per person."""
+    html = render_html(DETAILED, template_id, user_id="u")
+    exp, mil, edu = _order(html, "ניסיון תעסוקתי", "שירות צבאי", ">השכלה<")
+    assert exp < mil < edu
+    assert html.count("שירות צבאי") == 1 and "ניהול חמ״ל" in html
+
+
+@pytest.mark.parametrize("template_id", TEMPLATES)
+def test_one_line_service_follows_education(template_id):
+    html = render_html(HE_CV, template_id, user_id="u")
+    edu, mil = _order(html, ">השכלה<", "שירות צבאי")
+    assert edu < mil
+    assert html.count("שירות צבאי") == 1 and "קצין מבצעים" in html
+
+
+@pytest.mark.parametrize("template_id", TEMPLATES)
+def test_english_follows_the_same_rule(template_id):
+    short = render_html(EN_CV, template_id, user_id="u")
+    edu, mil = _order(short, "Education", "Military Service")
+    assert edu < mil and short.count("Military Service") == 1
+    detailed = render_html({**EN_CV, "military_service": DETAILED["military_service"]}, template_id, user_id="u")
+    exp, mil, edu = _order(detailed, "Experience", "Military Service", "Education")
+    assert exp < mil < edu
+
+
+@pytest.mark.parametrize("template_id", TEMPLATES)
+def test_national_service_gets_its_own_heading(template_id):
+    html = render_html(NATIONAL, template_id, user_id="u")
+    assert "שירות לאומי" in html
+    assert ">שירות צבאי<" not in html
+
+
+def test_english_national_service_heading():
+    cv = {**EN_CV, "military_service": {"role_title": "National Service volunteer", "unit_type": "Shaare Zedek",
+                                         "dates": "2018 - 2020", "key_responsibilities": []}}
+    html = render_html(cv, "t1", user_id="u")
+    assert "National Service" in html and ">Military Service<" not in html

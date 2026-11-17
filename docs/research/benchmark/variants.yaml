@@ -1,0 +1,673 @@
+# Reworded and translated versions of the 12 partial-fit job ads (measures A2
+# and A3). Each keeps every requirement of the original ad and adds none.
+# "paraphrase" is in the ad's own language; "translation" is in the other one.
+
+p01-j1:
+  paraphrase:
+    title: Staff Engineer, Data Platform
+    text: |
+      At Quarrystone Data we run the data platform retail chains rely on for stock and pricing decisions. Around 2 billion events reach it every day from shops and online channels.
+
+      We need a Staff Data Platform Engineer who will take charge of both the batch layer and the streaming layer.
+
+      The job
+      - Build and operate the Spark jobs, written in Scala, that convert raw events into tables for analysts and models.
+      - Be the owner of our Airflow setup and of the rules for writing and testing pipelines.
+      - Develop the S3 data lake and its Iceberg tables, covering partitioning, compaction and schema changes.
+      - Agree Kafka topics and delivery guarantees with the streaming team.
+      - Give technical direction to 10 data engineers and review what they design.
+
+      You have
+      - At least 8 years of backend or data engineering work.
+      - Real production experience with Spark, and strong Scala.
+      - Run Airflow at scale and worked with a data lake built on Iceberg or Delta.
+      - Used Kafka in production.
+      - Strong Python and SQL.
+      - Led technical decisions that cut across teams.
+
+      A plus
+      - dbt, Trino or ClickHouse.
+      - A background in retail or supply chain.
+
+      Hybrid: 3 office days a week in Tel Aviv.
+  translation:
+    title: מהנדס/ת פלטפורמת נתונים בכיר/ה (Staff)
+    text: |
+      Quarrystone Data בונה את פלטפורמת הנתונים שבעזרתה רשתות קמעונאיות מתכננות מלאי ותמחור. הפלטפורמה קולטת כ-2 מיליארד אירועים ביום מחנויות ומערוצים מקוונים.
+
+      אנחנו מחפשים מהנדס/ת פלטפורמת נתונים בדרגת Staff, שיהיה אחראי על שכבות ה-batch וה-streaming של הפלטפורמה.
+
+      מה כולל התפקיד
+      - תכנון והרצה של עבודות Spark ב-Scala, שהופכות אירועים גולמיים לטבלאות שמשמשות את האנליסטים והמודלים.
+      - אחריות על סביבת Airflow ועל הסטנדרטים לכתיבה ולבדיקה של תהליכי נתונים.
+      - פיתוח אגם הנתונים ב-S3 עם טבלאות Iceberg: חלוקה למחיצות, דחיסה ושינויי סכמה.
+      - עבודה עם צוות ה-streaming על נושאי Kafka ועל הבטחות מסירה.
+      - קביעת כיוון טכני לקבוצה של 10 מהנדסי נתונים וסקירת התכנונים שלהם.
+
+      דרישות
+      - 8 שנות ניסיון ומעלה בפיתוח Backend או בהנדסת נתונים.
+      - ניסיון מעשי ב-Spark בסביבת ייצור ושליטה גבוהה ב-Scala.
+      - ניסיון בהפעלת Airflow בהיקף גדול ובעבודה עם אגם נתונים (Iceberg או Delta).
+      - ניסיון עם Kafka בסביבת ייצור.
+      - שליטה גבוהה ב-Python וב-SQL.
+      - ניסיון בהובלת החלטות טכניות בין צוותים.
+
+      יתרון
+      - ניסיון עם dbt, Trino או ClickHouse.
+      - רקע בקמעונאות או בשרשרת אספקה.
+
+      משרה היברידית, 3 ימים בשבוע במשרד בתל אביב.
+
+p02-j3:
+  paraphrase:
+    title: Product Data Analyst
+    text: |
+      6 million people play Tavola Games' casual mobile games every month.
+
+      Our product analytics team is hiring a Data Analyst. You will sit with the game designers and product managers of our two biggest titles.
+
+      The job
+      - Decide which product metrics a new feature is judged by, such as retention, session length and conversion, and track them.
+      - Plan and analyse A/B tests. There are normally 10 to 15 live at once.
+      - Build funnels and cohorts in Amplitude, then go deeper using SQL and Python.
+      - Model how players behave: who is likely to churn, how spending splits into segments.
+      - Present recommendations at the weekly product review.
+
+      You have
+      - At least 3 years as a product analyst or data analyst.
+      - Strong SQL, and solid Python for analysis work.
+      - Worked hands-on with an event-based product analytics tool, for example Amplitude or Mixpanel.
+      - Designed A/B tests yourself, including sample size and stopping rules.
+      - A degree in a quantitative subject.
+
+      A plus
+      - Experience in gaming or consumer apps.
+      - dbt.
+
+      Tel Aviv, hybrid.
+  translation:
+    title: אנליסט/ית נתונים, אנליטיקת מוצר
+    text: |
+      Tavola Games מפתחת משחקי מובייל קלילים, ש-6 מיליון איש משחקים בהם בכל חודש.
+
+      אנחנו מחפשים אנליסט/ית נתונים לצוות אנליטיקת המוצר, לעבודה עם מעצבי המשחק ומנהלי המוצר של שני המשחקים הגדולים שלנו.
+
+      מה כולל התפקיד
+      - הגדרה ומעקב של מדדי המוצר ליכולות חדשות: שימור, אורך סשן והמרה.
+      - תכנון וניתוח של ניסויי A/B, בדרך כלל 10 עד 15 במקביל.
+      - בניית משפכים וקוהורטות ב-Amplitude והעמקה באמצעות SQL ו-Python.
+      - מידול התנהגות שחקנים: סיכון נטישה ופלחי הוצאה.
+      - הצגת המלצות בישיבת המוצר השבועית.
+
+      דרישות
+      - 3 שנות ניסיון ומעלה כאנליסט/ית מוצר או כאנליסט/ית נתונים.
+      - שליטה גבוהה ב-SQL ושליטה טובה ב-Python לניתוח.
+      - ניסיון מעשי בכלי אנליטיקת מוצר מבוסס אירועים, כמו Amplitude או Mixpanel.
+      - ניסיון אמיתי בתכנון ניסויי A/B, כולל גודל מדגם וכללי עצירה.
+      - תואר בתחום כמותי.
+
+      יתרון
+      - רקע בגיימינג או באפליקציות לצרכנים.
+      - ניסיון עם dbt.
+
+      משרה היברידית, תל אביב.
+
+p03-j3:
+  paraphrase:
+    title: Senior Product Manager, Growth (Marketplace)
+    text: |
+      Kindlewood is where 1.2 million visitors a month buy and sell second-hand furniture.
+
+      We want a Senior Product Manager to head marketplace growth. The goal is that buyers return and that more sellers put items up.
+
+      The job
+      - Run the buyer-side growth roadmap across two squads.
+      - Keep experiments moving fast: between 8 and 10 A/B tests each month on web and app.
+      - Shape pricing, promotions and referral schemes together with marketing.
+      - Keep both sides of the marketplace in balance: supply, demand and trust.
+      - Mentor two product managers.
+
+      You have
+      - At least 5 years in product management.
+      - Worked on a B2C marketplace or a large consumer product.
+      - A strong history of growth experiments and A/B testing.
+      - Owned the metrics and the roadmap of more than one squad.
+      - Solid user-research habits.
+
+      A plus
+      - Marketplace payments or logistics.
+      - SQL.
+
+      Tel Aviv, hybrid.
+  translation:
+    title: מנהל/ת מוצר בכיר/ה, צמיחת המרקטפלייס
+    text: |
+      Kindlewood היא זירת מסחר לצרכנים לרהיטים יד שנייה, עם 1.2 מיליון מבקרים בחודש.
+
+      אנחנו מחפשים מנהל/ת מוצר בכיר/ה שיוביל את צמיחת המרקטפלייס: להחזיר קונים ולהביא יותר מוכרים לפרסם.
+
+      מה כולל התפקיד
+      - אחריות על מפת הדרכים של הצמיחה בצד הקונים, עם שני צוותים.
+      - קצב ניסויים גבוה: 8 עד 10 ניסויי A/B בחודש באתר ובאפליקציה.
+      - עבודה עם השיווק על תמחור, מבצעים ומנגנוני חבר מביא חבר.
+      - איזון בין שני צדי המרקטפלייס: היצע, ביקוש ואמון.
+      - חניכה של שני מנהלי מוצר.
+
+      דרישות
+      - 5 שנות ניסיון ומעלה בניהול מוצר.
+      - ניסיון במרקטפלייס לצרכנים או במוצר צרכני גדול.
+      - רקורד חזק בניסויי צמיחה ובניסויי A/B.
+      - ניסיון באחריות על מדדים ועל מפת דרכים של יותר מצוות אחד.
+      - הרגלים טובים של מחקר משתמשים.
+
+      יתרון
+      - ניסיון בתשלומים או בלוגיסטיקה במרקטפלייס.
+      - SQL.
+
+      משרה היברידית, תל אביב.
+
+p04-j2:
+  paraphrase:
+    title: COO (Chief Operating Officer)
+    text: |
+      Halcyon Biologics develops biologic drugs for rare diseases and manufactures them at its site in Rehovot. The company has 260 employees.
+
+      We are looking for a Chief Operating Officer who will report to the CEO.
+
+      The job
+      - Head manufacturing, supply chain, quality operations and facilities.
+      - Get the manufacturing site ready for commercial scale and for inspections by regulators.
+      - Hold the operating budget and report on it to the board.
+      - Put together the operations leadership team while the company moves from clinical stage to commercial stage.
+      - Look after the relationships with contract manufacturers and main suppliers.
+
+      You have
+      - At least 15 years in operations, 5 or more of them as an executive.
+      - Worked in pharmaceutical or biotech manufacturing under GMP. We cannot waive this.
+      - Led operations regulated by the FDA or EMA, inspections included.
+      - Owned a large budget and reported to a board.
+      - Built and developed a leadership team before.
+
+      A plus
+      - Biologics or sterile manufacturing.
+      - An engineering or life-science degree.
+
+      On site in Rehovot.
+  translation:
+    title: סמנכ"ל/ית תפעול (COO)
+    text: |
+      Halcyon Biologics מפתחת ומייצרת תרופות ביולוגיות למחלות נדירות. בחברה 260 עובדים ואתר ייצור אחד ברחובות.
+
+      אנחנו מחפשים סמנכ"ל/ית תפעול, בכפיפות למנכ"ל.
+
+      מה כולל התפקיד
+      - הובלת הייצור, שרשרת האספקה, תפעול האיכות והמתקנים.
+      - הכנת אתר הייצור להיקף מסחרי ולביקורות רגולטוריות.
+      - אחריות על תקציב התפעול ודיווח לדירקטוריון.
+      - בניית צוות ההנהלה של התפעול עם מעבר החברה מהשלב הקליני לשלב המסחרי.
+      - ניהול הקשר עם יצרני משנה ועם ספקים מרכזיים.
+
+      דרישות
+      - 15 שנות ניסיון ומעלה בתפעול, מהן לפחות 5 בדרג הנהלה.
+      - ניסיון בייצור פרמצבטי או ביוטכנולוגי בתנאי GMP. דרישת חובה.
+      - ניסיון בהובלת תפעול בפיקוח ה-FDA או ה-EMA, כולל ביקורות.
+      - ניסיון באחריות על תקציב גדול ובדיווח לדירקטוריון.
+      - רקורד של בנייה ופיתוח של צוות הנהלה.
+
+      יתרון
+      - ניסיון בתרופות ביולוגיות או בייצור סטרילי.
+      - תואר בהנדסה או במדעי החיים.
+
+      עבודה מהאתר ברחובות.
+
+p05-j1:
+  paraphrase:
+    title: ראש/ת צוות הצלחת לקוחות
+    text: |
+      לאורביט שירותי ענן יש 600 לקוחות עסקיים בישראל ובאירופה, שמנהלים בעזרת המערכת שלנו את תשתיות הענן שלהם.
+
+      דרוש/ה מנהל/ת לצוות הצלחת הלקוחות. בצוות 7 מנהלי הצלחת לקוחות, והתפקיד כפוף לסמנכ"לית הלקוחות.
+
+      על התפקיד
+      - ניהול ישיר של 7 אנשי הצוות, כולל גיוס, חניכה, שיחות משוב והערכה שנתית.
+      - עמידה ביעדי השימור וההרחבה של הצוות כולו.
+      - הקמת תהליכי עבודה לקליטת לקוחות, לפגישות רבעוניות ולטיפול בלקוחות בסיכון.
+      - ליווי אישי של הלקוחות הגדולים ביותר ברגעים קריטיים.
+      - עבודה יומיומית עם צוותי המכירות, המוצר והתמיכה.
+
+      מה נדרש
+      - ניסיון של 5 שנים לפחות בהצלחת לקוחות בחברת SaaS.
+      - ניסיון של שנתיים לפחות בניהול צוות עובדים. זו דרישת סף.
+      - אחריות קודמת על יעדי שימור והכנסות.
+      - ניסיון בגיוס עובדים ובפיתוחם.
+      - עבודה עם Gainsight או עם מערכת דומה.
+      - אנגלית ברמה גבוהה.
+
+      יתרונות
+      - עבודה מול לקוחות טכניים.
+      - רקע בתמיכה טכנית.
+
+      תל אביב, משרה היברידית.
+  translation:
+    title: Customer Success Team Manager
+    company: Orbit Cloud Services
+    text: |
+      Orbit Cloud Services develops a system for managing cloud infrastructure, with 600 business customers in Israel and Europe.
+
+      We are looking for a Customer Success Team Manager to manage a team of 7 customer success managers and report to the VP Customers.
+
+      What you will do
+      - Directly manage 7 employees: hiring, coaching, feedback talks and yearly reviews.
+      - Own the retention and expansion targets of the whole team.
+      - Build the working processes: customer onboarding, quarterly meetings, handling customers at risk.
+      - Personally accompany the largest customers at critical moments.
+      - Work day to day with sales, product and support.
+
+      What we need
+      - 5+ years of experience in customer success at a SaaS company.
+      - At least 2 years of managing a team of employees. This is a hard requirement.
+      - Experience owning retention and revenue targets.
+      - Experience hiring and developing employees.
+      - Experience with Gainsight or a similar system.
+      - English at a high level.
+
+      Nice to have
+      - Experience with technical customers.
+      - A background in technical support.
+
+      Hybrid, Tel Aviv.
+
+p06-j2:
+  paraphrase:
+    title: מנהל/ת מוקד שירות
+    text: |
+      שקד ביטוח ישיר מוכרת ביטוחי רכב ודירה ונותנת שירות ללקוחותיה בטלפון ובאתר.
+
+      למוקד שירות הלקוחות שלנו בבאר שבע דרוש/ה מנהל/ת.
+
+      על התפקיד
+      - ניהול המוקד: 55 נציגים ו-4 ראשי צוותים.
+      - עמידה ביעדי המוקד, ובהם זמן המתנה, פתרון בשיחה ראשונה ושביעות רצון.
+      - ניהול התקציב של המוקד ותכנון כוח אדם על פי תחזית השיחות.
+      - בקרת איכות וחניכת ראשי הצוותים.
+      - עבודה שוטפת עם מחלקות התביעות, המכירות והרגולציה.
+      - דיווח להנהלה פעם בחודש.
+
+      מה נדרש
+      - ניסיון של 5 שנים לפחות במוקדי שירות.
+      - ניהול קודם של מוקד שבו 40 עובדים או יותר, לרבות ניהול ראשי צוותים.
+      - אחריות קודמת על תקציב ועל יעדי רמת שירות.
+      - ניסיון בבקרת איכות ובחניכה של עובדים.
+      - ניסיון בתכנון משמרות וכוח אדם.
+
+      יתרונות
+      - רקע בביטוח או בפיננסים.
+      - תואר ראשון.
+
+      באר שבע, משרה מלאה.
+  translation:
+    title: Customer Service Centre Manager
+    company: Shaked Direct Insurance
+    text: |
+      Shaked Direct Insurance is a car and home insurance company that sells and gives service by phone and online.
+
+      We are looking for a manager for the customer service centre in Beer Sheva.
+
+      What you will do
+      - Manage a centre of 55 representatives and 4 team leads.
+      - Own the centre's targets: waiting time, first-call resolution and satisfaction.
+      - Manage the centre's budget and plan staffing according to the call forecast.
+      - Run quality monitoring and coach the team leads.
+      - Work with the claims, sales and regulation departments.
+      - Report monthly to management.
+
+      What we need
+      - 5+ years of experience in service call centres.
+      - Experience managing a centre of 40 or more employees, including managing team leads.
+      - Experience owning a budget and service-level targets.
+      - Experience in quality monitoring and coaching employees.
+      - Experience in shift and workforce planning.
+
+      Nice to have
+      - A background in insurance or finance.
+      - A bachelor's degree.
+
+      Full time, Beer Sheva.
+
+p07-j1:
+  paraphrase:
+    title: מעצב/ת מוצר בכיר/ה (UX/UI)
+    text: |
+      200,000 משתמשים פעילים מנהלים את התקציב המשפחתי שלהם באפליקציה של פלואו פיננסים.
+
+      לצוות האפליקציה דרוש/ה מעצב/ת מוצר בכיר/ה.
+
+      על התפקיד
+      - עיצוב של תהליכים ומסכים באפליקציה, משלב הרעיון ועד ההעברה לפיתוח.
+      - מחקר משתמשים ובדיקות שמישות בשיתוף מנהלת המוצר.
+      - תחזוקה והרחבה של מערכת העיצוב שלנו, שבנויה ב-Figma.
+      - עבודה צמודה עם המפתחים ובקרה על איכות התוצר שנבנה.
+      - הצגת העבודה בפני הצוות וההנהלה.
+
+      מה נדרש
+      - ניסיון של 4 שנים לפחות כמעצב/ת מוצר במוצרים דיגיטליים. זו דרישת סף.
+      - שליטה מלאה ב-Figma, לרבות רכיבים ואבות טיפוס.
+      - ניסיון במחקר משתמשים ובבדיקות שמישות.
+      - רמה גבוהה בעיצוב חזותי ובטיפוגרפיה.
+      - ניסיון בעבודה עם מערכת עיצוב.
+      - תיק עבודות שמראה את התהליך ולא רק את המסכים.
+
+      יתרונות
+      - ניסיון באפליקציות פיננסיות.
+      - ניסיון בעיצוב בעברית ובאנגלית.
+
+      תל אביב, משרה היברידית.
+  translation:
+    title: Senior Product Designer (UX/UI)
+    company: Flow Finance
+    text: |
+      Flow Finance develops an app for managing a family budget, with 200,000 active users.
+
+      We are looking for a Senior Product Designer for the app team.
+
+      What you will do
+      - Design flows and screens in the app, from the idea to handoff to development.
+      - Run user research and usability tests together with the product manager.
+      - Maintain and extend our design system in Figma.
+      - Work closely with developers and check the quality of what is built.
+      - Present your work to the team and to management.
+
+      What we need
+      - 4+ years of experience as a product designer on digital products. This is a hard requirement.
+      - Full command of Figma, including components and prototypes.
+      - Experience in user research and usability testing.
+      - Visual design and typography at a high level.
+      - Experience working with a design system.
+      - A portfolio that shows process and not only screens.
+
+      Nice to have
+      - Experience with financial apps.
+      - Experience designing in Hebrew and in English.
+
+      Hybrid, Tel Aviv.
+
+p08-j3:
+  paraphrase:
+    title: Senior Scientist, Bioinformatics
+    text: |
+      Pharma companies come to Genoma Lab for analysis of single-cell and spatial sequencing data.
+
+      Our analysis platform team is hiring a Senior Bioinformatics Scientist.
+
+      The job
+      - Build production pipelines for single-cell RNA sequencing and spatial data, and keep them running.
+      - Write Python packages, properly tested, that the whole analysis group depends on.
+      - Run those pipelines at scale on AWS using Nextflow.
+      - Work out new analysis methods together with scientists at our customers.
+      - Review code and guide two bioinformaticians.
+
+      You have
+      - A Ph.D. in bioinformatics, computational biology, or a life-science field where computation was a large part of the work.
+      - Deep experience in analysing single-cell RNA sequencing data.
+      - Strong Python, with real software-engineering practice behind it: Git, tests, code review and packaging.
+      - Used cloud computing and a workflow tool, Nextflow or Snakemake for example.
+      - At least 3 years of full-time computational work.
+
+      A plus
+      - An immunology or oncology background.
+      - Spatial transcriptomics.
+
+      Tel Aviv, hybrid.
+  translation:
+    title: מדען/ית ביואינפורמטיקה בכיר/ה
+    text: |
+      Genoma Lab מספקת לחברות תרופות ניתוח של ריצוף תא בודד ושל ריצוף מרחבי.
+
+      אנחנו מחפשים מדען/ית ביואינפורמטיקה בכיר/ה לצוות פלטפורמת הניתוח.
+
+      מה כולל התפקיד
+      - בנייה ותחזוקה של תהליכי ניתוח בסביבת ייצור לריצוף RNA של תא בודד ולנתונים מרחביים.
+      - כתיבת חבילות Python עם בדיקות טובות, שמשמשות את כל קבוצת הניתוח.
+      - הרצת התהליכים בהיקף גדול ב-AWS באמצעות Nextflow.
+      - פיתוח שיטות ניתוח חדשות יחד עם המדענים של הלקוחות.
+      - סקירות קוד והנחיית שני ביואינפורמטיקאים.
+
+      דרישות
+      - דוקטורט בביואינפורמטיקה, בביולוגיה חישובית או בתחום במדעי החיים עם מרכיב חישובי כבד.
+      - ניסיון מעמיק בניתוח נתוני ריצוף RNA של תא בודד.
+      - שליטה גבוהה ב-Python והרגלי הנדסת תוכנה של ממש: Git, בדיקות, סקירות קוד ואריזת חבילות.
+      - ניסיון במחשוב ענן ובכלי לניהול תהליכים, כמו Nextflow או Snakemake.
+      - 3 שנות ניסיון ומעלה בעבודה חישובית במשרה מלאה.
+
+      יתרון
+      - רקע באימונולוגיה או באונקולוגיה.
+      - ניסיון בטרנסקריפטומיקה מרחבית.
+
+      משרה היברידית, תל אביב.
+
+p09-j2:
+  paraphrase:
+    title: מנהל/ת תפעול אזור
+    text: |
+      לשביט קמעונאות 42 חנויות של מוצרים לבית ולגינה.
+
+      לאזור השרון דרוש/ה מנהל/ת תפעול, שבאחריותו 11 חנויות.
+
+      על התפקיד
+      - ניהול של 11 מנהלי חנויות, ואחריות על כ-160 עובדים.
+      - אחריות על תוצאות האזור: מכירות, עלות שכר, פחת ורווח.
+      - בניית התקציב של האזור ומעקב אחריו מדי חודש.
+      - ביקור שבועי בחנויות ובקרה על הנראות, המלאי והשירות.
+      - גיוס מנהלי חנויות ופיתוחם.
+      - עבודה מול מטה הרשת, כלומר רכש, שיווק ומשאבי אנוש.
+
+      מה נדרש
+      - ניסיון של 5 שנים לפחות בניהול תפעול בחברה אזרחית.
+      - ניהול קודם של מנהלים בכמה אתרים.
+      - אחריות קודמת על תקציב ועל רווח והפסד.
+      - ניסיון בקמעונאות.
+      - תואר ראשון.
+      - רישיון נהיגה ונכונות לנסוע מדי יום.
+
+      יתרונות
+      - ניסיון ברשת של מוצרים לבית.
+      - רקע פיקודי בצבא.
+
+      אזור השרון, משרה מלאה, רכב צמוד.
+  translation:
+    title: Regional Operations Manager
+    company: Shavit Retail
+    text: |
+      Shavit Retail is a chain of 42 home and garden stores.
+
+      We are looking for an Operations Manager for the Sharon region, responsible for 11 stores.
+
+      What you will do
+      - Manage 11 store managers and be responsible for about 160 employees.
+      - Own the region's results: sales, payroll cost, shrinkage and profit.
+      - Build the regional budget and follow it monthly.
+      - Visit the stores weekly and check appearance, stock and service.
+      - Hire and develop store managers.
+      - Work with the chain's head office: purchasing, marketing and human resources.
+
+      What we need
+      - 5+ years of experience managing operations in a civilian company.
+      - Experience managing managers across several sites.
+      - Experience owning a budget and profit and loss.
+      - Experience in retail.
+      - A bachelor's degree.
+      - A driving licence and willingness to travel daily.
+
+      Nice to have
+      - Experience in a home-products chain.
+      - A command background in the army.
+
+      Full time, Sharon region. Company car.
+
+p10-j2:
+  paraphrase:
+    title: Director of E-commerce
+    text: |
+      Northfell Gear has 18 stores and an online shop selling camping and hiking equipment.
+
+      Online is now 22% of what Northfell Gear sells, and we are hiring an E-commerce Director to run it.
+
+      The job
+      - Be accountable for the online revenue and profit of Northfell Gear.
+      - Run the site itself: merchandising, search, conversion and checkout.
+      - Lead 5 people covering site trading, digital marketing and customer service for online orders.
+      - Manage the platform vendor and the fulfilment partner.
+      - Plan digital marketing and email together with the marketing department.
+      - Give management the trading numbers every week.
+
+      You have
+      - At least 6 years leading an e-commerce business, with responsibility for its revenue.
+      - Owned a site before: its conversion, merchandising and platform.
+      - Strong knowledge of digital marketing and email.
+      - Managed both a team and a budget.
+      - A background in outdoor or sporting goods.
+
+      A plus
+      - Shopify Plus or Magento.
+      - Marketplaces.
+
+      Netanya, hybrid.
+  translation:
+    title: מנהל/ת סחר מקוון (E-commerce Director)
+    text: |
+      Northfell Gear מוכרת ציוד קמפינג וטיולים ב-18 חנויות ובאתר.
+
+      Northfell Gear מחפשת מנהל/ת סחר מקוון שינהל את הפעילות המקוונת, שהיא היום 22% ממכירות החברה.
+
+      מה כולל התפקיד
+      - אחריות על ההכנסות ועל הרווח של הפעילות המקוונת של Northfell Gear.
+      - ניהול האתר: סידור המוצרים, חיפוש, המרה ותהליך התשלום.
+      - הובלת צוות של 5: מסחר באתר, שיווק דיגיטלי ושירות לקוחות להזמנות מקוונות.
+      - ניהול ספק הפלטפורמה ושותף ההפצה.
+      - תכנון השיווק הדיגיטלי והדיוור יחד עם מחלקת השיווק.
+      - דיווח שבועי של נתוני המסחר להנהלה.
+
+      דרישות
+      - 6 שנות ניסיון ומעלה בהובלת עסק מקוון עם אחריות על הכנסות.
+      - ניסיון באחריות על אתר: המרה, סידור מוצרים ופלטפורמה.
+      - ידע רב בשיווק דיגיטלי ובדיוור.
+      - ניסיון בניהול צוות ותקציב.
+      - רקע בתחום ציוד הטיולים או הספורט.
+
+      יתרון
+      - ניסיון עם Shopify Plus או Magento.
+      - ניסיון עם זירות מסחר.
+
+      משרה היברידית, נתניה.
+
+p11-j2:
+  paraphrase:
+    title: חשב/ת החברה
+    text: |
+      רותם אנרגיה מתקינה מערכות סולאריות במפעלים ובמבני ציבור.
+
+      דרוש/ה חשב/ת, בכפיפות לסמנכ"ל הכספים.
+
+      על התפקיד
+      - אחריות על הסגירה החודשית ועל הדוחות הכספיים, הרבעוניים והשנתיים.
+      - ניהול של 3 מנהלות חשבונות.
+      - עבודה מול רואי החשבון המבקרים ומול רשויות המס.
+      - בקרה על התקציב וניתוח סטיות.
+      - שיפור תהליכי העבודה במחלקה ובמערכת הפריוריטי.
+
+      מה נדרש
+      - רישיון רואה חשבון, או תואר ראשון בחשבונאות.
+      - ניסיון בהכנה של דוחות כספיים.
+      - ידע מעמיק בהנהלת חשבונות.
+      - ניסיון בניהול של מנהלי חשבונות.
+      - שליטה בפריוריטי ובאקסל.
+
+      יתרונות
+      - ניסיון בחברת פרויקטים.
+      - ניסיון במשרד רואי חשבון.
+
+      קריית גת, משרה מלאה.
+  translation:
+    title: Controller
+    company: Rotem Energy
+    text: |
+      Rotem Energy installs solar systems for factories and public buildings.
+
+      We are looking for a Controller who will report to the CFO.
+
+      What you will do
+      - Own the monthly close and the quarterly and annual financial statements.
+      - Manage 3 bookkeepers.
+      - Work with the external auditors and with the tax authorities.
+      - Run budget control and analyse variances.
+      - Improve the working processes in the department and in the Priority system.
+
+      What we need
+      - A CPA licence or a bachelor's degree in accounting.
+      - Experience preparing financial statements.
+      - Deep knowledge of bookkeeping.
+      - Experience managing bookkeepers.
+      - Command of Priority and Excel.
+
+      Nice to have
+      - Experience in a project-based company.
+      - Experience in an accounting firm.
+
+      Full time, Kiryat Gat.
+
+p12-j3:
+  paraphrase:
+    title: ראש/ת צוות Backend
+    text: |
+      סיגמא סייבר מפתחת מערכת שמזהה הונאות בתשלומים מקוונים.
+
+      לצוות ה-Backend של מנוע ההחלטות דרוש/ה ראש/ת צוות.
+
+      על התפקיד
+      - ניהול של 6 מפתחי Backend, כולל גיוס, חניכה והערכות.
+      - תכנון ארכיטקטורה לשירותים שמקבלים 5,000 בקשות בשנייה.
+      - פיתוח מעשי ב-Go וב-Node.js.
+      - אחריות על הזמינות של השירותים ועל תורנויות הצוות.
+      - עבודה מול מדעני הנתונים ומול מנהלי המוצר.
+
+      מה נדרש
+      - ניסיון של 7 שנים לפחות בפיתוח Backend.
+      - ניסיון של שנתיים לפחות בניהול צוות פיתוח.
+      - ניסיון ב-Node.js, ובנוסף ב-Go או ב-Java.
+      - עבודה עם מסדי נתונים מסוג SQL ועם Redis.
+      - עבודה עם AWS ועם Docker.
+      - ניסיון במערכות שעומדות בעומסים גבוהים.
+
+      יתרונות
+      - ניסיון עם Kafka.
+      - רקע בפינטק או בסייבר.
+
+      תל אביב, משרה היברידית.
+  translation:
+    title: Backend Team Lead
+    company: Sigma Cyber
+    text: |
+      Sigma Cyber develops a system that detects fraud in online payments.
+
+      We are looking for a team lead for the backend team of the decision engine.
+
+      What you will do
+      - Manage a team of 6 backend developers: hiring, coaching and reviews.
+      - Design the architecture of services that handle 5,000 requests a second.
+      - Develop hands-on in Go and Node.js.
+      - Own the availability of the services and the team's on-call rotation.
+      - Work with the data science team and with the product managers.
+
+      What we need
+      - 7+ years of experience in backend development.
+      - 2+ years of managing a development team.
+      - Experience in Node.js, and also in Go or Java.
+      - Experience with SQL databases and with Redis.
+      - Experience with AWS and Docker.
+      - Experience with high-load systems.
+
+      Nice to have
+      - Experience with Kafka.
+      - A background in fintech or cyber.
+
+      Hybrid, Tel Aviv.

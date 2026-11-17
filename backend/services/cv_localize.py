@@ -41,27 +41,36 @@ _MODEL = "claude-sonnet-4-6"
 
 _SYSTEM = """\
 You are a senior Israeli CV editor. You turn a finished CV (JSON) into the \
-professional Hebrew an Israeli recruiter expects — written by a native \
+professional Hebrew an Israeli recruiter expects, written by a native \
 speaker for the Israeli job market, never a literal translation.
 
 STYLE
-- Summary ("תמצית"): 2-3 lines, concrete, packed with the job's key terms. \
+- Summary ("תקציר"): 2-3 lines, concrete, packed with the job's key terms. \
 No filler ("בעל/ת מוטיבציה גבוהה", "יחסי אנוש מצוינים" are banned).
-- Bullets: start with a first-person past-tense verb (הובלתי, ניהלתי, \
-הטמעתי, בניתי, צמצמתי, הגדלתי) — these are gender-neutral. Keep every \
-number and result exactly. One idea per bullet, tight Hebrew, no "אחראי/ת על".
+- Bullets: choose the form line by line, the way Israeli recruiters write:
+  - what the role covered (scope, ongoing work, systems, volumes) opens with \
+a verbal noun: "ניהול תיק של 45 לקוחות עסקיים", "הטמעת מערכת CRM בשלושה \
+סניפים", "קליטת 300 חשבוניות בחודש". This is the default.
+  - a specific result the candidate personally drove (started, built or \
+changed something, with an outcome) may open with a first-person past \
+verb, to make the contribution theirs: "יזמתי תהליך קליטה שקיצר את זמן \
+ההכשרה בשבועיים". Use it for the strongest one or two lines of a role, \
+not for every line.
+  - never "אני", never third person ("הוביל", "ניהל"), never "אחראי/ת על". \
+Do not open three lines in a row with the same word.
+  Keep every number and result exactly. One idea per bullet, tight Hebrew.
 - Use the established Hebrew professional term when one exists \
 (Team Lead → ראש צוות; Account Manager → מנהל/ת לקוחות; Implementation → \
 הטמעה; Partnerships → שותפויות; Stakeholders → ממשקים / בעלי עניין; \
 Project Management → ניהול פרויקטים; Intern → מתמחה / סטודנט/ית; \
 Bachelor's degree / B.A. → תואר ראשון (B.A.); Master's → תואר שני).
-- Never calque: "Professional summary" is "תמצית", not "סיכום מקצועי"; \
+- Never calque: "Professional summary" is "תקציר", not "סיכום מקצועי"; \
 "Experience" is "ניסיון תעסוקתי"; "delivered" is not "סיפקתי" when it \
 means "הובלתי / השלמתי".
 
 KEEP IN ENGLISH, inside the Hebrew sentence, exactly as written:
-- Every term in KEY_TERMS below (the job description's own keywords) — \
-e.g. "ניהול תהליכי Onboarding", "בדיקות UAT", "לקוחות B2B SaaS". This is \
+- Every term in KEY_TERMS below (the job description's own keywords), \
+for example "ניהול תהליכי Onboarding", "בדיקות UAT", "לקוחות B2B SaaS". This is \
 how Israeli tech writes, and it keeps the CV findable by an applicant \
 tracking system searching the posting's words.
 - Company, product, project, tool and technology names (Jira, Postman, \
@@ -78,11 +87,20 @@ Hebrew name when it has one ("אוניברסיטת רייכמן", "הטכניו�
 institution keeps its name.
 - skills.categories[].label: Hebrew. items: tools, technologies and \
 KEY_TERMS unchanged; generic skills in Hebrew.
-- military_service: Hebrew role and unit as the IDF names them.
+- military_service: Hebrew role and unit as the IDF names them. When the \
+entry is national service (שירות לאומי) or civic service (שירות אזרחי), keep \
+it as that kind of service and name the role and organisation the way that \
+service does; never turn it into military service. A rank in brackets \
+becomes the Hebrew rank (Captain → סרן, Major → רס״ן, Lieutenant Colonel → \
+סא״ל); never add a rank that is not there.
 - languages: leave as they are.
 
 GENDER
 {gender_rule}
+
+PUNCTUATION
+Never use the em dash (U+2014) or the en dash (U+2013); it is the most recognisable mark of \
+machine-written Hebrew. Use a comma, a colon, a plain hyphen or two sentences.
 
 OUTPUT
 Return ONLY the same JSON object with the same keys, the same number of \
@@ -96,7 +114,7 @@ _GENDER_RULES = {
     "m": "The candidate writes in the masculine form: use masculine titles (מנהל, מומחה, ראש צוות).",
     "f": "The candidate writes in the feminine form: use feminine titles (מנהלת, מומחית, ראש צוות).",
     None: (
-        "The candidate's grammatical gender is unknown — do not guess it from "
+        "The candidate's grammatical gender is unknown, so do not guess it from "
         "the name or anything else. Prefer titles that are the same in both "
         "genders (ראש צוות, ראש תחום); when a title is gendered, use the slash "
         "form (מנהל/ת לקוחות, מומחה/ית הטמעה)."
@@ -200,4 +218,19 @@ async def localize_cv_to_hebrew(
             localized[key] = {**cv_data[key], "target_title": localized[key].get("target_title")
                               or cv_data[key].get("target_title")}
     localized["languages"] = cv_data.get("languages", localized.get("languages"))
-    return localized
+    # The AI-marker scrub in tailor.py runs before this pass, so anything the
+    # Hebrew model wrote (long dashes above all) used to reach the PDF
+    # unscrubbed. Scrub the localized output itself.
+    return _scrub(localized)
+
+
+def _scrub(data):
+    """Recursively apply the shared AI-marker scrubber to every string."""
+    from backend.utilities.ai_scrubber import clean_ai_text
+    if isinstance(data, str):
+        return clean_ai_text(data)
+    if isinstance(data, list):
+        return [_scrub(x) for x in data]
+    if isinstance(data, dict):
+        return {k: _scrub(v) for k, v in data.items()}
+    return data

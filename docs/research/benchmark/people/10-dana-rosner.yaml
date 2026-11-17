@@ -1,0 +1,190 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p10
+why: prior employer (CLAUDE.md principle 2)
+profile:
+  name: Dana Rosner
+  email: dana.rosner@example.com
+  phone: "053-555-0110"
+  location: Raanana, Israel
+  title: Marketing Manager
+  summary: >-
+    Marketing manager with 10 years of experience in consumer brands,
+    covering digital campaigns, retail promotions and a team of 3. Worked at
+    Verdane Outdoor for 4 years before moving to a larger retailer.
+  experience:
+    - role: Education NCO
+      company: IDF, Education Corps
+      period: 2008 - 2010
+      bullets:
+        - "Organised education days and trips for a training base of 400 soldiers"
+    - role: Marketing Coordinator
+      company: Opaline Cosmetics
+      period: 2014 - 2016
+      bullets:
+        - "Coordinated product launches with the agency, the printers and 60 pharmacies"
+        - "Managed the brand's Facebook and Instagram pages, growing followers from 8,000 to 31,000"
+    - role: Digital Marketing Specialist
+      company: Verdane Outdoor
+      period: 2016 - 2018
+      bullets:
+        - "Ran paid campaigns on Google and Meta with a yearly budget of 1.2 million NIS"
+        - "Built the email programme from zero to 85,000 subscribers"
+        - "Raised online sales from campaigns by 46% in 2017"
+    - role: Brand Manager
+      company: Verdane Outdoor
+      period: 2018 - 2020
+      bullets:
+        - "Owned the camping category brand plan and a marketing budget of 3 million NIS"
+        - "Launched a private-label tent range that reached 9% of category sales in its first year"
+        - "Worked with 14 store managers on seasonal displays and promotions"
+    - role: Marketing Manager
+      company: Homestead Retail Group
+      period: 2020 - Present
+      bullets:
+        - "Manage marketing for the home category of a 60-store chain, with a team of 3 and a budget of 7 million NIS"
+        - "Plan the yearly promotion calendar with the commercial team"
+        - "Moved 30% of the print budget to digital and kept store traffic stable"
+        - "Run the loyalty club communications to 400,000 members"
+        - "Report campaign results monthly to the VP Marketing"
+  education:
+    - degree: B.A. Business Administration, Marketing
+      institution: Reichman University
+      period: 2010 - 2013
+      honors: ""
+      coursework: Consumer behaviour, marketing research
+  skills:
+    categories:
+      - label: Marketing
+        items: [Brand planning, Digital campaigns, Retail promotions, Email marketing, Loyalty programmes, Product launches]
+      - label: Tools
+        items: [Google Ads, Meta Ads, Google Analytics, Klaviyo, Excel]
+      - label: Management
+        items: [Team management, Budget ownership, Agency management]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: English, level: Fluent}
+  volunteering: ""
+
+# Prior-employer test (B4). The base job p10-j2 names a company she never worked
+# at, so the base order is not affected by the legacy boost. The variant replaces
+# every "Northfell Gear" in the title, company and text with "Verdane Outdoor",
+# her employer in 2016-2020.
+legacy_variant:
+  job: p10-j2
+  replace: Northfell Gear
+  with: Verdane Outdoor
+
+jobs:
+  - id: p10-j1
+    title: Head of Marketing
+    company: Calloway Sport
+    location: Tel Aviv
+    language: en
+    fit: strong
+    requirements:
+      - {req: "8+ years in consumer or retail marketing", met: true, evidence: "10 years"}
+      - {req: "Managing a marketing team", met: true, evidence: "team of 3"}
+      - {req: "Owning a marketing budget of several million NIS", met: true, evidence: "7M NIS"}
+      - {req: "Digital campaigns and retail promotions", met: true, evidence: "both, at Verdane and Homestead"}
+      - {req: "Loyalty or CRM programmes", met: true, evidence: "400,000-member loyalty club"}
+    text: |
+      Calloway Sport is a chain of 25 sports stores with a growing online shop.
+
+      We are hiring a Head of Marketing to lead the marketing team and report to the CEO.
+
+      What you will do
+      - Lead a team of 4 covering digital, stores and the loyalty club.
+      - Own the yearly marketing plan and a budget of 6 million NIS.
+      - Plan the promotion calendar with the commercial team.
+      - Run digital campaigns with our agency and measure what they bring.
+      - Grow the loyalty club and its communications.
+      - Work with store managers on displays and seasonal launches.
+
+      What we need
+      - 8+ years of experience in consumer or retail marketing.
+      - Experience managing a marketing team.
+      - Experience owning a marketing budget of several million NIS.
+      - Hands-on background in both digital campaigns and in-store promotions.
+      - Experience with a loyalty club or CRM programme.
+
+      Nice to have
+      - Sports, outdoor or fashion background.
+      - Experience working with agencies.
+
+      Hybrid, Tel Aviv.
+
+  - id: p10-j2
+    title: E-commerce Director
+    company: Northfell Gear
+    location: Netanya
+    language: en
+    fit: partial
+    requirements:
+      - {req: "6+ years leading an e-commerce business with revenue responsibility", met: false, evidence: "ran campaigns that drove online sales, never owned the online shop"}
+      - {req: "Owning the site, conversion and merchandising", met: false, evidence: "none"}
+      - {req: "Digital marketing and email", met: true, evidence: "paid campaigns, 85,000 email subscribers"}
+      - {req: "Managing a team and a budget", met: true, evidence: "team of 3, 7M NIS"}
+      - {req: "Outdoor or sporting-goods background", met: true, evidence: "4 years in camping and outdoor retail"}
+    text: |
+      Northfell Gear sells camping and hiking equipment in 18 stores and online.
+
+      Northfell Gear is looking for an E-commerce Director to run the online business, which is now 22% of company sales.
+
+      What you will do
+      - Own online revenue and profit for Northfell Gear.
+      - Run the site: merchandising, search, conversion and checkout.
+      - Lead a team of 5: site trading, digital marketing and customer service for online orders.
+      - Manage the platform vendor and the fulfilment partner.
+      - Plan digital marketing and email with the marketing department.
+      - Report weekly trading numbers to management.
+
+      What we need
+      - 6+ years leading an e-commerce business with responsibility for revenue.
+      - Experience owning a site: conversion, merchandising and platform.
+      - Strong knowledge of digital marketing and email.
+      - Experience managing a team and a budget.
+      - A background in outdoor or sporting goods.
+
+      Nice to have
+      - Experience with Shopify Plus or Magento.
+      - Experience with marketplaces.
+
+      Hybrid, Netanya.
+
+  - id: p10-j3
+    title: DevOps Engineer
+    company: Stratus Forge
+    location: Tel Aviv
+    language: en
+    fit: none
+    requirements:
+      - {req: "4+ years in DevOps or SRE", met: false, evidence: "none"}
+      - {req: "Kubernetes and Terraform", met: false, evidence: "none"}
+      - {req: "AWS or GCP", met: false, evidence: "none"}
+      - {req: "Scripting in Python or Bash", met: false, evidence: "none"}
+    text: |
+      Stratus Forge provides managed cloud platforms to software companies.
+
+      We are looking for a DevOps Engineer for the platform team.
+
+      What you will do
+      - Run and improve our Kubernetes clusters on AWS and GCP.
+      - Write infrastructure as code in Terraform.
+      - Build CI/CD pipelines for our customers' teams.
+      - Take part in the on-call rotation and lead incident reviews.
+      - Improve monitoring and alerting with Prometheus and Grafana.
+
+      What we need
+      - 4+ years of experience in DevOps or site reliability engineering. This is a hard requirement.
+      - Strong hands-on Kubernetes and Terraform.
+      - Production experience on AWS or GCP.
+      - Scripting in Python or Bash.
+      - Solid Linux and networking knowledge.
+
+      Nice to have
+      - Experience with service meshes.
+      - Security certifications.
+
+      Hybrid, Tel Aviv.
+
+expected_order: [p10-j1, p10-j2, p10-j3]

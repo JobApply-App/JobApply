@@ -1,0 +1,179 @@
+# Invented person. Any likeness to a real person or company is accidental.
+id: p07
+why: creative work, portfolio-led. Hebrew job ads.
+profile:
+  name: Gal Peretz
+  email: gal.peretz@example.com
+  phone: "054-555-0107"
+  location: Tel Aviv, Israel
+  title: Senior Graphic Designer
+  summary: >-
+    Graphic designer with 8 years of experience in branding and packaging, in
+    a studio and in-house at a food company. Leads projects from brief to
+    print and works closely with printers and marketing teams.
+  experience:
+    - role: Graphics NCO
+      company: IDF Spokesperson's Unit
+      period: 2010 - 2013
+      bullets:
+        - "Designed posters, infographics and printed booklets for the unit"
+        - "Prepared files for print and worked with the army print house"
+    - role: Junior Graphic Designer
+      company: Studio Tamar & Lev
+      period: 2017 - 2019
+      bullets:
+        - "Designed logos, menus and signage for 30 small businesses and restaurants"
+        - "Prepared print-ready files and checked proofs at the print house"
+        - "Built social media templates used by 8 clients"
+    - role: Graphic Designer
+      company: Studio Tamar & Lev
+      period: 2019 - 2021
+      bullets:
+        - "Led the full rebrand of a regional dairy: logo, 24 packages and trucks"
+        - "Presented concepts to clients and managed 2 rounds of changes per project"
+        - "Art-directed 6 product photo shoots"
+    - role: Senior Graphic Designer (in-house)
+      company: Carmit Foods
+      period: 2021 - Present
+      bullets:
+        - "Own the visual language of 3 snack brands sold in all major supermarket chains"
+        - "Designed 40 new packages and 2 seasonal ranges, working with 4 print suppliers on colour and materials"
+        - "Wrote the brand book that outside agencies now work from"
+        - "Guide a junior designer and 2 freelancers"
+        - "Design the campaign material for stores: shelf strips, stands and posters"
+  education:
+    - degree: B.Des. Visual Communication
+      institution: Shenkar College
+      period: 2013 - 2017
+      honors: Graduation project shown in the college's annual exhibition
+      coursework: Typography, branding, packaging, illustration
+  skills:
+    categories:
+      - label: Design
+        items: [Branding, Packaging design, Typography, Print production, Art direction, Brand books]
+      - label: Software
+        items: [Adobe Illustrator, Adobe Photoshop, Adobe InDesign, Figma]
+      - label: Other
+        items: [Presenting to clients, Working with printers, Guiding junior designers]
+  languages:
+    - {language: Hebrew, level: Native}
+    - {language: English, level: Good}
+  volunteering: Designs the yearly fundraising material for an animal shelter, without charge, since 2020.
+
+jobs:
+  - id: p07-j1
+    title: מעצב/ת מוצר UX/UI בכיר/ה
+    company: פלואו פיננסים
+    location: תל אביב
+    language: he
+    fit: partial
+    requirements:
+      - {req: "4+ years as a product designer on digital products", met: false, evidence: "print, branding and packaging; no digital product work"}
+      - {req: "Expert in Figma", met: true, evidence: "Figma listed, though not used for product work"}
+      - {req: "User research and usability testing", met: false, evidence: "none"}
+      - {req: "Strong visual design and typography", met: true, evidence: "8 years of branding"}
+      - {req: "Building or maintaining a design system", met: true, evidence: "brand book, a related but different thing"}
+    text: |
+      פלואו פיננסים מפתחת אפליקציה לניהול תקציב משפחתי, עם 200,000 משתמשים פעילים.
+
+      אנחנו מחפשים מעצב/ת מוצר בכיר/ה לצוות האפליקציה.
+
+      מה כולל התפקיד
+      - עיצוב תהליכים ומסכים באפליקציה, מהרעיון ועד המסירה לפיתוח.
+      - מחקר משתמשים ובדיקות שמישות, יחד עם מנהלת המוצר.
+      - תחזוקה והרחבה של מערכת העיצוב שלנו ב-Figma.
+      - עבודה צמודה עם מפתחים ובדיקת האיכות של מה שנבנה.
+      - הצגת עבודה לצוות ולהנהלה.
+
+      דרישות
+      - 4 שנות ניסיון ומעלה כמעצב/ת מוצר במוצרים דיגיטליים. דרישת חובה.
+      - שליטה מלאה ב-Figma, כולל רכיבים ואבות טיפוס.
+      - ניסיון במחקר משתמשים ובבדיקות שמישות.
+      - עיצוב חזותי וטיפוגרפיה ברמה גבוהה.
+      - ניסיון בעבודה עם מערכת עיצוב.
+      - תיק עבודות שמציג תהליך ולא רק מסכים.
+
+      יתרון
+      - ניסיון באפליקציות פיננסיות.
+      - ניסיון בעיצוב בעברית ובאנגלית.
+
+      משרה היברידית, תל אביב.
+
+  - id: p07-j2
+    title: מעצב/ת גרפי/ת בכיר/ה למיתוג ואריזות
+    company: סטודיו ענבר
+    location: תל אביב
+    language: he
+    fit: strong
+    requirements:
+      - {req: "6+ years in graphic design", met: true, evidence: "8 years"}
+      - {req: "Packaging design that reached the shelf", met: true, evidence: "40 packages at Carmit, 24 for the dairy"}
+      - {req: "Leading a branding project and presenting to clients", met: true, evidence: "dairy rebrand, client presentations"}
+      - {req: "Print production", met: true, evidence: "works with 4 print suppliers"}
+      - {req: "Illustrator, Photoshop, InDesign", met: true, evidence: "all three"}
+      - {req: "Guiding junior designers", met: true, evidence: "a junior and 2 freelancers"}
+    text: |
+      סטודיו ענבר הוא סטודיו למיתוג שעובד עם חברות מזון, קוסמטיקה ויין.
+
+      אנחנו מחפשים מעצב/ת גרפי/ת בכיר/ה שיוביל פרויקטים של מיתוג ואריזות.
+
+      מה כולל התפקיד
+      - הובלת פרויקטים של מיתוג משלב הבריף ועד הדפוס.
+      - עיצוב אריזות וסדרות מוצרים למדף.
+      - הצגת קונספטים ללקוחות וניהול סבבי תיקונים.
+      - עבודה מול בתי דפוס: הכנת קבצים, בדיקת הגהות, צבע וחומרים.
+      - כתיבת ספרי מותג.
+      - הנחיית מעצבים צעירים בסטודיו.
+
+      דרישות
+      - 6 שנות ניסיון ומעלה בעיצוב גרפי.
+      - ניסיון מוכח בעיצוב אריזות שהגיעו למדף.
+      - ניסיון בהובלת פרויקט מיתוג ובהצגה ללקוחות.
+      - היכרות טובה עם תהליכי דפוס.
+      - שליטה מלאה ב-Illustrator, ב-Photoshop וב-InDesign.
+      - ניסיון בהנחיית מעצבים.
+      - תיק עבודות.
+
+      יתרון
+      - ניסיון בתחום המזון.
+      - ניסיון בארט דירקשן של צילומים.
+
+      משרה מלאה, תל אביב.
+
+  - id: p07-j3
+    title: מפתח/ת Backend
+    company: טרקלין מערכות
+    location: חיפה
+    language: he
+    fit: none
+    requirements:
+      - {req: "3+ years of backend development", met: false, evidence: "no software development"}
+      - {req: "Node.js or Python", met: false, evidence: "none"}
+      - {req: "SQL databases", met: false, evidence: "none"}
+      - {req: "Degree in computer science or equivalent", met: false, evidence: "B.Des."}
+    text: |
+      טרקלין מערכות מפתחת תוכנה לניהול בתי מלון קטנים.
+
+      אנחנו מחפשים מפתח/ת Backend לצוות הליבה.
+
+      מה כולל התפקיד
+      - פיתוח שירותים ב-Node.js וב-Python.
+      - תכנון ותחזוקה של מסדי נתונים ב-PostgreSQL.
+      - בניית ממשקי API לאפליקציית הלקוח ולמערכות הזמנות חיצוניות.
+      - כתיבת בדיקות אוטומטיות והשתתפות בסקירות קוד.
+      - השתתפות בתורנות תמיכה.
+
+      דרישות
+      - 3 שנות ניסיון ומעלה בפיתוח Backend. דרישת חובה.
+      - ניסיון ב-Node.js או ב-Python.
+      - ניסיון עם מסדי נתונים מסוג SQL.
+      - תואר במדעי המחשב או ניסיון שווה ערך.
+      - ניסיון בעבודה עם Git ועם סביבת ענן.
+
+      יתרון
+      - ניסיון עם AWS.
+      - רקע בתחום התיירות.
+
+      משרה היברידית, חיפה.
+
+expected_order: [p07-j2, p07-j1, p07-j3]
