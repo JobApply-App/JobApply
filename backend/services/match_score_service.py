@@ -1135,16 +1135,40 @@ CANDIDATE SUMMARY:
 CANDIDATE SKILLS:
 {cv_skills}
 
-CANDIDATE EXPERIENCE (most recent first):
+CANDIDATE EXPERIENCE (most recent first, numbered, with dates):
 {cv_experience}
+
+JOB REQUIREMENTS (numbered — judge every one):
+{requirements_block}
 {company_legacy_note}{output_language_note}
 Return this exact JSON object:
 {{
   "semantic_score": <integer 0-100>,
   "management_score": <integer 0-100>,
   "fit_brief": "<concise, contextual fit rationale — max 250 characters>",
-  "missing_critical_capabilities": ["<high-level conceptual gap>", ...]
+  "missing_critical_capabilities": ["<high-level conceptual gap>", ...],
+  "requirements": [
+    {{"n": <requirement number>, "verdict": "met" | "partial" | "not_met",
+      "evidence": "<where the profile shows it — max 80 characters>",
+      "years_required": <number or null>, "roles": [<experience numbers>]}}
+  ]
 }}
+
+REQUIREMENTS RULES:
+  • One item per numbered requirement, with the same number. Empty list if none are listed.
+  • met = the profile shows it, in any role, skill or the summary, under any
+    name: an equivalent tool, method or capability counts ("A/B tests" meets
+    "A/B testing"; Jira meets "an agile tracking tool").
+    partial = related or weaker evidence. not_met = nothing in the profile supports it.
+  • evidence: the experience number or skill that shows it, e.g. "[2] ran the
+    CRM migration". Empty only for not_met.
+  • A line that asks for an amount of experience ("5+ years of backend
+    development", "3 שנות ניסיון בניהול"): set years_required to that number and
+    list in roles EVERY experience number whose work counts toward it — any role
+    in that field, whatever its title. Do not add up the years yourself; the
+    dates are summed in code. For every other line years_required is null and
+    roles is [].
+  • More experience or seniority than asked never lowers a verdict.
 
 FIT_BRIEF RULES:
   • Plain text, no markdown, no bullet symbols, no newlines.
@@ -1300,6 +1324,15 @@ def _parse_json_robust(raw: str, job_title: str = "") -> dict | None:
     except json.JSONDecodeError:
         pass
 
+    # 3b. Cut off inside the trailing requirements list: drop the unfinished
+    #     verdict and close the list and the object.
+    cut = raw.rfind("},")
+    if '"requirements"' in raw and cut > raw.find('"requirements"'):
+        try:
+            return json.loads(raw[:cut + 1] + "]}")
+        except json.JSONDecodeError:
+            pass
+
     # 4. Regex extraction — scores only, no fit_brief / capability gaps
     sem_m  = re.search(r'"semantic_score"\s*:\s*(\d+)',   raw)
     mgmt_m = re.search(r'"management_score"\s*:\s*(\d+)', raw)
@@ -1331,10 +1364,19 @@ async def _llm_dual_score(
     company_name: str = "",
     user_id: Optional[str] = None,
     job_id: Optional[str] = None,
-) -> tuple[float, float, str, list[str]]:
+    requirements: Optional[list[str]] = None,
+) -> tuple[float, float, str, list[str], dict[str, float]]:
     """
     Single claude-haiku-4-5 call returning
-    (semantic_score, management_score, fit_brief, missing_critical_capabilities).
+    (semantic_score, management_score, fit_brief, missing_critical_capabilities,
+     requirement credits).
+
+    requirements: the JD's requirement lines (must-haves then advantages).
+    The model judges each one (met / partial / not met, with evidence, and
+    for a years line the roles that count); match_dimensions.requirement_credits
+    turns that into {line: credit 0-1}, summing role dates for years lines.
+    The credits are {} on any failure, and a malformed verdict list never
+    costs the scores themselves.
 
     The response is validated against LLMCapabilityScore (Pydantic) so a
     malformed payload — wrong types, out-of-range scores — is caught
@@ -1344,7 +1386,7 @@ async def _llm_dual_score(
     Falls back to (60.0, 60.0, "", []) on any API, parse, or validation error
     so the composite still gets a reasonable score and the pipeline never crashes.
     """
-    _FALLBACK: tuple[float, float, str, list[str]] = (60.0, 60.0, "", [])
+    _FALLBACK: tuple[float, float, str, list[str], dict[str, float]] = (60.0, 60.0, "", [], {})
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -1365,12 +1407,16 @@ async def _llm_dual_score(
     # FIX: previously sliced to [:5] (oldest entries only) — all entries are now
     # included in reverse-chronological order so the LLM always sees the most
     # relevant recent roles first, regardless of how many entries exist.
+    # Numbered, with dates: the requirement verdicts name roles by number and
+    # requirement_credits sums those roles' dates.
+    shown_experience = list(reversed(cv_data.get("experience", [])))
     exp_lines: list[str] = []
-    for e in reversed(cv_data.get("experience", [])):
+    for n, e in enumerate(shown_experience, 1):
         role    = e.get("role", "").strip()
         company = e.get("company", "").strip()
+        dates   = (e.get("dates") or "").strip()
         bullets = e.get("bullets") or []
-        line    = f"{role} @ {company}"
+        line    = f"[{n}] {role} @ {company}" + (f" ({dates})" if dates else "")
         if bullets and bullets[0]:
             # First 90 chars of the top bullet gives domain context without bloat
             snippet = bullets[0].strip()[:90].rstrip()
@@ -1415,6 +1461,8 @@ async def _llm_dual_score(
         cv_summary          = cv_summary,
         cv_skills           = cv_skills,
         cv_experience       = cv_experience,
+        requirements_block  = "\n".join(f"{i}. {r}" for i, r in enumerate(requirements or [], 1))
+                              or "(none listed)",
         company_legacy_note = company_legacy_note,
     )
 
@@ -1426,7 +1474,7 @@ async def _llm_dual_score(
     try:
         result_llm = await call_llm(
             model       = "claude-haiku-4-5-20251001",
-            max_tokens  = 600,   # headroom for fit_brief + gaps; Hebrew costs ~2x the tokens
+            max_tokens  = 1500,  # fit_brief + gaps + one verdict per requirement; Hebrew ~2x
             temperature = 0.0,   # deterministic — same input → same output every time
             system      = _LLM_SYSTEM_SCORER,
             messages    = [{"role": "user", "content": prompt}],
@@ -1469,12 +1517,23 @@ async def _llm_dual_score(
         fit_brief    = validated.fit_brief.strip()
         gaps       = validated.missing_critical_capabilities[:5]
 
+        verdicts = payload.get("requirements")
+        credits: dict[str, float] = {}
+        if requirements and isinstance(verdicts, list):
+            from backend.services.match_dimensions import requirement_credits
+            credits = requirement_credits(
+                [v for v in verdicts if isinstance(v, dict)], requirements, shown_experience,
+            )
+        elif requirements:
+            logger.warning("match_score LLM: no requirement verdicts for title='%s'", job_title)
+
         logger.info(
             "match_score LLM: semantic=%.0f  management=%.0f  fit_brief_len=%d  "
-            "gaps=%d  title='%s'",
-            semantic, management, len(fit_brief), len(gaps), job_title,
+            "gaps=%d  verdicts=%d/%d  title='%s'",
+            semantic, management, len(fit_brief), len(gaps),
+            len(credits), len(requirements or []), job_title,
         )
-        return semantic, management, fit_brief, gaps
+        return semantic, management, fit_brief, gaps, credits
 
     except json.JSONDecodeError as exc:
         logger.warning(
@@ -1800,6 +1859,7 @@ def _compute_structural(
     user_id: str,
     ats: "object | None",
     jd_structured: Optional[str] = None,
+    credits: Optional[dict[str, float]] = None,
 ) -> "object | None":
     """
     Build and score the four structural dimensions. None on any failure, which
@@ -1841,6 +1901,7 @@ def _compute_structural(
             required_years  = required_years,
             impact          = impact,
             equivalence     = equivalence,
+            credits         = credits,
         )
     except Exception as exc:
         logger.warning("[match-dimensions] structural pass failed (non-fatal): %s", exc)
@@ -2174,9 +2235,10 @@ async def compute_match_score_async(
     local = compute_local_proxy_score(inferred_title, jd_text)
 
     # LLM dual scorer (single haiku call, temperature=0.0, Pydantic-validated)
-    semantic, management, fit_brief, missing_caps = await _llm_dual_score(
+    must_haves, nice_haves = _jd_requirements(jd_text, jd_structured)
+    semantic, management, fit_brief, missing_caps, credits = await _llm_dual_score(
         cv_data, jd_text, inferred_title, company_name,
-        user_id=user_id, job_id=job_id,
+        user_id=user_id, job_id=job_id, requirements=[*must_haves, *nice_haves],
     )
 
     # ATS Match Engine — None ⇒ degrade gracefully to the pure LLM composite.
@@ -2191,7 +2253,7 @@ async def compute_match_score_async(
     # Structural dimensions — the deterministic 40% term. Supersedes the raw
     # ATS base score; falls back to it when the dimension pass can't run.
     dims = _compute_structural(cv_data, jd_text, company_name, user_id, ats,
-                               jd_structured=jd_structured)
+                               jd_structured=jd_structured, credits=credits)
 
     proximity = _compute_proximity(job_location, user_id)
 
