@@ -259,6 +259,34 @@ def _stated_literally(jd_term: str, profile_term: str) -> bool:
     return len(tokens) > 1 and _names_skill(str(jd_term), tokens, profile_term)
 
 
+# A requirement line that states an amount of experience ("8+ years of backend
+# development", "שנתיים ומעלה בניהול צוות"). Matched on the raw line, because
+# _norm drops Hebrew letters.
+_YEARS_LINE_RE = re.compile(
+    r"\b\d{1,2}\s*\+?\s*(?:years?|yrs?)\b"
+    r"|\b(?:one|two|three|four|five|six|seven|eight|nine|ten)\s*\+?\s*(?:years?|yrs?)\b"
+    r"|\d{1,2}\s*\+?\s*(?:שנות|שנים|שנה)|שנתיים",
+    re.I,
+)
+
+
+def _is_years_only(
+    jd_term: str,
+    profile_terms: set[str],
+    equivalence: dict[str, set[str]],
+) -> bool:
+    """
+    True for a requirement that asks for a length of experience and names no
+    skill the profile has. Such a line is not a skill, so counting it as a
+    missing one docked a candidate who has the years. The years themselves are
+    judged once, in score_depth_breadth against required_years. A line that
+    does name a profile skill ("5+ years of Python") stays a skill requirement.
+    """
+    if not _YEARS_LINE_RE.search(str(jd_term)):
+        return False
+    return _equivalent(jd_term, profile_terms, equivalence) is None
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Dimension 1 — hard skills (taxonomy-equivalent coverage)
 # ═════════════════════════════════════════════════════════════════════════════
@@ -564,6 +592,15 @@ def compute_dimensions(
     """
     equivalence = equivalence or {}
 
+    profile_terms = {_norm(s) for s in profile_skills if _norm(s)}
+    years_lines = [t for t in [*must_haves, *nice_haves] if _is_years_only(t, profile_terms, equivalence)]
+    must_haves = [t for t in must_haves if t not in years_lines]
+    nice_haves = [t for t in nice_haves if t not in years_lines]
+    years_notes = (
+        [f"Experience-length requirements judged on years, not as skills: {'; '.join(years_lines)}"]
+        if years_lines else []
+    )
+
     skills_score, matched, missing, equivalences = score_hard_skills(
         must_haves, nice_haves, profile_skills, equivalence,
     )
@@ -584,5 +621,5 @@ def compute_dimensions(
         missing_must_haves = missing,
         equivalent_matches = equivalences,
         legacy_company     = legacy,
-        notes              = depth_notes + domain_notes,
+        notes              = years_notes + depth_notes + domain_notes,
     )

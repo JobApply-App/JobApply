@@ -30,7 +30,9 @@ Scoring is split into two phases that map directly to the pipeline stages:
          i.e. the original 50:20 emphasis between the two LLM dimensions
          is preserved, just rescaled to sum to the new 70% allocation.
 
-  Final score = 0.30 × local + 0.70 × (5/7 × semantic + 2/7 × management)
+  Superseded (2026-11): the local proxy no longer counts once the LLM has read
+  the JD. LLM part = 5/7 × semantic + 2/7 × management; thin JD = 0.30 × local.
+  finalize_composite() holds the current formula.
 
   Also runs _phase1() for the rich keyword/skills breakdown used by the
   tag row in the UI (matched_keywords, missing_skills, etc.).
@@ -303,11 +305,8 @@ class MatchScoreResult:
     Composite match score with full component breakdown.
 
     Unified weights (when LLM + ATS engine are both available):
-      llm   = 0.30 × local_score (Keyword Matching Score)
-            + 0.70 × ( 5/7 × semantic_score + 2/7 × management_score )
-              \\__________________________________________________/
-                       "LLM Semantic Capability Score" bucket
-      total = 0.60 × llm + 0.40 × ats_score        (engine base_score)
+      llm   = 5/7 × semantic_score + 2/7 × management_score
+      total = 0.60 × llm + 0.40 × structural       (ats_score when absent)
       total = min(total, 40.0)                     when knockout_failed
 
     When the ATS engine is unavailable (ats_score=None): total = llm.
@@ -331,9 +330,9 @@ class MatchScoreResult:
     llm_validated:       bool            = False
     proficiency_notes:   list[str]       = field(default_factory=list)
     # ── Composite sub-scores (0-100 each) ─────────────────────────────────────
-    local_score:         float           = 0.0   # 30% — Keyword Matching Score (alias-aware)
-    semantic_score:      float           = 0.0   # within the 70% LLM bucket (5/7 share)
-    management_score:    float           = 0.0   # within the 70% LLM bucket (2/7 share)
+    local_score:         float           = 0.0   # title proxy — counts only on the thin-JD path
+    semantic_score:      float           = 0.0   # 5/7 of the LLM part
+    management_score:    float           = 0.0   # 2/7 of the LLM part
     # ── LLM-generated fit brief + conceptual gap list ─────────────────────────
     fit_brief:                       Optional[str]   = None  # populated by _llm_dual_score
     missing_critical_capabilities: list[str]        = field(default_factory=list)
@@ -1535,10 +1534,15 @@ def compute_match_score(
 #     "explicit, disqualifying gap" in the sense of Principle 2, so the cap
 #     legitimately overrides even a company-legacy floor.
 
-_LOCAL_WEIGHT      = 0.30
-_LLM_BUCKET_WEIGHT = 0.70
-_SEMANTIC_SHARE    = 5 / 7   # within the 70% bucket — was 50/(50+20)
-_MANAGEMENT_SHARE  = 2 / 7   # within the 70% bucket — was 20/(50+20)
+#   • The local proxy (compute_local_proxy_score) has no weight once the LLM
+#     has read the JD. It scores the job title against fixed product-manager
+#     and customer-success tiers, not against the user's profile, so for any
+#     other user it pulled every score toward the middle (an exact-fit backend
+#     lead job got local 44.8). It is kept only for the thin-JD path below.
+
+_LOCAL_WEIGHT      = 0.30    # thin-JD path only (Principle 4)
+_SEMANTIC_SHARE    = 5 / 7   # of the LLM part — was 50/(50+20)
+_MANAGEMENT_SHARE  = 2 / 7   # of the LLM part — was 20/(50+20)
 
 _LLM_BLEND_WEIGHT  = 0.60    # unified: share of the LLM semantic composite
 _ATS_BLEND_WEIGHT  = 0.40    # unified: share of the ATS engine base_score
@@ -1652,12 +1656,14 @@ def finalize_composite(
     culture_delta: float | None = None,
     structural: float | None = None,
     proximity_delta: float | None = None,
+    thin_jd: bool = False,
 ) -> float:
     """
     Compose the final 0-100 Match Score from its parts. Pure and deterministic.
 
-      llm_composite = 0.30 × local + 0.70 × (5/7 × semantic + 2/7 × management)
-      unified       = 0.60 × llm_composite + 0.40 × structural
+      thin_jd       → 0.30 × local, and nothing else            (Principle 4)
+      llm_composite = 5/7 × semantic + 2/7 × management         (local has no weight)
+      unified      = 0.60 × llm_composite + 0.40 × structural
       adjusted      = unified + culture_delta                   (when culture ran;
                       bounded ±CULTURE_MAX_ADJUST, see culture_delta_from_alignment)
                       + proximity_delta                         (when a home city and
@@ -1684,16 +1690,19 @@ def finalize_composite(
     multiplier, which would double-penalise. The cap lands AFTER the culture
     delta so a hard-constraint conflict can never be bought back by good vibes.
 
-    Thin-JD callers (Principle 4) use none of this: they zero semantic and
-    management and pass no structural, no ats_base and no culture_delta,
-    preserving exactly 0.30 × local.
+    Thin-JD callers (Principle 4) pass thin_jd=True and get exactly
+    0.30 × local. That is the only path where the local proxy counts: it is a
+    title heuristic, so with no real JD it is the one signal there is, and the
+    0.30 keeps such jobs near the bottom of the feed until a full score runs.
 
     Proximity follows the same Future-Mandate reasoning as culture: without a
     signal the composite is unchanged, the thin path never computes it, it is
     never negative, and the knockout cap still lands after it.
     """
-    llm_bucket    = _SEMANTIC_SHARE * semantic + _MANAGEMENT_SHARE * management
-    llm_composite = _LOCAL_WEIGHT * local + _LLM_BUCKET_WEIGHT * llm_bucket
+    if thin_jd:
+        return round(min(100.0, max(0.0, _LOCAL_WEIGHT * local)), 1)
+
+    llm_composite = _SEMANTIC_SHARE * semantic + _MANAGEMENT_SHARE * management
 
     deterministic = structural if structural is not None else ats_base
 
@@ -2027,7 +2036,8 @@ async def compute_match_score_async(
       Runs Phase 1 for keyword breakdown (now alias/synonym-aware — see
       _CAPABILITY_ALIASES), then the LLM dual-scorer for the 70% "LLM
       Semantic Capability Score" bucket (semantic_score + management_score).
-      final = 0.30 × local  +  0.70 × (5/7 × semantic + 2/7 × management)
+      LLM part = 5/7 × semantic + 2/7 × management (see finalize_composite;
+      the local proxy no longer counts on this path)
 
       The 5/7 : 2/7 split inside the 70% bucket preserves the original
       50:20 relative emphasis between semantic fit and management/tooling
@@ -2120,7 +2130,7 @@ async def compute_match_score_async(
         inferred_title = job_title or jd_text[:60].split("\n")[0].strip()
         local          = compute_local_proxy_score(inferred_title, jd_text)
         # semantic=0, management=0, no ATS blend → exactly 0.30 × local
-        composite      = finalize_composite(local, 0.0, 0.0)
+        composite      = finalize_composite(local, 0.0, 0.0, thin_jd=True)
         p1             = _phase1(cv_data, jd_text, skill_proficiencies)
         logger.warning(
             "match_score LLM: jd_text too thin (%d chars) — semantic=0 management=0 "
@@ -2153,7 +2163,8 @@ async def compute_match_score_async(
     # ── Full unified composite ────────────────────────────────────────────────
     #
     # 1) LLM semantic composite:
-    #      30% local proxy + 70% LLM bucket (5/7 semantic : 2/7 management)
+    #      5/7 semantic + 2/7 management (the local proxy is computed for
+    #      display only on this path)
     # 2) ATS Match Engine (Layer 0 knockouts + Layer 1 coverage + Layer 2 impact)
     #    blended in at 40%, and its KnockoutResult applied as a hard 40-pt cap.
     # All arithmetic lives in finalize_composite() — the single source of truth

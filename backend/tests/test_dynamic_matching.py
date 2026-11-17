@@ -142,7 +142,7 @@ def test_composite_unchanged_when_culture_delta_none():
         dict(local=80.0, semantic=70.0, management=60.0),
         dict(local=80.0, semantic=70.0, management=60.0, ats_base=55.0),
         dict(local=80.0, semantic=70.0, management=60.0, ats_base=55.0, knockout_failed=True),
-        dict(local=94.0, semantic=0.0, management=0.0),   # thin-JD shape
+        dict(local=94.0, semantic=0.0, management=0.0, thin_jd=True),   # thin-JD shape
     ]
     for kw in cases:
         assert finalize_composite(**kw) == finalize_composite(**kw, culture_delta=None)
@@ -156,9 +156,9 @@ def test_culture_delta_shifts_composite_exactly():
            round(base - 2.8, 1)
 
 
-def test_existing_weight_distribution_is_untouched():
-    # 0.30×local + 0.70×(5/7×sem + 2/7×mgmt), then 0.60/0.40 ATS blend.
-    llm = 0.30 * 80.0 + 0.70 * (5 / 7 * 70.0 + 2 / 7 * 60.0)
+def test_weight_distribution():
+    # 5/7×sem + 2/7×mgmt (local has no weight), then 0.60/0.40 ATS blend.
+    llm = 5 / 7 * 70.0 + 2 / 7 * 60.0
     assert finalize_composite(80.0, 70.0, 60.0) == round(llm, 1)
     assert finalize_composite(80.0, 70.0, 60.0, ats_base=55.0) == \
            round(0.60 * llm + 0.40 * 55.0, 1)
@@ -167,7 +167,7 @@ def test_existing_weight_distribution_is_untouched():
 def test_thin_jd_composite_shape_never_gains_culture():
     # Principle 4: thin path is exactly 0.30 × local — and the pipeline never
     # passes a culture_delta there (culture runs only in the full path).
-    assert finalize_composite(94.0, 0.0, 0.0) == round(0.30 * 94.0, 1) == 28.2
+    assert finalize_composite(94.0, 0.0, 0.0, thin_jd=True) == round(0.30 * 94.0, 1) == 28.2
 
 
 def test_knockout_cap_applies_after_culture_delta():
