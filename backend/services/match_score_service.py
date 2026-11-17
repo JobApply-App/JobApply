@@ -1370,6 +1370,27 @@ def _parse_json_robust(raw: str, job_title: str = "") -> dict | None:
     return None
 
 
+def _most_recent_first(experience: list[dict]) -> list[dict]:
+    """
+    The roles newest first, for the scorer prompt (CLAUDE.md principle 1).
+
+    Every caller already passes them newest first: build_cv_data keeps the
+    profile's order and a CV lists its latest job on top. An older version of
+    this code reversed that, so the prompt showed the oldest role first under
+    the heading "most recent first". When every role has readable dates they
+    are sorted by start, then end, latest first; otherwise the given order is
+    kept, since a partial sort would move undated roles to arbitrary places.
+    """
+    from backend.services.match_dimensions import role_span
+
+    roles = list(experience or [])
+    spans = [role_span(str((e or {}).get("dates") or "")) for e in roles]
+    if roles and all(spans):
+        order = sorted(range(len(roles)), key=lambda i: (-spans[i][0], -spans[i][1], i))
+        return [roles[i] for i in order]
+    return roles
+
+
 async def _llm_dual_score(
     cv_data: dict,
     jd_text: str,
@@ -1424,11 +1445,11 @@ async def _llm_dual_score(
 
     # ── Experience: most-recent-first, full list, with brief bullet context ───
     # FIX: previously sliced to [:5] (oldest entries only) — all entries are now
-    # included in reverse-chronological order so the LLM always sees the most
-    # relevant recent roles first, regardless of how many entries exist.
+    # included, most recent first, so the LLM always sees the most relevant
+    # recent roles first, regardless of how many entries exist.
     # Numbered, with dates: the requirement verdicts name roles by number and
     # requirement_credits sums those roles' dates.
-    shown_experience = list(reversed(cv_data.get("experience", [])))
+    shown_experience = _most_recent_first(cv_data.get("experience", []))
     exp_lines: list[str] = []
     for n, e in enumerate(shown_experience, 1):
         role    = e.get("role", "").strip()
