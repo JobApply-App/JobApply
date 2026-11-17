@@ -203,4 +203,18 @@ Same 248 scores, with the skills fix (#164), years lines no longer counted as sk
 
 **Not covered yet.** Unsupported claims and strengthened wording ("helped with" becoming "led") need the reading check. Hebrew CVs are skipped by the string checks because names and degrees are translated.
 
-Founder's ranking (B7): not done yet; `benchmark/ranking-sheet.md`.
+## B7: the founder's blind ranking (2026-11-17)
+
+The founder ranked each person's 3 jobs from `benchmark/ranking-sheet.md` without seeing scores. Letters mapped back with `ranking-key.json`.
+
+| | Agreement |
+|---|---|
+| Founder and the designed order | 10/12 (same top job 10/12) |
+| Founder and the system, after #164/#165 | 10/12 |
+| Founder and the system, before | 10/12 |
+
+The system agrees with the designed order for all 12, so the two disagreements are between the founder and the design, not the scorer:
+- **p04** (VP Operations): founder puts the partial-fit COO job above the strong-fit site Operations Manager job. The COO job is a step up; the site job is a step down for her.
+- **p07** (senior graphic designer): founder puts the partial-fit product designer job above the strong-fit senior graphic designer job, a move into a new field.
+
+In both, the founder picked the job the person would likely want, not the one they fit best. The scorer measures fit and must not penalise overqualification or a pivot (CLAUDE.md principle 3), so it should not copy this order. Whether the feed should also show "a step up" or "a move" next to fit is a product question, not a scoring fix.
