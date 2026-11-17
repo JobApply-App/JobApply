@@ -213,7 +213,7 @@ def test_cv_data_matches_matcher_schema_exactly():
     assert isinstance(cv["summary"], str)
     assert isinstance(cv["experience"], list)
     for e in cv["experience"]:
-        assert set(e.keys()) == {"role", "company", "bullets"}
+        assert set(e.keys()) == {"role", "company", "dates", "bullets"}
         assert isinstance(e["bullets"], list)
     assert set(cv["skills"].keys()) == {"categories"}
     assert cv["skills"]["categories"][0]["label"] == "Skills"
@@ -243,7 +243,7 @@ def test_cv_data_flattens_nested_roles():
     cv = build_cv_data(prof, user_id="test-user")
     assert len(cv["experience"]) == 2
     assert cv["experience"][0] == {
-        "role": "Senior PM", "company": "MegaCorp", "bullets": ["Led product."],
+        "role": "Senior PM", "company": "MegaCorp", "dates": "", "bullets": ["Led product."],
     }
 
 

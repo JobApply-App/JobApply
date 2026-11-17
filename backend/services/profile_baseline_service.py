@@ -217,6 +217,15 @@ def assess_completeness(
 
 # ── cv_data assembly (strict match_score_service input schema) ───────────────
 
+def _period(entry: dict) -> str:
+    """A role's dates as the profile shows them: "2016 - 2019", "2022 - present"."""
+    period = str(entry.get("period") or "").strip()
+    if period:
+        return period
+    start, end = str(entry.get("start") or "").strip(), str(entry.get("end") or "").strip()
+    return f"{start} - {end}" if start and end else start
+
+
 def build_cv_data(profile: dict, user_id: str) -> dict:
     """
     Convert a get_profile()-shaped dict into the exact cv_data structure
@@ -228,7 +237,7 @@ def build_cv_data(profile: dict, user_id: str) -> dict:
                                                  # chat-derived supplemental
                                                  # facts (per-user, not the
                                                  # legacy 'default' singleton)
-        "experience": [{"role", "company", "bullets": [str]}],   # FULL history
+        "experience": [{"role", "company", "dates", "bullets": [str]}],   # FULL history
         "skills":     {"categories": [{"label", "items": [str]}]},
       }
 
@@ -240,6 +249,9 @@ def build_cv_data(profile: dict, user_id: str) -> dict:
         company = exp.get("company", exp.get("unit", ""))
         role    = exp.get("role", "")
         details = exp.get("details", "")
+        # The scorer names roles by number for a years requirement, and
+        # match_dimensions.requirement_credits sums their dates.
+        dates   = _period(exp)
 
         nested_roles = exp.get("roles", [])
         if nested_roles:
@@ -248,12 +260,14 @@ def build_cv_data(profile: dict, user_id: str) -> dict:
                 experience.append({
                     "role":    nr.get("title", role),
                     "company": company,
+                    "dates":   _period(nr) or dates,
                     "bullets": [nr_details] if nr_details else [],
                 })
         else:
             experience.append({
                 "role":    role,
                 "company": company,
+                "dates":   dates,
                 "bullets": [details] if details else [],
             })
 

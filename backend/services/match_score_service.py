@@ -1140,6 +1140,9 @@ CANDIDATE EXPERIENCE (most recent first, numbered, with dates):
 
 JOB REQUIREMENTS (numbered — judge every one):
 {requirements_block}
+
+CANDIDATE DOMAINS (industries and fields from their profile):
+{domains_block}
 {company_legacy_note}{output_language_note}
 Return this exact JSON object:
 {{
@@ -1147,12 +1150,22 @@ Return this exact JSON object:
   "management_score": <integer 0-100>,
   "fit_brief": "<concise, contextual fit rationale — max 250 characters>",
   "missing_critical_capabilities": ["<high-level conceptual gap>", ...],
+  "domain_fit": "same" | "adjacent" | "different",
   "requirements": [
     {{"n": <requirement number>, "verdict": "met" | "partial" | "not_met",
       "evidence": "<where the profile shows it — max 80 characters>",
       "years_required": <number or null>, "roles": [<experience numbers>]}}
   ]
 }}
+
+DOMAIN_FIT RULES:
+  • Compare the industry or field of THIS job (from the company and the job
+    description) with the candidate's domains AND their experience above.
+  • same = the candidate has worked in this job's industry or field (a payments
+    company and a candidate who built payment systems; a food brand and a
+    designer who did packaging for food companies).
+  • adjacent = a neighbouring industry or field where most of the context carries over.
+  • different = neither. This is not a penalty: a career change is scored as neutral.
 
 REQUIREMENTS RULES:
   • One item per numbered requirement, with the same number. Empty list if none are listed.
@@ -1365,7 +1378,8 @@ async def _llm_dual_score(
     user_id: Optional[str] = None,
     job_id: Optional[str] = None,
     requirements: Optional[list[str]] = None,
-) -> tuple[float, float, str, list[str], dict[str, float]]:
+    domains: Optional[list[str]] = None,
+) -> tuple[float, float, str, list[str], dict[str, float], Optional[str]]:
     """
     Single claude-haiku-4-5 call returning
     (semantic_score, management_score, fit_brief, missing_critical_capabilities,
@@ -1378,6 +1392,10 @@ async def _llm_dual_score(
     The credits are {} on any failure, and a malformed verdict list never
     costs the scores themselves.
 
+    domains: the candidate's domain entities. The model returns domain_fit
+    (same / adjacent / different) for this job against them and the
+    experience; None when it is missing or not one of the three.
+
     The response is validated against LLMCapabilityScore (Pydantic) so a
     malformed payload — wrong types, out-of-range scores — is caught
     explicitly rather than propagating bad data into the composite formula.
@@ -1386,7 +1404,8 @@ async def _llm_dual_score(
     Falls back to (60.0, 60.0, "", []) on any API, parse, or validation error
     so the composite still gets a reasonable score and the pipeline never crashes.
     """
-    _FALLBACK: tuple[float, float, str, list[str], dict[str, float]] = (60.0, 60.0, "", [], {})
+    _FALLBACK: tuple[float, float, str, list[str], dict[str, float], Optional[str]] = (
+        60.0, 60.0, "", [], {}, None)
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -1463,6 +1482,7 @@ async def _llm_dual_score(
         cv_experience       = cv_experience,
         requirements_block  = "\n".join(f"{i}. {r}" for i, r in enumerate(requirements or [], 1))
                               or "(none listed)",
+        domains_block       = ", ".join(domains or []) or "(none recorded — judge from the experience)",
         company_legacy_note = company_legacy_note,
     )
 
@@ -1527,13 +1547,16 @@ async def _llm_dual_score(
         elif requirements:
             logger.warning("match_score LLM: no requirement verdicts for title='%s'", job_title)
 
+        domain_fit = str(payload.get("domain_fit") or "").strip().lower()
+        domain_fit = domain_fit if domain_fit in ("same", "adjacent", "different") else None
+
         logger.info(
             "match_score LLM: semantic=%.0f  management=%.0f  fit_brief_len=%d  "
-            "gaps=%d  verdicts=%d/%d  title='%s'",
+            "gaps=%d  verdicts=%d/%d  domain_fit=%s  title='%s'",
             semantic, management, len(fit_brief), len(gaps),
-            len(credits), len(requirements or []), job_title,
+            len(credits), len(requirements or []), domain_fit, job_title,
         )
-        return semantic, management, fit_brief, gaps, credits
+        return semantic, management, fit_brief, gaps, credits, domain_fit
 
     except json.JSONDecodeError as exc:
         logger.warning(
@@ -1852,6 +1875,39 @@ def _skill_depth_map(user_id: str) -> dict[str, dict]:
         return {}
 
 
+def _profile_domains(user_id: str) -> list[str]:
+    """
+    The candidate's domains from profile_entities: from the CV upload
+    (cv_aggregator's "domains") and from what they told Ariel. Same rule as
+    _skill_depth_map: an LLM's unverified guess is not used. [] on failure.
+    """
+    try:
+        from sqlalchemy import text as _sql
+
+        from backend.core.database import ENGINE
+
+        if ENGINE.dialect.name != "postgresql":
+            return []
+        with ENGINE.connect() as conn:
+            rows = conn.execute(_sql("""
+                SELECT name FROM public.profile_entities
+                WHERE user_id = CAST(:uid AS uuid)
+                  AND entity_type = 'domain'
+                  AND (origin <> 'inferred' OR verification_status = 'verified')
+                ORDER BY name
+            """), {"uid": user_id}).fetchall()
+        seen: dict[str, str] = {}
+        for r in rows:
+            name = str(r.name or "").strip()
+            if name and name.casefold() not in seen:
+                seen[name.casefold()] = name
+        return list(seen.values())
+    except Exception:
+        logger.warning("[match-dimensions] domain fetch failed — domain judged from experience only",
+                       exc_info=True)
+        return []
+
+
 def _compute_structural(
     cv_data: dict,
     jd_text: str,
@@ -1860,6 +1916,8 @@ def _compute_structural(
     ats: "object | None",
     jd_structured: Optional[str] = None,
     credits: Optional[dict[str, float]] = None,
+    domains: Optional[list[str]] = None,
+    domain_fit: Optional[str] = None,
 ) -> "object | None":
     """
     Build and score the four structural dimensions. None on any failure, which
@@ -1872,7 +1930,8 @@ def _compute_structural(
 
         must_haves, nice_haves = _jd_requirements(jd_text, jd_structured)
         profile_skills = _extract_cv_skills(cv_data)
-        domains = cv_data.get("domains") or []
+        if domains is None:
+            domains = cv_data.get("domains") or []
         if not isinstance(domains, list):
             domains = []
 
@@ -1902,6 +1961,7 @@ def _compute_structural(
             impact          = impact,
             equivalence     = equivalence,
             credits         = credits,
+            domain_fit      = domain_fit,
         )
     except Exception as exc:
         logger.warning("[match-dimensions] structural pass failed (non-fatal): %s", exc)
@@ -2236,9 +2296,11 @@ async def compute_match_score_async(
 
     # LLM dual scorer (single haiku call, temperature=0.0, Pydantic-validated)
     must_haves, nice_haves = _jd_requirements(jd_text, jd_structured)
-    semantic, management, fit_brief, missing_caps, credits = await _llm_dual_score(
+    domains = cv_data.get("domains") or _profile_domains(user_id)
+    semantic, management, fit_brief, missing_caps, credits, domain_fit = await _llm_dual_score(
         cv_data, jd_text, inferred_title, company_name,
         user_id=user_id, job_id=job_id, requirements=[*must_haves, *nice_haves],
+        domains=domains,
     )
 
     # ATS Match Engine — None ⇒ degrade gracefully to the pure LLM composite.
@@ -2253,7 +2315,8 @@ async def compute_match_score_async(
     # Structural dimensions — the deterministic 40% term. Supersedes the raw
     # ATS base score; falls back to it when the dimension pass can't run.
     dims = _compute_structural(cv_data, jd_text, company_name, user_id, ats,
-                               jd_structured=jd_structured, credits=credits)
+                               jd_structured=jd_structured, credits=credits,
+                               domains=domains, domain_fit=domain_fit)
 
     proximity = _compute_proximity(job_location, user_id)
 
