@@ -162,6 +162,7 @@ When `jd_text` is below the minimum length threshold (currently **300 characters
 - `management_score` **must be set to `0.0`**.
 - The composite is computed normally: `0.30 × local + 0.50 × 0 + 0.20 × 0 = 0.30 × local`.
 - This caps un-hydrated jobs at ~28–30 points for an exact title match, keeping them near the **bottom** of the feed until the real JD is fetched and a full re-score runs.
+- Since 2026-11-17 this is the only path where the local proxy counts (`finalize_composite(..., thin_jd=True)`). With a real JD it has no weight: it scores titles against fixed product-manager tiers, not the user's profile.
 
 **Anti-pattern:** Returning `_phase1().total` directly as the composite when the JD is thin. A Phase-1-only score of 94 for "Senior Product Manager" with an empty JD is a false positive that surfaces irrelevant jobs at the top of the feed.
 

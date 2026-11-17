@@ -415,7 +415,7 @@ async def refresh_user_scores(user_id: str, only_job_id: Optional[str] = None) -
 
     Pass C — Score with Claude
         compute_match_score_async(run_llm_validation=True) computes the full
-        3-component composite (30% local + 50% semantic + 20% management).
+        composite (see match_score_service.finalize_composite).
         If jd_text is still thin after hydration (sentinel or empty), the
         match_score_service LLM guard fires and only Phase 1 runs — no wasted
         API call.
