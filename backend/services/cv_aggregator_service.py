@@ -78,35 +78,99 @@ def extract_text(content: bytes, filename: str) -> str:
     return text
 
 
+_RTL_RE = re.compile(r'[\u0590-\u05FF\u0600-\u06FF]')
+# LTR runs (words, numbers, symbols) separated by spaces
+_LTR_RUN_RE = re.compile(
+    r'[A-Za-z0-9@#.$%^&*()[\]{}<>\-_|+]+(?:[\s]+[A-Za-z0-9@#.$%^&*()[\]{}<>\-_|+]+)*'
+)
+
+
+def _fix_rtl_visual(text: str) -> str:
+    """
+    pdfplumber returns Hebrew in visual order (letters reversed). Reverse the
+    line, then put the LTR runs inside it (English, numbers, dates) back.
+    """
+    if not text or not _RTL_RE.search(text):
+        return text
+    return _LTR_RUN_RE.sub(lambda m: m.group(0)[::-1], text[::-1])
+
+
+def _char_key(c: dict) -> tuple:
+    return (round(c["x0"], 2), round(c["top"], 2), c["text"])
+
+
+def _center_in(c: dict, boxes) -> bool:
+    x = (c["x0"] + c["x1"]) / 2
+    y = (c["top"] + c["bottom"]) / 2
+    return any(b[0] <= x <= b[2] and b[1] <= y <= b[3] for b in boxes)
+
+
+def _plumber_page_text(page) -> str:
+    """
+    One page through pdfplumber. A one-column page goes through the original
+    `extract_text(layout=True)` path untouched. A multi-column page (see
+    backend/services/pdf_columns.py) is read region by region, each region
+    being one column of one band, so a sidebar never shares a line with the
+    main column.
+    """
+    from backend.services import pdf_columns
+
+    regions = None
+    try:
+        words = page.extract_words(return_chars=True)
+        # Rotated words (a sideways "RESUME" down the margin) are decoration
+        # on design-tool CVs, and their tall boxes would straddle the columns.
+        segments = pdf_columns.build_segments(
+            (w["x0"], w["top"], w["x1"], w["bottom"], w["text"], w) for w in words if w.get("upright", True)
+        )
+        rtl = pdf_columns.page_is_rtl("".join(w["text"] for w in words))
+        regions = pdf_columns.reading_regions(segments, rtl)
+    except Exception as exc:
+        # Column detection is an improvement over the old path, never a
+        # reason to lose the page: fall back to reading it as one column.
+        logger.warning("[cv_aggregator] column detection failed (%s): %s", type(exc).__name__, exc)
+
+    if not regions:
+        text = page.extract_text(layout=True)
+        if not text:
+            return ""
+        return "\n".join(_fix_rtl_visual(line) for line in text.split("\n"))
+
+    chunks = []
+    for region in regions:
+        # The region's own letters, plus the space glyphs between them (which
+        # extract_words leaves out). Letters are matched by identity, not by
+        # area, so an overlapping box never pulls in another region's text.
+        own = {_char_key(c) for seg in region for w in seg.words for c in w["chars"]}
+        boxes = [(seg.x0 - 1, seg.top - 1, seg.x1 + 1, seg.bottom + 1) for seg in region]
+        sub = page.filter(lambda o, own=own, boxes=boxes: o.get("object_type") == "char" and (
+            _char_key(o) in own
+            or (not o["text"].strip() and _center_in(o, boxes))
+        ))
+        raw = sub.extract_text(layout=True) or ""
+        # layout=True pads with the page's blank space around the region;
+        # strip it and keep at most one blank line in a row.
+        lines = []
+        for line in raw.split("\n"):
+            line = _fix_rtl_visual(line).strip()
+            if line or (lines and lines[-1]):
+                lines.append(line)
+        chunk = "\n".join(lines).strip()
+        if chunk:
+            chunks.append(chunk)
+    return "\n\n".join(chunks)
+
+
 def _extract_pdf(content: bytes) -> str:
     try:
         import pdfplumber
-        import io
-        import re
-
-        def fix_rtl_visual(text: str) -> str:
-            if not text:
-                return text
-            # If no Hebrew/Arabic is present, return text as-is
-            if not re.search(r'[\u0590-\u05FF\u0600-\u06FF]', text):
-                return text
-            
-            rev = text[::-1]
-            def re_rev(m):
-                return m.group(0)[::-1]
-                
-            # Match LTR sequences (words, numbers, symbols) separated by spaces
-            ltr_pattern = r'[A-Za-z0-9@#.$%^&*()[\]{}<>\-_|+]+(?:[\s]+[A-Za-z0-9@#.$%^&*()[\]{}<>\-_|+]+)*'
-            return re.sub(ltr_pattern, re_rev, rev)
 
         pages_text = []
         with pdfplumber.open(io.BytesIO(content)) as pdf:
             for page in pdf.pages:
-                text = page.extract_text(layout=True)
+                text = _plumber_page_text(page)
                 if text:
-                    # Fix RTL for each line
-                    fixed_lines = [fix_rtl_visual(line) for line in text.split('\n')]
-                    pages_text.append('\n'.join(fixed_lines))
+                    pages_text.append(text)
 
         text = "\n".join(pages_text).strip()
     except Exception as exc:
@@ -119,6 +183,36 @@ def _extract_pdf(content: bytes) -> str:
     return _extract_pdf_pymupdf(content)
 
 
+def _pymupdf_page_text(page) -> str:
+    """
+    PyMuPDF's default order is the order the design tool drew the text in:
+    on Canva exports that is all headings first, then paragraphs, sometimes
+    bullets under the wrong job. On a multi-column page each region is read
+    on its own, sorted by position. Sorting reverses Hebrew word order on
+    Chromium-made PDFs (docs/research/02-ats-systems.md), so right-to-left
+    pages keep the default order inside each region.
+    """
+    import fitz
+    from backend.services import pdf_columns
+
+    default = page.get_text()
+    try:
+        words = page.get_text("words")
+        segments = pdf_columns.build_segments((w[0], w[1], w[2], w[3], w[4], w) for w in words)
+        rtl = pdf_columns.page_is_rtl(default)
+        regions = pdf_columns.reading_regions(segments, rtl)
+    except Exception as exc:
+        logger.warning("[cv_aggregator] PyMuPDF column detection failed (%s): %s", type(exc).__name__, exc)
+        regions = None
+    if not regions:
+        return default
+    chunks = [
+        page.get_text(clip=fitz.Rect(*pdf_columns.region_bbox(r)), sort=not rtl).strip()
+        for r in regions
+    ]
+    return "\n\n".join(c for c in chunks if c)
+
+
 def _extract_pdf_pymupdf(content: bytes) -> str:
     """
     Second PDF extractor. pdfplumber returns nothing on some perfectly valid
@@ -128,7 +222,7 @@ def _extract_pdf_pymupdf(content: bytes) -> str:
     try:
         import fitz  # PyMuPDF
         with fitz.open(stream=content, filetype="pdf") as doc:
-            text = "\n".join(page.get_text() for page in doc).strip()
+            text = "\n".join(_pymupdf_page_text(page) for page in doc).strip()
         if text:
             logger.info("[cv_aggregator] pdfplumber found no text; PyMuPDF recovered %d chars", len(text))
         return text

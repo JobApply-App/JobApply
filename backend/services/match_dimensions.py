@@ -180,6 +180,10 @@ def _equivalent(
       1. exact normalized equality
       2. shared taxonomy canonical/synonym form
       3. whole-token containment ("product management" ⊃ "product")
+      4. the reverse: the JD term is a requirement sentence that names a
+         profile skill ("Production experience in Python or Go" names
+         "python"). The requirement lists that reach this module in production
+         are sentences, so without this step nothing ever matched.
     """
     equivalence = equivalence or {}
     jd_norm = _norm(jd_term)
@@ -205,7 +209,54 @@ def _equivalent(
         for profile_term in profile_terms:
             if jd_tokens <= set(profile_term.split()):
                 return profile_term
+
+    # A requirement sentence that names a profile skill, or one of its taxonomy
+    # forms, as a whole phrase. Longest skill first, so the result is the most
+    # specific skill and does not depend on set order.
+    jd_token_list = jd_norm.split()
+    if len(jd_token_list) > 1:
+        for profile_term in sorted(profile_terms, key=lambda t: (-len(t), t)):
+            for form in sorted({profile_term} | equivalence.get(profile_term, set())):
+                if _names_skill(str(jd_term), jd_token_list, form):
+                    return profile_term
     return None
+
+
+def _names_skill(raw_sentence: str, sentence_tokens: list[str], skill: str) -> bool:
+    """
+    True when *skill* (normalized) appears in the sentence as a whole phrase:
+    the same tokens, adjacent and in order. "react" is not in "reactive", and
+    "machine learning" is not in "machine code and learning plans".
+
+    A one- or two-letter skill ("go", "r", "c") is also an ordinary English
+    word or letter, so it must stand in the sentence the way a name does:
+    capitalised and not part of a hyphenated word. "Python or Go" names the
+    language; "go to market" and "Go-to-market" do not.
+    """
+    skill_tokens = skill.split()
+    n = len(skill_tokens)
+    if not n or n > len(sentence_tokens):
+        return False
+    if not any(sentence_tokens[i:i + n] == skill_tokens for i in range(len(sentence_tokens) - n + 1)):
+        return False
+    if n == 1 and len(skill) <= 2 and skill.isalpha():
+        return re.search(
+            rf"(?<![A-Za-z0-9+#\-]){re.escape(skill.capitalize())}(?![A-Za-z0-9+#\-])", raw_sentence,
+        ) is not None
+    return True
+
+
+def _stated_literally(jd_term: str, profile_term: str) -> bool:
+    """
+    True when the JD term is the profile skill, or is a sentence that contains
+    it word for word. Such a match is exact and is not reported as an
+    equivalence; a match through a synonym or a broader term still is.
+    """
+    jd_norm = _norm(jd_term)
+    if jd_norm == profile_term:
+        return True
+    tokens = jd_norm.split()
+    return len(tokens) > 1 and _names_skill(str(jd_term), tokens, profile_term)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -246,7 +297,7 @@ def score_hard_skills(
         hit = _equivalent(term, profile_terms, equivalence)
         if hit:
             matched_must.append(term)
-            if hit != _norm(term):
+            if not _stated_literally(term, hit):
                 equivalences.append(f"{term} ≈ {hit}")
         else:
             missing_must.append(term)
@@ -255,7 +306,7 @@ def score_hard_skills(
         hit = _equivalent(term, profile_terms, equivalence)
         if hit:
             matched_nice += 1
-            if hit != _norm(term):
+            if not _stated_literally(term, hit):
                 equivalences.append(f"{term} ≈ {hit}")
 
     must_coverage = (len(matched_must) / len(must_haves)) if must_haves else None
