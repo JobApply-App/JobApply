@@ -65,7 +65,7 @@ async def test_scorer_sees_the_domains_and_returns_the_judgement(monkeypatch):
         "missing_critical_capabilities": [], "domain_fit": "Same", "requirements": [],
     }))
     with patch.object(svc, "call_llm", new=fake):
-        *_, domain_fit = await svc._llm_dual_score(
+        *_, domain_fit, _ = await svc._llm_dual_score(
             {"experience": []}, "jd " * 200, "PM", domains=["Payments", "Logistics"])
     assert "Payments, Logistics" in fake.call_args.kwargs["messages"][0]["content"]
     assert domain_fit == "same"
@@ -78,5 +78,5 @@ async def test_unknown_domain_answer_is_no_judgement(monkeypatch):
         "missing_critical_capabilities": [], "domain_fit": "very close",
     }))
     with patch.object(svc, "call_llm", new=fake):
-        *_, domain_fit = await svc._llm_dual_score({"experience": []}, "jd " * 200, "PM")
+        *_, domain_fit, _ = await svc._llm_dual_score({"experience": []}, "jd " * 200, "PM")
     assert domain_fit is None

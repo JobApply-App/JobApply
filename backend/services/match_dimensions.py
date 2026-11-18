@@ -11,7 +11,8 @@ here, and together with the ATS impact term they form `structural_score`.
     structural = 0.35 × hard_skills      (taxonomy-equivalent coverage)
                + 0.30 × depth_breadth    (seniority & scope depth)
                + 0.20 × domain_context   (domain overlap + prior employer)
-               + 0.15 × impact           (ATS engine impact density, passed in)
+               + 0.15 × impact           (the scorer's impact_fit for this job;
+                                          the ATS impact density when absent)
 
 Work constraints (location / remote / language) are deliberately NOT a term in
 that sum. A constraint conflict is not "a few points worse" — an on-site-only
@@ -79,6 +80,12 @@ _NICE_SHARE = 0.20
 # "I did this five years ago" is not the same as never having done it.
 _RECENCY_FULL_YEARS = 3      # within this many years → no decay
 _RECENCY_MIN_FACTOR = 0.55   # floor of the decay curve
+
+# A JD's headline years ("8+ years of backend development") describe a career
+# or a field, not each tool in it: nobody needs eight years of Kafka for that
+# job. A skill's own years are measured against this many at most. The
+# headline line itself is judged on the roles' dates (requirement_credits).
+_ESTABLISHED_SKILL_YEARS = 3.0
 
 
 @dataclass
@@ -401,12 +408,17 @@ def score_depth_breadth(
     required_years: Optional[float] = None,
     equivalence: Optional[dict[str, set[str]]] = None,
     now_year: Optional[int] = None,
+    credits: Optional[dict[str, float]] = None,
 ) -> tuple[float, list[str]]:
     """
     Score the depth-vs-breadth trade-off the ticket calls out directly:
     five years across 70% of the required skills, versus one year across 100%.
 
-    breadth = fraction of must-haves covered at all.
+    breadth = mean credit of the must-haves: 1 for a skill the profile names,
+              otherwise the scorer's verdict credit (credits), as in
+              score_hard_skills. A line counts as covered at 0.5 or more.
+              Requirement lines are sentences and profile skills are names,
+              so without the verdicts almost nothing is covered.
     depth   = mean recency-adjusted seniority fit across the skills that ARE
               covered, from profile_entities.years_of_experience /
               last_used_year (passed in via *skill_depth*, keyed by normalized
@@ -441,13 +453,17 @@ def score_depth_breadth(
             "JD states no explicit requirements — depth scored on overall tenure."
         ]
 
-    covered: list[str] = []
+    credits = credits or {}
+    covered: list[tuple[Optional[str], float]] = []   # (profile skill or None, credit)
+    earned: list[float] = []
     for term in must_haves:
         hit = _equivalent(term, profile_terms, equivalence)
-        if hit:
-            covered.append(hit)
+        credit = 1.0 if hit else float(credits.get(term, 0.0))
+        earned.append(credit)
+        if credit > 0.0:
+            covered.append((hit, credit))
 
-    breadth = len(covered) / len(must_haves)
+    breadth = sum(earned) / len(must_haves)
 
     if not covered:
         # No overlap at all → no depth to measure. Floor only if the profile
@@ -455,21 +471,26 @@ def score_depth_breadth(
         floor = TRANSFERABLE_DEPTH_FLOOR if profile_terms else 0.0
         return floor, ["No required skills matched — depth could not be assessed."]
 
+    skill_years = min(required_years, _ESTABLISHED_SKILL_YEARS) if required_years else None
     fits: list[float] = []
     known_duration = 0
-    for term in covered:
-        detail = skill_depth.get(term) or {}
+    for term, credit in covered:
+        detail = (skill_depth.get(term) or {}) if term else {}
         years = detail.get("years")
         if years is None:
             # Unknown duration → neutral 1.0 rather than a penalty. Absence of
             # a recorded year count is a gap in our data, not in their career.
-            fits.append(1.0)
+            fits.append(credit)
             continue
         known_duration += 1
-        fit = _seniority_fit(float(years), required_years)
-        fits.append(fit * _recency_factor(detail.get("last_used_year"), now_year))
+        fit = _seniority_fit(float(years), skill_years)
+        fits.append(credit * fit * _recency_factor(detail.get("last_used_year"), now_year))
 
-    depth = sum(fits) / len(fits)
+    # Each line's depth counts in proportion to how much of it was earned,
+    # over all the must-haves. Averaging only the covered lines made depth
+    # jump from its floor to ~50 the moment one verdict turned "partly", so a
+    # single verdict flipping between repeats moved the total by ~5 points.
+    depth = sum(fits) / len(must_haves)
 
     # Damp when depth rests on very little recorded duration data.
     coverage_confidence = 1.0 if known_duration >= 2 else (0.9 if known_duration == 1 else 0.85)
@@ -595,6 +616,9 @@ def blend_structural(
 # ═════════════════════════════════════════════════════════════════════════════
 
 _VERDICT_CREDIT = {"met": 1.0, "partial": 0.5, "not_met": 0.0}
+# Impact: results shown in work that carries over to this job. "little" is
+# a CV of duties without results — weaker evidence, not a disqualifier.
+_IMPACT_FIT_SCORE = {"strong": 100.0, "some": 70.0, "little": 40.0}
 _ONGOING_RE = re.compile(r"present|current|now|today|היום|הווה|כיום|עכשיו", re.I)
 _DATE_RE = re.compile(r"(?:(\d{1,2})\s*[/.\-]\s*)?((?:19|20)\d\d)(?:\s*[/.\-]\s*(\d{1,2})(?!\d))?")
 
@@ -707,6 +731,7 @@ def compute_dimensions(
     now_year: Optional[int] = None,
     credits: Optional[dict[str, float]] = None,
     domain_fit: Optional[str] = None,
+    impact_fit: Optional[str] = None,
 ) -> DimensionScores:
     """
     Compute all four dimensions and their blend. Pure — every input is passed
@@ -716,6 +741,10 @@ def compute_dimensions(
     credits: {requirement line: 0-1} from the scorer's per-requirement
     verdicts (requirement_credits). Absent when the scorer failed; the
     literal skill match alone is then used, as before.
+
+    impact_fit: the scorer's judgement of the candidate's results against
+    what this job is for (strong / some / little). When it is absent the
+    *impact* passed in (the ATS engine's count of numbers in the CV) is used.
     """
     equivalence = equivalence or {}
     credits = credits or {}
@@ -737,11 +766,14 @@ def compute_dimensions(
     )
     depth_score, depth_notes = score_depth_breadth(
         [t for t in must_haves if t not in years_lines],
-        profile_skills, skill_depth, required_years, equivalence, now_year,
+        profile_skills, skill_depth, required_years, equivalence, now_year, credits,
     )
     domain_score, legacy, domain_notes = score_domain_context(
         jd_text, target_company, profile_domains, experience, domain_fit,
     )
+    if impact_fit in _IMPACT_FIT_SCORE:
+        impact = _IMPACT_FIT_SCORE[impact_fit]
+        domain_notes = [*domain_notes, f"Impact judged by the scorer: {impact_fit}."]
 
     return DimensionScores(
         hard_skills        = skills_score,
