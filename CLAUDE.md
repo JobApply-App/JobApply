@@ -140,7 +140,7 @@ These are **mandatory architectural rules** for all matching, scoring, and promp
 ### 1. Data Completeness — No Truncation
 The LLM must receive the **full candidate experience timeline**, ordered most-recent-first, with brief context per role. Never slice or cap the experience array before passing it to the model (e.g., `[:5]` is forbidden). Older, less-relevant roles appear last so the model's attention naturally falls on the most recent positions.
 
-- **Implementation reference:** `_llm_dual_score()` in `match_score_service.py` — uses `reversed(cv_data["experience"])` with no length cap.
+- **Implementation reference:** `_llm_dual_score()` in `match_score_service.py` — `_most_recent_first(cv_data["experience"])`, no length cap. Callers already pass roles newest first; until 2026-11-17 this code reversed them, so the model read the oldest role first.
 - **Anti-pattern to avoid:** Any `experience[:][:N]` or fixed-count slice on the data sent to the LLM prompt.
 
 ### 2. Company Legacy — Prior Employer Boost
