@@ -218,3 +218,61 @@ The system agrees with the designed order for all 12, so the two disagreements a
 - **p07** (senior graphic designer): founder puts the partial-fit product designer job above the strong-fit senior graphic designer job, a move into a new field.
 
 In both, the founder picked the job the person would likely want, not the one they fit best. The scorer measures fit and must not penalise overqualification or a pivot (CLAUDE.md principle 3), so it should not copy this order. Whether the feed should also show "a step up" or "a move" next to fit is a product question, not a scoring fix.
+
+## Parts A and B after #167 to #170 (2026-11-18)
+
+Same 248 scores after the four fixes the run above pointed to:
+- #167, per-requirement verdicts: the scorer marks each requirement line met, partly met or not met, and hard skills count coverage from those verdicts.
+- #168, domain from the profile.
+- #169, roles read newest first.
+- #170, depth from the verdicts with per-skill years capped at 3, and impact judged per job.
+
+All on `gemini-flash-latest`, 0 failed calls.
+
+| Measure | After #164/#165 | After #167-#170 |
+|---|---|---|
+| A1 run-to-run spread within 3.0 | FAIL 24/36, largest 11.1 | FAIL 21/36, largest 10.2 |
+| A2 paraphrase | PASS 12/12 | PASS 11/12 |
+| A3 language | FAIL 8/12 | FAIL 10/12 |
+| A4 skill order | FAIL 29/36 | FAIL 27/36 |
+| B1 order | PASS 12/12 | PASS 12/12 |
+| B2 gap strong to none | PASS, 42.2-67.7 | PASS, 63.0-78.6 |
+| B4 prior employer | not reported | PASS, total 58.7 -> 83.2 |
+| B5 overqualified | not reported | PASS, 95.7 for both ads |
+| B6 pivot (p03 vs p01) | FAIL 14.9 | PASS 3.7 |
+| Strong fits | 70.1-86.3 | 89.1-96.8, median 92.9 |
+| Partial fits | not reported | 40.1-65.5, median 52.8 |
+| No fit | 7.5-29.4 | 15.1-33.3, median 23.8 |
+
+**Measures that now pass:**
+- **B6 passes.** The product manager whose requirements are written as abilities now gets a structural score close to the backend engineer's, whose requirements name tools. The verdicts closed the gap that was described above as "tool-literal".
+- **Strong fits score like strong fits.** They show about 90 or more, against 50 to 62 in the first run.
+
+**What still fails is stability, and it has three sources.** Where a pair moves between runs of the same input:
+
+| Source | Example (5 runs) | Points of total it moves |
+|---|---|---|
+| Semantic sub-score (about 43% of the total) | p01-j1 45-58, p02-j3 45-58 | up to about 5.6 |
+| Management sub-score (about 17%) | p10-j3 40-75, p04-j3 75-90 | up to about 6 |
+| Verdicts flipping between "partly" and "not met", through the structural half | p08-j3: semantic fixed at 45.0, total still moves 4.9 | about 3 |
+
+- **Which fits move.** Strong fits are steady: 11 of 12 within 3.0. Nearly all the movement is in partial and no-fit pairs, which is where a single judgement call can go either way.
+- **What a user sees.** A score is computed once and stored, so the spread shows only when a job is scored again, for example after a profile change. A user does not see the score move between page loads.
+
+**Options for stability, not yet chosen:**
+1. Score twice and average the two answers. This roughly halves the spread, at twice the scoring cost.
+2. Give the management sub-score less weight.
+3. Leave it as it is.
+
+The spread is estimated to drop with each option as follows. These are estimates from the five recorded runs, not measured:
+- Two calls averaged would bring A1 to about 26 of 36.
+- Three calls averaged would bring it to about 31 of 36.
+
+**Research stages, where they stand:**
+- **Stages 1 to 6 (desk research):** done.
+- **Stage 7 (benchmark):**
+  - Part 0, A, B and B7 are measured.
+  - Part C has counts only. The reading check of each CV claim is not done.
+- **Open:**
+  - the stability choice above
+  - the two CV hard-rule failures in part C: p11's career break turned into a job, and p08's role listed as a degree
