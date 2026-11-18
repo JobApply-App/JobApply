@@ -1151,6 +1151,7 @@ Return this exact JSON object:
   "fit_brief": "<concise, contextual fit rationale — max 250 characters>",
   "missing_critical_capabilities": ["<high-level conceptual gap>", ...],
   "domain_fit": "same" | "adjacent" | "different",
+  "impact_fit": "strong" | "some" | "little",
   "requirements": [
     {{"n": <requirement number>, "verdict": "met" | "partial" | "not_met",
       "evidence": "<where the profile shows it — max 80 characters>",
@@ -1166,6 +1167,18 @@ DOMAIN_FIT RULES:
     designer who did packaging for food companies).
   • adjacent = a neighbouring industry or field where most of the context carries over.
   • different = neither. This is not a penalty: a career change is scored as neutral.
+
+IMPACT_FIT RULES:
+  • How well the results in the candidate's experience show they can deliver
+    what THIS job is for. Read every role, not only the latest.
+  • strong = concrete results (a number, or a clear outcome: shipped, grew,
+    cut, launched, closed) in work that carries over to this job.
+  • some = results in work that carries over less, or outcomes described
+    without anything concrete.
+  • little = duties only, no results.
+  • A result does not need a number ("designed 40 packages for 3 brands",
+    "closed the year-end books with no audit findings"). A result from another
+    field counts when the capability carries over: a career change is not a penalty.
 
 REQUIREMENTS RULES:
   • One item per numbered requirement, with the same number. Empty list if none are listed.
@@ -1400,11 +1413,11 @@ async def _llm_dual_score(
     job_id: Optional[str] = None,
     requirements: Optional[list[str]] = None,
     domains: Optional[list[str]] = None,
-) -> tuple[float, float, str, list[str], dict[str, float], Optional[str]]:
+) -> tuple[float, float, str, list[str], dict[str, float], Optional[str], Optional[str]]:
     """
     Single claude-haiku-4-5 call returning
     (semantic_score, management_score, fit_brief, missing_critical_capabilities,
-     requirement credits).
+     requirement credits, domain_fit, impact_fit).
 
     requirements: the JD's requirement lines (must-haves then advantages).
     The model judges each one (met / partial / not met, with evidence, and
@@ -1416,6 +1429,8 @@ async def _llm_dual_score(
     domains: the candidate's domain entities. The model returns domain_fit
     (same / adjacent / different) for this job against them and the
     experience; None when it is missing or not one of the three.
+    impact_fit (strong / some / little) is the same kind of judgement of the
+    candidate's results against this job; None likewise.
 
     The response is validated against LLMCapabilityScore (Pydantic) so a
     malformed payload — wrong types, out-of-range scores — is caught
@@ -1425,8 +1440,8 @@ async def _llm_dual_score(
     Falls back to (60.0, 60.0, "", []) on any API, parse, or validation error
     so the composite still gets a reasonable score and the pipeline never crashes.
     """
-    _FALLBACK: tuple[float, float, str, list[str], dict[str, float], Optional[str]] = (
-        60.0, 60.0, "", [], {}, None)
+    _FALLBACK: tuple[float, float, str, list[str], dict[str, float], Optional[str], Optional[str]] = (
+        60.0, 60.0, "", [], {}, None, None)
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -1458,8 +1473,9 @@ async def _llm_dual_score(
         bullets = e.get("bullets") or []
         line    = f"[{n}] {role} @ {company}" + (f" ({dates})" if dates else "")
         if bullets and bullets[0]:
-            # First 90 chars of the top bullet gives domain context without bloat
-            snippet = bullets[0].strip()[:90].rstrip()
+            # The top bullet, long enough to carry its result: impact_fit is
+            # judged from these lines, and 90 chars cut most results off.
+            snippet = bullets[0].strip()[:200].rstrip()
             line   += f" — {snippet}"
         exp_lines.append(line)
     cv_experience = "\n".join(exp_lines)
@@ -1570,14 +1586,16 @@ async def _llm_dual_score(
 
         domain_fit = str(payload.get("domain_fit") or "").strip().lower()
         domain_fit = domain_fit if domain_fit in ("same", "adjacent", "different") else None
+        impact_fit = str(payload.get("impact_fit") or "").strip().lower()
+        impact_fit = impact_fit if impact_fit in ("strong", "some", "little") else None
 
         logger.info(
             "match_score LLM: semantic=%.0f  management=%.0f  fit_brief_len=%d  "
-            "gaps=%d  verdicts=%d/%d  domain_fit=%s  title='%s'",
+            "gaps=%d  verdicts=%d/%d  domain_fit=%s  impact_fit=%s  title='%s'",
             semantic, management, len(fit_brief), len(gaps),
-            len(credits), len(requirements or []), domain_fit, job_title,
+            len(credits), len(requirements or []), domain_fit, impact_fit, job_title,
         )
-        return semantic, management, fit_brief, gaps, credits, domain_fit
+        return semantic, management, fit_brief, gaps, credits, domain_fit, impact_fit
 
     except json.JSONDecodeError as exc:
         logger.warning(
@@ -1939,6 +1957,7 @@ def _compute_structural(
     credits: Optional[dict[str, float]] = None,
     domains: Optional[list[str]] = None,
     domain_fit: Optional[str] = None,
+    impact_fit: Optional[str] = None,
 ) -> "object | None":
     """
     Build and score the four structural dimensions. None on any failure, which
@@ -1983,6 +2002,7 @@ def _compute_structural(
             equivalence     = equivalence,
             credits         = credits,
             domain_fit      = domain_fit,
+            impact_fit      = impact_fit,
         )
     except Exception as exc:
         logger.warning("[match-dimensions] structural pass failed (non-fatal): %s", exc)
@@ -2318,7 +2338,7 @@ async def compute_match_score_async(
     # LLM dual scorer (single haiku call, temperature=0.0, Pydantic-validated)
     must_haves, nice_haves = _jd_requirements(jd_text, jd_structured)
     domains = cv_data.get("domains") or _profile_domains(user_id)
-    semantic, management, fit_brief, missing_caps, credits, domain_fit = await _llm_dual_score(
+    semantic, management, fit_brief, missing_caps, credits, domain_fit, impact_fit = await _llm_dual_score(
         cv_data, jd_text, inferred_title, company_name,
         user_id=user_id, job_id=job_id, requirements=[*must_haves, *nice_haves],
         domains=domains,
@@ -2337,7 +2357,7 @@ async def compute_match_score_async(
     # ATS base score; falls back to it when the dimension pass can't run.
     dims = _compute_structural(cv_data, jd_text, company_name, user_id, ats,
                                jd_structured=jd_structured, credits=credits,
-                               domains=domains, domain_fit=domain_fit)
+                               domains=domains, domain_fit=domain_fit, impact_fit=impact_fit)
 
     proximity = _compute_proximity(job_location, user_id)
 
