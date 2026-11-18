@@ -30,7 +30,9 @@ Scoring is split into two phases that map directly to the pipeline stages:
          i.e. the original 50:20 emphasis between the two LLM dimensions
          is preserved, just rescaled to sum to the new 70% allocation.
 
-  Final score = 0.30 × local + 0.70 × (5/7 × semantic + 2/7 × management)
+  Superseded (2026-11): the local proxy no longer counts once the LLM has read
+  the JD. LLM part = 5/7 × semantic + 2/7 × management; thin JD = 0.30 × local.
+  finalize_composite() holds the current formula.
 
   Also runs _phase1() for the rich keyword/skills breakdown used by the
   tag row in the UI (matched_keywords, missing_skills, etc.).
@@ -303,11 +305,8 @@ class MatchScoreResult:
     Composite match score with full component breakdown.
 
     Unified weights (when LLM + ATS engine are both available):
-      llm   = 0.30 × local_score (Keyword Matching Score)
-            + 0.70 × ( 5/7 × semantic_score + 2/7 × management_score )
-              \\__________________________________________________/
-                       "LLM Semantic Capability Score" bucket
-      total = 0.60 × llm + 0.40 × ats_score        (engine base_score)
+      llm   = 5/7 × semantic_score + 2/7 × management_score
+      total = 0.60 × llm + 0.40 × structural       (ats_score when absent)
       total = min(total, 40.0)                     when knockout_failed
 
     When the ATS engine is unavailable (ats_score=None): total = llm.
@@ -331,9 +330,9 @@ class MatchScoreResult:
     llm_validated:       bool            = False
     proficiency_notes:   list[str]       = field(default_factory=list)
     # ── Composite sub-scores (0-100 each) ─────────────────────────────────────
-    local_score:         float           = 0.0   # 30% — Keyword Matching Score (alias-aware)
-    semantic_score:      float           = 0.0   # within the 70% LLM bucket (5/7 share)
-    management_score:    float           = 0.0   # within the 70% LLM bucket (2/7 share)
+    local_score:         float           = 0.0   # title proxy — counts only on the thin-JD path
+    semantic_score:      float           = 0.0   # 5/7 of the LLM part
+    management_score:    float           = 0.0   # 2/7 of the LLM part
     # ── LLM-generated fit brief + conceptual gap list ─────────────────────────
     fit_brief:                       Optional[str]   = None  # populated by _llm_dual_score
     missing_critical_capabilities: list[str]        = field(default_factory=list)
@@ -1136,16 +1135,66 @@ CANDIDATE SUMMARY:
 CANDIDATE SKILLS:
 {cv_skills}
 
-CANDIDATE EXPERIENCE (most recent first):
+CANDIDATE EXPERIENCE (most recent first, numbered, with dates):
 {cv_experience}
+
+JOB REQUIREMENTS (numbered — judge every one):
+{requirements_block}
+
+CANDIDATE DOMAINS (industries and fields from their profile):
+{domains_block}
 {company_legacy_note}{output_language_note}
 Return this exact JSON object:
 {{
   "semantic_score": <integer 0-100>,
   "management_score": <integer 0-100>,
   "fit_brief": "<concise, contextual fit rationale — max 250 characters>",
-  "missing_critical_capabilities": ["<high-level conceptual gap>", ...]
+  "missing_critical_capabilities": ["<high-level conceptual gap>", ...],
+  "domain_fit": "same" | "adjacent" | "different",
+  "impact_fit": "strong" | "some" | "little",
+  "requirements": [
+    {{"n": <requirement number>, "verdict": "met" | "partial" | "not_met",
+      "evidence": "<where the profile shows it — max 80 characters>",
+      "years_required": <number or null>, "roles": [<experience numbers>]}}
+  ]
 }}
+
+DOMAIN_FIT RULES:
+  • Compare the industry or field of THIS job (from the company and the job
+    description) with the candidate's domains AND their experience above.
+  • same = the candidate has worked in this job's industry or field (a payments
+    company and a candidate who built payment systems; a food brand and a
+    designer who did packaging for food companies).
+  • adjacent = a neighbouring industry or field where most of the context carries over.
+  • different = neither. This is not a penalty: a career change is scored as neutral.
+
+IMPACT_FIT RULES:
+  • How well the results in the candidate's experience show they can deliver
+    what THIS job is for. Read every role, not only the latest.
+  • strong = concrete results (a number, or a clear outcome: shipped, grew,
+    cut, launched, closed) in work that carries over to this job.
+  • some = results in work that carries over less, or outcomes described
+    without anything concrete.
+  • little = duties only, no results.
+  • A result does not need a number ("designed 40 packages for 3 brands",
+    "closed the year-end books with no audit findings"). A result from another
+    field counts when the capability carries over: a career change is not a penalty.
+
+REQUIREMENTS RULES:
+  • One item per numbered requirement, with the same number. Empty list if none are listed.
+  • met = the profile shows it, in any role, skill or the summary, under any
+    name: an equivalent tool, method or capability counts ("A/B tests" meets
+    "A/B testing"; Jira meets "an agile tracking tool").
+    partial = related or weaker evidence. not_met = nothing in the profile supports it.
+  • evidence: the experience number or skill that shows it, e.g. "[2] ran the
+    CRM migration". Empty only for not_met.
+  • A line that asks for an amount of experience ("5+ years of backend
+    development", "3 שנות ניסיון בניהול"): set years_required to that number and
+    list in roles EVERY experience number whose work counts toward it — any role
+    in that field, whatever its title. Do not add up the years yourself; the
+    dates are summed in code. For every other line years_required is null and
+    roles is [].
+  • More experience or seniority than asked never lowers a verdict.
 
 FIT_BRIEF RULES:
   • Plain text, no markdown, no bullet symbols, no newlines.
@@ -1301,6 +1350,15 @@ def _parse_json_robust(raw: str, job_title: str = "") -> dict | None:
     except json.JSONDecodeError:
         pass
 
+    # 3b. Cut off inside the trailing requirements list: drop the unfinished
+    #     verdict and close the list and the object.
+    cut = raw.rfind("},")
+    if '"requirements"' in raw and cut > raw.find('"requirements"'):
+        try:
+            return json.loads(raw[:cut + 1] + "]}")
+        except json.JSONDecodeError:
+            pass
+
     # 4. Regex extraction — scores only, no fit_brief / capability gaps
     sem_m  = re.search(r'"semantic_score"\s*:\s*(\d+)',   raw)
     mgmt_m = re.search(r'"management_score"\s*:\s*(\d+)', raw)
@@ -1325,6 +1383,27 @@ def _parse_json_robust(raw: str, job_title: str = "") -> dict | None:
     return None
 
 
+def _most_recent_first(experience: list[dict]) -> list[dict]:
+    """
+    The roles newest first, for the scorer prompt (CLAUDE.md principle 1).
+
+    Every caller already passes them newest first: build_cv_data keeps the
+    profile's order and a CV lists its latest job on top. An older version of
+    this code reversed that, so the prompt showed the oldest role first under
+    the heading "most recent first". When every role has readable dates they
+    are sorted by start, then end, latest first; otherwise the given order is
+    kept, since a partial sort would move undated roles to arbitrary places.
+    """
+    from backend.services.match_dimensions import role_span
+
+    roles = list(experience or [])
+    spans = [role_span(str((e or {}).get("dates") or "")) for e in roles]
+    if roles and all(spans):
+        order = sorted(range(len(roles)), key=lambda i: (-spans[i][0], -spans[i][1], i))
+        return [roles[i] for i in order]
+    return roles
+
+
 async def _llm_dual_score(
     cv_data: dict,
     jd_text: str,
@@ -1332,10 +1411,26 @@ async def _llm_dual_score(
     company_name: str = "",
     user_id: Optional[str] = None,
     job_id: Optional[str] = None,
-) -> tuple[float, float, str, list[str]]:
+    requirements: Optional[list[str]] = None,
+    domains: Optional[list[str]] = None,
+) -> tuple[float, float, str, list[str], dict[str, float], Optional[str], Optional[str]]:
     """
     Single claude-haiku-4-5 call returning
-    (semantic_score, management_score, fit_brief, missing_critical_capabilities).
+    (semantic_score, management_score, fit_brief, missing_critical_capabilities,
+     requirement credits, domain_fit, impact_fit).
+
+    requirements: the JD's requirement lines (must-haves then advantages).
+    The model judges each one (met / partial / not met, with evidence, and
+    for a years line the roles that count); match_dimensions.requirement_credits
+    turns that into {line: credit 0-1}, summing role dates for years lines.
+    The credits are {} on any failure, and a malformed verdict list never
+    costs the scores themselves.
+
+    domains: the candidate's domain entities. The model returns domain_fit
+    (same / adjacent / different) for this job against them and the
+    experience; None when it is missing or not one of the three.
+    impact_fit (strong / some / little) is the same kind of judgement of the
+    candidate's results against this job; None likewise.
 
     The response is validated against LLMCapabilityScore (Pydantic) so a
     malformed payload — wrong types, out-of-range scores — is caught
@@ -1345,7 +1440,8 @@ async def _llm_dual_score(
     Falls back to (60.0, 60.0, "", []) on any API, parse, or validation error
     so the composite still gets a reasonable score and the pipeline never crashes.
     """
-    _FALLBACK: tuple[float, float, str, list[str]] = (60.0, 60.0, "", [])
+    _FALLBACK: tuple[float, float, str, list[str], dict[str, float], Optional[str], Optional[str]] = (
+        60.0, 60.0, "", [], {}, None, None)
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -1364,17 +1460,22 @@ async def _llm_dual_score(
 
     # ── Experience: most-recent-first, full list, with brief bullet context ───
     # FIX: previously sliced to [:5] (oldest entries only) — all entries are now
-    # included in reverse-chronological order so the LLM always sees the most
-    # relevant recent roles first, regardless of how many entries exist.
+    # included, most recent first, so the LLM always sees the most relevant
+    # recent roles first, regardless of how many entries exist.
+    # Numbered, with dates: the requirement verdicts name roles by number and
+    # requirement_credits sums those roles' dates.
+    shown_experience = _most_recent_first(cv_data.get("experience", []))
     exp_lines: list[str] = []
-    for e in reversed(cv_data.get("experience", [])):
+    for n, e in enumerate(shown_experience, 1):
         role    = e.get("role", "").strip()
         company = e.get("company", "").strip()
+        dates   = (e.get("dates") or "").strip()
         bullets = e.get("bullets") or []
-        line    = f"{role} @ {company}"
+        line    = f"[{n}] {role} @ {company}" + (f" ({dates})" if dates else "")
         if bullets and bullets[0]:
-            # First 90 chars of the top bullet gives domain context without bloat
-            snippet = bullets[0].strip()[:90].rstrip()
+            # The top bullet, long enough to carry its result: impact_fit is
+            # judged from these lines, and 90 chars cut most results off.
+            snippet = bullets[0].strip()[:200].rstrip()
             line   += f" — {snippet}"
         exp_lines.append(line)
     cv_experience = "\n".join(exp_lines)
@@ -1416,6 +1517,9 @@ async def _llm_dual_score(
         cv_summary          = cv_summary,
         cv_skills           = cv_skills,
         cv_experience       = cv_experience,
+        requirements_block  = "\n".join(f"{i}. {r}" for i, r in enumerate(requirements or [], 1))
+                              or "(none listed)",
+        domains_block       = ", ".join(domains or []) or "(none recorded — judge from the experience)",
         company_legacy_note = company_legacy_note,
     )
 
@@ -1427,7 +1531,7 @@ async def _llm_dual_score(
     try:
         result_llm = await call_llm(
             model       = "claude-haiku-4-5-20251001",
-            max_tokens  = 600,   # headroom for fit_brief + gaps; Hebrew costs ~2x the tokens
+            max_tokens  = 1500,  # fit_brief + gaps + one verdict per requirement; Hebrew ~2x
             temperature = 0.0,   # deterministic — same input → same output every time
             system      = _LLM_SYSTEM_SCORER,
             messages    = [{"role": "user", "content": prompt}],
@@ -1470,12 +1574,28 @@ async def _llm_dual_score(
         fit_brief    = validated.fit_brief.strip()
         gaps       = validated.missing_critical_capabilities[:5]
 
+        verdicts = payload.get("requirements")
+        credits: dict[str, float] = {}
+        if requirements and isinstance(verdicts, list):
+            from backend.services.match_dimensions import requirement_credits
+            credits = requirement_credits(
+                [v for v in verdicts if isinstance(v, dict)], requirements, shown_experience,
+            )
+        elif requirements:
+            logger.warning("match_score LLM: no requirement verdicts for title='%s'", job_title)
+
+        domain_fit = str(payload.get("domain_fit") or "").strip().lower()
+        domain_fit = domain_fit if domain_fit in ("same", "adjacent", "different") else None
+        impact_fit = str(payload.get("impact_fit") or "").strip().lower()
+        impact_fit = impact_fit if impact_fit in ("strong", "some", "little") else None
+
         logger.info(
             "match_score LLM: semantic=%.0f  management=%.0f  fit_brief_len=%d  "
-            "gaps=%d  title='%s'",
-            semantic, management, len(fit_brief), len(gaps), job_title,
+            "gaps=%d  verdicts=%d/%d  domain_fit=%s  impact_fit=%s  title='%s'",
+            semantic, management, len(fit_brief), len(gaps),
+            len(credits), len(requirements or []), domain_fit, impact_fit, job_title,
         )
-        return semantic, management, fit_brief, gaps
+        return semantic, management, fit_brief, gaps, credits, domain_fit, impact_fit
 
     except json.JSONDecodeError as exc:
         logger.warning(
@@ -1535,10 +1655,15 @@ def compute_match_score(
 #     "explicit, disqualifying gap" in the sense of Principle 2, so the cap
 #     legitimately overrides even a company-legacy floor.
 
-_LOCAL_WEIGHT      = 0.30
-_LLM_BUCKET_WEIGHT = 0.70
-_SEMANTIC_SHARE    = 5 / 7   # within the 70% bucket — was 50/(50+20)
-_MANAGEMENT_SHARE  = 2 / 7   # within the 70% bucket — was 20/(50+20)
+#   • The local proxy (compute_local_proxy_score) has no weight once the LLM
+#     has read the JD. It scores the job title against fixed product-manager
+#     and customer-success tiers, not against the user's profile, so for any
+#     other user it pulled every score toward the middle (an exact-fit backend
+#     lead job got local 44.8). It is kept only for the thin-JD path below.
+
+_LOCAL_WEIGHT      = 0.30    # thin-JD path only (Principle 4)
+_SEMANTIC_SHARE    = 5 / 7   # of the LLM part — was 50/(50+20)
+_MANAGEMENT_SHARE  = 2 / 7   # of the LLM part — was 20/(50+20)
 
 _LLM_BLEND_WEIGHT  = 0.60    # unified: share of the LLM semantic composite
 _ATS_BLEND_WEIGHT  = 0.40    # unified: share of the ATS engine base_score
@@ -1652,12 +1777,14 @@ def finalize_composite(
     culture_delta: float | None = None,
     structural: float | None = None,
     proximity_delta: float | None = None,
+    thin_jd: bool = False,
 ) -> float:
     """
     Compose the final 0-100 Match Score from its parts. Pure and deterministic.
 
-      llm_composite = 0.30 × local + 0.70 × (5/7 × semantic + 2/7 × management)
-      unified       = 0.60 × llm_composite + 0.40 × structural
+      thin_jd       → 0.30 × local, and nothing else            (Principle 4)
+      llm_composite = 5/7 × semantic + 2/7 × management         (local has no weight)
+      unified      = 0.60 × llm_composite + 0.40 × structural
       adjusted      = unified + culture_delta                   (when culture ran;
                       bounded ±CULTURE_MAX_ADJUST, see culture_delta_from_alignment)
                       + proximity_delta                         (when a home city and
@@ -1684,16 +1811,19 @@ def finalize_composite(
     multiplier, which would double-penalise. The cap lands AFTER the culture
     delta so a hard-constraint conflict can never be bought back by good vibes.
 
-    Thin-JD callers (Principle 4) use none of this: they zero semantic and
-    management and pass no structural, no ats_base and no culture_delta,
-    preserving exactly 0.30 × local.
+    Thin-JD callers (Principle 4) pass thin_jd=True and get exactly
+    0.30 × local. That is the only path where the local proxy counts: it is a
+    title heuristic, so with no real JD it is the one signal there is, and the
+    0.30 keeps such jobs near the bottom of the feed until a full score runs.
 
     Proximity follows the same Future-Mandate reasoning as culture: without a
     signal the composite is unchanged, the thin path never computes it, it is
     never negative, and the knockout cap still lands after it.
     """
-    llm_bucket    = _SEMANTIC_SHARE * semantic + _MANAGEMENT_SHARE * management
-    llm_composite = _LOCAL_WEIGHT * local + _LLM_BUCKET_WEIGHT * llm_bucket
+    if thin_jd:
+        return round(min(100.0, max(0.0, _LOCAL_WEIGHT * local)), 1)
+
+    llm_composite = _SEMANTIC_SHARE * semantic + _MANAGEMENT_SHARE * management
 
     deterministic = structural if structural is not None else ats_base
 
@@ -1784,6 +1914,39 @@ def _skill_depth_map(user_id: str) -> dict[str, dict]:
         return {}
 
 
+def _profile_domains(user_id: str) -> list[str]:
+    """
+    The candidate's domains from profile_entities: from the CV upload
+    (cv_aggregator's "domains") and from what they told Ariel. Same rule as
+    _skill_depth_map: an LLM's unverified guess is not used. [] on failure.
+    """
+    try:
+        from sqlalchemy import text as _sql
+
+        from backend.core.database import ENGINE
+
+        if ENGINE.dialect.name != "postgresql":
+            return []
+        with ENGINE.connect() as conn:
+            rows = conn.execute(_sql("""
+                SELECT name FROM public.profile_entities
+                WHERE user_id = CAST(:uid AS uuid)
+                  AND entity_type = 'domain'
+                  AND (origin <> 'inferred' OR verification_status = 'verified')
+                ORDER BY name
+            """), {"uid": user_id}).fetchall()
+        seen: dict[str, str] = {}
+        for r in rows:
+            name = str(r.name or "").strip()
+            if name and name.casefold() not in seen:
+                seen[name.casefold()] = name
+        return list(seen.values())
+    except Exception:
+        logger.warning("[match-dimensions] domain fetch failed — domain judged from experience only",
+                       exc_info=True)
+        return []
+
+
 def _compute_structural(
     cv_data: dict,
     jd_text: str,
@@ -1791,6 +1954,10 @@ def _compute_structural(
     user_id: str,
     ats: "object | None",
     jd_structured: Optional[str] = None,
+    credits: Optional[dict[str, float]] = None,
+    domains: Optional[list[str]] = None,
+    domain_fit: Optional[str] = None,
+    impact_fit: Optional[str] = None,
 ) -> "object | None":
     """
     Build and score the four structural dimensions. None on any failure, which
@@ -1803,7 +1970,8 @@ def _compute_structural(
 
         must_haves, nice_haves = _jd_requirements(jd_text, jd_structured)
         profile_skills = _extract_cv_skills(cv_data)
-        domains = cv_data.get("domains") or []
+        if domains is None:
+            domains = cv_data.get("domains") or []
         if not isinstance(domains, list):
             domains = []
 
@@ -1832,6 +2000,9 @@ def _compute_structural(
             required_years  = required_years,
             impact          = impact,
             equivalence     = equivalence,
+            credits         = credits,
+            domain_fit      = domain_fit,
+            impact_fit      = impact_fit,
         )
     except Exception as exc:
         logger.warning("[match-dimensions] structural pass failed (non-fatal): %s", exc)
@@ -2027,7 +2198,8 @@ async def compute_match_score_async(
       Runs Phase 1 for keyword breakdown (now alias/synonym-aware — see
       _CAPABILITY_ALIASES), then the LLM dual-scorer for the 70% "LLM
       Semantic Capability Score" bucket (semantic_score + management_score).
-      final = 0.30 × local  +  0.70 × (5/7 × semantic + 2/7 × management)
+      LLM part = 5/7 × semantic + 2/7 × management (see finalize_composite;
+      the local proxy no longer counts on this path)
 
       The 5/7 : 2/7 split inside the 70% bucket preserves the original
       50:20 relative emphasis between semantic fit and management/tooling
@@ -2120,7 +2292,7 @@ async def compute_match_score_async(
         inferred_title = job_title or jd_text[:60].split("\n")[0].strip()
         local          = compute_local_proxy_score(inferred_title, jd_text)
         # semantic=0, management=0, no ATS blend → exactly 0.30 × local
-        composite      = finalize_composite(local, 0.0, 0.0)
+        composite      = finalize_composite(local, 0.0, 0.0, thin_jd=True)
         p1             = _phase1(cv_data, jd_text, skill_proficiencies)
         logger.warning(
             "match_score LLM: jd_text too thin (%d chars) — semantic=0 management=0 "
@@ -2153,7 +2325,8 @@ async def compute_match_score_async(
     # ── Full unified composite ────────────────────────────────────────────────
     #
     # 1) LLM semantic composite:
-    #      30% local proxy + 70% LLM bucket (5/7 semantic : 2/7 management)
+    #      5/7 semantic + 2/7 management (the local proxy is computed for
+    #      display only on this path)
     # 2) ATS Match Engine (Layer 0 knockouts + Layer 1 coverage + Layer 2 impact)
     #    blended in at 40%, and its KnockoutResult applied as a hard 40-pt cap.
     # All arithmetic lives in finalize_composite() — the single source of truth
@@ -2163,9 +2336,12 @@ async def compute_match_score_async(
     local = compute_local_proxy_score(inferred_title, jd_text)
 
     # LLM dual scorer (single haiku call, temperature=0.0, Pydantic-validated)
-    semantic, management, fit_brief, missing_caps = await _llm_dual_score(
+    must_haves, nice_haves = _jd_requirements(jd_text, jd_structured)
+    domains = cv_data.get("domains") or _profile_domains(user_id)
+    semantic, management, fit_brief, missing_caps, credits, domain_fit, impact_fit = await _llm_dual_score(
         cv_data, jd_text, inferred_title, company_name,
-        user_id=user_id, job_id=job_id,
+        user_id=user_id, job_id=job_id, requirements=[*must_haves, *nice_haves],
+        domains=domains,
     )
 
     # ATS Match Engine — None ⇒ degrade gracefully to the pure LLM composite.
@@ -2180,7 +2356,8 @@ async def compute_match_score_async(
     # Structural dimensions — the deterministic 40% term. Supersedes the raw
     # ATS base score; falls back to it when the dimension pass can't run.
     dims = _compute_structural(cv_data, jd_text, company_name, user_id, ats,
-                               jd_structured=jd_structured)
+                               jd_structured=jd_structured, credits=credits,
+                               domains=domains, domain_fit=domain_fit, impact_fit=impact_fit)
 
     proximity = _compute_proximity(job_location, user_id)
 

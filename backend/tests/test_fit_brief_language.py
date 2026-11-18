@@ -37,5 +37,6 @@ def test_template_renders_with_the_note():
     out = svc._LLM_SCORER_TEMPLATE.format(
         output_language_note="\nOUTPUT LANGUAGE: Hebrew\n", job_title="PM", company_name="Acme",
         jd_excerpt="jd", cv_summary="s", cv_skills="k", cv_experience="e", company_legacy_note="",
+        requirements_block="1. SQL", domains_block="Payments",
     )
     assert "OUTPUT LANGUAGE: Hebrew" in out and '"fit_brief"' in out

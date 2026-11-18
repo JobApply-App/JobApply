@@ -140,7 +140,7 @@ These are **mandatory architectural rules** for all matching, scoring, and promp
 ### 1. Data Completeness — No Truncation
 The LLM must receive the **full candidate experience timeline**, ordered most-recent-first, with brief context per role. Never slice or cap the experience array before passing it to the model (e.g., `[:5]` is forbidden). Older, less-relevant roles appear last so the model's attention naturally falls on the most recent positions.
 
-- **Implementation reference:** `_llm_dual_score()` in `match_score_service.py` — uses `reversed(cv_data["experience"])` with no length cap.
+- **Implementation reference:** `_llm_dual_score()` in `match_score_service.py` — `_most_recent_first(cv_data["experience"])`, no length cap. Callers already pass roles newest first; until 2026-11-17 this code reversed them, so the model read the oldest role first.
 - **Anti-pattern to avoid:** Any `experience[:][:N]` or fixed-count slice on the data sent to the LLM prompt.
 
 ### 2. Company Legacy — Prior Employer Boost
@@ -162,6 +162,7 @@ When `jd_text` is below the minimum length threshold (currently **300 characters
 - `management_score` **must be set to `0.0`**.
 - The composite is computed normally: `0.30 × local + 0.50 × 0 + 0.20 × 0 = 0.30 × local`.
 - This caps un-hydrated jobs at ~28–30 points for an exact title match, keeping them near the **bottom** of the feed until the real JD is fetched and a full re-score runs.
+- Since 2026-11-17 this is the only path where the local proxy counts (`finalize_composite(..., thin_jd=True)`). With a real JD it has no weight: it scores titles against fixed product-manager tiers, not the user's profile.
 
 **Anti-pattern:** Returning `_phase1().total` directly as the composite when the JD is thin. A Phase-1-only score of 94 for "Senior Product Manager" with an empty JD is a false positive that surfaces irrelevant jobs at the top of the feed.
 

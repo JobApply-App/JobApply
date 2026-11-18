@@ -184,6 +184,53 @@ def test_unrelated_profile_still_scores_zero_on_sentences():
     assert score == 0.0
 
 
+def _dims_for(must_haves, profile_skills, nice_haves=()):
+    from backend.services.match_dimensions import compute_dimensions
+    return compute_dimensions(
+        must_haves=list(must_haves), nice_haves=list(nice_haves), profile_skills=profile_skills,
+        skill_depth={}, profile_domains=[], experience=[], jd_text="", target_company="",
+    )
+
+
+def test_years_only_requirement_is_not_a_missing_skill():
+    """
+    "8+ years of backend development" is a length of experience, not a skill.
+    Counted as a missing skill it docked a candidate who has the years: a job
+    written to fit a person exactly lost 20 points of hard skills this way.
+    """
+    dims = _dims_for(
+        ["8+ years of backend development.", "2+ years leading a backend team.",
+         "Go and Python in production.", "Kafka."],
+        ["Go", "Python", "Kafka"],
+    )
+    assert dims.missing_must_haves == []
+    assert dims.hard_skills == 100.0
+    assert any("judged on years" in n for n in dims.notes)
+
+
+def test_years_line_that_names_a_skill_stays_a_skill_requirement():
+    has_it = _dims_for(["5+ years of Python", "Kafka"], ["Python", "Kafka"])
+    lacks_it = _dims_for(["5+ years of Python", "Kafka"], ["Kafka"])
+    assert has_it.matched_must_haves == ["5+ years of Python", "Kafka"]
+    # Without Python in the profile the line names no profile skill, so it is
+    # treated as a years line; the score must still not exceed the full match.
+    assert lacks_it.hard_skills <= has_it.hard_skills
+
+
+def test_hebrew_years_lines_are_recognised():
+    from backend.services.match_dimensions import _is_years_only
+    assert _is_years_only("10 שנות ניסיון ומעלה בהנהלת חשבונות.", set(), {})
+    assert _is_years_only("שנתיים ומעלה בניהול צוות פיתוח.", set(), {})
+    assert not _is_years_only("תעודת מנהל/ת חשבונות סוג 3.", set(), {})
+
+
+def test_unrelated_profile_still_scores_zero_without_the_years_line():
+    dims = _dims_for(["Veterinary licence in Israel", "2+ years in a small-animal clinic"],
+                     ["React", "TypeScript"])
+    assert dims.missing_must_haves == ["Veterinary licence in Israel"]
+    assert dims.hard_skills == 0.0
+
+
 def test_jd_with_no_stated_requirements_scores_neutral_not_zero():
     """Missing information is not evidence of a bad match."""
     score, _, _, _ = score_hard_skills([], [], ["Python"])
@@ -345,7 +392,24 @@ def test_thin_jd_path_still_yields_exactly_030_x_local():
     structural term and zeroed LLM scores, the composite is exactly 0.30×local.
     """
     from backend.services.match_score_service import finalize_composite
-    assert finalize_composite(94.0, 0.0, 0.0) == pytest.approx(28.2)
+    assert finalize_composite(94.0, 0.0, 0.0, thin_jd=True) == pytest.approx(28.2)
+
+
+def test_local_proxy_has_no_weight_once_the_llm_has_read_the_jd():
+    """
+    The local proxy scores the title against fixed product-manager tiers, not
+    the user's profile. With a real JD it must not move the score.
+    """
+    from backend.services.match_score_service import finalize_composite
+    for kw in (dict(), dict(structural=70.0), dict(ats_base=55.0, culture_delta=2.0)):
+        assert finalize_composite(28.0, 90.0, 80.0, **kw) == finalize_composite(94.0, 90.0, 80.0, **kw)
+
+
+def test_thin_jd_ignores_every_other_term():
+    from backend.services.match_score_service import finalize_composite
+    assert finalize_composite(
+        94.0, 90.0, 90.0, structural=90.0, culture_delta=5.0, proximity_delta=3.0, thin_jd=True,
+    ) == 28.2
 
 
 def test_structural_supersedes_ats_base_when_both_supplied():
