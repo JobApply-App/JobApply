@@ -460,6 +460,9 @@ def main() -> None:
     global DRY_RUN
     DRY_RUN = args.dry_run
     check_database_is_local()
+    # The app reuses the first answer to an identical prompt (#171); here every
+    # repeat must reach the model, or A1 measures the cache, not the model.
+    os.environ["MATCH_SCORE_REUSE"] = "0"
     if args.dry_run:
         os.environ.pop("ANTHROPIC_API_KEY", None)
         os.environ.pop("GEMINI_API_KEY", None)

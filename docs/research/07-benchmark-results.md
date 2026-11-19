@@ -274,5 +274,45 @@ The spread is estimated to drop with each option as follows. These are estimates
   - Part 0, A, B and B7 are measured.
   - Part C has counts only. The reading check of each CV claim is not done.
 - **Open:**
-  - the stability choice above
+  - the stability choice above (chosen 2026-11-19, see the next section)
   - the two CV hard-rule failures in part C: p11's career break turned into a job, and p08's role listed as a degree
+
+## Stability: a fourth source, and the choice (2026-11-19)
+
+**A fourth source was found.** The JD parser (`JDParserAgent.parse_and_format_jd`) is a model call that rewrites the ad before the scorer sees it. It ran on every scoring with no cache and no temperature set. So each repeat sent the scorer a differently worded ad.
+
+**What was done (#171):**
+- The parser now runs at temperature 0, and the first valid parse of an ad is kept.
+- The runner now sets `MATCH_SCORE_REUSE=0`, so every repeat still reaches the scorer.
+
+**Same 248 scores, run again:**
+
+| Measure | After #167-#170 | Parser cached |
+|---|---|---|
+| A1 run-to-run spread within 3.0 | FAIL 21/36, largest 10.2 | FAIL 18/36, largest 8.2 |
+| A2 paraphrase | PASS 11/12 | FAIL 10/12 |
+| A3 language | FAIL 10/12 | FAIL 8/12 |
+| A4 skill order | FAIL 27/36 | FAIL 30/36 |
+| B1, B2, B4, B5, B6 | PASS | PASS |
+| Partial fits | 40.1-65.5, median 52.8 | 35.5-65.5, median 53.0 |
+| No fit | 15.1-33.3, median 23.8 | 13.6-34.7, median 23.6 |
+
+Cost: $1.07, all on `gemini-flash-latest`, 0 failed calls.
+
+**What it shows:**
+- **The parse is now steady.** The 5 repeats of a pair send the scorer the same prompt: 242 recorded scorings fall on 98 prompt hashes.
+- **The scorer itself is not steady.** On that identical prompt, the semantic and management sub-scores still move by up to 10 points. The parser was only a small part of A1's spread, and the A1 count moved within noise.
+
+**The choice (the founder's call, 2026-11-18): keep the first score, record every scoring.**
+- **Same input, same score.** The scorer's first valid answer is reused, per user, for an identical prompt. A changed CV, profile or ad makes a new prompt, and so a new score. This costs no extra model calls; it saves them.
+- **Every scoring is history.** Each scoring is a row in `shadow_match_scores`. A row records:
+  - the job
+  - the sub-scores and dimensions
+  - the prompt hash and the full answer
+  - the model
+  - whether the answer was reused
+
+  This history is how score movement is measured from now on.
+- **What this does not fix.** It does not make the model's first judgement more accurate. It only stops that judgement changing when nothing changed. A2, A3 and A4 change the input, so they still measure how much the wording moves the score.
+
+Not measured: a full run with reuse on. Its repeat spread is 0 by construction. The reuse path is covered by unit tests (`backend/tests/test_same_input_same_score.py`).
