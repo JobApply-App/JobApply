@@ -155,6 +155,164 @@ For a senior candidate the management score is high even for a job they do not f
 
 After the parser, 28 of the 36 base jobs have a local score of exactly 56.8, whatever the job or the person. Part 0.1 stands in the live path.
 
-## Part C: not run
+## Parts A and B again, after #164 and #165 (2026-11-17)
 
-The CV generation runner and the in-session fact check are not built yet. Founder's ranking (B7): not done yet; `benchmark/ranking-sheet.md`.
+Same 248 scores, with the skills fix (#164), years lines no longer counted as skills, and the local title score dropped from the full formula (#165). All on `gemini-flash-latest`, no failed calls, no 60/60 fallbacks.
+
+| Measure | Before | After |
+|---|---|---|
+| A1 run-to-run spread within 3.0 | FAIL 30/36, largest 5.4 | FAIL 24/36, largest 11.1 |
+| A2 paraphrase | PASS 11/12 | PASS 12/12 |
+| A3 language | PASS 11/12 | FAIL 8/12 |
+| A4 skill order | PASS 34/36 | FAIL 29/36 |
+| B1 order strong > partial > none | PASS 12/12 | PASS 12/12 |
+| B2 gap strong to none, at least 20 | PASS 12/12, gaps 23.5-38.3 | PASS 12/12, gaps 42.2-67.7 |
+| B6 pivot (p03 vs p01, within 10) | PASS 3.5 | FAIL 14.9 |
+| Composite range | 15.2-62.4 | 7.5-86.3 (strong 70.1-86.3, none 7.5-29.4) |
+
+**Order got much better, stability got worse.** Both have one cause. The local score was a near-constant (56.8 for 28 of 36 jobs) carrying 18% of the total. It hid the order and it also damped the model's noise. Without it, the management sub-score carries 17% instead of 12%, and that sub-score swings between runs: 35-75 on p10-j3, 45-75 on p12-j2, 55-80 on p06-j1. Those are the pairs that fail A1.
+
+**B6 shows the structural half is tool-literal.** p03 (product manager) and p01 (backend) get the same model scores on their strong jobs (95/92 and 96/95), but structural 34 against 66 before impact. p03's requirements are written as abilities ("owning a product area with an engineering squad", "product analytics, including funnels, cohorts, and A/B tests"); the profile says "a/b testing", and no line names a single tool. Matching by skill name works for jobs that list tools and fails for jobs that describe work. The local score used to give product-manager titles 94 and hid this.
+
+**What would fix each:**
+- Stability: the management sub-score's spread, measured here for the first time on its own. Options: score it twice and average, or give it less weight.
+- Structural for ability-worded jobs: judge each requirement line as met, partly met or not met, with the model reading the profile, and let code compute coverage from those verdicts. The same verdicts would carry the years check (which roles count toward "8+ years of X").
+
+## Part C: the generated CVs (2026-11-17, counts only)
+
+96 CV requests: 48 with today's prompt, 48 with the quotas removed (`benchmark/cv_prompts.py`). All on `gemini-flash-latest`, about $1.6 by the ledger. Counts from `benchmark/count_cv.py`; the reading check of each claim is not done yet.
+
+| | Today's prompt | Without quotas |
+|---|---|---|
+| CVs produced | 43 | 42 |
+| Writer asked the user questions instead | 5 | 6 |
+| Invalid JSON the product could not repair (all succeeded on retry) | 9 | 2 |
+| CVs with an invented employer or degree (English CVs) | 5 | 4 |
+| Job titles changed (English CVs) | 11 | 6 |
+| Ad terms in the CV that are nowhere in the profile (median, max) | 0, 2 | 0, 2 |
+| Numbers in the CV that are nowhere in the profile (median, max) | 0, 2 | 0, 2 |
+| Banned words, long dashes | 0, 0 | 0, 0 |
+
+**The hard-rule failures, by name.** Both happen with either prompt, so they are not caused by the quotas:
+- **p11, a 5-year career break became a job.** The profile says "Career break (raising children), 2019-2024" and that she kept the family business's books voluntarily. Three CVs list "Bookkeeper, Family Small Business, 2019-2024" as employment.
+- **p08, a role listed as a degree.** Six CVs add "Ph.D. Researcher" as a fourth education entry beside the real Ph.D. Immunology.
+
+**Title changes.** Most are shortenings ("Teaching Assistant, Introduction to Statistics" to "Teaching Assistant, Statistics"; "(in-house)" dropped). Two kinds change the claim: "(part time)" removed from p11's current job (5 CVs, both prompts), and once, with today's prompt only, all three of p11's titles inflated ("Senior Bookkeeper & Team Mentor", "Bookkeeper & Client Account Manager", "Bookkeeper & Administrative Coordinator") for a job she does not fit.
+
+**What the counts show.** On this set, the quotas do not make the model add job terms or numbers that the profile lacks: median 0 for both. They go with more changed titles (11 against 6) and more broken JSON (9 against 2). The two hard failures come from somewhere other than the quotas.
+
+**Not covered yet.** Unsupported claims and strengthened wording ("helped with" becoming "led") need the reading check. Hebrew CVs are skipped by the string checks because names and degrees are translated.
+
+## B7: the founder's blind ranking (2026-11-17)
+
+The founder ranked each person's 3 jobs from `benchmark/ranking-sheet.md` without seeing scores. Letters mapped back with `ranking-key.json`.
+
+| | Agreement |
+|---|---|
+| Founder and the designed order | 10/12 (same top job 10/12) |
+| Founder and the system, after #164/#165 | 10/12 |
+| Founder and the system, before | 10/12 |
+
+The system agrees with the designed order for all 12, so the two disagreements are between the founder and the design, not the scorer:
+- **p04** (VP Operations): founder puts the partial-fit COO job above the strong-fit site Operations Manager job. The COO job is a step up; the site job is a step down for her.
+- **p07** (senior graphic designer): founder puts the partial-fit product designer job above the strong-fit senior graphic designer job, a move into a new field.
+
+In both, the founder picked the job the person would likely want, not the one they fit best. The scorer measures fit and must not penalise overqualification or a pivot (CLAUDE.md principle 3), so it should not copy this order. Whether the feed should also show "a step up" or "a move" next to fit is a product question, not a scoring fix.
+
+## Parts A and B after #167 to #170 (2026-11-18)
+
+Same 248 scores after the four fixes the run above pointed to:
+- #167, per-requirement verdicts: the scorer marks each requirement line met, partly met or not met, and hard skills count coverage from those verdicts.
+- #168, domain from the profile.
+- #169, roles read newest first.
+- #170, depth from the verdicts with per-skill years capped at 3, and impact judged per job.
+
+All on `gemini-flash-latest`, 0 failed calls.
+
+| Measure | After #164/#165 | After #167-#170 |
+|---|---|---|
+| A1 run-to-run spread within 3.0 | FAIL 24/36, largest 11.1 | FAIL 21/36, largest 10.2 |
+| A2 paraphrase | PASS 12/12 | PASS 11/12 |
+| A3 language | FAIL 8/12 | FAIL 10/12 |
+| A4 skill order | FAIL 29/36 | FAIL 27/36 |
+| B1 order | PASS 12/12 | PASS 12/12 |
+| B2 gap strong to none | PASS, 42.2-67.7 | PASS, 63.0-78.6 |
+| B4 prior employer | not reported | PASS, total 58.7 -> 83.2 |
+| B5 overqualified | not reported | PASS, 95.7 for both ads |
+| B6 pivot (p03 vs p01) | FAIL 14.9 | PASS 3.7 |
+| Strong fits | 70.1-86.3 | 89.1-96.8, median 92.9 |
+| Partial fits | not reported | 40.1-65.5, median 52.8 |
+| No fit | 7.5-29.4 | 15.1-33.3, median 23.8 |
+
+**Measures that now pass:**
+- **B6 passes.** The product manager whose requirements are written as abilities now gets a structural score close to the backend engineer's, whose requirements name tools. The verdicts closed the gap that was described above as "tool-literal".
+- **Strong fits score like strong fits.** They show about 90 or more, against 50 to 62 in the first run.
+
+**What still fails is stability, and it has three sources.** Where a pair moves between runs of the same input:
+
+| Source | Example (5 runs) | Points of total it moves |
+|---|---|---|
+| Semantic sub-score (about 43% of the total) | p01-j1 45-58, p02-j3 45-58 | up to about 5.6 |
+| Management sub-score (about 17%) | p10-j3 40-75, p04-j3 75-90 | up to about 6 |
+| Verdicts flipping between "partly" and "not met", through the structural half | p08-j3: semantic fixed at 45.0, total still moves 4.9 | about 3 |
+
+- **Which fits move.** Strong fits are steady: 11 of 12 within 3.0. Nearly all the movement is in partial and no-fit pairs, which is where a single judgement call can go either way.
+- **What a user sees.** A score is computed once and stored, so the spread shows only when a job is scored again, for example after a profile change. A user does not see the score move between page loads.
+
+**Options for stability, not yet chosen:**
+1. Score twice and average the two answers. This roughly halves the spread, at twice the scoring cost.
+2. Give the management sub-score less weight.
+3. Leave it as it is.
+
+The spread is estimated to drop with each option as follows. These are estimates from the five recorded runs, not measured:
+- Two calls averaged would bring A1 to about 26 of 36.
+- Three calls averaged would bring it to about 31 of 36.
+
+**Research stages, where they stand:**
+- **Stages 1 to 6 (desk research):** done.
+- **Stage 7 (benchmark):**
+  - Part 0, A, B and B7 are measured.
+  - Part C has counts only. The reading check of each CV claim is not done.
+- **Open:**
+  - the stability choice above (chosen 2026-11-19, see the next section)
+  - the two CV hard-rule failures in part C: p11's career break turned into a job, and p08's role listed as a degree
+
+## Stability: a fourth source, and the choice (2026-11-19)
+
+**A fourth source was found.** The JD parser (`JDParserAgent.parse_and_format_jd`) is a model call that rewrites the ad before the scorer sees it. It ran on every scoring with no cache and no temperature set. So each repeat sent the scorer a differently worded ad.
+
+**What was done (#171):**
+- The parser now runs at temperature 0, and the first valid parse of an ad is kept.
+- The runner now sets `MATCH_SCORE_REUSE=0`, so every repeat still reaches the scorer.
+
+**Same 248 scores, run again:**
+
+| Measure | After #167-#170 | Parser cached |
+|---|---|---|
+| A1 run-to-run spread within 3.0 | FAIL 21/36, largest 10.2 | FAIL 18/36, largest 8.2 |
+| A2 paraphrase | PASS 11/12 | FAIL 10/12 |
+| A3 language | FAIL 10/12 | FAIL 8/12 |
+| A4 skill order | FAIL 27/36 | FAIL 30/36 |
+| B1, B2, B4, B5, B6 | PASS | PASS |
+| Partial fits | 40.1-65.5, median 52.8 | 35.5-65.5, median 53.0 |
+| No fit | 15.1-33.3, median 23.8 | 13.6-34.7, median 23.6 |
+
+Cost: $1.07, all on `gemini-flash-latest`, 0 failed calls.
+
+**What it shows:**
+- **The parse is now steady.** The 5 repeats of a pair send the scorer the same prompt: 242 recorded scorings fall on 98 prompt hashes.
+- **The scorer itself is not steady.** On that identical prompt, the semantic and management sub-scores still move by up to 10 points. The parser was only a small part of A1's spread, and the A1 count moved within noise.
+
+**The choice (the founder's call, 2026-11-18): keep the first score, record every scoring.**
+- **Same input, same score.** The scorer's first valid answer is reused, per user, for an identical prompt. A changed CV, profile or ad makes a new prompt, and so a new score. This costs no extra model calls; it saves them.
+- **Every scoring is history.** Each scoring is a row in `shadow_match_scores`. A row records:
+  - the job
+  - the sub-scores and dimensions
+  - the prompt hash and the full answer
+  - the model
+  - whether the answer was reused
+
+  This history is how score movement is measured from now on.
+- **What this does not fix.** It does not make the model's first judgement more accurate. It only stops that judgement changing when nothing changed. A2, A3 and A4 change the input, so they still measure how much the wording moves the score.
+
+Not measured: a full run with reuse on. Its repeat spread is 0 by construction. The reuse path is covered by unit tests (`backend/tests/test_same_input_same_score.py`).

@@ -305,7 +305,11 @@ async def step_score(people: list[dict], ledger: Ledger, repeats: int) -> int:
         # part: either a model call failed and the product fell back silently,
         # or the product's JD parser condensed the ad below its own 300-char
         # cutoff. Neither is a real score, so it is flagged, never averaged in.
-        failed = (not thin) and (not result.llm_validated)
+        # When both providers fail, the scorer returns its 60/60 fallback with
+        # llm_validated still True; only the empty fit_brief tells them apart
+        # (the feed gates on the same thing). Seen on 2026-11-17 when both
+        # accounts ran out of credit mid-run.
+        failed = (not thin) and (not result.llm_validated or not (result.fit_brief or "").strip())
         failures += failed
         row = {"person": p["id"], "job": job["id"], "fit": job["fit"], "language": job["language"],
                "profile_variant": profile_variant, "variant": variant, "repeat": repeat,
@@ -328,6 +332,91 @@ async def step_score(people: list[dict], ledger: Ledger, repeats: int) -> int:
                 for r in range(1, (repeats if variant == "base" else 1) + 1):
                     await score_once(p, job, "base", variant, title, company, text, r)
             await score_once(p, job, "skillorder", "base", job["title"], job["company"], job["text"].strip(), 1)
+    return failures
+
+
+CVS = RESULTS / "cvs.jsonl"
+HEBREW_CV_PEOPLE = ("p03", "p06", "p09", "p12")   # plan section 4
+CV_REPEATS_FIT = "strong"                         # 12 pairs generated twice per prompt
+
+
+async def step_cv(people: list[dict], ledger: Ledger) -> int:
+    """
+    Part C: one CV per pair and prompt through TailorAgent.tailor, the call the
+    CV route makes. Not exercised: the route's refine pass (it needs the route's
+    own score of the CV) and PDF building. Rows are skipped on a re-run.
+    """
+    import statistics
+    from backend.agents import tailor as tailor_mod
+    from backend.schemas.job import DetailedAnalysis, JobMatch
+    from backend.models.cv import normalize_cv
+    import cv_prompts
+
+    prompts = {"today": tailor_mod._SYSTEM_PROMPT}
+    prompts["noquota"] = cv_prompts.without_quotas(prompts["today"])
+    structured: dict = json.loads(STRUCTURED.read_text()) if STRUCTURED.exists() else {}
+    totals: dict = {}
+    if SCORES.exists():
+        for line in SCORES.read_text().splitlines():
+            r = json.loads(line)
+            if r["profile_variant"] == "base" and r["variant"] == "base" and not r["failed"]:
+                totals.setdefault(r["job"], []).append(r["total"])
+    done = set()
+    if CVS.exists() and not ledger.dry_run:
+        # A row that ended in an error (a provider out of credit, say) is tried again.
+        done = {(r["job"], r["prompt"], r["run"]) for r in map(json.loads, CVS.read_text().splitlines())
+                if r["type"] != "error"}
+
+    failures = 0
+    for p in people:
+        uid = user_id_for(p["id"], "base")
+        locale = "he" if p["id"] in HEBREW_CV_PEOPLE else "en"
+        # The invented CVs have no LinkedIn link, so the writer stops to ask
+        # for one before any model call. A user presses Skip once; do the same.
+        from backend.services.user_profile import SKIP_ANSWER, save_user_personal_field
+        if not ledger.dry_run:
+            save_user_personal_field(uid, "linkedin", SKIP_ANSWER)
+        for job in p["jobs"]:
+            text = job["text"].strip()
+            runs = 2 if job["fit"] == CV_REPEATS_FIT else 1
+            for name, prompt in prompts.items():
+                for run in range(1, runs + 1):
+                    if (job["id"], name, run) in done:
+                        continue
+                    tailor_mod._SYSTEM_PROMPT = prompt
+                    ledger.calls.clear()
+                    match = JobMatch(
+                        job_id=f"bench-{job['id']}", title=job["title"], company=job["company"],
+                        location=job["location"],
+                        score=statistics.median(totals[job["id"]]) if totals.get(job["id"]) else 0.0,
+                        confidence_score=0, culture_fit_score=0, trajectory_alignment="",
+                        company_dna_inference="",
+                        detailed_analysis=DetailedAnalysis(strengths=[], critical_gaps=[], strategic_advice=[]),
+                        investigation_points=[], reasons=[], jd_text=text,
+                        jd_structured=structured.get(hashlib.sha256(text.encode()).hexdigest()),
+                        user_id=uid,
+                    )
+                    try:
+                        result = await tailor_mod.TailorAgent(uid).tailor(match, cv_locale=locale)
+                        error = None
+                    except Exception as exc:          # recorded, never averaged in
+                        result, error = {"type": "error"}, f"{type(exc).__name__}: {exc}"
+                    finally:
+                        tailor_mod._SYSTEM_PROMPT = prompts["today"]
+                    kind = result.get("type")
+                    cv = normalize_cv(result["cv_data"], context="benchmark") if kind == "cv" else None
+                    failures += kind != "cv"
+                    row = {"person": p["id"], "job": job["id"], "fit": job["fit"], "locale": locale,
+                           "prompt": name, "run": run, "type": kind, "error": error,
+                           "questions": result.get("requests") if kind == "missing_data" else None,
+                           "cv": cv, "models": [c["model"] for c in ledger.calls],
+                           "cost_usd": round(sum(c["cost_usd"] for c in ledger.calls), 4),
+                           "dry_run": ledger.dry_run, "at": datetime.now(timezone.utc).isoformat()}
+                    if not ledger.dry_run:
+                        with CVS.open("a") as f:
+                            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+                    print(f"{p['id']} {job['id']} {name} #{run} {locale}: {kind}"
+                          f"{' ' + error if error else ''} models={row['models']} ${row['cost_usd']}")
     return failures
 
 
@@ -354,7 +443,7 @@ def check_database_is_local() -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("step", choices=["ingest", "score"])
+    ap.add_argument("step", choices=["ingest", "score", "cv"])
     ap.add_argument("--people", default="", help="comma-separated ids, e.g. p01,p05 (default: all 12)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--env-file", help="file to read ANTHROPIC_API_KEY / GEMINI_API_KEY from, and nothing else")
@@ -371,6 +460,9 @@ def main() -> None:
     global DRY_RUN
     DRY_RUN = args.dry_run
     check_database_is_local()
+    # The app reuses the first answer to an identical prompt (#171); here every
+    # repeat must reach the model, or A1 measures the cache, not the model.
+    os.environ["MATCH_SCORE_REUSE"] = "0"
     if args.dry_run:
         os.environ.pop("ANTHROPIC_API_KEY", None)
         os.environ.pop("GEMINI_API_KEY", None)
@@ -404,8 +496,11 @@ def main() -> None:
 
     if args.step == "ingest":
         failures = asyncio.run(step_ingest(people, ledger, stub_state))
-    else:
+    elif args.step == "score":
         failures = asyncio.run(step_score(people, ledger, args.repeats))
+    else:
+        sys.path.insert(0, str(HERE))
+        failures = asyncio.run(step_cv(people, ledger))
     print(f"model calls by purpose: {ledger.by_purpose}")
     print(f"spent so far: ${ledger.spent:.2f} of ${args.cap:.2f}")
     if failures:
