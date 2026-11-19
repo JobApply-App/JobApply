@@ -1,0 +1,182 @@
+[
+ {
+  "item": 1,
+  "kind": "unsupported",
+  "person": "p02",
+  "job": "p02-j1",
+  "prompt": "noquota",
+  "run": 1,
+  "locale": "en"
+ },
+ {
+  "item": 2,
+  "kind": "unsupported",
+  "person": "p02",
+  "job": "p02-j1",
+  "prompt": "today",
+  "run": 1,
+  "locale": "en"
+ },
+ {
+  "item": 3,
+  "kind": "strengthened",
+  "person": "p07",
+  "job": "p07-j2",
+  "prompt": "noquota",
+  "run": 2,
+  "locale": "en"
+ },
+ {
+  "item": 4,
+  "kind": "strengthened",
+  "person": "p06",
+  "job": "p06-j1",
+  "prompt": "today",
+  "run": 1,
+  "locale": "he"
+ },
+ {
+  "item": 5,
+  "kind": "strengthened",
+  "person": "p10",
+  "job": "p10-j2",
+  "prompt": "today",
+  "run": 1,
+  "locale": "en"
+ },
+ {
+  "item": 6,
+  "kind": "strengthened",
+  "person": "p02",
+  "job": "p02-j2",
+  "prompt": "noquota",
+  "run": 1,
+  "locale": "en"
+ },
+ {
+  "item": 7,
+  "kind": "strengthened",
+  "person": "p10",
+  "job": "p10-j1",
+  "prompt": "noquota",
+  "run": 1,
+  "locale": "en"
+ },
+ {
+  "item": 8,
+  "kind": "unsupported",
+  "person": "p10",
+  "job": "p10-j1",
+  "prompt": "noquota",
+  "run": 1,
+  "locale": "en"
+ },
+ {
+  "item": 9,
+  "kind": "unsupported",
+  "person": "p09",
+  "job": "p09-j2",
+  "prompt": "noquota",
+  "run": 1,
+  "locale": "he"
+ },
+ {
+  "item": 10,
+  "kind": "strengthened",
+  "person": "p12",
+  "job": "p12-j2",
+  "prompt": "noquota",
+  "run": 2,
+  "locale": "he"
+ },
+ {
+  "item": 11,
+  "kind": "strengthened",
+  "person": "p02",
+  "job": "p02-j3",
+  "prompt": "today",
+  "run": 1,
+  "locale": "en"
+ },
+ {
+  "item": 12,
+  "kind": "unsupported",
+  "person": "p07",
+  "job": "p07-j2",
+  "prompt": "today",
+  "run": 1,
+  "locale": "en"
+ },
+ {
+  "item": 13,
+  "kind": "unsupported",
+  "person": "p06",
+  "job": "p06-j2",
+  "prompt": "today",
+  "run": 1,
+  "locale": "he"
+ },
+ {
+  "item": 14,
+  "kind": "strengthened",
+  "person": "p03",
+  "job": "p03-j2",
+  "prompt": "noquota",
+  "run": 1,
+  "locale": "he"
+ },
+ {
+  "item": 15,
+  "kind": "unsupported",
+  "person": "p11",
+  "job": "p11-j3",
+  "prompt": "today",
+  "run": 1,
+  "locale": "en"
+ },
+ {
+  "item": 16,
+  "kind": "strengthened",
+  "person": "p09",
+  "job": "p09-j1",
+  "prompt": "today",
+  "run": 1,
+  "locale": "he"
+ },
+ {
+  "item": 17,
+  "kind": "unsupported",
+  "person": "p02",
+  "job": "p02-j2",
+  "prompt": "noquota",
+  "run": 1,
+  "locale": "en"
+ },
+ {
+  "item": 18,
+  "kind": "unsupported",
+  "person": "p08",
+  "job": "p08-j1",
+  "prompt": "noquota",
+  "run": 2,
+  "locale": "en"
+ },
+ {
+  "item": 19,
+  "kind": "unsupported",
+  "person": "p03",
+  "job": "p03-j2",
+  "prompt": "today",
+  "run": 1,
+  "locale": "he"
+ },
+ {
+  "item": 20,
+  "kind": "strengthened",
+  "person": "p02",
+  "job": "p02-j1",
+  "prompt": "noquota",
+  "run": 1,
+  "locale": "en"
+ }
+]

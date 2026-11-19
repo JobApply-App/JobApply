@@ -124,6 +124,11 @@ FACT INTEGRITY — absolute, same weight as FORBIDDEN SHORTCUTS:
     in the profile or SUPPLEMENTAL_ANSWERS. Domain knowledge ≠ invented numbers.
   • The underlying activity must exist in the profile. Enrichment changes
     vocabulary, never facts.
+  • An experience entry with no employer is a career break, not a job (for
+    example "Career break (raising children)"). Keep it as written with no
+    employer, or leave it out. Never give it an employer or a job title.
+    Unpaid or family work done during the break stays described as that,
+    never as employment.
 
 ══════════════════════════════════════════════════════════════
 PRE-GENERATION AUDIT — execute these steps IN ORDER
@@ -1476,6 +1481,57 @@ def _enforce_all_employers(cv_data: dict, user_id: str) -> dict:
     return cv_data
 
 
+# ── Career breaks (deterministic post-hoc safety net) ────────────────────────
+
+_YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
+# Only these are breaks. A freelance job with no company name stays a job.
+_BREAK = re.compile(
+    r"\b(career break|break|sabbatical|parental|maternity|paternity|raising children|"
+    r"caregiv\w*|relocation|travel(l?ing)?)\b"
+    r"|הפסקה|חופשת לידה|גידול ילדים|שנת שבתון",
+    re.IGNORECASE,
+)
+
+
+def _years(text: object) -> tuple[str, ...]:
+    return tuple(_YEAR.findall(str(text or "")))
+
+
+def _drop_employed_breaks(data: dict, user_id: str) -> dict:
+    """
+    A CV entry that turns a career break into a job is removed.
+
+    The profile holds a break as an experience entry with no employer
+    ("Career break (raising children)", 2019 - 2024). In the stage 7
+    benchmark the writer listed one as "Bookkeeper, Family Small Business,
+    2019-2024" with both prompts: an invented employer. A CV entry with an
+    employer, on the same years as a break, and naming no employer in the
+    profile, is that. Matched by years because a Hebrew CV translates the
+    names. Leaving a break out of a CV is honest; giving it an employer is not.
+    """
+    experience = _resolve_profile(user_id).get("experience", [])
+    breaks = {
+        _years(e.get("period") or e.get("dates"))
+        for e in experience
+        if not (e.get("company") or e.get("unit")) and _BREAK.search(str(e.get("role") or e.get("title") or ""))
+    } - {()}
+    if not breaks:
+        return data
+    employers = {_norm_company(e.get("company") or "") for e in experience} - {""}
+    kept = []
+    for e in data.get("experience") or []:
+        if (isinstance(e, dict) and (e.get("company") or "").strip()
+                and _years(e.get("dates")) in breaks
+                and _norm_company(e["company"]) not in employers):
+            logger.warning("[tailor] user=%s: dropped '%s, %s' (%s): the profile has a career "
+                           "break on those years, not a job", user_id, e.get("role"),
+                           e.get("company"), e.get("dates"))
+            continue
+        kept.append(e)
+    data["experience"] = kept
+    return data
+
+
 # ── AI-Tells sanitiser (deterministic post-hoc safety net) ───────────────────
 # The prompt rules cover the vast majority of cases. This layer catches anything
 # that slips through regardless of prompt compliance. Word list and em-dash
@@ -1888,6 +1944,7 @@ class TailorAgent:
         cv_data = validate_cv_schema(cv_data, context="tailor")
         cv_data = _enforce_limits(cv_data)
         cv_data = _inject_static_sections(cv_data, user_id=self.user_id, jd_text=job.jd_text or "")
+        cv_data = _drop_employed_breaks(cv_data, self.user_id)
         cv_data = _sanitize_ai_tells(cv_data)
 
         # Zero-hallucination gate — active, not log-only (2026-08-21).
@@ -2025,6 +2082,7 @@ class TailorAgent:
         refined = validate_cv_schema(refined, context="tailor.refine")
         refined = _enforce_limits(refined)
         refined = _inject_static_sections(refined, user_id=self.user_id, jd_text=jd_context or "")
+        refined = _drop_employed_breaks(refined, self.user_id)
         refined = _sanitize_ai_tells(refined)
 
         logger.info(

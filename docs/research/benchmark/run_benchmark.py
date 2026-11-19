@@ -420,6 +420,75 @@ async def step_cv(people: list[dict], ledger: Ledger) -> int:
     return failures
 
 
+CLAIMS = RESULTS / "claims.jsonl"
+
+_CHECK_SYSTEM = """\
+You check a generated CV against the candidate's profile, which is the only
+source of truth. Read every line of the CV: summary, titles, employers, dates,
+bullets, skills, education. Report two kinds of problems, and nothing else:
+
+1. unsupported: a statement in the CV that nothing in the profile supports. A
+   tool, a responsibility, a result, a number, an employer, a degree or a title
+   the profile does not contain. Rewording or translating what the profile says
+   is supported; a new fact is not.
+2. strengthened: a statement the profile supports in a weaker form. "Took part
+   in" became "led", "helped with" became "owned", "part time" was dropped, a
+   team member became a manager, a range became its top end.
+
+Be strict but literal: quote the CV text exactly, and for "strengthened" quote
+the profile text it came from. Do not report style, length or missing content.
+
+Return ONLY raw JSON:
+{"unsupported": [{"cv_text": "...", "why": "..."}],
+ "strengthened": [{"cv_text": "...", "profile_text": "...", "why": "..."}]}
+"""
+
+
+async def step_check(people: list[dict], ledger: Ledger, cvs_path: Path) -> int:
+    """
+    Part C reading check: the checker model reads each CV against the person's
+    profile and lists unsupported and strengthened claims. The founder then
+    spot-checks a sample (build_claims_sheet). Rows are skipped on a re-run.
+    """
+    from backend.agents.profile_analyzer import _parse_json
+    from backend.services.llm_client import call_llm
+
+    profiles = {p["id"]: p["profile"] for p in people}
+    rows = [r for r in map(json.loads, cvs_path.read_text().splitlines())
+            if r["type"] == "cv" and r["person"] in profiles]
+    done = set()
+    if CLAIMS.exists():
+        # A row that ended in an error is tried again.
+        done = {(r["source"], r["job"], r["prompt"], r["run"]) for r in map(json.loads, CLAIMS.read_text().splitlines())
+                if not r["error"]}
+    failures = 0
+    for r in rows:
+        key = (cvs_path.name, r["job"], r["prompt"], r["run"])
+        if key in done:
+            continue
+        user = (f"PROFILE:\n{json.dumps(profiles[r['person']], ensure_ascii=False, indent=1)}\n\n"
+                f"CV:\n{json.dumps(r['cv'], ensure_ascii=False, indent=1)}\n\nReturn the JSON now.")
+        error, found = None, {"unsupported": [], "strengthened": []}
+        try:
+            res = await call_llm(system=_CHECK_SYSTEM, messages=[{"role": "user", "content": user}],
+                                 model="claude-sonnet-4-6", max_tokens=2048, temperature=0.0,
+                                 purpose="bench_claim_check")
+            parsed = _parse_json(res.text)
+            found = {k: list(parsed.get(k) or []) for k in found}
+        except Exception as exc:              # recorded and counted, never read as "no problems"
+            error = f"{type(exc).__name__}: {exc}"
+            failures += 1
+        out = {"source": cvs_path.name, "person": r["person"], "job": r["job"], "fit": r["fit"],
+               "locale": r["locale"], "prompt": r["prompt"], "run": r["run"], "error": error, **found,
+               "at": datetime.now(timezone.utc).isoformat()}
+        if not ledger.dry_run:
+            with CLAIMS.open("a") as f:
+                f.write(json.dumps(out, ensure_ascii=False) + "\n")
+        print(f"{r['job']} {r['prompt']} #{r['run']}: unsupported={len(found['unsupported'])} "
+              f"strengthened={len(found['strengthened'])}{' ' + error if error else ''}")
+    return failures
+
+
 # ── entry point ───────────────────────────────────────────────────────────────
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
@@ -443,7 +512,8 @@ def check_database_is_local() -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("step", choices=["ingest", "score", "cv"])
+    ap.add_argument("step", choices=["ingest", "score", "cv", "check"])
+    ap.add_argument("--cvs", default="", help="check: the CV file to read (default results/cvs.jsonl)")
     ap.add_argument("--people", default="", help="comma-separated ids, e.g. p01,p05 (default: all 12)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--env-file", help="file to read ANTHROPIC_API_KEY / GEMINI_API_KEY from, and nothing else")
@@ -498,6 +568,8 @@ def main() -> None:
         failures = asyncio.run(step_ingest(people, ledger, stub_state))
     elif args.step == "score":
         failures = asyncio.run(step_score(people, ledger, args.repeats))
+    elif args.step == "check":
+        failures = asyncio.run(step_check(people, ledger, Path(args.cvs).resolve() if args.cvs else CVS))
     else:
         sys.path.insert(0, str(HERE))
         failures = asyncio.run(step_cv(people, ledger))

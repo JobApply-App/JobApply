@@ -272,10 +272,10 @@ The spread is estimated to drop with each option as follows. These are estimates
 - **Stages 1 to 6 (desk research):** done.
 - **Stage 7 (benchmark):**
   - Part 0, A, B and B7 are measured.
-  - Part C has counts only. The reading check of each CV claim is not done.
+  - Part C: counts and the model's reading check are done (2026-11-19, below). The founder's spot check is open.
 - **Open:**
   - the stability choice above (chosen 2026-11-19, see the next section)
-  - the two CV hard-rule failures in part C: p11's career break turned into a job, and p08's role listed as a degree
+  - the two CV hard-rule failures in part C: fixed 2026-11-19, below
 
 ## Stability: a fourth source, and the choice (2026-11-19)
 
@@ -316,3 +316,49 @@ Cost: $1.07, all on `gemini-flash-latest`, 0 failed calls.
 - **What this does not fix.** It does not make the model's first judgement more accurate. It only stops that judgement changing when nothing changed. A2, A3 and A4 change the input, so they still measure how much the wording moves the score.
 
 Not measured: a full run with reuse on. Its repeat spread is 0 by construction. The reuse path is covered by unit tests (`backend/tests/test_same_input_same_score.py`).
+
+## Part C: the hard rules fixed, and the reading check (2026-11-19)
+
+### The two hard-rule failures had three causes, two of them in our code
+
+| Failure | Where it really came from | Fix |
+|---|---|---|
+| p08: "Ph.D. Researcher" listed as a degree | `cv_entry_kind.DEGREE` read any title starting "Ph.D." as a degree, so the job was moved to education when the CV was read in, losing its bullets | A degree word followed by a job noun (researcher, student, assistant, ...) is a job |
+| p08: the same job also missing from experience | `user_profile._overlaps` counted two roles at one employer as duplicates when they shared only a boundary year (Ph.D. 2015-2021, Postdoc 2021-present). The earlier role never reached the profile or the scorer, against principle 1 | Sharing only the boundary year is the next role, not the same role. This is applied when the profile is read, so stored profiles are repaired too |
+| p11: a career break became "Bookkeeper, Family Small Business" | The CV extraction prompt asks for an "exact company name" for every role and said nothing about breaks. The stored profile already read "Bookkeeper (voluntary), Family's small business", and the writer repeated it | Rules in both prompts (extraction and writer). A mechanical guard after writing drops a CV entry that gives an employer to the years of a profile break, matched by years so it also works on Hebrew CVs |
+
+After the fix, p08 and p11 were ingested again and their CVs regenerated (same inputs as on 2026-11-17):
+- **p08:** 4 of 4 CVs list Ph.D. Researcher under experience. Education holds only the 3 real degrees.
+- **p11:** the stored profile keeps "Career break (raising children)" with no employer. None of the 7 CVs gives the break an employer.
+- **Still open for p11:** 3 of the 7 drop "(part time)" from her current title. The reading check below counts this as strengthening.
+
+Tests: `backend/tests/test_cv_hard_rules.py`.
+
+### The reading check
+
+The checker model read 84 CVs against the person's profile and listed every unsupported and every strengthened claim. These are 82 CVs from the 2026-11-17 run, with p08's and p11's replaced by the regenerated ones; the checker's JSON broke twice, so 82 are counted. The run used `run_benchmark.py check` on `gemini-flash-latest` and cost $0.25 by the ledger.
+
+| | Today's prompt | Without quotas |
+|---|---|---|
+| CVs checked | 41 | 41 |
+| Unsupported claims per CV (median, max) | 5, 9 | 4, 7 |
+| CVs with no unsupported claim | 0 | 2 |
+| Strengthened claims per CV (median, max) | 1, 4 | 1, 4 |
+| CVs with no strengthened claim | 11 | 10 |
+
+**What kind of claims.** Of the 334 unsupported claims:
+- about 260 are added detail on a real activity, such as a frequency ("weekly"), an adjective ("strategic customers"), a context ("under tight deadlines"), or an ad's term attached to work the profile describes in other words;
+- about 30 attach a tool from the skills list to a job the profile does not tie it to;
+- about 20 are numbers;
+- about 25 are titles or headline claims, such as "Contact Centre Manager" for a team lead, or "Marketplace" in a target title.
+
+Of the 93 strengthened claims, about a third are job titles ("Company Clerk" became "HR coordinator", "(part time)" dropped).
+
+**What it shows, with one caveat.** Almost every CV says more than the profile does, with either prompt. The quotas add about one unsupported claim per CV. Partial fits get the most (median 6), where the writer stretches furthest toward the ad. These are the checker's judgements, and part of them is the checker being strict. They are not yet confirmed.
+
+**The founder's spot check.** `benchmark/claims-sheet.md` holds 20 claims sampled at random, 10 of each kind; `claims-key.json` maps each to its CV. The founder's verdicts give the checker's precision, and the counts above should be read through it.
+
+**Open:**
+- the founder's spot check
+- job titles: the writer still edits titles, and a third of strengthened claims are titles. Taking titles, employers and dates from the profile as they are, and leaving only bullets and the summary to the writer, would close this class mechanically
+- the stored profiles of users whose CV was read in under the old degree rule: a role that starts with a degree word may sit in their education. The read-time fix above does not move it back
