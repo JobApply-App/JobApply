@@ -1404,6 +1404,18 @@ def _most_recent_first(experience: list[dict]) -> list[dict]:
     return roles
 
 
+def _first_answer(user_id: Optional[str], prompt_hash: str) -> Optional[tuple[str, str]]:
+    """The first recorded (answer, model) to this exact prompt for this user, or None."""
+    if not user_id or os.getenv("MATCH_SCORE_REUSE", "1") == "0":
+        return None
+    try:
+        from backend.repositories import shadow_score_repository
+        return shadow_score_repository.first_answer(user_id, prompt_hash)
+    except Exception as exc:
+        logger.warning("match_score LLM: score history unreadable, asking the model: %s", exc)
+        return None
+
+
 async def _llm_dual_score(
     cv_data: dict,
     jd_text: str,
@@ -1413,6 +1425,7 @@ async def _llm_dual_score(
     job_id: Optional[str] = None,
     requirements: Optional[list[str]] = None,
     domains: Optional[list[str]] = None,
+    trace: Optional[dict] = None,
 ) -> tuple[float, float, str, list[str], dict[str, float], Optional[str], Optional[str]]:
     """
     Single claude-haiku-4-5 call returning
@@ -1436,7 +1449,16 @@ async def _llm_dual_score(
     malformed payload — wrong types, out-of-range scores — is caught
     explicitly rather than propagating bad data into the composite formula.
 
-    temperature=0.0 guarantees identical output for identical inputs (determinism).
+    temperature=0.0 does NOT make the answer repeatable: the same prompt
+    scored five times moved a partial fit by up to 10 points (benchmark,
+    docs/research/07-benchmark-results.md). So the first valid answer to a
+    prompt is kept: an identical prompt for the same user (same profile,
+    same parsed ad) reuses it instead of asking again, and a changed input
+    makes a new prompt and a new answer. trace, when given, is filled with
+    prompt_hash, answer, model and reused, for the score history row.
+    MATCH_SCORE_REUSE=0 turns reuse off (the benchmark sets it, to measure
+    the model).
+
     Falls back to (60.0, 60.0, "", []) on any API, parse, or validation error
     so the composite still gets a reasonable score and the pipeline never crashes.
     """
@@ -1528,18 +1550,23 @@ async def _llm_dual_score(
         "(jd_len=%d prompt_len=%d)",
         job_title, company_name, len(jd_text), len(prompt),
     )
+    prompt_hash = hashlib.sha256(f"{_LLM_SYSTEM_SCORER}\n{prompt}".encode()).hexdigest()
     try:
-        result_llm = await call_llm(
-            model       = "claude-haiku-4-5-20251001",
-            max_tokens  = 1500,  # fit_brief + gaps + one verdict per requirement; Hebrew ~2x
-            temperature = 0.0,   # deterministic — same input → same output every time
-            system      = _LLM_SYSTEM_SCORER,
-            messages    = [{"role": "user", "content": prompt}],
-            purpose     = "match_score_dual_score",
-            user_id     = user_id,
-            job_id      = job_id,
-        )
-        raw = result_llm.text.strip()
+        reused = _first_answer(user_id, prompt_hash)
+        if reused is not None:
+            raw, answered_by = reused
+        else:
+            result_llm = await call_llm(
+                model       = "claude-haiku-4-5-20251001",
+                max_tokens  = 1500,  # fit_brief + gaps + one verdict per requirement; Hebrew ~2x
+                temperature = 0.0,   # narrows the spread, does not remove it — see the docstring
+                system      = _LLM_SYSTEM_SCORER,
+                messages    = [{"role": "user", "content": prompt}],
+                purpose     = "match_score_dual_score",
+                user_id     = user_id,
+                job_id      = job_id,
+            )
+            raw, answered_by = result_llm.text.strip(), result_llm.model
         logger.debug(
             "match_score LLM: raw response received for title='%s' (len=%d)",
             job_title, len(raw),
@@ -1595,6 +1622,10 @@ async def _llm_dual_score(
             semantic, management, len(fit_brief), len(gaps),
             len(credits), len(requirements or []), domain_fit, impact_fit, job_title,
         )
+        if trace is not None:
+            # Only a valid answer is recorded, so only a valid answer is reused.
+            trace.update(prompt_hash=prompt_hash, answer=raw, model=answered_by,
+                         reused=reused is not None)
         return semantic, management, fit_brief, gaps, credits, domain_fit, impact_fit
 
     except json.JSONDecodeError as exc:
@@ -2139,10 +2170,16 @@ def _persist_score_audit(
     unified: float,
     ats: "object",
     user_id: str,
+    history: Optional[dict] = None,
 ) -> None:
     """
     Persist the LLM-only vs ATS vs unified scores for calibration review.
     Guaranteed non-fatal — the production path never depends on this succeeding.
+
+    history (job_id, sub-scores, dimensions, and the scorer's prompt_hash,
+    answer, model, reused) makes each row one entry in the job's score
+    history, so how a score moved, and why, can be read back later. The
+    first row holding a prompt_hash is also the answer _first_answer reuses.
     """
     try:
         import json as _json
@@ -2170,6 +2207,7 @@ def _persist_score_audit(
                     1 for m in ats.competency_detail
                     if m.competency.tier.value == "must_have"
                 ),
+                **(history or {}),
             }, ensure_ascii=False),
             created_at = datetime.now(timezone.utc).isoformat(),
         )
@@ -2338,10 +2376,11 @@ async def compute_match_score_async(
     # LLM dual scorer (single haiku call, temperature=0.0, Pydantic-validated)
     must_haves, nice_haves = _jd_requirements(jd_text, jd_structured)
     domains = cv_data.get("domains") or _profile_domains(user_id)
+    trace: dict = {}
     semantic, management, fit_brief, missing_caps, credits, domain_fit, impact_fit = await _llm_dual_score(
         cv_data, jd_text, inferred_title, company_name,
         user_id=user_id, job_id=job_id, requirements=[*must_haves, *nice_haves],
-        domains=domains,
+        domains=domains, trace=trace,
     )
 
     # ATS Match Engine — None ⇒ degrade gracefully to the pure LLM composite.
@@ -2400,7 +2439,16 @@ async def compute_match_score_async(
             "FAIL" if knockout_failed else "pass", inferred_title,
         )
         # Calibration audit trail (non-fatal) — LLM-only vs ATS vs unified.
-        _persist_score_audit(inferred_title, company_name, llm_composite, composite, ats, user_id)
+        _persist_score_audit(inferred_title, company_name, llm_composite, composite, ats, user_id,
+                             history={
+                                 "job_id": job_id, "semantic": semantic, "management": management,
+                                 "structural": dims.structural if dims else None,
+                                 "hard_skills": dims.hard_skills if dims else None,
+                                 "depth": dims.depth_breadth if dims else None,
+                                 "domain": dims.domain_context if dims else None,
+                                 "impact_dim": dims.impact if dims else None,
+                                 **trace,
+                             })
     else:
         logger.info(
             "match_score composite (LLM-only, ATS engine unavailable): "

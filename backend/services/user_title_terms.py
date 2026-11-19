@@ -71,8 +71,15 @@ _SYSTEM = (
     "functional area that this person would realistically also apply for — "
     "for example 'Supply Manager' -> 'Logistics Manager', 'Procurement "
     "Manager', 'Supply Chain Manager', 'Purchasing Manager', 'מנהל לוגיסטיקה', "
-    "'מנהל רכש'. Do not drift to a different function (a Supply Manager is "
-    "not a Sales Manager). Prefer phrases of 1-4 words that would appear "
+    "'מנהל רכש'. Also add neighbouring roles whose daily work overlaps most "
+    "of it, even if the title names another function — for example 'Product "
+    "Manager' -> 'Product Analyst', 'Product Marketing Manager', 'אנליסט "
+    "מוצר'; 'Customer Success Manager' -> 'Customer Experience Manager', "
+    "'Onboarding Manager', 'Implementation Manager'. The match score decides "
+    "how well each one fits; this list only decides what is looked at. Do "
+    "not drift to work that shares only a word or a seniority (a Supply "
+    "Manager is not a Sales Manager; a Product Manager is not a Production "
+    "Manager or a Product Security Engineer). Prefer phrases of 1-4 words that would appear "
     "inside a posting title. Return ONLY a JSON array of strings."
 )
 
@@ -80,7 +87,9 @@ _SYSTEM = (
 # is regenerated once on the next cycle (one cheap LLM call per user).
 # v2 (2026-10-29): related titles in the same function, not only synonyms —
 # users typing a role with few postings ("מנהל אספקה") saw almost nothing.
-_PROMPT_VERSION = "v2"
+# v3 (2026-11-18): neighbouring roles that overlap most of the work, across
+# function lines ("Product Manager" -> "Product Analyst").
+_PROMPT_VERSION = "v3"
 
 
 # ── Sources ───────────────────────────────────────────────────────────────────
