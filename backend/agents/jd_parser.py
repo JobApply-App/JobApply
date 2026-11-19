@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 from dataclasses import dataclass
@@ -41,6 +42,29 @@ Extraction rules:
 - If a field cannot be found or the input is just boilerplate, return null or empty lists for those fields.
 """
 
+def _cache_key(raw_jd_text: str) -> str:
+    digest = hashlib.sha256(f"{_JD_PARSER_SYSTEM_PROMPT}\n{raw_jd_text}".encode()).hexdigest()
+    return f"jd_parse:{digest}"
+
+
+def _cached_parse(key: str) -> Optional[str]:
+    try:
+        from backend.repositories import kv_repository
+        entry = kv_repository.get(key)
+        return entry.value if entry and entry.value else None
+    except Exception as exc:
+        logger.warning("jd_parser: cache read failed (parsing afresh): %s", exc)
+        return None
+
+
+def _store_parse(key: str, raw_reply: str) -> None:
+    try:
+        from backend.repositories import kv_repository
+        kv_repository.upsert(key, raw_reply)
+    except Exception as exc:
+        logger.warning("jd_parser: cache write failed (next scoring parses again): %s", exc)
+
+
 @dataclass
 class ParsedJD:
     formatted_text: str
@@ -62,15 +86,26 @@ class JDParserAgent:
         user_message = f"Raw Job Description:\n{raw_jd_text}\n\nReturn the JSON object now."
 
         try:
-            result = await call_llm(
-                system=_JD_PARSER_SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user_message}],
-                model=self.model,
-                max_tokens=1024,
-                purpose="jd_parser_parse_and_format",
-            )
-            payload = _parse_json(result.text)
-            
+            # The parsed ad feeds the scorer's prompt. Parsed afresh on every
+            # scoring, the same ad came back worded differently each time and
+            # the score moved with it; the first parse of an ad is now kept.
+            cache_key = _cache_key(raw_jd_text)
+            raw_reply = _cached_parse(cache_key)
+            if raw_reply is None:
+                result = await call_llm(
+                    system=_JD_PARSER_SYSTEM_PROMPT,
+                    messages=[{"role": "user", "content": user_message}],
+                    model=self.model,
+                    max_tokens=1024,
+                    temperature=0.0,
+                    purpose="jd_parser_parse_and_format",
+                )
+                raw_reply = result.text
+                payload = _parse_json(raw_reply)
+                _store_parse(cache_key, raw_reply)
+            else:
+                payload = _parse_json(raw_reply)
+
             # Format output without artificial padding
             formatted_lines = []
             

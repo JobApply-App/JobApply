@@ -37,3 +37,31 @@ def insert(
             created_at     = created_at,
         ))
         session.commit()
+
+
+def first_answer(
+    user_id: str, prompt_hash: str, engine: Optional[Engine] = None,
+) -> Optional[tuple[str, str]]:
+    """
+    (answer, model) from the oldest row recording this scorer prompt_hash for
+    user_id, or None. The match scorer reuses it so the same input keeps the
+    score it got the first time (match_score_service._first_answer).
+    """
+    import json
+
+    from sqlalchemy import select
+
+    eng = engine or ENGINE
+    with Session(eng) as session:
+        rows = session.execute(
+            select(ShadowScoreRow.breakdown_json)
+            .where(ShadowScoreRow.user_id == user_id)
+            .where(ShadowScoreRow.breakdown_json.contains(f'"prompt_hash": "{prompt_hash}"'))
+            .order_by(ShadowScoreRow.id)
+            .limit(1)
+        ).scalars().all()
+    for blob in rows:
+        data = json.loads(blob)
+        if data.get("prompt_hash") == prompt_hash and data.get("answer"):
+            return data["answer"], data.get("model") or "unknown"
+    return None
