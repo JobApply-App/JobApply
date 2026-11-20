@@ -122,3 +122,12 @@ def test_the_writer_has_no_keyword_or_number_quotas():
                   "force it into the summary", "mandatory for every bullet"):
         assert quota not in prompt, quota
     assert "There is no coverage target" in prompt
+
+
+def test_the_honesty_line_applies_to_a_hebrew_cv():
+    # A Hebrew CV turned "Deploy with Docker and GitHub Actions" into
+    # "הקמת תהליכי CI/CD" while the English CVs kept it at its size.
+    he = tailor._output_language_directive("he")
+    assert "The HONESTY LINE holds in Hebrew" in he
+    assert "הקמת תהליכי CI/CD" in he and "never" in he
+    assert tailor._output_language_directive("en") == ""
