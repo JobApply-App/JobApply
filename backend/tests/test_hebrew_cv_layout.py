@@ -94,6 +94,35 @@ def test_english_or_mismatched_education_keeps_the_profile():
     assert _localized_education(PROFILE_EDU, extra) == PROFILE_EDU, "an invented extra degree is never used"
 
 
+P06_EDU = [
+    {"degree": "High school diploma (full bagrut)", "institution": "Makif Gimel High School, Beer Sheva",
+     "dates": "2009 - 2012", "honors": "", "coursework": ""},
+    {"degree": "Team leaders course (60 hours)", "institution": "Telnora internal academy",
+     "dates": "2021", "honors": "", "coursework": "Feedback talks, shift planning, labour law basics"},
+]
+
+
+def test_newest_first_education_is_not_attached_to_the_wrong_dates():
+    """Benchmark p06: the model listed the 2021 course first, and pairing by
+    position put the course at the high school in 2009 - 2012."""
+    from backend.agents.tailor import _localized_education
+    gen = [
+        {"degree": "קורס ראשי צוותים (60 שעות)", "institution": "האקדמיה הפנימית של Telnora", "dates": "2021"},
+        {"degree": "תעודת בגרות מלאה", "institution": "מקיף ג׳, באר שבע", "dates": "2009 – 2012"},
+    ]
+    out = _localized_education(P06_EDU, gen)
+    assert [e["dates"] for e in out] == ["2009 - 2012", "2021"], "profile order and dates are kept"
+    assert out[0]["degree"] == "תעודת בגרות מלאה" and out[0]["institution"] == "מקיף ג׳, באר שבע"
+    assert out[1]["degree"].startswith("קורס") and out[1]["institution"] == "האקדמיה הפנימית של Telnora"
+
+
+def test_education_pairing_that_is_not_one_to_one_keeps_the_profile():
+    from backend.agents.tailor import _localized_education
+    gen = [{"degree": "תעודת בגרות", "institution": "מקיף ג׳", "dates": "2021"},
+           {"degree": "קורס ראשי צוותים", "institution": "Telnora", "dates": "2021"}]
+    assert _localized_education(P06_EDU, gen) == P06_EDU
+
+
 def test_hebrew_directive_covers_education():
     from backend.agents.tailor import _output_language_directive
     assert "EDUCATION" in _output_language_directive("he")
