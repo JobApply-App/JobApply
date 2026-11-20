@@ -1155,9 +1155,15 @@ def _localized_education(canonical: list[dict], generated) -> list[dict]:
     Business Administration, Reichman University" under "השכלה"). For a
     Hebrew CV the model writes the degree and institution in Hebrew; that
     wording is used only when it is Hebrew and the model returned exactly as
-    many entries as the profile has (same order, as the prompt asks). Dates
-    and honors always come from the profile. Anything else keeps the
-    profile's own text.
+    many entries as the profile has. Dates and honors always come from the
+    profile. Anything else keeps the profile's own text.
+
+    Each generated entry is paired with its profile entry by its dates, not
+    by its position: the prompt asks for the profile's order, but the model
+    sometimes lists the newest entry first, and pairing by index then put a
+    2021 course's name on a 2009 - 2012 high-school diploma (benchmark p06).
+    An entry whose dates match no single profile entry keeps its position;
+    when the pairing is not one-to-one, the profile's text is kept.
     """
     from backend.services.pdf_builder import detect_cv_locale
 
@@ -1167,8 +1173,23 @@ def _localized_education(canonical: list[dict], generated) -> list[dict]:
         f"{g.get('degree', '')} {g.get('institution', '')}" for g in generated if isinstance(g, dict)
     )}) != "he":
         return canonical
+
+    def _norm_dates(value) -> str:
+        return re.sub(r"\s+", " ", re.sub(r"\s*[-–—]\s*", " - ", str(value or ""))).strip()
+
+    canonical_dates = [_norm_dates(f.get("dates")) for f in canonical]
+    pairing = []  # pairing[i] = index of the canonical entry generated[i] describes
+    for i, gen in enumerate(generated):
+        dates = _norm_dates(gen.get("dates")) if isinstance(gen, dict) else ""
+        hits = [j for j, d in enumerate(canonical_dates) if dates and d == dates]
+        pairing.append(hits[0] if len(hits) == 1 else i)
+    if sorted(pairing) != list(range(len(canonical))):
+        return canonical
+    by_canonical = {j: generated[i] for i, j in enumerate(pairing)}
+
     out = []
-    for fact, gen in zip(canonical, generated):
+    for j, fact in enumerate(canonical):
+        gen = by_canonical[j]
         entry = dict(fact)
         if isinstance(gen, dict):
             for key in ("degree", "institution"):
