@@ -4,17 +4,19 @@ Per CV, against the invented person's own YAML (what they actually wrote):
   - employers and degrees in the CV that the person never listed (hard failure)
   - job titles that differ from the person's title at that employer
   - job-ad terms in the CV that appear nowhere in the person's text
+  - of the ad terms the person's text does contain, the share the CV uses
   - numbers in the CV that appear nowhere in the person's text (years ignored)
   - banned words and long dashes
   - share of bullets opening with the same word, share of bullets with a number
 
-Usage: python count_cv.py
+Usage: python count_cv.py [results file, default results/cvs.jsonl]
 """
 from __future__ import annotations
 
 import json
 import re
 import statistics
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -111,6 +113,7 @@ def check(row: dict) -> dict:
         and _norm(e.get("role")) not in roles_by_company[known_company(e.get("company"))]]
     ad_terms = sorted(t for t in _ad_terms(job["text"]) if _has(written, t, exact_case=True) and not _has(source, t)
                       and not (t.endswith("s") and _has(source, t[:-1])))
+    supported = {t for t in _ad_terms(job["text"]) if _has(source, t)}
     new_numbers = sorted(_numbers(written) - _numbers(source))
     firsts = Counter(b.split()[0].casefold() for b in bullets if b.split())
     return {
@@ -118,6 +121,8 @@ def check(row: dict) -> dict:
         "invented_degrees": invented_degrees,
         "changed_titles": changed_titles,
         "ad_terms_not_in_profile": ad_terms,
+        "supported_ad_terms_used": round(sum(_has(written, t) for t in supported) / len(supported), 2)
+                                   if supported else None,
         "numbers_not_in_profile": new_numbers,
         "banned_words": sum(len(re.findall(rf"\b{w}\b", written, re.I)) for w in BANNED),
         "long_dashes": written.count("—") + written.count("–"),
@@ -129,7 +134,7 @@ def check(row: dict) -> dict:
 
 
 def main() -> None:
-    path = HERE / "results" / "cvs.jsonl"
+    path = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE / "results" / "cvs.jsonl"
     rows = [json.loads(l) for l in path.read_text().splitlines() if l.strip()] if path.exists() else []
     rows = [r for r in rows if not r["dry_run"]]
     errors = Counter(r["prompt"] for r in rows if r["type"] == "error")
@@ -144,8 +149,8 @@ def main() -> None:
 
     print("| Prompt | CVs | Invented employer or degree | Changed titles | Ad terms not in profile "
           "(median, max) | Numbers not in profile (median, max) | Banned words | Long dashes | "
-          "Same opening (median) | Bullets with a number (median) |")
-    print("|---|---|---|---|---|---|---|---|---|---|")
+          "Same opening (median) | Bullets with a number (median) | Supported ad terms used (median) |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|")
     for prompt in sorted({r["prompt"] for r, _ in cvs}):
         c = [x for r, x in cvs if r["prompt"] == prompt]
         terms = [len(x["ad_terms_not_in_profile"]) for x in c]
@@ -155,7 +160,8 @@ def main() -> None:
               f"| {statistics.median(nums):.1f}, {max(nums)} | {sum(x['banned_words'] for x in c)} "
               f"| {sum(x['long_dashes'] for x in c)} "
               f"| {statistics.median(x['same_opening_share'] for x in c):.2f} "
-              f"| {statistics.median(x['bullets_with_number'] for x in c):.2f} |")
+              f"| {statistics.median(x['bullets_with_number'] for x in c):.2f} "
+              f"| {statistics.median(x['supported_ad_terms_used'] for x in c if x['supported_ad_terms_used'] is not None):.2f} |")
 
     print("\n## Hard failures (invented employer or degree)\n")
     hard = [(r, x) for r, x in cvs if x["invented_employers"] or x["invented_degrees"]]

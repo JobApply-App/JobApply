@@ -104,8 +104,21 @@ def test_both_prompts_say_a_break_is_not_a_job():
 def test_the_honesty_line_overrides_the_keyword_rules():
     prompt = tailor._SYSTEM_PROMPT
     line = prompt.index("HONESTY LINE")
-    # It comes after the keyword audits it overrides, and names its examples.
-    assert line > prompt.index("AUDIT B — JD keyword coverage")
+    # It comes after the keyword rules it overrides, and names its examples.
+    assert line > prompt.index("KEYWORD USE")
     for example in ("Built SQL pipelines", "loyalty club communications using Klaviyo",
                     "Tests written as a QA Engineer stay under QA Engineer", "31% of returns"):
         assert example in prompt[line:], example
+
+
+# ── Our guidelines (docs/research/08-cv-writing-guidelines.md, 2026-11-20) ──
+
+def test_the_writer_has_no_keyword_or_number_quotas():
+    # The quotas were the main source of tools moved onto other work and of
+    # inflated technical claims in part C. They must not come back.
+    prompt = tailor._SYSTEM_PROMPT
+    for quota in ("≥ 16 of", "80% Coverage", "≥ 12", "at least 3 of the listed cv_vocabulary_gap",
+                  "MUST carry a number", "Derivable approximations", "feel FULL",
+                  "force it into the summary", "mandatory for every bullet"):
+        assert quota not in prompt, quota
+    assert "There is no coverage target" in prompt
