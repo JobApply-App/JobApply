@@ -126,3 +126,16 @@ def test_line_form_is_chosen_per_line_not_one_fixed_form():
     assert "start with a first-person past-tense verb" not in s
     assert "verbal noun" in s and "This is the default" in s
     assert "first-person past" in s and "never third person" in s
+
+
+def test_the_hebrew_pass_translates_without_enlarging_a_claim():
+    """Stage 7 benchmark, p12: "Deploy with Docker and GitHub Actions to AWS"
+    came out of this pass as "הקמת תהליכי CI/CD" (built CI/CD processes).
+    The pass must keep each claim at its size and not add JD keywords to
+    lines that do not already say that work."""
+    s = cv_localize._SYSTEM
+    assert "SAME CLAIM, SAME SIZE" in s
+    assert "never add a claim" in s
+    assert "never \"הקמת תהליכי CI/CD\"" in s
+    assert "never add one to a line" in s
+    assert "packed with the job's key terms" not in s

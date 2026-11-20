@@ -1675,9 +1675,16 @@ def _output_language_directive(cv_locale: str) -> str:
         f"These are proper nouns an applicant tracking system matches literally.\n"
         f"Keep the JSON structure, all field names and all field-length limits "
         f"exactly as specified — only the human-readable values change language.\n"
+        f"The HONESTY LINE holds in {language} exactly as in English: a "
+        f"{language} sentence names the same act at the same size as the "
+        f"profile line it comes from.\n"
         + (
             "Write Hebrew acronyms with the Hebrew gershayim ״ (צה״ל, בע״מ, "
             "מנכ״ל), never a plain double quote, which breaks the JSON.\n"
+            "\"Deploy with Docker and GitHub Actions\" is \"פריסה עם Docker ו-GitHub "
+            "Actions\", never \"הקמת תהליכי CI/CD\" or \"הטמעת תהליכי CI/CD\"; "
+            "\"בניתי\", \"הקמתי\", \"הטמעתי\" only for what the profile says the "
+            "candidate built or implemented.\n"
             if language == "Hebrew" else ""
         )
     )
