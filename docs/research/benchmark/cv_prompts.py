@@ -8,6 +8,9 @@ else changes, so a difference between the two is the effect of the quotas.
 Every replacement must find its original text exactly once. If the product
 prompt is edited, the runner stops here instead of testing a prompt that is
 neither of the two.
+
+Since 2026-11-20 the product prompt has no quotas (docs/research/08-cv-writing-
+guidelines.md), so "noquota" applies only to the prompt before that change.
 """
 from __future__ import annotations
 

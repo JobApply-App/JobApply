@@ -353,7 +353,10 @@ async def step_cv(people: list[dict], ledger: Ledger, only_prompt: str = "") -> 
     import cv_prompts
 
     prompts = {"today": tailor_mod._SYSTEM_PROMPT}
-    prompts["noquota"] = cv_prompts.without_quotas(prompts["today"])
+    if only_prompt != "today":
+        # The quotas left the product prompt on 2026-11-20, so this stops with
+        # a clear message: "noquota" only applies to the prompt before then.
+        prompts["noquota"] = cv_prompts.without_quotas(prompts["today"])
     today = prompts["today"]
     if only_prompt:
         prompts = {only_prompt: prompts[only_prompt]}

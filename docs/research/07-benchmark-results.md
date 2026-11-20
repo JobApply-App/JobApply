@@ -416,3 +416,42 @@ Cost: $0.94 by the ledger. That is 48 CV requests plus the checks, all on `gemin
 - **Longer CVs:** check that the one-page layout still holds with 8.5 bullets.
 - **Job titles are not to be locked.** The founder accepts translated titles.
 - **Stored profiles from before the degree fix:** for users whose CV was read in under the old degree rule, a role that starts with a degree word may sit in their education, and the read-time fix does not move it back.
+
+## The quotas removed, after our own guidelines (2026-11-20)
+
+Ten published CV-writing skills and five recruiter surveys were read and turned into one guidelines document of our own, [`08-cv-writing-guidelines.md`](08-cv-writing-guidelines.md). None of the sources sets a keyword quota, and the recruiter surveys say a CV carrying every term of the ad reads as fake. The writer prompt was then cut to those guidelines:
+
+- **Removed:** ≥ 16 of 20 keywords, the 80% coverage rule, ≥ 3 gap terms per verified employer, both keyword audits ("force it into the summary"), a number in every bullet, derived approximations, mandatory XYZ, "the page should feel FULL".
+- **Merged:** duplicated keyword-placement, fidelity, invalid-bridge and self-audit text. The prompt went from 46.5k to 42.6k characters.
+- **Unchanged:** the honesty line (now "overrides every other rule"), military, dates, `missing_data`, the language bans.
+- **Guarded:** `test_the_writer_has_no_keyword_or_number_quotas` keeps them out. The `noquota` variant in `cv_prompts.py` applies only to the prompt before this change.
+
+Same 48 pairs, today's prompt, checker v2. Compared on the 34 pairs that produced a checked CV both times:
+
+| | Before (honesty line) | After (no quotas) |
+|---|---|---|
+| Violations per CV, not counting dropped numbers | 1.38 | 0.97 |
+| CVs with none | 10 of 34 | 12 of 34 |
+| Tool placed on other work | 19 | 11 |
+| Invented activity | 10 | 4 |
+| Work moved between roles | 2 | 0 |
+| Invented number | 5 | 4 |
+| Bigger technical claim | 6 | 6 |
+| Invented fact (employer, degree, title, date) | 5 | 8 |
+| Bullets per CV (mean) | 8.5 | 8.0 |
+| Numbers in bullets per CV (mean) | 8.1 | 7.6 |
+| Ad terms the profile supports that the CV uses (mean, `count_cv.py`) | 0.87 | 0.84 |
+| Invalid JSON the product could not repair | 4 of 48 | 3 of 48 |
+
+Cost: $0.89 by the ledger ($0.77 for the CVs, $0.12 for the check).
+
+**What it shows:**
+- **Tools moved and invented activities fell by about half**, which is what the quotas were suspected of causing.
+- **ATS coverage held:** the CVs still use 84% of the ad terms the person actually has (87% before), and keep their stated numbers.
+- **Bigger technical claims did not move.** Five of the six are p12's Hebrew CVs, which still turn "Deploy with Docker and GitHub Actions" into "built CI/CD processes" despite the honesty line naming that exact case.
+- **Invented facts rose 5 to 8, but 7 are one existing bug:** p06's Hebrew CVs swap the dates and school of the high-school diploma and the team-leaders course. The same swap is in the before-run's p06 CVs. It is not from the prompt change.
+- **How sure:** one CV per pair, so a direction, not a proof.
+
+**Open:**
+- p06: education entries swapping dates and institutions in Hebrew CVs.
+- p12: the CI/CD inflation in Hebrew; check whether it comes from the writer or the Hebrew localisation pass.
