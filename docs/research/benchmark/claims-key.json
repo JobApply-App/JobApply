@@ -6,7 +6,8 @@
   "job": "p02-j1",
   "prompt": "noquota",
   "run": 1,
-  "locale": "en"
+  "locale": "en",
+  "founder": "borderline"
  },
  {
   "item": 2,
@@ -15,7 +16,8 @@
   "job": "p02-j1",
   "prompt": "today",
   "run": 1,
-  "locale": "en"
+  "locale": "en",
+  "founder": "cv_ok"
  },
  {
   "item": 3,
@@ -24,7 +26,8 @@
   "job": "p07-j2",
   "prompt": "noquota",
   "run": 2,
-  "locale": "en"
+  "locale": "en",
+  "founder": "borderline"
  },
  {
   "item": 4,
@@ -33,7 +36,8 @@
   "job": "p06-j1",
   "prompt": "today",
   "run": 1,
-  "locale": "he"
+  "locale": "he",
+  "founder": "cv_ok"
  },
  {
   "item": 5,
@@ -42,7 +46,8 @@
   "job": "p10-j2",
   "prompt": "today",
   "run": 1,
-  "locale": "en"
+  "locale": "en",
+  "founder": "borderline"
  },
  {
   "item": 6,
@@ -51,7 +56,8 @@
   "job": "p02-j2",
   "prompt": "noquota",
   "run": 1,
-  "locale": "en"
+  "locale": "en",
+  "founder": "cv_ok"
  },
  {
   "item": 7,
@@ -60,7 +66,8 @@
   "job": "p10-j1",
   "prompt": "noquota",
   "run": 1,
-  "locale": "en"
+  "locale": "en",
+  "founder": "cv_ok"
  },
  {
   "item": 8,
@@ -69,7 +76,8 @@
   "job": "p10-j1",
   "prompt": "noquota",
   "run": 1,
-  "locale": "en"
+  "locale": "en",
+  "founder": "cv_not_ok"
  },
  {
   "item": 9,
@@ -78,7 +86,8 @@
   "job": "p09-j2",
   "prompt": "noquota",
   "run": 1,
-  "locale": "he"
+  "locale": "he",
+  "founder": "cv_not_ok"
  },
  {
   "item": 10,
@@ -87,7 +96,8 @@
   "job": "p12-j2",
   "prompt": "noquota",
   "run": 2,
-  "locale": "he"
+  "locale": "he",
+  "founder": "cv_not_ok"
  },
  {
   "item": 11,
@@ -96,7 +106,8 @@
   "job": "p02-j3",
   "prompt": "today",
   "run": 1,
-  "locale": "en"
+  "locale": "en",
+  "founder": "cv_ok"
  },
  {
   "item": 12,
@@ -105,7 +116,8 @@
   "job": "p07-j2",
   "prompt": "today",
   "run": 1,
-  "locale": "en"
+  "locale": "en",
+  "founder": "borderline"
  },
  {
   "item": 13,
@@ -114,7 +126,8 @@
   "job": "p06-j2",
   "prompt": "today",
   "run": 1,
-  "locale": "he"
+  "locale": "he",
+  "founder": "cv_ok"
  },
  {
   "item": 14,
@@ -123,7 +136,8 @@
   "job": "p03-j2",
   "prompt": "noquota",
   "run": 1,
-  "locale": "he"
+  "locale": "he",
+  "founder": "cv_not_ok"
  },
  {
   "item": 15,
@@ -132,7 +146,8 @@
   "job": "p11-j3",
   "prompt": "today",
   "run": 1,
-  "locale": "en"
+  "locale": "en",
+  "founder": "cv_not_ok"
  },
  {
   "item": 16,
@@ -141,7 +156,8 @@
   "job": "p09-j1",
   "prompt": "today",
   "run": 1,
-  "locale": "he"
+  "locale": "he",
+  "founder": "borderline"
  },
  {
   "item": 17,
@@ -150,7 +166,8 @@
   "job": "p02-j2",
   "prompt": "noquota",
   "run": 1,
-  "locale": "en"
+  "locale": "en",
+  "founder": "cv_not_ok"
  },
  {
   "item": 18,
@@ -159,7 +176,8 @@
   "job": "p08-j1",
   "prompt": "noquota",
   "run": 2,
-  "locale": "en"
+  "locale": "en",
+  "founder": "cv_ok"
  },
  {
   "item": 19,
@@ -168,7 +186,8 @@
   "job": "p03-j2",
   "prompt": "today",
   "run": 1,
-  "locale": "he"
+  "locale": "he",
+  "founder": "cv_ok"
  },
  {
   "item": 20,
@@ -177,6 +196,7 @@
   "job": "p02-j1",
   "prompt": "noquota",
   "run": 1,
-  "locale": "en"
+  "locale": "en",
+  "founder": "cv_ok"
  }
 ]

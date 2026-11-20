@@ -356,9 +356,29 @@ Of the 93 strengthened claims, about a third are job titles ("Company Clerk" bec
 
 **What it shows, with one caveat.** Almost every CV says more than the profile does, with either prompt. The quotas add about one unsupported claim per CV. Partial fits get the most (median 6), where the writer stretches furthest toward the ad. These are the checker's judgements, and part of them is the checker being strict. They are not yet confirmed.
 
-**The founder's spot check.** `benchmark/claims-sheet.md` holds 20 claims sampled at random, 10 of each kind; `claims-key.json` maps each to its CV. The founder's verdicts give the checker's precision, and the counts above should be read through it.
+**The founder's spot check (2026-11-20).** The founder judged 20 flagged claims sampled at random, 10 of each kind (`benchmark/claims-sheet-he.md`, verdicts in `claims-key.json`). The question was whether the CV's wording is acceptable:
+
+| Checker flagged it as | Not acceptable | Borderline | Acceptable |
+|---|---|---|---|
+| Unsupported (10) | 4 | 2 | 4 |
+| Strengthened (10) | 2 | 3 | 5 |
+| All (20) | 6 | 5 | 9 |
+
+So the checker is right about 6 of 20 flags outright, or 8.5 if a borderline counts as half. That is about 30-45%. Read through that, the counts above mean about 2 claims per CV that the founder would reject, not 5.
+
+**The line the founder drew:**
+- **Acceptable:**
+  - translating a military title into civilian terms: "Company Clerk" became "HR coordinator", and "Operations Sergeant" became "Operations Coordinator"
+  - a stronger verb for the same act: "ran" became "led"
+  - plausible detail on a real activity: "soldiers and commanders", "weekly" interviews
+- **Not acceptable:**
+  - a technical claim larger than the work: "deploy with GitHub Actions" became "built and managed CI/CD pipelines", and "writes SQL" became "built SQL pipelines"
+  - a tool attached to work the profile does not tie it to: Klaviyo for the loyalty club, Excel for daily service metrics
+  - work moved to another role with an outcome added: tests written as a QA engineer became "implemented testing processes" under QA team lead
+  - an invented activity: "cross-functional reporting across 200 suppliers", where the profile has payments
+- **Also, numbers should be kept.** Dropping a real result ("2 product lines caused 31% of returns") weakens a data role's CV, even when the rest is fair.
 
 **Open:**
-- the founder's spot check
-- job titles: the writer still edits titles, and a third of strengthened claims are titles. Taking titles, employers and dates from the profile as they are, and leaving only bullets and the summary to the writer, would close this class mechanically
-- the stored profiles of users whose CV was read in under the old degree rule: a role that starts with a degree word may sit in their education. The read-time fix above does not move it back
+- Turn that line into the writer's prompt, as allowed and not-allowed examples, and into the checker's prompt, so the next count measures what the founder would reject. Then run part C again and compare.
+- Job titles are not to be locked: the founder accepts translated titles. This replaces the earlier idea of taking titles from the profile as they are.
+- The stored profiles of users whose CV was read in under the old degree rule: a role that starts with a degree word may sit in their education. The read-time fix above does not move it back.
