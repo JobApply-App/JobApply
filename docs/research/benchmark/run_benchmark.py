@@ -340,7 +340,7 @@ HEBREW_CV_PEOPLE = ("p03", "p06", "p09", "p12")   # plan section 4
 CV_REPEATS_FIT = "strong"                         # 12 pairs generated twice per prompt
 
 
-async def step_cv(people: list[dict], ledger: Ledger) -> int:
+async def step_cv(people: list[dict], ledger: Ledger, only_prompt: str = "") -> int:
     """
     Part C: one CV per pair and prompt through TailorAgent.tailor, the call the
     CV route makes. Not exercised: the route's refine pass (it needs the route's
@@ -354,6 +354,9 @@ async def step_cv(people: list[dict], ledger: Ledger) -> int:
 
     prompts = {"today": tailor_mod._SYSTEM_PROMPT}
     prompts["noquota"] = cv_prompts.without_quotas(prompts["today"])
+    today = prompts["today"]
+    if only_prompt:
+        prompts = {only_prompt: prompts[only_prompt]}
     structured: dict = json.loads(STRUCTURED.read_text()) if STRUCTURED.exists() else {}
     totals: dict = {}
     if SCORES.exists():
@@ -402,7 +405,7 @@ async def step_cv(people: list[dict], ledger: Ledger) -> int:
                     except Exception as exc:          # recorded, never averaged in
                         result, error = {"type": "error"}, f"{type(exc).__name__}: {exc}"
                     finally:
-                        tailor_mod._SYSTEM_PROMPT = prompts["today"]
+                        tailor_mod._SYSTEM_PROMPT = today
                     kind = result.get("type")
                     cv = normalize_cv(result["cv_data"], context="benchmark") if kind == "cv" else None
                     failures += kind != "cv"
@@ -420,27 +423,43 @@ async def step_cv(people: list[dict], ledger: Ledger) -> int:
     return failures
 
 
-CLAIMS = RESULTS / "claims.jsonl"
+# v1 (claims.jsonl) flagged every unsupported or strengthened line; the
+# founder rejected only about a third of its flags (07-benchmark-results.md).
+# v2 checks the founder's line instead.
+CLAIMS = RESULTS / "claims-v2.jsonl"
 
 _CHECK_SYSTEM = """\
 You check a generated CV against the candidate's profile, which is the only
-source of truth. Read every line of the CV: summary, titles, employers, dates,
-bullets, skills, education. Report two kinds of problems, and nothing else:
+source of truth. Read every line of the CV: summary, titles, bullets, skills,
+military service. Report only the lines that cross this line:
 
-1. unsupported: a statement in the CV that nothing in the profile supports. A
-   tool, a responsibility, a result, a number, an employer, a degree or a title
-   the profile does not contain. Rewording or translating what the profile says
-   is supported; a new fact is not.
-2. strengthened: a statement the profile supports in a weaker form. "Took part
-   in" became "led", "helped with" became "owned", "part time" was dropped, a
-   team member became a manager, a range became its top end.
+NOT ALLOWED (report these):
+- "bigger_technical_claim": a technical claim larger than the work, such as
+  "deploy with GitHub Actions" written as "built CI/CD pipelines", or
+  "writes SQL for reports" written as "built SQL pipelines".
+- "tool_moved": a tool or platform placed on work the profile does not tie it
+  to, such as a tool from the skills list attached to a specific activity.
+- "work_moved": work moved from one role to another, or given an outcome or
+  result the profile does not state.
+- "invented_activity": an activity or responsibility the profile does not
+  describe at all.
+- "invented_number": a number, scale or result the profile does not state.
+- "invented_fact": an employer, degree or job the profile does not contain.
+- "dropped_number": a number the profile states for a role that the CV's
+  entry for that role leaves out. Report the profile line.
 
-Be strict but literal: quote the CV text exactly, and for "strengthened" quote
-the profile text it came from. Do not report style, length or missing content.
+ALLOWED (never report these):
+- the same work in other words or in the job ad's vocabulary;
+- a military or local title translated into its civilian function;
+- a stronger verb for the same act ("ran" to "led");
+- small plausible detail on an activity the profile does describe.
+
+Quote the CV text exactly, and the profile text it relates to when there is
+one. Do not report style, length or content the CV leaves out (except
+dropped_number).
 
 Return ONLY raw JSON:
-{"unsupported": [{"cv_text": "...", "why": "..."}],
- "strengthened": [{"cv_text": "...", "profile_text": "...", "why": "..."}]}
+{"violations": [{"type": "...", "cv_text": "...", "profile_text": "...", "why": "..."}]}
 """
 
 
@@ -468,7 +487,7 @@ async def step_check(people: list[dict], ledger: Ledger, cvs_path: Path) -> int:
             continue
         user = (f"PROFILE:\n{json.dumps(profiles[r['person']], ensure_ascii=False, indent=1)}\n\n"
                 f"CV:\n{json.dumps(r['cv'], ensure_ascii=False, indent=1)}\n\nReturn the JSON now.")
-        error, found = None, {"unsupported": [], "strengthened": []}
+        error, found = None, {"violations": []}
         try:
             res = await call_llm(system=_CHECK_SYSTEM, messages=[{"role": "user", "content": user}],
                                  model="claude-sonnet-4-6", max_tokens=2048, temperature=0.0,
@@ -484,8 +503,8 @@ async def step_check(people: list[dict], ledger: Ledger, cvs_path: Path) -> int:
         if not ledger.dry_run:
             with CLAIMS.open("a") as f:
                 f.write(json.dumps(out, ensure_ascii=False) + "\n")
-        print(f"{r['job']} {r['prompt']} #{r['run']}: unsupported={len(found['unsupported'])} "
-              f"strengthened={len(found['strengthened'])}{' ' + error if error else ''}")
+        print(f"{r['job']} {r['prompt']} #{r['run']}: violations={len(found['violations'])}"
+              f"{' ' + error if error else ''}")
     return failures
 
 
@@ -513,6 +532,8 @@ def check_database_is_local() -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("step", choices=["ingest", "score", "cv", "check"])
+    ap.add_argument("--prompt", choices=["today", "noquota"], default="",
+                    help="cv: generate with one prompt only (default both)")
     ap.add_argument("--cvs", default="", help="check: the CV file to read (default results/cvs.jsonl)")
     ap.add_argument("--people", default="", help="comma-separated ids, e.g. p01,p05 (default: all 12)")
     ap.add_argument("--dry-run", action="store_true")
@@ -572,7 +593,7 @@ def main() -> None:
         failures = asyncio.run(step_check(people, ledger, Path(args.cvs).resolve() if args.cvs else CVS))
     else:
         sys.path.insert(0, str(HERE))
-        failures = asyncio.run(step_cv(people, ledger))
+        failures = asyncio.run(step_cv(people, ledger, args.prompt))
     print(f"model calls by purpose: {ledger.by_purpose}")
     print(f"spent so far: ${ledger.spent:.2f} of ${args.cap:.2f}")
     if failures:

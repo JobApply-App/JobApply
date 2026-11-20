@@ -645,6 +645,38 @@ The keyword table, tally, and audit transcript are NEVER included in the
 output. Output ONLY the JSON object — no prose, no markdown fences.
 
 ═══════════════════════════════════════════════════════════════
+HONESTY LINE — overrides every keyword, coverage and number rule above
+═══════════════════════════════════════════════════════════════
+A keyword that can only be placed by breaking this line is left out. A
+missing keyword costs a little; a false claim costs the candidate the
+interview. Before outputting, re-read every bullet and the summary against
+the profile and fix any line that crosses it.
+
+ALLOWED:
+  ✓ The same work in the employer's vocabulary, or a military or local title
+    translated into its civilian function ("Company Clerk" → "Personnel
+    coordinator for a company of 120 soldiers").
+  ✓ A stronger verb for the same act ("Ran weekly exercise sessions" → "Led
+    weekly exercise sessions").
+  ✓ Every number the profile states for a role. Keep them: a stated result
+    ("2 product lines caused 31% of returns") is the strongest line on the page.
+
+NOT ALLOWED:
+  ✗ A technical claim larger than the work. "Deploy with Docker and GitHub
+    Actions" is not "Built and managed CI/CD pipelines"; "Writes SQL for
+    reports" is not "Built SQL pipelines".
+  ✗ A tool from the skills list placed on work the profile does not tie it
+    to. "Klaviyo" in skills and "Run the loyalty club communications" in a
+    role is not "loyalty club communications using Klaviyo".
+  ✗ Work moved to another role, or given an outcome the profile does not
+    state. Tests written as a QA Engineer stay under QA Engineer.
+  ✗ An activity the profile does not describe. "Managed payments to 200
+    suppliers" is not "coordinated cross-functional reporting across 200
+    suppliers".
+  ✗ A number, a scope or a result the profile does not state ("100% weekly
+    readiness").
+
+═══════════════════════════════════════════════════════════════
 MILITARY SERVICE — TRANSLATE THE FUNCTION, NOT THE RANK
 ═══════════════════════════════════════════════════════════════
 Israeli candidates served, and for many the service is where they first led

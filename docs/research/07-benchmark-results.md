@@ -378,7 +378,41 @@ So the checker is right about 6 of 20 flags outright, or 8.5 if a borderline cou
   - an invented activity: "cross-functional reporting across 200 suppliers", where the profile has payments
 - **Also, numbers should be kept.** Dropping a real result ("2 product lines caused 31% of returns") weakens a data role's CV, even when the rest is fair.
 
+### The founder's line in the writer's prompt (2026-11-20)
+
+**What changed:**
+- **The writer.** `tailor.py` has a new "HONESTY LINE" section with the founder's allowed and not-allowed examples. It comes after the keyword audits, and it says it overrides them: a keyword that can only be placed by breaking the line is left out. The prompt already forbade putting a tool on a job the profile does not tie it to, but its quotas (16 of 20 ad terms verbatim, a number in every bullet, audits that force missing terms in) won over that rule.
+- **The checker.** The checker (`run_benchmark.py check`, v2) now reports only what crosses the founder's line, by type, and never what he accepted.
+  - On his 20 verdicts, it flags 1 of the 9 lines he accepted, and that one for a dropped number, not for what he judged. It catches 4 of the 6 he rejected. It missed "work moved to another role" (item 14) and "invented activity" (item 15).
+  - v1 had flagged all 20.
+
+**Same 38 pairs, today's prompt, one CV each, both checked by v2:**
+
+| | Before the line | With the line |
+|---|---|---|
+| Violations per CV, not counting dropped numbers | 1.68 | 1.32 |
+| CVs with none | 8 of 42 | 11 of 38 |
+| Invented activity | 18 | 10 |
+| Work moved between roles | 7 | 2 |
+| Invented number | 7 | 5 |
+| Invented employer, degree or title | 7 | 5 |
+| Tool placed on other work | 25 | 22 |
+| Bigger technical claim | 6 | 6 |
+| Bullets per CV (mean) | 6.5 | 8.5 |
+| Numbers per CV (mean) | 18.9 | 22.3 |
+| Invalid JSON the product could not repair | 0 of 42 here (9 of 48 on 2026-11-17) | 4 of 48 |
+
+Cost: $0.94 by the ledger. That is 48 CV requests plus the checks, all on `gemini-flash-latest`.
+
+**What it shows:**
+- **Fewer inventions, from longer CVs.** The CVs got longer, with more bullets and more numbers, and still carry fewer violations: about 0.16 per bullet against 0.26.
+- **Invented activities and moved work dropped the most.**
+- **Not changed:** tools placed on other work and bigger technical claims barely moved. The prompt's keyword quotas are the likely cause, since they ask for the ad's tools verbatim.
+- **How sure this is:** one CV per pair, so the per-CV difference (1.68 against 1.32) is about one standard error. That is a direction, not a proof.
+- **The checker's "dropped number" count rose (1.4 to 2.2 per CV)** while the CVs carry more numbers. That count is noise in the checker and is left out of the totals above.
+
 **Open:**
-- Turn that line into the writer's prompt, as allowed and not-allowed examples, and into the checker's prompt, so the next count measures what the founder would reject. Then run part C again and compare.
-- Job titles are not to be locked: the founder accepts translated titles. This replaces the earlier idea of taking titles from the profile as they are.
-- The stored profiles of users whose CV was read in under the old degree rule: a role that starts with a degree word may sit in their education. The read-time fix above does not move it back.
+- **Tools and technical claims:** the quotas still pull the ad's tools in. The next step is to soften the quota rows 1, 2 and 8 of `06-cv-generation.md`, for example by counting a term only where the profile supports it, and to measure again.
+- **Longer CVs:** check that the one-page layout still holds with 8.5 bullets.
+- **Job titles are not to be locked.** The founder accepts translated titles.
+- **Stored profiles from before the degree fix:** for users whose CV was read in under the old degree rule, a role that starts with a degree word may sit in their education, and the read-time fix does not move it back.

@@ -97,3 +97,15 @@ def test_both_prompts_say_a_break_is_not_a_job():
     from backend.services.cv_aggregator_service import _AGGREGATION_SYSTEM
     assert "career break, not a job" in tailor._SYSTEM_PROMPT
     assert "Never turn a break" in _AGGREGATION_SYSTEM
+
+
+# ── The founder's honesty line (2026-11-20 spot check) ───────────────────────
+
+def test_the_honesty_line_overrides_the_keyword_rules():
+    prompt = tailor._SYSTEM_PROMPT
+    line = prompt.index("HONESTY LINE")
+    # It comes after the keyword audits it overrides, and names its examples.
+    assert line > prompt.index("AUDIT B — JD keyword coverage")
+    for example in ("Built SQL pipelines", "loyalty club communications using Klaviyo",
+                    "Tests written as a QA Engineer stay under QA Engineer", "31% of returns"):
+        assert example in prompt[line:], example
