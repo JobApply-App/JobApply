@@ -853,7 +853,11 @@ def _span(start, end) -> tuple[int, int]:
 def _overlaps(a: tuple[int, int], b: tuple[int, int]) -> bool:
     if not a[0] or not b[0]:
         return True          # unknown dates: same company is enough
-    return a[0] <= b[1] and b[0] <= a[1]
+    # Sharing only the boundary year is the next role at the same employer
+    # ("Ph.D. Researcher 2015-2021", then "Postdoc 2021-present"), not the same
+    # role. Counting it as a duplicate dropped the earlier role from the profile
+    # and from scoring (stage 7 benchmark, p08).
+    return (a[0] < b[1] and b[0] < a[1]) or a == b
 
 
 def _merged_experience(onboarding: dict) -> list[dict]:

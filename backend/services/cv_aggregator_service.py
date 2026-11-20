@@ -510,6 +510,11 @@ ABSOLUTE RULES:
   with "kind": "military". Use the actual role as "role" (e.g. "Software
   Developer", "Operations Clerk") and the unit as "company"; never a rank
   alone. Every other experience has "kind": "job".
+- A career break (raising children, caregiving, travel, relocation, a
+  sabbatical) stays a break: an experience with the role as the CV words it
+  (e.g. "Career break (raising children)") and "company": "". Unpaid or
+  family work done during it goes in that entry's summary. Never turn a break
+  into a job with an employer.
 
 DATE-ANCHOR OVERRIDES TEXT RULE (critical):
 - When writing the "summary" field, cross-validate any generic "X+ years of

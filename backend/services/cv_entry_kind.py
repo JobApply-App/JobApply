@@ -36,8 +36,20 @@ def _title(exp: dict) -> str:
     return str(exp.get("role") or exp.get("title") or "").strip()
 
 
+# A degree word followed by a job noun is a job: "Ph.D. Researcher" at the
+# Weizmann Institute is six years of work, and filing it as a degree dropped
+# its bullets and hid it from scoring (stage 7 benchmark, p08).
+JOB_NOUN = re.compile(
+    r"\b(researcher|student|candidate|fellow|assistant|intern|lecturer|instructor|"
+    r"tutor|teacher|scientist|engineer|analyst|manager|developer|consultant|coordinator)\b"
+    r"|חוקר|דוקטורנט|מתרגל|עוזר מחקר",
+    re.IGNORECASE,
+)
+
+
 def is_degree(exp: dict) -> bool:
-    return bool(DEGREE.search(_title(exp)))
+    title = _title(exp)
+    return bool(DEGREE.search(title)) and not JOB_NOUN.search(title)
 
 
 def is_military(exp: dict) -> bool:
