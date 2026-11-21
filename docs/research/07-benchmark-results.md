@@ -455,3 +455,16 @@ Cost: $0.89 by the ledger ($0.77 for the CVs, $0.12 for the check).
 **Open:**
 - p06: education entries swapping dates and institutions in Hebrew CVs.
 - p12: the CI/CD inflation in Hebrew; check whether it comes from the writer or the Hebrew localisation pass.
+
+## Invalid JSON from the writer: found and repaired (2026-11-21)
+
+**What failed.** 14 CV requests across the four runs of 2026-11-17 to 2026-11-20 ended in "TailorAgent returned invalid JSON that could not be repaired", 3 of 48 in the latest. A user who hits this gets no CV.
+
+**The cause.** Every one of the 14 logged failures is "Expecting ',' delimiter" at column 5, at 74-78% of the way into the output. In the good outputs, that is exactly where `military_service` closes. The model leaves out the closing bracket of `key_responsibilities` (or of the block itself), which the prompt's schema example shows as a one-line array. It is not truncation: the failing answers are 930-1,221 output tokens, against a limit of 6,000. Nor is it Hebrew: 10 of the 14 are English CVs.
+
+**The fix.** `backend/utilities/json_repair.py` has a last repair step. When the parser stops at the start of a line that is indented no deeper than the innermost open bracket's line, that bracket closes there. The step only inserts characters, and only where the indentation explains it.
+- Removing any one closing line from 9 captured writer outputs gives 120 broken variants. All 120 are now repaired back to the exact original.
+- The failure log now prints the text around the break, not only the first 400 characters.
+- Tests: `backend/tests/test_json_repair_unclosed_bracket.py`.
+
+**Not shown live.** The failure is rare (about 6%), and 0 of 12 live re-runs of the three failing pairs hit it, before or after the fix. The re-runs cost $0.18. The evidence is the logged signature matched against the captured outputs, not a captured bad output.
