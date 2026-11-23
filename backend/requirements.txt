@@ -1,28 +1,28 @@
-fastapi==0.115.5
-uvicorn[standard]==0.32.1
-pydantic==2.10.3
-pydantic-settings==2.6.1
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.4
+pydantic-settings==2.16.3
 httpx==0.28.1
-playwright==1.49.1
+playwright==1.65.2
 anthropic==0.40.0
 google-genai==1.47.0
-sqlalchemy==2.0.36
-alembic==1.14.0
-asyncpg==0.30.0
-psycopg2-binary==2.9.10
+sqlalchemy==2.1.9
+alembic==1.20.1
+asyncpg==0.32.0
+psycopg2-binary==2.9.13
 # RFC 6902 JSON Patch — backend/services/cv_patch_service.py applies Ariel's
 # targeted CV edits. Present transitively today (via langchain), which is not
 # something the copilot should depend on: a future dependency bump could drop
 # it and break CV editing with no signal here.
-jsonpatch==1.33
+jsonpatch==1.48
 redis==5.2.1
-celery==5.4.0
+celery==5.7.0
 python-dotenv==1.2.4
-python-multipart==0.0.33
+python-multipart==0.0.34
 langgraph==0.2.60
-beautifulsoup4==4.12.3
+beautifulsoup4==4.15.0
 lxml==6.1.3
-tavily-python==0.5.0
+tavily-python==0.8.5
 requests==2.34.2
 requests-oauthlib==1.3.1
 pymupdf==1.26.7
@@ -31,4 +31,4 @@ python-docx==1.2.0
 python-jose[cryptography]==3.5.0
 aiohttp==3.14.5
 pandas==2.2.3
-googlesearch-python==1.2.5
+googlesearch-python==1.3.0
