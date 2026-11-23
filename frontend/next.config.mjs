@@ -6,11 +6,11 @@ const supabaseOrigin = (() => {
   try { return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').origin } catch { return '' }
 })()
 
-// Full Content-Security-Policy, sent as REPORT-ONLY first (2026-11-23):
-// violations show in the browser console but nothing is blocked, so a source
-// we missed cannot break the app. Switch the header name to
-// Content-Security-Policy once signed-in pages have been clicked through
-// with no violations.
+// Full Content-Security-Policy, enforced. It ran report-only first
+// (2026-11-23) and a signed-in walkthrough (sign-in, dashboard, CV preview,
+// PDF download, Ariel) showed no violations before it was switched on.
+// A new third-party source (script, API, font, iframe) must be added here,
+// or the browser blocks it.
 //
 // What it buys even with 'unsafe-inline': scripts can only come from this
 // origin, and connect-src/img-src/form-action stop an injected script from
@@ -31,8 +31,7 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  // frame-ancestors is not listed: browsers ignore it in report-only mode,
-  // and it is already enforced in its own header below.
+  "frame-ancestors 'none'",
 ].join('; ')
 
 /** @type {import('next').NextConfig} */
@@ -87,19 +86,15 @@ const nextConfig = {
   // over their own UI and harvests the clicks.
   //
   // `frame-ancestors 'none'` is the modern control and X-Frame-Options is the
-  // fallback for older agents that ignore CSP. The full policy
-  // (contentSecurityPolicy above) is report-only until verified page by page:
-  // a CSP that is wrong breaks the app while looking like hardening.
+  // fallback for older agents that ignore CSP. frame-ancestors is part of
+  // contentSecurityPolicy above (it only works when enforced, not report-only).
   async headers() {
     return [
       {
         source: '/:path*',
         headers: [
           { key: 'X-Frame-Options',        value: 'DENY' },
-          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
-          // frame-ancestors is ignored in report-only, so the enforced line
-          // above stays until the full policy is enforced.
-          { key: 'Content-Security-Policy-Report-Only', value: contentSecurityPolicy },
+          { key: 'Content-Security-Policy', value: contentSecurityPolicy },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy',        value: 'strict-origin-when-cross-origin' },
           // No camera/mic/geolocation anywhere in this product.
