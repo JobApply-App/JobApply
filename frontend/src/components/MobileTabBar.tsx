@@ -14,7 +14,7 @@ import { useI18n } from '@/contexts/I18nContext'
 // it marks <body> with `has-tabbar`, which globals.css pads on small screens.
 // The Ariel launcher reads the same class to sit above the bar.
 
-type Item = { key: 'overview' | 'feed' | 'apps' | 'capabilities'; href: string; icon: JSX.Element }
+type Item = { key: 'overview' | 'feed' | 'apps' | 'capabilities'; href: string; icon: React.JSX.Element }
 
 const s = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
 

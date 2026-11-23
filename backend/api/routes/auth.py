@@ -163,10 +163,9 @@ async def sync_user(user: CurrentUser = Depends(get_current_user)) -> SyncUserRe
                 except Exception as exc:
                     logger.warning("[auth/sync] profile file copy failed: %s", exc)
 
-            logger.info(
-                "[auth/sync] LINKED %s → %s (email=%s): %s",
-                old_uid, uid, email, counts,
-            )
+            # The two user ids identify the accounts; the email address stays
+            # out of the logs (Render keeps them, and they are not PII-scrubbed).
+            logger.info("[auth/sync] LINKED %s → %s: %s", old_uid, uid, counts)
             return SyncUserResult(
                 status            = "linked",
                 profile_completed = _profile_is_completed(merged),

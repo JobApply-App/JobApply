@@ -161,7 +161,9 @@ def _is_gmail_verification(sender: str, subject: str) -> bool:
 def _store_gmail_code(code: str) -> None:
     """Upsert the verification code into the kv_store table."""
     kv_repository.upsert(_KV_CODE_KEY, code)
-    logger.info("[email-webhook] Stored Gmail verification code=%r", code)
+    # Never the code itself: anyone who reads the logs could confirm the
+    # forwarding address with it. Admins read it from settings instead.
+    logger.info("[email-webhook] Stored Gmail verification code (%d digits)", len(code))
 
 
 # ── Stages that a company can be moved OUT of via an inbound email ────────────
@@ -254,9 +256,11 @@ async def inbound_email_webhook(
     subject   = sanitize_text(payload.subject)
     body_text = sanitize_text(payload.body_text)
 
+    # The sender's domain is enough to trace a delivery; the full address and
+    # the subject (often the candidate's name and the role) stay out of logs.
     logger.info(
-        "[email-webhook] received  sender=%r  subject=%r",
-        sender, subject[:80],
+        "[email-webhook] received  sender_domain=%r  subject_chars=%d",
+        sender.rpartition("@")[2].strip(" >").lower(), len(subject),
     )
 
     # ── Step 0: Gmail forwarding verification intercept ───────────────────────

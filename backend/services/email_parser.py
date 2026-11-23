@@ -147,7 +147,8 @@ async def parse_recruiter_email(subject: str, body: str) -> ParsedEmail:
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
-        logger.warning("[email_parser] non-JSON response: %r", raw[:200])
+        # Length only: the reply can quote the recruiter email it classified.
+        logger.warning("[email_parser] non-JSON response (%d chars)", len(raw))
         return ParsedEmail(company_name=None, mapped_status="Unknown", db_status=None)
 
     company_name  = parsed.get("company_name") or None
