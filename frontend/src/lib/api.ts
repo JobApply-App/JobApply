@@ -85,9 +85,12 @@ export async function ensureFreshToken(): Promise<void> {
 // immediate sign-out and clears the stale session from local storage.
 // Using a callback (rather than importing AuthContext directly) keeps this
 // module free of React dependencies.
-let _onAuthError: (() => void) | null = null
+// The handler gets the response's error code, so a `session_time_limit`
+// (signed in more than 2 hours ago, lib/sessionLimit.ts) is told apart from
+// a 401 that only means the header was stale.
+let _onAuthError: ((code?: string) => void) | null = null
 
-export function setAuthErrorHandler(handler: () => void): void {
+export function setAuthErrorHandler(handler: (code?: string) => void): void {
   _onAuthError = handler
 }
 
@@ -112,9 +115,6 @@ async function _handleHttpError(
   // the expected answer rather than a dead session. Routing those through
   // the global handler signs the visitor out and hard-redirects them to
   // /login — from pages they are entitled to be on while anonymous.
-  if (res.status === 401 && treat401AsAuthFailure) {
-    _onAuthError?.()
-  }
   // The body carries an error code (backend/core/errors.py); ApiError turns
   // it into a localised what/why/what-to-do message (lib/errors.ts).
   let body: unknown = null
@@ -123,7 +123,15 @@ async function _handleHttpError(
   } catch {
     // Non-JSON or empty body — the code falls back to the HTTP status.
   }
+  if (res.status === 401 && treat401AsAuthFailure) {
+    _onAuthError?.(_bodyCode(body))
+  }
   throw apiErrorFromBody(body, res.status)
+}
+
+function _bodyCode(body: unknown): string | undefined {
+  const code = body && typeof body === 'object' ? (body as { code?: unknown }).code : undefined
+  return typeof code === 'string' ? code : undefined
 }
 
 /**
@@ -873,8 +881,8 @@ export async function uploadCvFiles(
     throw new CvUploadError('network')
   }
   if (!res.ok) {
-    if (res.status === 401) _onAuthError?.()
     const body = await res.json().catch(() => ({}))
+    if (res.status === 401) _onAuthError?.(_bodyCode(body))
     throw cvUploadErrorFromDetail((body as { detail?: unknown }).detail, res.status)
   }
   const { task_id: taskId } = await res.json() as { task_id: string }

@@ -1,0 +1,118 @@
+name: Weekly database backup
+
+# The Supabase project is on the free plan, which has no backups (Ron chose
+# a free self-run backup over Pro on 2026-11-23). Once a week this copies the
+# database with pg_dump, encrypts the copy with Ron's public `age` key, and
+# keeps it as a workflow artifact for 90 days. Restore steps:
+# docs/backup-restore.md.
+#
+# THE REPO IS PUBLIC. Workflow logs and artifacts can be seen by others, so:
+#   - only the encrypted file is ever uploaded; the plain dump stays on the
+#     runner and is deleted;
+#   - nothing here prints the connection string;
+#   - only the holder of the private key (Ron, kept off GitHub) can read a
+#     backup.
+#
+# WEEKLY, NOT DAILY: every dump downloads the whole database and counts
+# toward the free plan's 5 GB/month egress, which was already ~50% used by
+# the app itself in November 2026. Weekly adds roughly 0.3-0.6 GB a month.
+#
+# Setup (once): repository variable BACKUP_AGE_RECIPIENT = the public key
+# ("age1...") from `age-keygen`. The DATABASE_URL secret is the one the
+# LinkedIn scraper workflow already uses.
+#
+# Run by hand: Actions -> "Weekly database backup" -> Run workflow.
+on:
+  schedule:
+    # Saturday 01:00 UTC (03:00-04:00 in Israel), when the site is quiet.
+    - cron: "0 1 * * 6"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump, encrypt, upload
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Install pg_dump 17 and age
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 age
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
+      - name: Dump the database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is missing"; exit 1
+          fi
+          # Supabase's transaction pooler (port 6543) can break pg_dump; the
+          # same pooler host serves session mode on 5432. GitHub runners have
+          # no IPv6, so the direct db.<ref> host is not an option.
+          url="${DATABASE_URL/:6543\//:5432/}"
+          # SQLAlchemy-style scheme ("postgresql+psycopg2://") is not libpq's.
+          url="$(printf '%s' "$url" | sed -E 's#^postgres(ql)?\+[a-z0-9]+://#postgresql://#')"
+          PG=/usr/lib/postgresql/17/bin
+
+          mkdir -p "$RUNNER_TEMP/backup"
+          cd "$RUNNER_TEMP/backup"
+
+          # App data: everything in public (profiles, CVs, jobs, chats...) and
+          # the LinkedIn scraper's own schema.
+          "$PG/pg_dump" "$url" --format=custom --no-owner --no-privileges \
+            --schema=public --schema=linkedin --file=app.dump
+
+          # Sign-in accounts. Without these, a restored database has data but
+          # nobody can sign in to it.
+          "$PG/pg_dump" "$url" --format=custom --data-only \
+            --table=auth.users --table=auth.identities --file=auth.dump
+
+          # An empty dump looks exactly like a good one; check that the
+          # tables the product cannot live without are in it.
+          "$PG/pg_restore" --list app.dump > app.list
+          for t in profiles alembic_version_app_schema; do
+            if ! grep -qE "TABLE DATA public $t( |\$)" app.list; then
+              echo "::error::backup has no data for public.$t"; exit 1
+            fi
+          done
+          "$PG/pg_restore" --list auth.dump | grep -qE "TABLE DATA auth users( |\$)" \
+            || { echo "::error::backup has no auth.users data"; exit 1; }
+          echo "Tables with data: $(grep -c 'TABLE DATA' app.list) app, auth users included"
+
+      - name: Encrypt
+        env:
+          RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          case "${RECIPIENT:-}" in
+            age1*) ;;
+            *) echo "::error::Repository variable BACKUP_AGE_RECIPIENT must be an age public key (age1...)"; exit 1 ;;
+          esac
+          cd "$RUNNER_TEMP/backup"
+          stamp="$(date -u +%Y-%m-%d)"
+          tar -cf - app.dump auth.dump | age -r "$RECIPIENT" -o "jobapply-db-$stamp.tar.age"
+          rm -f app.dump auth.dump app.list
+          ls -l jobapply-db-*.tar.age
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+
+      - name: Upload the encrypted backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: jobapply-db-${{ env.STAMP }}
+          path: ${{ runner.temp }}/backup/jobapply-db-*.tar.age
+          retention-days: 90
+          if-no-files-found: error

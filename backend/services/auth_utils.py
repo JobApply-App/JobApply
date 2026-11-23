@@ -101,7 +101,7 @@ else:
 # ── JWKS cache (the "singleton" state) ────────────────────────────────────────
 #
 # Structure: (fetched_at_monotonic, list_of_jwk_dicts)
-# A list is used so python-jose can match by `kid` if multiple keys are present.
+# A list, so the right key can be picked by `kid` when several are present.
 #
 # This is a lazy, refreshable cache, not a compute-once constant: it's
 # re-populated on a 1-hour TTL and force-refreshed on a kid cache-miss (key
@@ -183,7 +183,61 @@ class VerifiedIdentity:
         self.name    = name
 
 
+# ── Session time limit ───────────────────────────────────────────────────────
+# A user must sign in again two hours after they signed in (Ron, 2026-11-23,
+# a security requirement). Supabase keeps a session alive forever by default:
+# the browser trades its refresh token for a fresh access token every hour,
+# so `iat`/`exp` move forward with every refresh and say nothing about when
+# the person actually signed in. The `amr` claim does: each entry is a method
+# the user authenticated with (password, oauth, otp...) and the unix time
+# they did it, and a refresh copies it unchanged. The newest entry is the
+# last time this person proved who they are.
+#
+# The browser signs the user out at the same moment (frontend
+# lib/sessionLimit.ts reads the same claim); this check is the one that
+# holds when the browser's timer did not run (a sleeping laptop, a copied
+# token, a script).
+SESSION_MAX_AGE_SECONDS = 2 * 60 * 60
+
+
+def authenticated_at(payload: dict) -> Optional[int]:
+    """Unix time of the newest sign-in recorded in the token's `amr` claim."""
+    times = []
+    for entry in payload.get("amr") or []:
+        ts = entry.get("timestamp") if isinstance(entry, dict) else None
+        if isinstance(ts, (int, float)) and not isinstance(ts, bool):
+            times.append(int(ts))
+    return max(times) if times else None
+
+
+def enforce_session_age(payload: dict, now: Optional[float] = None) -> None:
+    """Reject a token whose sign-in is older than SESSION_MAX_AGE_SECONDS.
+
+    A token with no `amr` timestamp is rejected too: Supabase puts the claim
+    in every user access token, so its absence means the token did not come
+    from a normal sign-in, and letting it through would make the limit
+    optional.
+    """
+    signed_in = authenticated_at(payload)
+    now = time.time() if now is None else now
+    if signed_in is None or now - signed_in >= SESSION_MAX_AGE_SECONDS:
+        logger.info(
+            "[auth] session older than the limit: signed_in=%s age=%ss",
+            signed_in, None if signed_in is None else int(now - signed_in),
+        )
+        raise AppError("session_time_limit",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your sign-in is more than 2 hours old. Please sign in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 _ASYMMETRIC_ALGS = frozenset({"RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "EdDSA"})
+
+# PyJWT rejects a token whose `iat` is even a second in the future (python-jose,
+# used before 2026-11-23, did not check it). Supabase's clock and this
+# server's can differ by a few seconds; that must not sign anyone out.
+_CLOCK_LEEWAY_SECONDS = 10
 
 
 async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
@@ -195,9 +249,8 @@ async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
         # The token's own header names its algorithm, and an attacker writes
         # that header. Only the asymmetric algorithms Supabase signs with are
         # accepted: an "HS256" or "none" token verified against the public
-        # key is the classic algorithm-confusion forgery. python-jose refuses
-        # that today only because the key is passed as a JWK dict; this does
-        # not rest on that detail.
+        # key is the classic algorithm-confusion forgery. Checked here, before
+        # any key is built, so it does not rest on the JWT library's own guard.
         alg    = header.get("alg")
         if alg not in _ASYMMETRIC_ALGS:
             raise AppError("session_expired",
@@ -224,10 +277,13 @@ async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
 
         payload = jwt.decode(
             token,
-            key,
+            # PyJWT takes a key object, not the raw JWK dict.
+            jwt.PyJWK(key, algorithm=alg).key,
             algorithms=[alg],        # honour whatever alg the key advertises
             options={"verify_aud": False},
+            leeway=_CLOCK_LEEWAY_SECONDS,
         )
+        enforce_session_age(payload)
         return extract_identity(payload)
 
     except HTTPException:
@@ -250,7 +306,9 @@ def verify_hs256(token: str, jwt, JWTError) -> VerifiedIdentity:
             JWT_SECRET,
             algorithms=["HS256"],
             options={"verify_aud": False},
+            leeway=_CLOCK_LEEWAY_SECONDS,
         )
+        enforce_session_age(payload)
         return extract_identity(payload)
     except JWTError as exc:
         # The reason stays in the log; the client only needs "sign in again".

@@ -8,12 +8,13 @@
 2. הדפדפן ממפה את הקוד לשלושה חלקים בשפת המשתמש: **מה קרה**, **למה**, **מה לעשות**. הטקסט הטכני של השרת נשמר רק בקונסול ובלוגים.
 3. הוספת שפה = הוספת אותו בלוק `errors` לקובץ השפה החדש. TypeScript לא יקמפל אם קוד חסר, ובדיקת backend נכשלת אם הקטלוגים לא תואמים.
 
-**48 קודים** (44 מהשרת + 4 מהדפדפן).
+**49 קודים** (45 מהשרת + 4 מהדפדפן).
 
 | קוד | HTTP | מתי זה קורה | מה מוצג בעברית (מה קרה · למה · מה לעשות) | English |
 |---|---|---|---|---|
 | `auth_required` | 401 | פעולה בלי התחברות (אין טוקן) | **אתם לא מחוברים** · הפעולה הזו דורשת התחברות, ולא מצאנו חיבור פעיל. · התחברו שוב ונסו את הפעולה מחדש. | **You are signed out** · This action needs you to be signed in, and no active session was found. · Sign in again and repeat the action. |
 | `session_expired` | 401 | טוקן פג או לא תקין | **פג תוקף ההתחברות** · מטעמי אבטחה, התחברות פגה אחרי זמן מה. · התחברו שוב. שום דבר ששמרתם לא נמחק. | **Your session has expired** · For your security, sign-ins expire after a while. · Sign in again. Nothing you saved was lost. |
+| `session_time_limit` | 401 | עברו יותר משעתיים מההתחברות (auth_utils.enforce_session_age) | **התנתקתם אחרי שעתיים** · מטעמי אבטחה, JobApply מנתקת אתכם שעתיים אחרי ההתחברות. · התחברו שוב כדי להמשיך. עריכות שלא שמרתם בעורך קורות החיים נשמרו במכשיר הזה ויחזרו כשתפתחו שוב את המשרה. | **You were signed out after 2 hours** · For your security, JobApply signs you out 2 hours after you sign in. · Sign in again to continue. Edits you had not saved in the CV editor are kept on this device and come back when you open that job again. |
 | `forbidden` | 403 | ניסיון לגשת לנתונים של משתמש אחר | **זה שייך לחשבון אחר** · אפשר לצפות ולשנות רק את הנתונים של החשבון שלכם. · אם נראה לכם שזו טעות, התנתקו והתחברו לחשבון הנכון. | **This belongs to another account** · You can only view and change your own data. · If you think this is a mistake, sign out and sign in with the right account. |
 | `admin_only` | 403 | מסך ניהול | **למנהלים בלבד** · המסך הזה מיועד לצוות JobApply בלבד. · חזרו ללוח הבקרה. | **Admins only** · This screen is limited to the JobApply team. · Go back to the dashboard. |
 | `dev_only` | 403 | כלי פיתוח בפרודקשן | **לא זמין כאן** · הכלי הזה פועל רק בסביבת הפיתוח. · חזרו ללוח הבקרה. | **Not available here** · This tool only runs in the development environment. · Go back to the dashboard. |

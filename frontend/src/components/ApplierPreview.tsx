@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
+import { useAuth } from '@/contexts/AuthContext'
+import { onBeforeTimeoutSignOut, stashEditorDraft, takeEditorDraft } from '@/lib/sessionLimit'
 import { LOCALES, type Locale } from '@/locales'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
@@ -398,6 +400,7 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
   const C = useI18n().t.common
   const A = useI18n().t.applier
   const { locale } = useI18n()
+  const userId = useAuth().user?.id
 
   /**
    * Language the CV itself is written in, chosen per generation.
@@ -568,6 +571,42 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
     return () => { alive = false }
   }, [cvLang, shownLang, availableLangs, phase, job.id, showSavedCv])
 
+  // ── Unsaved edits survive the 2-hour sign-out (lib/sessionLimit.ts) ──────
+  // Just before a timeout sign-out, hand over text the user has not saved:
+  // edits still open in the Live Editor, or edits applied to the preview but
+  // not yet saved to the profile. A ref, so the handler always sees the
+  // latest state without re-registering on every keystroke.
+  const unsavedRef = useRef<() => Record<string, unknown> | null>(() => null)
+  unsavedRef.current = () => {
+    if (isDirty && parsedCv) return toLiveEditorCvData(parsedCv) as Record<string, unknown>
+    if (hasUnsavedDraft && cvState) return cvState.cvData
+    return null
+  }
+  const langRef = useRef<string>(cvLang)
+  langRef.current = shownLang ?? cvLang
+  useEffect(() => {
+    if (!userId) return
+    return onBeforeTimeoutSignOut(() => {
+      const cvData = unsavedRef.current()
+      if (cvData) stashEditorDraft({ userId, jobId: job.id, locale: langRef.current, cvData, savedAt: Date.now() })
+    })
+  }, [userId, job.id])
+
+  const [restoredDraft, setRestoredDraft] = useState(false)
+  const restoreDraft = useCallback(() => {
+    if (!userId) return
+    const draft = takeEditorDraft(userId, job.id)
+    if (!draft) return
+    setCvState(prev => ({ cvData: draft.cvData, pdfB64: prev?.pdfB64 ?? '' }))
+    setParsedCv(parseCv(draft.cvData).data)
+    setShownLang(asLocale(draft.locale))
+    setIsDirty(true)          // Save re-renders the PDF and re-scores
+    setHasUnsavedDraft(true)  // ...and the banner offers saving to the profile
+    setIsEditMode(true)
+    setRestoredDraft(true)
+    setPhase('preview')
+  }, [userId, job.id])
+
   // ── Auto-load cached CV on mount ──────────────────────────────────────────
   useEffect(() => {
     fetchCachedCV(job.id).then(data => {
@@ -581,8 +620,8 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
       // a small number of daily generations to rebuild a CV that already
       // exists. Failing quietly here is what makes that bill invisible.
       console.error('[ApplierPreview] cached CV failed to load:', err)
-    })
-  }, [job.id, showSavedCv])
+    }).finally(restoreDraft)   // after the saved CV, so the draft is what shows
+  }, [job.id, showSavedCv, restoreDraft])
 
   // ── Core fetch helper ─────────────────────────────────────────────────────
   const callTailor = useCallback(async (
@@ -1433,6 +1472,11 @@ export function ApplierPreview({ job, feedJob, onClose, onApplied }: ApplierPrev
             </div>
           )}
 
+          {restoredDraft && isEditMode && (
+            <p role="status" className="mb-3 rounded-xl px-3.5 py-3 text-[13px] text-teal-900 bg-teal-50">
+              {A.restored_draft}
+            </p>
+          )}
           {cvState && isEditMode && parsedCv ? (
             <LiveEditor
               cv={parsedCv}
