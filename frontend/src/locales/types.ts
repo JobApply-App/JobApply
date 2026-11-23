@@ -11,7 +11,7 @@ import type { ReasonCode } from '../lib/reasonLabel'
  * raised in the browser. docs/error-catalog.md is the readable table.
  */
 export const ERROR_CODES = [
-  'auth_required', 'session_expired', 'forbidden', 'admin_only', 'dev_only', 'auth_not_configured',
+  'auth_required', 'session_expired', 'session_time_limit', 'forbidden', 'admin_only', 'dev_only', 'auth_not_configured',
   'rate_limited', 'daily_cv_limit', 'daily_chat_limit', 'daily_analysis_limit', 'linkedin_quota',
   'job_not_found', 'application_not_found', 'session_not_found', 'item_not_found', 'task_expired',
   'invalid_input', 'empty_message', 'invalid_linkedin_url', 'file_too_large', 'unsupported_file',
@@ -448,6 +448,7 @@ export interface Dict {
     // Rotating status lines shown while the CV is being written.
     loading_statuses: readonly [string, string, string, string]
     unsaved_draft:    string
+    restored_draft:   string
     save_to_profile:  string
     saving:           string
     copilot_placeholder: string
