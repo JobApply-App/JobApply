@@ -19,8 +19,8 @@ connection types; this module adapts to whichever one it gets:
   - Transaction pooler     (port 6543, pgbouncer transaction mode)
 Since every other DB access in this codebase is sync SQLAlchemy
 (backend/core/database.py, backend/repositories/*), an async-only
-`postgresql+asyncpg://` scheme is normalized to plain `postgresql://`
-(psycopg2) rather than introducing the project's first async DB path for
+`postgresql+asyncpg://` scheme is normalized to `postgresql+psycopg2://`
+rather than introducing the project's first async DB path for
 one table.
 """
 from __future__ import annotations
@@ -40,9 +40,16 @@ _TRANSACTION_POOLER_PORT = 6543
 
 
 def _to_sync_dsn(url: str) -> str:
-    """postgresql+asyncpg://... -> postgresql://... (psycopg2, sync)."""
-    if url.startswith("postgresql+asyncpg://"):
-        return "postgresql://" + url[len("postgresql+asyncpg://"):]
+    """postgresql[+asyncpg]://... -> postgresql+psycopg2://... (sync).
+
+    The driver is named, not left to SQLAlchemy: from 2.1 a bare
+    `postgresql://` means psycopg 3, which is not installed, so every
+    engine and migration would fail at startup (Dependabot PR #201,
+    2026-11-23). psycopg2-binary is what backend/requirements.txt ships.
+    """
+    for prefix in ("postgresql+asyncpg://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
     return url
 
 
