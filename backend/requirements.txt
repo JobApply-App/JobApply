@@ -5,7 +5,7 @@ pydantic-settings==2.6.1
 httpx==0.28.1
 playwright==1.49.1
 anthropic==0.40.0
-google-genai==1.47.0
+google-genai==3.6.1
 sqlalchemy==2.0.36
 alembic==1.14.0
 asyncpg==0.30.0
