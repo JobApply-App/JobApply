@@ -19,7 +19,7 @@ python-multipart>=0.0.9
 
 # ── AI / LLM ───────────────────────────────────────────────────────────────────
 anthropic>=0.25.0
-langgraph>=0.1.0
+langgraph>=1.0.10
 
 # ── PDF generation / browser automation ────────────────────────────────────────
 playwright>=1.43.0

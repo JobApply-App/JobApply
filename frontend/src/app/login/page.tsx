@@ -5,6 +5,7 @@ import { useRouter }           from 'next/navigation'
 import Link                    from 'next/link'
 import { useAuth }             from '@/contexts/AuthContext'
 import { useI18n }             from '@/contexts/I18nContext'
+import { TIMEOUT_REASON }      from '@/lib/sessionLimit'
 import { KycShell }            from '@/components/auth/KycShell'
 import { SignInScene }         from '@/components/auth/SignInScene'
 import { PasswordMeter, evaluatePassword } from '@/components/auth/PasswordMeter'
@@ -136,6 +137,15 @@ export default function LoginPage() {
   const [googleBusy,    setGoogleBusy]    = useState(false)
   const [error,         setError]         = useState<string | null>(null)
   const [successMsg,    setSuccessMsg]    = useState<string | null>(null)
+
+  // Signed out by the 2-hour limit (contexts/AuthContext.tsx): say so kindly
+  // instead of dropping the user on a bare sign-in form. Read from the URL in
+  // an effect, not useSearchParams, so the page needs no Suspense boundary.
+  const [timedOut, setTimedOut] = useState(false)
+  useEffect(() => {
+    setTimedOut(new URLSearchParams(window.location.search).get('reason') === TIMEOUT_REASON)
+  }, [])
+  const TL = t.errors.codes.session_time_limit
 
   const newPwStrength = evaluatePassword(newPw)
 
@@ -422,6 +432,13 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-5">
+                {timedOut && (
+                  <div role="status" className="rounded-xl px-3.5 py-3 text-[13px] text-teal-900 bg-teal-50">
+                    <p className="font-semibold">{TL.title}</p>
+                    <p className="mt-1">{TL.why} {TL.action}</p>
+                  </div>
+                )}
+
                 {/* Google */}
                 <button type="button" onClick={handleGoogle}
                   disabled={busy || googleBusy}

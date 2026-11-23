@@ -15,6 +15,13 @@
  */
 import { z } from 'zod'
 
+// Zod otherwise probes `Function("")` to decide whether it may compile
+// validators with eval. The site's Content-Security-Policy forbids eval, so
+// the probe only ever produces a CSP violation report. Jitless is the path it
+// would fall back to anyway. cvParser.ts imports this module, so this runs
+// before any schema is used.
+z.config({ jitless: true })
+
 // ── Provenance vocabulary ──────────────────────────────────────────────────
 // Mirrors backend/services/cv_assembly_engine.py's VerifiedFact.source_type
 // exactly, plus 'user_edit' for content typed directly into LiveEditor. Using

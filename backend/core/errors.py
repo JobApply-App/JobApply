@@ -32,6 +32,7 @@ CODES: dict[str, int] = {
     # Session & access
     "auth_required":           401,
     "session_expired":         401,
+    "session_time_limit":      401,   # signed in more than SESSION_MAX_AGE_SECONDS ago
     "forbidden":               403,
     "admin_only":              403,
     "dev_only":                403,
