@@ -186,8 +186,8 @@ SUPABASE_SECRET_KEY: Optional[str] = _select_env_var("SUPABASE_SECRET_KEY")
 # on arrival and every query returns 200 with zero rows — a healthy-looking
 # service serving an empty app. Reached production once, via a _PROD entry
 # aimed at an unpopulated project while auth ran against the populated one.
-# An async-only `postgresql+asyncpg://` scheme is normalized to plain
-# `postgresql://` (psycopg2) by backend/core/postgres.py's _to_sync_dsn() —
+# A `postgresql://` or async-only `postgresql+asyncpg://` scheme is normalized
+# to `postgresql+psycopg2://` by backend/core/postgres.py's _to_sync_dsn() —
 # every other DB access in this codebase is sync, so this avoids introducing
 # the project's first async DB path for one table. That same module also
 # adds `sslmode=require` for non-localhost hosts (Supabase requires TLS) and
