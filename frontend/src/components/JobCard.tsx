@@ -294,7 +294,7 @@ function BulkImportBadge() {
 
 // ── Gap / reason tags ─────────────────────────────────────────────────────────
 
-const GAP_TONES: Record<ReasonKind, { cls: string; Icon: (p: { s?: number }) => JSX.Element }> = {
+const GAP_TONES: Record<ReasonKind, { cls: string; Icon: (p: { s?: number }) => React.JSX.Element }> = {
   skill: { cls: 'bg-emerald-50 text-emerald-700', Icon: SkillIcon },
   exp:   { cls: 'bg-teal-50 text-teal-700',       Icon: ExpIcon   },
   loc:   { cls: 'bg-violet-50 text-violet-700',   Icon: LocIcon   },

@@ -53,7 +53,7 @@ The stale text claimed SQLite was primary, `DATABASE_URL` was "aspirational/unus
 Root `app.py` is a separate Streamlit dashboard that imports `orchestrator.py` and `backend/logic/*`. `orchestrator.py` defines `analyze_fit()` and a hardcoded `_TARGET_JOB`. Do not confuse this with the FastAPI backend — it's a parallel/older UI kept for reference. See `docs/architecture-boundaries.md` for the full dependency-direction audit and multi-tenant preparation notes.
 
 ### Frontend (`frontend/`)
-App root is `frontend/`; the package name is `job-apply-web` (the two differ — don't infer the directory from the package name). Source lives in `frontend/src/{app,components,contexts,hooks,lib,locales}`. Next.js 14 (app router), Tailwind, Supabase JS client.
+App root is `frontend/`; the package name is `job-apply-web` (the two differ — don't infer the directory from the package name). Source lives in `frontend/src/{app,components,contexts,hooks,lib,locales}`. Next.js 15 (app router, React 19), Tailwind, Supabase JS client.
 
 There is no `web_dashboard/` directory. Earlier revisions of this file said there was, which is worse than saying nothing: a `grep` scoped to a path that doesn't exist returns empty and reads exactly like "this symbol is unused." That misread once cost a full-stack rename being scoped as backend-only. When checking whether the frontend uses something, scope the search with `git ls-files` rather than a hardcoded directory.
 

@@ -1,0 +1,29 @@
+# Weekly dependency update PRs (security report, 2026-11-23: no automated
+# update checks existed, and the frontend ran a Next.js with a critical
+# advisory). Security fixes open as soon as an advisory is published,
+# whatever the schedule. Ron reviews and merges every PR.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for routine minor/patch bumps instead of one per package.
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

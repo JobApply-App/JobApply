@@ -127,7 +127,7 @@ function TechModernThumb({ selected }: { selected: boolean }) {
   )
 }
 
-const THUMBS: Record<string, (p: { selected: boolean }) => JSX.Element> = {
+const THUMBS: Record<string, (p: { selected: boolean }) => React.JSX.Element> = {
   t1_classic:    ClassicThumb,
   t2_modern:     ModernThumb,
   t3_executive:  ExecutiveThumb,
