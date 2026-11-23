@@ -33,6 +33,13 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # FastAPI is 0.x, so its breaking releases arrive as "minor". 0.165
+      # registers included routes differently: the rate-limit tests could
+      # not find the LLM routes and the timing log lost the /api prefix
+      # (#204, 2026-11-23). Patch releases still come; the jump to a newer
+      # minor is its own planned upgrade.
+      - dependency-name: "fastapi"
+        update-types: ["version-update:semver-minor"]
 
   - package-ecosystem: github-actions
     directory: /

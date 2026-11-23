@@ -24,7 +24,7 @@ def test_list_all_jobs_matches_default_mode(db_available):
 
     user = CurrentUser(user_id="00000000-0000-0000-0000-000000000000", email="qa@test.com", name="QA")
 
-    got = asyncio.get_event_loop().run_until_complete(
+    got = asyncio.run(
         list_all_jobs(
             page=1, page_size=25,
             source=None, seniority_level=None, employment_type=None,
@@ -50,7 +50,7 @@ def test_list_all_jobs_filter_options_matches_default_mode(db_available):
 
     user = CurrentUser(user_id="00000000-0000-0000-0000-000000000000", email="qa@test.com", name="QA")
 
-    got = asyncio.get_event_loop().run_until_complete(list_all_jobs_filter_options(user=user))
+    got = asyncio.run(list_all_jobs_filter_options(user=user))
 
     with Session(PG_ENGINE) as db:
         expected = get_all_jobs_filter_options(session=db)
