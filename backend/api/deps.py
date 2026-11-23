@@ -122,7 +122,8 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    from jose import JWTError, jwt
+    import jwt
+    from jwt import PyJWTError as JWTError
 
     token = credentials.credentials
 
@@ -196,7 +197,8 @@ async def _verified_sub(token: str) -> Optional[str]:
     hit = _RATE_SUB_CACHE.get(token)
     if hit and hit[0] > now:
         return hit[1]
-    from jose import JWTError, jwt
+    import jwt
+    from jwt import PyJWTError as JWTError
     try:
         if _SUPABASE_URL:
             identity = await _verify_rs256_identity(token, jwt, JWTError)

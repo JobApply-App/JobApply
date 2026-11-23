@@ -13,6 +13,14 @@ updates:
       # One PR for routine minor/patch bumps instead of one per package.
       minor-and-patch:
         update-types: [minor, patch]
+    # No PRs for major versions (2026-11-23: next 16, typescript 7 and
+    # pandas 3 arrived as 17 PRs that would each need their own migration).
+    # Major upgrades are planned on purpose instead. Security alerts still
+    # show in the repo's Security tab whatever this says; if a fix needs a
+    # major version, do that upgrade by hand.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: pip
     directory: /backend
@@ -22,6 +30,9 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

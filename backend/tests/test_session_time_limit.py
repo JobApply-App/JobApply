@@ -15,7 +15,8 @@ import time
 import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 
 from backend.api import deps
 from backend.core.errors import AppError, install_error_handlers

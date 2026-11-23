@@ -101,7 +101,7 @@ else:
 # ── JWKS cache (the "singleton" state) ────────────────────────────────────────
 #
 # Structure: (fetched_at_monotonic, list_of_jwk_dicts)
-# A list is used so python-jose can match by `kid` if multiple keys are present.
+# A list, so the right key can be picked by `kid` when several are present.
 #
 # This is a lazy, refreshable cache, not a compute-once constant: it's
 # re-populated on a 1-hour TTL and force-refreshed on a kid cache-miss (key
@@ -234,6 +234,11 @@ def enforce_session_age(payload: dict, now: Optional[float] = None) -> None:
 
 _ASYMMETRIC_ALGS = frozenset({"RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "EdDSA"})
 
+# PyJWT rejects a token whose `iat` is even a second in the future (python-jose,
+# used before 2026-11-23, did not check it). Supabase's clock and this
+# server's can differ by a few seconds; that must not sign anyone out.
+_CLOCK_LEEWAY_SECONDS = 10
+
 
 async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
     """Verify an RS256 token against Supabase's JWKS public keys."""
@@ -244,9 +249,8 @@ async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
         # The token's own header names its algorithm, and an attacker writes
         # that header. Only the asymmetric algorithms Supabase signs with are
         # accepted: an "HS256" or "none" token verified against the public
-        # key is the classic algorithm-confusion forgery. python-jose refuses
-        # that today only because the key is passed as a JWK dict; this does
-        # not rest on that detail.
+        # key is the classic algorithm-confusion forgery. Checked here, before
+        # any key is built, so it does not rest on the JWT library's own guard.
         alg    = header.get("alg")
         if alg not in _ASYMMETRIC_ALGS:
             raise AppError("session_expired",
@@ -273,9 +277,11 @@ async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
 
         payload = jwt.decode(
             token,
-            key,
+            # PyJWT takes a key object, not the raw JWK dict.
+            jwt.PyJWK(key, algorithm=alg).key,
             algorithms=[alg],        # honour whatever alg the key advertises
             options={"verify_aud": False},
+            leeway=_CLOCK_LEEWAY_SECONDS,
         )
         enforce_session_age(payload)
         return extract_identity(payload)
@@ -300,6 +306,7 @@ def verify_hs256(token: str, jwt, JWTError) -> VerifiedIdentity:
             JWT_SECRET,
             algorithms=["HS256"],
             options={"verify_aud": False},
+            leeway=_CLOCK_LEEWAY_SECONDS,
         )
         enforce_session_age(payload)
         return extract_identity(payload)
