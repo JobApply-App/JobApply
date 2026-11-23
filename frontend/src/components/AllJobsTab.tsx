@@ -292,7 +292,7 @@ function selectClass(hasValue: boolean): string {
 // one option — not discoverable — so this is a small custom checkbox-list
 // popover instead. Closes on outside click; no external dependency.
 
-function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: () => void) {
+function useClickOutside(ref: React.RefObject<HTMLElement | null>, onOutside: () => void) {
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) onOutside()

@@ -176,7 +176,7 @@ function LinkedInPausedBanner() {
 // that intensifies on hover, and a large accent-coloured number so each metric
 // carries its own visual identity and "pops" off the canvas.
 
-type KPIIcon = (props: { s?: number }) => JSX.Element
+type KPIIcon = (props: { s?: number }) => React.JSX.Element
 
 function KPIStat({ label, value, sub, accent, Icon }: {
   label: string; value: string | number; sub: string; accent: string; Icon: KPIIcon
@@ -535,7 +535,7 @@ function PillarRail({ label, value, max, color, Icon, caption, hint, loading }: 
   value:   number | null
   max:     number
   color:   string
-  Icon:    ({ s }: { s?: number }) => JSX.Element
+  Icon:    ({ s }: { s?: number }) => React.JSX.Element
   caption: string
   hint:    string
   loading: boolean

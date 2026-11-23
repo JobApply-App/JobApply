@@ -38,7 +38,7 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
  */
 export function useDialogA11y(
   onClose: () => void,
-  containerRef: React.RefObject<HTMLElement>,
+  containerRef: React.RefObject<HTMLElement | null>,
   enabled: boolean = true,
 ) {
   const triggerRef = useRef<HTMLElement | null>(null)
