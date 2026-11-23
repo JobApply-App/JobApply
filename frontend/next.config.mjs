@@ -1,3 +1,40 @@
+const isDev = process.env.NODE_ENV !== 'production'
+
+// The browser only ever talks to this origin (/api/* is proxied to the
+// backend) and to Supabase Auth. Read at build time like the client does.
+const supabaseOrigin = (() => {
+  try { return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').origin } catch { return '' }
+})()
+
+// Full Content-Security-Policy, sent as REPORT-ONLY first (2026-11-23):
+// violations show in the browser console but nothing is blocked, so a source
+// we missed cannot break the app. Switch the header name to
+// Content-Security-Policy once signed-in pages have been clicked through
+// with no violations.
+//
+// What it buys even with 'unsafe-inline': scripts can only come from this
+// origin, and connect-src/img-src/form-action stop an injected script from
+// sending a user's token or CV to another server. 'unsafe-inline' stays
+// because Next.js app router writes inline bootstrap scripts; removing it
+// needs per-request nonces from middleware, which makes every page dynamic.
+// 'unsafe-eval' is dev-only (React Refresh).
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  `connect-src 'self' ${supabaseOrigin}`.trim(),
+  // The CV preview is an <iframe> of a data: PDF; downloads use blob: URLs.
+  "frame-src 'self' data: blob:",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  // frame-ancestors is not listed: browsers ignore it in report-only mode,
+  // and it is already enforced in its own header below.
+].join('; ')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Keep the underlying Node HTTP agent alive and raise the socket timeout
@@ -50,11 +87,9 @@ const nextConfig = {
   // over their own UI and harvests the clicks.
   //
   // `frame-ancestors 'none'` is the modern control and X-Frame-Options is the
-  // fallback for older agents that ignore CSP. Deliberately NOT a full CSP:
-  // a default-src policy on a Next.js app needs its inline/eval allowances
-  // worked out and verified page by page, and a CSP that is wrong is worse
-  // than none because it breaks the app while looking like hardening. Framing
-  // is the part that can be closed correctly today.
+  // fallback for older agents that ignore CSP. The full policy
+  // (contentSecurityPolicy above) is report-only until verified page by page:
+  // a CSP that is wrong breaks the app while looking like hardening.
   async headers() {
     return [
       {
@@ -62,6 +97,9 @@ const nextConfig = {
         headers: [
           { key: 'X-Frame-Options',        value: 'DENY' },
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          // frame-ancestors is ignored in report-only, so the enforced line
+          // above stays until the full policy is enforced.
+          { key: 'Content-Security-Policy-Report-Only', value: contentSecurityPolicy },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy',        value: 'strict-origin-when-cross-origin' },
           // No camera/mic/geolocation anywhere in this product.
