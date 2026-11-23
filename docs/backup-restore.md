@@ -54,3 +54,47 @@ over production.
 4. Point `DATABASE_URL`, `SUPABASE_URL`, the JWT settings and the frontend's
    Supabase keys at the new project. Then sign in and check that your own
    data is there.
+
+## Test a restore locally
+
+Run this every few months, and after any change to the backup workflow, so a
+real restore is not the first one. It uses a throwaway Postgres on your own
+computer and never touches Supabase. First tested 2026-11-23: all 28 tables,
+18 users and 42 RLS policies came back.
+
+1. Install PostgreSQL 17. `pg_restore` 16 cannot read a dump made by
+   `pg_dump` 17. On an Intel Mac, Homebrew builds it from source, which takes
+   about an hour.
+   ```bash
+   brew install postgresql@17
+   ```
+2. Download and decrypt the backup as in steps 1–2 of **Restore** above.
+   Work in a folder outside the repo, such as `~/jobapply-restore-test`: once
+   decrypted, the files hold real user data. A copied command overwrites the
+   clipboard, so copy the key last, just before you press Enter.
+3. Start a temporary server, listening only on a socket in that folder (not
+   on the network). Without `LC_ALL`, Postgres on macOS stops with
+   "postmaster became multithreaded during startup".
+   ```bash
+   export LC_ALL=en_US.UTF-8 P=/usr/local/opt/postgresql@17/bin D=$PWD
+   $P/initdb -D pgdata -U postgres --auth=trust -E UTF8 --locale=C
+   $P/pg_ctl -D pgdata -l pg.log -o "-p 5499 -k $D -c listen_addresses=''" -w start
+   $P/psql -h $D -p 5499 -U postgres -d postgres -c "CREATE DATABASE restore_test"
+   ```
+4. Create the auth tables, then load the users, then the app. The repo path
+   below is wherever your checkout lives.
+   ```bash
+   $P/psql -h $D -p 5499 -U postgres -d restore_test -f <repo>/backend/scripts/restore-auth-stub.sql
+   $P/pg_restore -h $D -p 5499 -U postgres -d restore_test --data-only auth.dump
+   $P/pg_restore -h $D -p 5499 -U postgres -d restore_test --no-owner --no-privileges app.dump
+   ```
+   The only expected error is `schema "public" already exists`.
+5. Check that the data is there. Every profile should have a matching user:
+   ```bash
+   $P/psql -h $D -p 5499 -U postgres -d restore_test -c "SELECT (SELECT count(*) FROM auth.users) AS users, (SELECT count(*) FROM public.profiles) AS profiles, (SELECT count(*) FROM public.profiles p JOIN auth.users u ON u.id = p.id) AS linked"
+   ```
+6. Stop the server and delete everything that was decrypted:
+   ```bash
+   $P/pg_ctl -D pgdata -m fast stop
+   rm -rf pgdata app.dump auth.dump pg.log
+   ```
