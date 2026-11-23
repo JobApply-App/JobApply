@@ -110,7 +110,7 @@ jobs:
           echo "STAMP=$stamp" >> "$GITHUB_ENV"
 
       - name: Upload the encrypted backup
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jobapply-db-${{ env.STAMP }}
           path: ${{ runner.temp }}/backup/jobapply-db-*.tar.age
