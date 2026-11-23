@@ -30,7 +30,7 @@ def test_list_applications_issues_exactly_one_query(db_available):
     try:
         user = CurrentUser(user_id=_QA_USER_A, email="qa@test.com", name="QA")
         import asyncio
-        asyncio.get_event_loop().run_until_complete(list_applications(user=user))
+        asyncio.run(list_applications(user=user))
     finally:
         event.remove(ENGINE, "before_cursor_execute", _count)
 
@@ -44,7 +44,7 @@ def test_list_applications_matches_default_mode(db_available):
     from backend.repositories import application_repository
 
     user = CurrentUser(user_id=_QA_USER_A, email="qa@test.com", name="QA")
-    got = asyncio.get_event_loop().run_until_complete(list_applications(user=user))
+    got = asyncio.run(list_applications(user=user))
     expected = application_repository.get_all(_QA_USER_A)
 
     assert [a.application_id for a in got] == [a.application_id for a in expected]
@@ -65,7 +65,7 @@ def test_crm_board_issues_exactly_one_query(db_available):
     event.listen(ENGINE, "before_cursor_execute", _count)
     try:
         user = CurrentUser(user_id=_QA_USER_A, email="qa@test.com", name="QA")
-        asyncio.get_event_loop().run_until_complete(get_crm_board(user=user))
+        asyncio.run(get_crm_board(user=user))
     finally:
         event.remove(ENGINE, "before_cursor_execute", _count)
 
@@ -79,7 +79,7 @@ def test_crm_board_matches_default_mode(db_available):
     from backend.repositories import application_repository
 
     user = CurrentUser(user_id=_QA_USER_A, email="qa@test.com", name="QA")
-    got = asyncio.get_event_loop().run_until_complete(get_crm_board(user=user))
+    got = asyncio.run(get_crm_board(user=user))
     expected_rows = application_repository.get_by_statuses(_QA_USER_A, _VALID_STAGE_KEYS)
 
     got_ids = sorted(c.application_id for col in got.columns for c in col.cards)

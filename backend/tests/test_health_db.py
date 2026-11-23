@@ -18,7 +18,7 @@ def test_health_reports_ok_with_a_database(monkeypatch):
 def test_health_is_503_when_the_database_is_unreachable(monkeypatch):
     import backend.core.database as database
     from backend.main import app
-    monkeypatch.setattr(database, "ENGINE", create_engine("postgresql://u:p@127.0.0.1:1/none"))
+    monkeypatch.setattr(database, "ENGINE", create_engine("postgresql+psycopg2://u:p@127.0.0.1:1/none"))
     r = TestClient(app).get("/health")
     assert r.status_code == 503
     assert r.json()["checks"]["database"] == "unreachable"
