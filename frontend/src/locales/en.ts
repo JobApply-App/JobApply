@@ -5,6 +5,7 @@ export const en = {
     codes: {
       auth_required:          { title: 'You are signed out', why: 'This action needs you to be signed in, and no active session was found.', action: 'Sign in again and repeat the action.' },
       session_expired:        { title: 'Your session has expired', why: 'For your security, sign-ins expire after a while.', action: 'Sign in again. Nothing you saved was lost.' },
+      session_time_limit:     { title: 'You were signed out after 2 hours', why: 'For your security, JobApply signs you out 2 hours after you sign in.', action: 'Sign in again to continue. Edits you had not saved in the CV editor are kept on this device and come back when you open that job again.' },
       forbidden:              { title: 'This belongs to another account', why: 'You can only view and change your own data.', action: 'If you think this is a mistake, sign out and sign in with the right account.' },
       admin_only:             { title: 'Admins only', why: 'This screen is limited to the JobApply team.', action: 'Go back to the dashboard.' },
       dev_only:               { title: 'Not available here', why: 'This tool only runs in the development environment.', action: 'Go back to the dashboard.' },
@@ -572,6 +573,7 @@ export const en = {
       'Optimizing ATS keywords...',
       'Formatting document...',
     ],
+    restored_draft:     'We kept the edits you had not saved when you were signed out. Review them and press Save to keep them.',
     unsaved_draft:      'Unsaved draft changes. Closing without saving reverts to your base profile CV.',
     save_to_profile:    'Save Changes to Base Profile',
     saving:             'Saving…',

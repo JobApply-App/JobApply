@@ -183,6 +183,55 @@ class VerifiedIdentity:
         self.name    = name
 
 
+# ── Session time limit ───────────────────────────────────────────────────────
+# A user must sign in again two hours after they signed in (Ron, 2026-11-23,
+# a security requirement). Supabase keeps a session alive forever by default:
+# the browser trades its refresh token for a fresh access token every hour,
+# so `iat`/`exp` move forward with every refresh and say nothing about when
+# the person actually signed in. The `amr` claim does: each entry is a method
+# the user authenticated with (password, oauth, otp...) and the unix time
+# they did it, and a refresh copies it unchanged. The newest entry is the
+# last time this person proved who they are.
+#
+# The browser signs the user out at the same moment (frontend
+# lib/sessionLimit.ts reads the same claim); this check is the one that
+# holds when the browser's timer did not run (a sleeping laptop, a copied
+# token, a script).
+SESSION_MAX_AGE_SECONDS = 2 * 60 * 60
+
+
+def authenticated_at(payload: dict) -> Optional[int]:
+    """Unix time of the newest sign-in recorded in the token's `amr` claim."""
+    times = []
+    for entry in payload.get("amr") or []:
+        ts = entry.get("timestamp") if isinstance(entry, dict) else None
+        if isinstance(ts, (int, float)) and not isinstance(ts, bool):
+            times.append(int(ts))
+    return max(times) if times else None
+
+
+def enforce_session_age(payload: dict, now: Optional[float] = None) -> None:
+    """Reject a token whose sign-in is older than SESSION_MAX_AGE_SECONDS.
+
+    A token with no `amr` timestamp is rejected too: Supabase puts the claim
+    in every user access token, so its absence means the token did not come
+    from a normal sign-in, and letting it through would make the limit
+    optional.
+    """
+    signed_in = authenticated_at(payload)
+    now = time.time() if now is None else now
+    if signed_in is None or now - signed_in >= SESSION_MAX_AGE_SECONDS:
+        logger.info(
+            "[auth] session older than the limit: signed_in=%s age=%ss",
+            signed_in, None if signed_in is None else int(now - signed_in),
+        )
+        raise AppError("session_time_limit",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your sign-in is more than 2 hours old. Please sign in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 _ASYMMETRIC_ALGS = frozenset({"RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "EdDSA"})
 
 
@@ -228,6 +277,7 @@ async def verify_rs256(token: str, jwt, JWTError) -> VerifiedIdentity:
             algorithms=[alg],        # honour whatever alg the key advertises
             options={"verify_aud": False},
         )
+        enforce_session_age(payload)
         return extract_identity(payload)
 
     except HTTPException:
@@ -251,6 +301,7 @@ def verify_hs256(token: str, jwt, JWTError) -> VerifiedIdentity:
             algorithms=["HS256"],
             options={"verify_aud": False},
         )
+        enforce_session_age(payload)
         return extract_identity(payload)
     except JWTError as exc:
         # The reason stays in the log; the client only needs "sign in again".

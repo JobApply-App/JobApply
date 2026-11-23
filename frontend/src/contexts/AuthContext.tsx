@@ -27,6 +27,12 @@
  *   Layer 3 — Global API error interceptor
  *     Any 401 or 503 from the backend triggers immediate signOut + storage wipe
  *     + hard redirect, regardless of which component triggered the request.
+ *
+ * 2-hour limit (lib/sessionLimit.ts): a session ends 2 hours after the user
+ * signed in. A timer signs them out on time, a check on focus/visibility
+ * catches a timer that slept with the laptop, and a `session_time_limit`
+ * answer from the backend does the same. A timeout sign-out first lets the
+ * Live Editor keep its unsaved text, then lands on /login with a message.
  */
 
 import {
@@ -42,6 +48,9 @@ import type { Session, User } from '@supabase/supabase-js'
 
 import { supabase } from '@/lib/supabase'
 import { setAuthToken, setAuthErrorHandler } from '@/lib/api'
+import {
+  DRAFT_KEY, TIMEOUT_REASON, isPastSessionLimit, runBeforeTimeoutSignOut, sessionDeadlineMs,
+} from '@/lib/sessionLimit'
 
 // ── Mock-session detection ────────────────────────────────────────────────────
 
@@ -91,12 +100,29 @@ function _storageContainsMockSession(): boolean {
  *   - All React state and in-flight requests are abandoned.
  *   - The browser sends no stale cookies or prefetch hints to the next page.
  */
-async function _hardEvict(): Promise<void> {
+async function _hardEvict(reason?: 'timeout'): Promise<void> {
+  // A timeout is not the user's choice: let the Live Editor hand over text it
+  // had not saved, and carry that one entry through the storage wipe.
+  let kept: string | null = null
+  if (reason === 'timeout') {
+    runBeforeTimeoutSignOut()
+    try { kept = localStorage.getItem(DRAFT_KEY) } catch {}
+  }
   try { await supabase?.auth.signOut() } catch { /* best-effort server signout */ }
   try { localStorage.clear()   } catch {}
   try { sessionStorage.clear() } catch {}
+  if (kept) { try { localStorage.setItem(DRAFT_KEY, kept) } catch {} }
   // Hard navigation — breaks all Next.js client cache
-  window.location.href = '/login'
+  window.location.href = reason === 'timeout' ? `/login?reason=${TIMEOUT_REASON}` : '/login'
+}
+
+// One timeout sign-out at a time: the timer, a focus check and a backend 401
+// can all notice the same expiry at once.
+let _timeoutEvicting = false
+function _evictForTimeout(): void {
+  if (_timeoutEvicting) return
+  _timeoutEvicting = true
+  void _hardEvict('timeout')
 }
 
 // ── Context shape ─────────────────────────────────────────────────────────────
@@ -172,10 +198,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // the session is actually gone; otherwise refresh the auth header and let
     // the caller retry.
     const sb = supabase   // narrowed non-null reference for the async closure
-    setAuthErrorHandler(() => {
+    setAuthErrorHandler((code?: string) => {
+      if (code === 'session_time_limit') { _evictForTimeout(); return }
       void (async () => {
         try {
           const { data } = await sb.auth.getSession()
+          if (data.session && isPastSessionLimit(data.session.access_token)) {
+            _evictForTimeout()
+            return
+          }
           if (data.session) {
             setAuthToken(data.session.access_token)   // transient 401 — header was stale
             return
@@ -197,6 +228,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // _hardEvict navigates away — setLoading is irrelevant, but set it
         // for correctness in the unlikely event navigation is momentarily
         // deferred (e.g. beforeunload handler).
+        return
+      }
+      // A session restored from storage after the 2-hour limit (the tab was
+      // closed, the laptop slept) ends here, before any page shows.
+      if (s && isPastSessionLimit(s.access_token)) {
+        _evictForTimeout()
         return
       }
 
@@ -226,6 +263,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe()
   }, [_applySession])
+
+  // ── 2-hour limit timer ──────────────────────────────────────────────────────
+  // Re-armed whenever the token changes (a refresh keeps the sign-in time, so
+  // the deadline stays put). Browsers pause timers in a sleeping laptop or a
+  // background tab, so returning to the tab checks again.
+  const accessToken = session?.access_token ?? null
+  useEffect(() => {
+    if (!accessToken) return
+    const deadline = sessionDeadlineMs(accessToken)
+    const check = () => { if (Date.now() >= deadline) _evictForTimeout() }
+    check()
+    // setTimeout overflows past ~24.8 days; the deadline is 2 hours away at most.
+    const timer = setTimeout(_evictForTimeout, Math.min(Math.max(0, deadline - Date.now()), 2 ** 31 - 1))
+    const onVisible = () => { if (document.visibilityState === 'visible') check() }
+    window.addEventListener('focus', check)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('focus', check)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [accessToken])
 
   // ── Auth actions ────────────────────────────────────────────────────────────
 
