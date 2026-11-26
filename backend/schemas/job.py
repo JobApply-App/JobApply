@@ -84,6 +84,11 @@ class JobMatch(BaseModel):
     jd_text: Optional[str] = None
     # LLM-structured JD as a JSON string produced by jd_structure_service.
     jd_structured: Optional[str] = None
+    # The same structure in Hebrew, for display only (never scored). Sent only
+    # to Hebrew-UI users, and only once translated (jd_translation sweep).
+    jd_structured_he: Optional[str] = None
+    # location in Hebrew (israel_cities.hebrew_location), Hebrew-UI users only.
+    location_he: Optional[str] = None
     # ── Multi-user & feed fields ──────────────────────────────────────────────
     user_id:              str             = "default"
     source_type:          SourceType      = 'other'

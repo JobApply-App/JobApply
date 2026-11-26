@@ -63,6 +63,7 @@ async def _enrichment_loop() -> None:
     """
     from backend.services.feed_service import refresh_user_scores
     from backend.services.fit_brief_translation import translate_all
+    from backend.services.jd_translation import translate_next as translate_jd_next
     from backend.services.tenant_registry import list_pipeline_user_ids
 
     # 2 min, was 30s. With a daily per-user budget a faster sweep buys nothing
@@ -87,6 +88,7 @@ async def _enrichment_loop() -> None:
                         "[enrichment-loop] Enriched %d job(s) for user=%s", count, user_id,
                     )
             await translate_all()
+            await translate_jd_next()
             consecutive_failures = 0   # reset on success
         except Exception:
             consecutive_failures += 1

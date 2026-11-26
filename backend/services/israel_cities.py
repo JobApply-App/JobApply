@@ -97,6 +97,45 @@ def resolve_city(location: str) -> Optional[City]:
     return None
 
 
+# Israel's districts as LinkedIn writes them, for hebrew_location().
+_DISTRICTS_HE = {
+    _normalize(k): v for k, v in {
+        "Center District": "מחוז המרכז", "Central District": "מחוז המרכז",
+        "Tel Aviv District": "מחוז תל אביב", "Jerusalem District": "מחוז ירושלים",
+        "Haifa District": "מחוז חיפה", "Northern District": "מחוז הצפון",
+        "North District": "מחוז הצפון", "Southern District": "מחוז הדרום",
+        "South District": "מחוז הדרום", "Judea and Samaria": "יהודה ושומרון",
+        "Judea and Samaria Area": "יהודה ושומרון",
+    }.items()
+}
+
+
+def hebrew_location(location: str) -> Optional[str]:
+    """
+    A job's "City, District, Israel" in Hebrew, segment by segment, for a
+    Hebrew interface: "Petah Tikva, Center District, Israel" → "פתח תקווה,
+    מחוז המרכז, ישראל". Only whole segments that are a known locality, a
+    district or Israel are translated; anything else (another country, "Remote")
+    stays as written. None when nothing could be translated.
+    """
+    parts = [p for p in (_normalize(s) for s in (location or "").split(",")) if p]
+    # Same rule as resolve_city: a last segment that is neither Israel nor a
+    # locality is another country ("Acre, Brazil"), so leave it all alone.
+    if len(parts) > 1 and parts[-1] not in _ISRAEL and parts[-1] not in _EXACT and parts[-1] not in _DISTRICTS_HE:
+        return None
+    out, changed = [], False
+    for raw in (location or "").split(","):
+        seg = raw.strip()
+        if not seg:
+            continue
+        key = _normalize(seg)
+        he = ("ישראל" if key == "israel" else None) or _DISTRICTS_HE.get(key) \
+            or (_EXACT[key].he if key in _EXACT else None)
+        out.append(he or seg)
+        changed = changed or (he is not None and he != seg)
+    return ", ".join(out) if changed else None
+
+
 def distance_km(a: City, b: City) -> float:
     """Great-circle distance between two cities."""
     lat1, lon1, lat2, lon2 = map(math.radians, (a.lat, a.lon, b.lat, b.lon))
