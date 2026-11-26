@@ -1,6 +1,5 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getGreetingName } from '@/lib/nameUtils'
 import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
@@ -736,27 +735,6 @@ function ConfidenceScoreCard({ score, breakdown, onImprove, change, chatSpan, li
   )
 }
 
-// ── Greeting helpers ───────────────────────────────────────────────────────────
-
-// Returns a dictionary key rather than a phrase, so the wording lives with
-// the other translations instead of in this file.
-function _timeOfDay(): 'morning' | 'afternoon' | 'evening' | 'night' {
-  const h = new Date().getHours()
-  if (h >= 5  && h < 12) return 'morning'
-  if (h >= 12 && h < 17) return 'afternoon'
-  if (h >= 17 && h < 21) return 'evening'
-  return 'night'
-}
-
-// e.g. "Tuesday, 7 July" — used in the header date pill for a live, welcoming
-// feel. Takes the locale so the weekday and month names follow the interface
-// language; a Hebrew page showing an English date reads as untranslated.
-function _todayLabel(locale: string): string {
-  return new Date().toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long',
-  })
-}
-
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface OverviewProps {
@@ -765,7 +743,6 @@ interface OverviewProps {
   feedJobs:         ApiFeedJob[]
   jobsLoading:      boolean
   savedIds:         string[]
-  displayName?:     string
   onSave:     (id: string) => void
   onReviewCV: (id: string) => void
   onGo:       (tab: string, jobId?: string) => void
@@ -774,10 +751,10 @@ interface OverviewProps {
 // ── Overview ──────────────────────────────────────────────────────────────────
 
 export function Overview({
-  userId, jobsScannedToday, feedJobs, jobsLoading, savedIds, displayName,
+  userId, jobsScannedToday, feedJobs, jobsLoading, savedIds,
   onSave, onReviewCV, onGo,
 }: OverviewProps) {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const O = t.overview
   const previewJobs = feedJobs.slice(0, 4)
 
@@ -1029,63 +1006,26 @@ export function Overview({
         <LinkedInPausedBanner />
       )}
 
-      {/* ── Hero greeting ───────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-[34px] font-bold text-slate-900 tracking-[-0.02em] leading-[1.1]">
-            {(() => {
-              const name = getGreetingName(displayName ?? '')
-              const greeting = O[`greeting_${_timeOfDay()}` as const]
-              if (!name) return greeting
-              // Split on the placeholder so the name keeps its accent colour
-              // while the surrounding punctuation stays part of the
-              // translated string — Hebrew does not place the comma the way
-              // English does.
-              const [before, after] = O.greeting.replace('{greeting}', greeting).split('{name}')
-              return (
-                <>
-                  {before}
-                  <span style={{ color: TOKENS.color.primary }}>{name}</span>
-                  {after}
-                </>
-              )
-            })()}
-          </h1>
-          {/* dir="auto" is load-bearing while this string may still be
-              English inside an RTL page: the trailing period is a neutral
-              character, so the paragraph direction decides where it lands
-              and it renders at the START of the sentence (".Here's what…").
-              Letting the element take direction from its own text fixes it
-              regardless of which language is showing. */}
-          <p dir="auto" className="text-[14.5px] text-slate-400 mt-2 text-start">
-            {O.subline}
-          </p>
-        </div>
-
-        {/* Live date pill — grounds the dashboard as a fresh daily snapshot.
-            When showing a last-known snapshot (not yet confirmed by a
-            completed request), this explicitly says "Refreshing… as of
-            <time>" rather than silently presenting it as current. */}
-        <span
-          className="inline-flex items-center gap-2 h-9 px-3.5 rounded-full bg-white border border-slate-100 text-[12.5px] font-medium text-slate-500 shrink-0"
-          style={{ boxShadow: TOKENS.shadow.card }}
-        >
-          <span
-            className={`block h-1.5 w-1.5 rounded-full ${isShowingLastKnown ? 'animate-pulse' : ''}`}
-            style={{ background: TOKENS.color.primary }}
-          />
-          {isShowingLastKnown ? (
-            <span aria-live="polite">
-              {O.refreshing}{lastKnownAt && (
-                <span className="text-slate-400 font-normal">
-                  {' '}{O.as_of.replace('{time}', new Date(lastKnownAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}
-                </span>
-              )}
-            </span>
-          ) : (
-            _todayLabel(locale)
-          )}
-        </span>
+      {/* ── Page title ─────────────────────────────────────────────────────
+          The greeting and the date live in the app header (notes 5, 11).
+          While a last-known snapshot is showing, say so here rather than
+          presenting it as current. */}
+      <div className="flex items-baseline justify-between gap-4 flex-wrap">
+        {/* dir="auto": the trailing period is a neutral character, so without
+            it an English string in an RTL page renders it at the start. */}
+        <h1 dir="auto" className="text-[26px] font-bold text-slate-900 tracking-[-0.02em] leading-[1.15] text-start">
+          {O.subline}
+        </h1>
+        {isShowingLastKnown && (
+          <span aria-live="polite" className="inline-flex items-center gap-2 text-[12.5px] font-medium text-slate-500">
+            <span className="block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: TOKENS.color.primary }} />
+            {O.refreshing}{lastKnownAt && (
+              <span className="text-slate-400 font-normal">
+                {' '}{O.as_of.replace('{time}', new Date(lastKnownAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}
+              </span>
+            )}
+          </span>
+        )}
       </div>
 
       <ProductTour ready={!jobsLoading} />

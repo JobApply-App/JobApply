@@ -18,7 +18,6 @@ import AuthGuard                from '@/components/AuthGuard'
 import { AppSkeleton, hasStoredSession } from '@/components/AppSkeleton'
 import { LandingPage }          from '@/components/landing/LandingPage'
 import { useAuth }              from '@/contexts/AuthContext'
-import { resolveDisplayName }   from '@/lib/nameUtils'
 import type { Job }             from '@/lib/data'
 import type { ApiFeedJob }      from '@/lib/apiTypes'
 
@@ -163,10 +162,6 @@ function HomePageContent() {
   const { t } = useI18n()
   const { user } = useAuth()
   const router    = useRouter()
-  const displayName = resolveDisplayName(
-    user?.email,
-    user?.user_metadata as Record<string, unknown> | null,
-  )
 
   const searchParams = useSearchParams()
 
@@ -316,7 +311,6 @@ function HomePageContent() {
               feedJobs={allFeedJobs}
               jobsLoading={jobsLoading}
               savedIds={savedIds}
-              displayName={displayName}
               onSave={onSave} onReviewCV={onReviewCV} onGo={onGo}
             />
             {/* The four agent status cards and "Run Pipeline" are gone: their
