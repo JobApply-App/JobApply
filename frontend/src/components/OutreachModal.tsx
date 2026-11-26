@@ -1,4 +1,5 @@
 'use client'
+import { buttonClasses } from './ui/Button'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
@@ -281,11 +282,7 @@ export function OutreachModal({ job, onClose }: Props) {
                     </span>
                     <button
                       onClick={() => copy(jobMsg)}
-                      className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[12px] font-medium border transition ${
-                        copied
-                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                          : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                      }`}
+                      className={buttonClasses({ variant: 'quiet', size: 'sm' })}
                     >
                       {copied ? <><CheckIcon s={12} /> {O.copied}</> : <><CopyIcon s={12} /> {O.copy}</>}
                     </button>
@@ -408,11 +405,7 @@ export function OutreachModal({ job, onClose }: Props) {
                 </span>
                 <button
                   onClick={() => copy(generatedMsg)}
-                  className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[12px] font-medium border transition ${
-                    copied
-                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                  }`}
+                  className={buttonClasses({ variant: 'quiet', size: 'sm' })}
                 >
                   {copied ? <><CheckIcon s={12} /> {O.copied}</> : <><CopyIcon s={12} /> {O.copy}</>}
                 </button>

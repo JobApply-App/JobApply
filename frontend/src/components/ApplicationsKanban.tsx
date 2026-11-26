@@ -1,5 +1,6 @@
 'use client'
 
+import { buttonClasses } from './ui/Button'
 import { useI18n } from '@/contexts/I18nContext'
 import { stageLabel } from '@/lib/stages'
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
@@ -186,13 +187,13 @@ function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete
                 }
               }}
               disabled={deleting}
-              className="h-8 px-3 rounded-lg text-[12.5px] font-medium border transition disabled:opacity-50 text-rose-600 border-rose-200 hover:bg-rose-50"
+              className={buttonClasses({ variant: 'danger', size: 'sm' })}
             >
               {deleting ? A.deleting : A.delete}
             </button>
             <button
               onClick={onClose}
-              className="h-8 px-4 rounded-lg text-[12.5px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
+              className={buttonClasses({ variant: 'quiet', size: 'sm' })}
             >
               {A.close}
             </button>

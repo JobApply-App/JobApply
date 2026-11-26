@@ -24,6 +24,7 @@ import type { ApiFeedJob } from '@/lib/apiTypes'
 import type { TailoredSection, TailorBriefResponse } from '@/lib/apiTypes'
 import { tailorCvForJob, editTailoredCv } from '@/lib/api'
 import { useDialogA11y } from '@/hooks/useDialogA11y'
+import { buttonClasses } from './ui/Button'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -551,7 +552,7 @@ export function TailoredCvModal({ job, onClose, onGeneratePdf }: TailoredCvModal
             <button
               onClick={handleCopy}
               disabled={phase !== 'ready' || !brief}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium border border-slate-200 hover:bg-slate-50 transition disabled:opacity-40 disabled:pointer-events-none text-slate-600"
+              className={buttonClasses({ variant: 'quiet', size: 'sm' })}
             >
               {copied ? <><CheckIcon /> Copied!</> : <><CopyIcon /> Copy</>}
             </button>
@@ -561,7 +562,7 @@ export function TailoredCvModal({ job, onClose, onGeneratePdf }: TailoredCvModal
               onClick={() => load(true)}
               disabled={phase === 'loading'}
               title="Re-generate brief (bypasses cache)"
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium border border-slate-200 hover:bg-slate-50 transition disabled:opacity-40 disabled:pointer-events-none text-slate-500"
+              className={buttonClasses({ variant: 'quiet', size: 'sm' })}
             >
               <RefreshIcon /> Refresh
             </button>

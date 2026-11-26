@@ -26,6 +26,7 @@
  *   • Primary brand: TOKENS.color.primary (#0D9488 teal-600)
  */
 
+import { buttonClasses } from './ui/Button'
 import {
   useState, useEffect, useCallback, useRef, lazy, Suspense,
 } from 'react'
@@ -1283,7 +1284,7 @@ export function ProbeModal({ probe: initialProbe, onClose, onDone }: ProbeModalP
                       onDone(probe.new_confidence)
                       openChat({ topic: T.coach.practice_topic.replace('{skill}', probe.entity_name) })
                     }}
-                    className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-semibold border border-teal-200 bg-white text-teal-700 hover:bg-teal-50"
+                    className={`${buttonClasses({ variant: 'ariel', size: 'sm' })} mt-3`}
                   >
                     <SparkIcon s={11} />{T.coach.practice}
                   </button>
@@ -1971,7 +1972,7 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: C
           <button
             onClick={(e) => { e.stopPropagation(); onProbe(entity) }}
             disabled={probing}
-            className="h-11 sm:h-8 px-3.5 rounded-lg text-[12px] font-semibold text-white bg-ja-primary hover:bg-ja-primaryHover transition active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            className={buttonClasses({ variant: 'primary', size: 'compact' })}
           >
             {probing ? <SpinnerIcon s={12} /> : T.verify_mastery}
           </button>
@@ -1980,7 +1981,7 @@ function CapabilityRow({ entity, onVerify, onProbe, probing, rank, onSelect }: C
           <button
             onClick={(e) => { e.stopPropagation(); onProbe(entity) }}
             disabled={probing}
-            className="h-11 sm:h-8 px-3.5 rounded-lg text-[12px] font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 transition active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+            className={buttonClasses({ variant: 'quiet', size: 'compact' })}
           >
             {probing ? <SpinnerIcon s={12} /> : T.strengthen}
           </button>
@@ -2331,7 +2332,7 @@ function WhiteboardChallengeModal({ entity, session, loading, onClose }: Whitebo
                 />
                 <button
                   onClick={() => fileRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11.5px] font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 transition"
+                  className={buttonClasses({ variant: 'quiet', size: 'sm' })}
                   title={T.tips.attach_screenshot}
                 >
                   {/* Paperclip icon */}
@@ -2987,7 +2988,7 @@ export function TrustDashboard({
         <button
           onClick={fetchData}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 text-[12px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition disabled:opacity-40 disabled:pointer-events-none active:scale-[0.97]"
+          className={buttonClasses({ variant: 'quiet', size: 'sm' })}
         >
           {loading
             ? <SpinnerIcon s={12} />
@@ -3093,8 +3094,7 @@ export function TrustDashboard({
               {/* ── View All CTA ──────────────────────────────────────────── */}
               <Link
                 href="/capabilities"
-                className="w-full h-11 rounded-xl text-[13.5px] font-semibold flex items-center justify-center gap-2 transition active:scale-[0.98] border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white hover:border-slate-300"
-                style={{ background: 'oklch(0.98 0.00 0)' }}
+                className={`${buttonClasses({ variant: 'quiet', size: 'md' })} w-full`}
               >
                 {T.view_all}
                 <svg width={13} height={13} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}>

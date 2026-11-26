@@ -1,5 +1,6 @@
 'use client'
 
+import { buttonClasses } from './ui/Button'
 import { useI18n } from '@/contexts/I18nContext'
 import { stageLabel } from '@/lib/stages'
 import { useEffect, useState } from 'react'
@@ -263,8 +264,7 @@ function GetStartedOverlay({ onGoToMatches }: { onGoToMatches?: () => void }) {
       {onGoToMatches && (
         <button
           onClick={onGoToMatches}
-          className="inline-flex items-center gap-2 h-10 px-6 rounded-xl text-[13px] font-semibold transition active:scale-[0.97]"
-          style={{ background: TOKENS.color.primary, color: '#fff' }}
+          className={buttonClasses({ variant: 'primary', size: 'md' })}
         >
           {N.browse}
         </button>

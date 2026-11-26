@@ -1,4 +1,5 @@
 'use client'
+import { buttonClasses } from './ui/Button'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { VerifyChatEntry, VerifyChatStatus } from '@/lib/apiTypes'
 import { sendVerifyChat } from '@/lib/api'
@@ -177,7 +178,7 @@ function VerdictCard({
       <div className="flex justify-end">
         <button
           onClick={onClose}
-          className="h-8 px-4 rounded-full text-[12.5px] font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition"
+          className={buttonClasses({ variant: 'quiet', size: 'sm' })}
         >
           Close
         </button>

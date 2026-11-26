@@ -1,5 +1,6 @@
 'use client'
 
+import { buttonClasses } from './ui/Button'
 import { useState, useEffect, useCallback } from 'react'
 import { fetchApplicationsList, deleteApplication } from '@/lib/api'
 import type { AppListItem } from '@/lib/api'
@@ -94,7 +95,7 @@ function RowDeleteButton({ title, onConfirm, deleting }: { title: string; onConf
       }}
       disabled={deleting}
       title={A.delete_title}
-      className="shrink-0 h-11 sm:h-7 px-2.5 rounded-lg text-[12px] sm:text-[11px] font-medium border border-transparent text-rose-500 hover:bg-rose-50 hover:border-rose-100 transition disabled:opacity-50"
+      className={`${buttonClasses({ variant: 'danger', size: 'compact' })} shrink-0`}
     >
       {deleting ? '…' : A.delete}
     </button>

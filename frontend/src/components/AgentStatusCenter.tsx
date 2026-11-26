@@ -9,6 +9,7 @@ import { Skeleton } from './ui/Skeleton'
 import { ArrowIcon, SparkIcon } from './icons'
 import { JobCard } from './JobCard'
 import type { Tone } from '@/lib/tokens'
+import { buttonClasses } from './ui/Button'
 
 // ── Per-agent accent colours ──────────────────────────────────────────────────
 
@@ -257,8 +258,7 @@ export function AnalyzeTrigger({
         <button
           type="submit"
           disabled={loading || !url.trim()}
-          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[13px] font-semibold text-white transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-          style={{ background: TOKENS.color.primary, boxShadow: '0 1px 3px rgba(13,148,136,0.35)' }}
+          className={`${buttonClasses({ variant: 'primary', size: 'sm' })} shrink-0`}
         >
           {loading ? (
             <>

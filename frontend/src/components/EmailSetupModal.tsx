@@ -15,6 +15,7 @@
 // flip. Re-mount via Header.tsx once that exists, and update INBOUND_EMAIL
 // to come from the backend instead of being a constant.
 
+import { buttonClasses } from './ui/Button'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { TOKENS } from '@/lib/tokens'
 import { fetchGmailVerificationCode, GmailCodeForbiddenError } from '@/lib/api'
@@ -193,11 +194,7 @@ function VerificationCodePanel({ code }: { code: string | null }) {
           </span>
           <button
             onClick={handleCopyCode}
-            className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-[12px] font-semibold border transition-all duration-200 ${
-              codeCopied
-                ? 'border-emerald-400 bg-emerald-100 text-emerald-800'
-                : 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50'
-            }`}
+            className={buttonClasses({ variant: 'quiet', size: 'sm' })}
           >
             {codeCopied ? <><CheckIcon s={13} /> Copied!</> : <><CopyIcon s={13} /> Copy</>}
           </button>
@@ -441,11 +438,7 @@ export function EmailSetupModal({ open, onClose }: EmailSetupModalProps) {
                 </div>
                 <button
                   onClick={handleCopyAddress}
-                  className={`shrink-0 inline-flex items-center gap-1.5 h-10 px-3.5 rounded-lg text-[12px] font-semibold border transition-all duration-200 ${
-                    addressCopied
-                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300'
-                  }`}
+                  className={`${buttonClasses({ variant: 'quiet', size: 'sm' })} shrink-0`}
                 >
                   {addressCopied
                     ? <><CheckIcon s={13} /> Copied!</>
@@ -593,7 +586,7 @@ export function EmailSetupModal({ open, onClose }: EmailSetupModalProps) {
             href={GMAIL_SETTINGS_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
+            className={buttonClasses({ variant: 'quiet', size: 'sm' })}
           >
             <ExternalLinkIcon s={13} />
             Open Gmail Settings

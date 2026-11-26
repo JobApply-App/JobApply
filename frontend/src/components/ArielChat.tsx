@@ -1,5 +1,6 @@
 'use client'
 
+import { buttonClasses } from './ui/Button'
 import { ChatStreamError, chatErrorText, chatStreamErrorFrom } from '@/lib/chatError'
 import type { ErrorParams } from '@/lib/errors'
 import {
@@ -1301,7 +1302,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
             onClick={() => abortRef.current?.abort()}
             title={A.stop}
             aria-label={A.stop}
-            className="shrink-0 w-11 h-11 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white transition active:scale-95 bg-rose-500 sm:hover:bg-rose-600"
+            className={`${buttonClasses({ variant: 'danger', size: 'compact', iconOnly: true })} shrink-0`}
           >
             <StopIcon s={15} />
           </button>
@@ -1312,7 +1313,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
             disabled={(!input.trim() && !attachments.length) || loadingSession}
             title={A.send}
             aria-label={A.send}
-            className="shrink-0 w-11 h-11 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white transition active:scale-95 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-100 disabled:text-slate-300 disabled:pointer-events-none"
+            className={`${buttonClasses({ variant: 'ariel', size: 'compact', iconOnly: true })} shrink-0`}
           >
             <SendIcon s={15} />
           </button>
