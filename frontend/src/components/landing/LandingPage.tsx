@@ -370,7 +370,7 @@ function Why({ reduced }: { reduced: boolean }) {
   const L = useI18n().t.landing.hero
   const [ref, style] = useStagger<HTMLUListElement>(reduced, 120)
   return (
-    <section aria-label={L.why_label} className="-mt-6 sm:-mt-10 pb-16 sm:pb-24">
+    <section aria-label={L.why_label} className="relative -mt-6 sm:-mt-10 pb-16 sm:pb-24">
       <div className="max-w-6xl mx-auto px-4 sm:px-8">
         <ul ref={ref} className="grid sm:grid-cols-3 gap-x-10 gap-y-8">
           {L.why.map((w, i) => (

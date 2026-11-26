@@ -37,7 +37,9 @@ _SYSTEM = (
     "in the same order."
 )
 
-# Hebrew-UI users, read once per process (users scored after #81 need nothing).
+# Hebrew-UI users, re-read every sweep (one small SELECT every 2 minutes).
+# It used to be read once per process, so a user who switched the interface
+# to Hebrew after a deploy kept English analyses until the next restart.
 _users: Optional[list[str]] = None
 
 # Users whose backlog is empty in this process, and briefs that came back
@@ -148,13 +150,18 @@ async def translate_all() -> int:
     global _users
     import asyncio
     from backend.repositories import profile_repository
-    if _users is None:
-        try:
-            _users = await asyncio.to_thread(profile_repository.list_hebrew_ui_user_ids)
-        except Exception as exc:
-            logger.warning("[fit_brief_translation] could not list Hebrew users: %s", exc)
-            return 0
-        logger.info("[fit_brief_translation] %d Hebrew-UI user(s) to check", len(_users))
+    try:
+        users = await asyncio.to_thread(profile_repository.list_hebrew_ui_user_ids)
+    except Exception as exc:
+        logger.warning("[fit_brief_translation] could not list Hebrew users: %s", exc)
+        return 0
+    # A user who just switched to Hebrew may have been marked done while their
+    # UI was English, or have English briefs scored since: check them again.
+    newly_hebrew = set(users) - set(_users or [])
+    _done.difference_update(newly_hebrew)
+    if newly_hebrew:
+        logger.info("[fit_brief_translation] %d user(s) switched to Hebrew, to check", len(newly_hebrew))
+    _users = users
     saved = 0
     for user_id in _users:
         if user_id not in _done:
