@@ -71,7 +71,7 @@ Moved here from a repo-root `models/` package, which no longer exists.
 See `DESIGN_SYSTEM.md` ("Editorial Intercom" system) for full detail. Key rules:
 - Teal (`#0D9488`) primary — no corporate blue.
 - Boxless UI: prefer whitespace/borders over nested cards.
-- `rounded-2xl` for cards, `rounded-lg` for buttons; avoid `rounded-full` on nav.
+- `rounded-2xl` for cards; buttons are capsules and come only from `components/ui/Button.tsx` (see DESIGN_SYSTEM.md "Buttons"); avoid `rounded-full` on nav.
 - Custom multi-layer micro-shadows — never flat `shadow-md`/`shadow-lg`.
 - AI chat (Ariel) is on-demand/overlay, never a persistent split-screen panel.
 

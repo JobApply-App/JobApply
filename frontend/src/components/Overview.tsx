@@ -5,6 +5,7 @@ import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
 import type { ApiFeedJob, ScoreBreakdown, ConfidenceMatrixResponse, TrustScoreResponse } from '@/lib/apiTypes'
 import { Skeleton } from './ui/Skeleton'
+import { buttonClasses } from './ui/Button'
 import { SparkIcon, UserBadgeIcon, FileIcon, SlidersIcon, ArrowIcon, SearchIcon, BoltIcon, CheckIcon } from './icons'
 import { TrustDashboard } from './TrustDashboard'
 import { ProductTour } from './ProductTour'
@@ -128,7 +129,7 @@ function NextStepCard({ entityCount, newCount, onGo, onAriel }: {
       <div className="shrink-0 flex flex-col sm:items-end gap-1.5">
         <button
           onClick={step.act}
-          className="text-sm font-semibold px-5 h-11 rounded-lg text-white text-center bg-ja-primary hover:bg-ja-primaryHover transition-colors"
+          className={buttonClasses({ variant: 'primary', size: 'md' })}
         >
           {step.cta}
         </button>
@@ -433,7 +434,7 @@ function ArielStrip() {
           <button
             key={a.label}
             onClick={() => openChat({ topic: a.prompt })}
-            className="inline-flex items-center h-9 sm:h-8 px-3 rounded-full border border-violet-200 bg-white text-[12.5px] sm:text-[12px] font-medium text-violet-700 hover:bg-violet-50 active:bg-violet-100 transition"
+            className={buttonClasses({ variant: 'ariel', size: 'sm' })}
           >
             {a.label}
           </button>
@@ -686,7 +687,7 @@ function ConfidenceScoreCard({ score, breakdown, onImprove, change, chatSpan, li
                   )}
                   <button
                     onClick={onImprove}
-                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    className={buttonClasses({ variant: 'ariel', size: 'sm' })}
                   >
                     <SparkIcon s={11} />{SC.ask_ariel}
                   </button>

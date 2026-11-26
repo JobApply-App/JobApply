@@ -27,8 +27,32 @@
 
 **Radii:**
 - `rounded-2xl` — main cards and modals
-- `rounded-lg` — buttons and inputs
-- Avoid `rounded-full` (pill shapes) unless for specific status dots or small badges
+- `rounded-lg` — inputs
+- `rounded-full` — buttons, and only through the button system (see "Buttons" below). Elsewhere, pill shapes are for status dots and small badges.
+
+### Buttons (note 10, chosen 2026-11-26)
+
+Ron's choice "1+6": Apple's capsule and sizes, with Mercury's tint ladder in place of outlines. Every button comes from `frontend/src/components/ui/Button.tsx`: `<Button>` for buttons, `buttonClasses()` for a `<Link>` or `<a>` that acts as one. No hand-written button classes.
+
+| Variant | Look | Use for |
+|---|---|---|
+| `primary` | harbor fill (`#134E4A`), soft teal shadow | The one main action on a surface |
+| `secondary` | teal at 10%, ink text | Other actions |
+| `quiet` | hairline ring, no fill | Dismiss, cancel, "not relevant", "view more" |
+| `ariel` | violet at 9%, violet-800 text | Anything that opens or asks Ariel |
+| `danger` | red at 8%, red-700 text | Remove, delete |
+| `onDark` / `onDarkGlass` | white fill / translucent teal glass | On dark bands (the landing page's closing band) |
+
+Sizes: `sm` 34, `md` 44 (the touch target), `lg` 54. `compact` is 44 on phones and 34 from `sm:` up, for rows of actions in a card.
+
+Why:
+- **One shape, and strength instead of borders.** The variants differ only in how strong the colour is. That keeps screens with many actions calm, which outlines didn't.
+- **Light weight (500), larger size.** The heavy, small 11–13px labels read as cramped.
+- **White text only on harbor.** White on `#0D9488` fails AA contrast.
+- **Press:** the button scales to 95% on press and releases fast. Hover applies only on devices with a real pointer, so a phone tap doesn't leave the hover colour stuck on.
+- **Saving:** pass `state` (`idle` / `busy` / `done`) and `doneLabel`. The label blurs into a spinner, then into the done label, in place.
+
+Not every `<button>` is a button in this sense. Tabs, chips, menu items, toggles and whole clickable cards keep their own styles.
 
 **Shadows:** Use multi-layered micro-shadows (e.g., custom `shadow-elevation-1`). Avoid flat/harsh generic shadows.
 
@@ -85,7 +109,8 @@ shadow-[0_2px_8px_rgba(0,0,0,0.02),0_20px_40px_rgba(0,0,0,0.03)]
 
 - ❌ Nested card-in-card layouts for primary content
 - ❌ Corporate blue (`#0A66C2`, `bg-blue-*`) as a primary accent
-- ❌ `rounded-full` on navigation tabs or primary action buttons
+- ❌ `rounded-full` on navigation tabs
+- ❌ Hand-written button classes; use `Button` / `buttonClasses()`
 - ❌ `ring-*` on navigation tabs
 - ❌ Persistent split-screen AI chat panel
 - ❌ Hard box shadows (`shadow-md`, `shadow-lg` without customization)

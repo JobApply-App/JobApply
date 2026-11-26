@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { Logo } from '@/components/ui/Logo'
+import { buttonClasses } from '@/components/ui/Button'
 import { Ring } from '@/components/landing/Ring'
 import { useChat } from '@/contexts/ChatContext'
 import { FilterIcon, FileIcon } from '@/components/icons'
@@ -155,7 +156,10 @@ function Bubble({ from, children }: { from: 'ai' | 'me'; children: ReactNode }) 
   )
 }
 
-const btnPrimary = 'inline-flex items-center justify-center gap-2 rounded-xl bg-ja-primaryHover text-white font-semibold tracking-tight transition-[background-color,transform] duration-ja-ui hover:bg-ja-harbor active:scale-[0.97] active:duration-ja-press'
+// Landing actions use the app's button system (components/ui/Button.tsx),
+// so the page and the product share one button.
+const btnLg = buttonClasses({ variant: 'primary', size: 'lg' })
+const btnMd = buttonClasses({ variant: 'primary', size: 'md' })
 
 // ── Header ───────────────────────────────────────────────────────────────────
 
@@ -177,7 +181,7 @@ function LandingHeader() {
           <Link href="/signup" className="hidden sm:inline-flex h-10 px-3 items-center rounded-lg text-[14px] font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100/70 transition-colors whitespace-nowrap">
             {L.sign_up}
           </Link>
-          <Link href="/login" className={`${btnPrimary} inline-flex h-10 px-4 text-[14px] rounded-lg`}>
+          <Link href="/login" className={buttonClasses({ variant: 'primary', size: 'sm' })}>
             {L.sign_in}
           </Link>
         </div>
@@ -295,8 +299,8 @@ function HeroFeed({ reduced }: { reduced: boolean }) {
             <li className="flex gap-2 text-[14px] leading-snug text-slate-700"><Gap />{L.hero.gap}</li>
           </ul>
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <a href="#how" className="h-10 px-4 inline-flex items-center rounded-lg bg-teal-50 text-teal-800 text-[14px] font-semibold transition-[background-color,transform] hover:bg-teal-100 active:scale-[0.97]">{L.hero.tailor}</a>
-            <a href="#ariel" className="h-10 px-3 inline-flex items-center rounded-lg text-[14px] font-semibold text-violet-700 hover:bg-violet-50 transition-colors">{L.hero.ask}</a>
+            <a href="#how" className={buttonClasses({ variant: 'secondary', size: 'sm' })}>{L.hero.tailor}</a>
+            <a href="#ariel" className={buttonClasses({ variant: 'ariel', size: 'sm' })}>{L.hero.ask}</a>
           </div>
         </article>
       </div>
@@ -336,7 +340,7 @@ function Hero({ reduced }: { reduced: boolean }) {
           </h1>
           <p {...rise(after)} className={`text-[18px] sm:text-[20px] leading-relaxed text-slate-600 max-w-[34rem] ${reduced ? '' : 'animate-ja-rise'}`}>{L.sub}</p>
           <div {...rise(after + 100)} className={`flex flex-wrap items-center gap-3 mt-1 ${reduced ? '' : 'animate-ja-rise'}`}>
-            <Link href="/login" className={`${btnPrimary} h-[52px] px-7 text-[16px]`}>{L.cta}</Link>
+            <Link href="/login" className={btnLg}>{L.cta}</Link>
             <a href="#how" className="h-[52px] px-2 inline-flex items-center text-[16px] font-semibold text-teal-800 underline decoration-transparent underline-offset-[5px] hover:decoration-current transition-[text-decoration-color]">
               {L.link}
             </a>
@@ -481,7 +485,7 @@ function Answer({ reduced }: { reduced: boolean }) {
         <div ref={headRef} style={headStyle} className="max-w-3xl mx-auto text-center grid gap-5 justify-items-center mb-12 sm:mb-16">
           <h2 id="answer-h2" className="text-[44px] sm:text-[64px] lg:text-[80px] leading-none font-extrabold tracking-[-0.045em] text-slate-900">{P.answer_h2}</h2>
           <p className="text-[18px] sm:text-[21px] leading-relaxed text-slate-600 max-w-2xl">{P.answer_lead}</p>
-          <Link href="/login" className={`${btnPrimary} mt-2 h-[52px] px-7 text-[16px]`}>{P.cta}</Link>
+          <Link href="/login" className={`${btnLg} mt-2`}>{P.cta}</Link>
         </div>
         <div ref={countRef}>
           <div ref={gridRef} className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:grid-rows-2">
@@ -646,7 +650,7 @@ function Story({ reduced }: { reduced: boolean }) {
                   <p className="text-[17px] leading-relaxed text-slate-600 max-w-md">{s.body}</p>
                   {i === S.steps.length - 1 && (
                     <div className="grid gap-2 justify-items-start mt-3">
-                      <Link href="/login" className={`${btnPrimary} h-12 px-6 text-[15px]`}>{S.cta}</Link>
+                      <Link href="/login" className={btnMd}>{S.cta}</Link>
                       <span className="text-[14px] text-slate-500">{S.cta_note}</span>
                     </div>
                   )}
@@ -759,7 +763,7 @@ function ArielSection({ reduced }: { reduced: boolean }) {
               </button>
             ))}
           </div>
-          <Link href="/login" className={`${btnPrimary} justify-self-start mt-3 h-12 px-6 text-[15px]`}>{A.cta}</Link>
+          <Link href="/login" className={`${btnMd} justify-self-start mt-3`}>{A.cta}</Link>
         </div>
         <ArielPanel msgs={msgs} typing={typing} scrollKey={asked ?? -1} />
       </div>
@@ -783,7 +787,7 @@ function Faq({ reduced }: { reduced: boolean }) {
           <h2 id="faq-h2" className="text-[36px] sm:text-[52px] leading-[1.05] font-bold tracking-[-0.035em] text-slate-900 [text-wrap:balance]">{Q.h2}</h2>
           <p className="text-[17px] leading-relaxed text-slate-600">{Q.lead}</p>
           <p className="text-[15px] text-slate-500 mt-4">{Q.more}</p>
-          <Link href="/login" className={`${btnPrimary} h-12 px-6 text-[15px]`}>{Q.cta}</Link>
+          <Link href="/login" className={btnMd}>{Q.cta}</Link>
         </div>
         <ul ref={ref} className="border-t border-slate-200">
           {Q.items.map((it, i) => {
@@ -844,10 +848,10 @@ function Close() {
           <h2 id="close-h2" className="text-[38px] sm:text-[60px] leading-[1.04] font-extrabold tracking-[-0.04em] max-w-[16ch] [text-wrap:balance]">{C.h2}</h2>
           <p className="text-[18px] sm:text-[20px] text-teal-50/90 max-w-[32rem]">{C.body}</p>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/login" className="inline-flex items-center justify-center h-[52px] px-8 rounded-xl bg-white text-teal-800 text-[16px] font-semibold tracking-tight shadow-elevation-2 transition-[background-color,transform] duration-ja-ui hover:bg-teal-50 active:scale-[0.97] active:duration-ja-press focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <Link href="/login" className={buttonClasses({ variant: 'onDark', size: 'lg' })}>
               {C.cta}
             </Link>
-            <Link href="/signup" className="inline-flex items-center justify-center h-[52px] px-6 rounded-xl text-[16px] font-semibold text-white ring-1 ring-white/40 transition-[background-color,transform] duration-ja-ui hover:bg-white/10 active:scale-[0.97] active:duration-ja-press focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <Link href="/signup" className={buttonClasses({ variant: 'onDarkGlass', size: 'lg' })}>
               {t.landing.nav.sign_up}
             </Link>
           </div>
