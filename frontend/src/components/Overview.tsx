@@ -680,7 +680,7 @@ function ConfidenceScoreCard({ score, breakdown, onImprove, change, chatSpan, li
                   {change.reasons.includes('lost_roles') && (
                     <a
                       href="/onboarding?step=preferences"
-                      className="inline-flex items-center h-8 px-3 rounded-lg text-[12px] font-semibold text-white bg-ja-primary hover:bg-ja-primaryHover"
+                      className={buttonClasses({ variant: 'primary', size: 'sm' })}
                     >
                       {SC.fix_roles}
                     </a>

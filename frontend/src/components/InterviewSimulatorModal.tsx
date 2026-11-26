@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import { evaluateInterviewAnswer, generateInterviewQuestion } from '@/lib/api'
 import { useDialogA11y } from '@/hooks/useDialogA11y'
+import { buttonClasses } from './ui/Button'
 
 // ── Ariel Mock Interview Simulator (JOB-61) ───────────────────────────────────
 //
@@ -217,7 +218,7 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
                     <button
                       onClick={submitAnswer}
                       disabled={evaluating || !answer.trim()}
-                      className="inline-flex items-center gap-1.5 h-8 px-4 rounded-lg text-[12.5px] font-semibold text-white bg-ja-primary hover:bg-ja-primaryHover transition active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none"
+                      className={buttonClasses({ variant: 'primary', size: 'sm' })}
                     >
                       {evaluating ? <><SpinnerIcon s={12} /> {M.evaluating}</> : M.submit_answer}
                     </button>
@@ -245,7 +246,7 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
           <div className="px-5 pb-5 pt-1 flex items-center justify-between border-t border-slate-100 mt-1 pt-4">
             <button
               onClick={onClose}
-              className="h-8 px-4 rounded-lg text-[12.5px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
+              className={buttonClasses({ variant: 'quiet', size: 'sm' })}
             >
               {M.end_session}
             </button>
@@ -253,13 +254,13 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
               <div className="flex items-center gap-2">
                 <button
                   onClick={reviseAnswer}
-                  className="h-8 px-3.5 rounded-lg text-[12.5px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
+                  className={buttonClasses({ variant: 'quiet', size: 'sm' })}
                 >
                   {M.revise}
                 </button>
                 <button
                   onClick={fetchQuestion}
-                  className="inline-flex items-center gap-1.5 h-8 px-4 rounded-lg text-[12.5px] font-semibold text-white bg-ja-primary hover:bg-ja-primaryHover transition active:scale-[0.97]"
+                  className={buttonClasses({ variant: 'primary', size: 'sm' })}
                 >
                   {M.next_q}
                 </button>

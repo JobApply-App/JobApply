@@ -5,6 +5,7 @@ import { useI18n } from '@/contexts/I18nContext'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { TOKENS } from '@/lib/tokens'
 import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_E164 } from '@/lib/contact'
+import { buttonClasses } from '@/components/ui/Button'
 
 // Content: bilingual, self-contained. Not part of the shared Dict type,
 // since this is one standalone legal/informational page, not app chrome
@@ -196,10 +197,7 @@ export default function AccessibilityPage() {
             </p>
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="inline-flex items-center h-10 px-4 rounded-lg text-[13px] font-semibold text-white transition-colors"
-              style={{ background: TOKENS.color.primary }}
-              onMouseEnter={e => { e.currentTarget.style.background = TOKENS.color.primaryHover }}
-              onMouseLeave={e => { e.currentTarget.style.background = TOKENS.color.primary }}
+              className={buttonClasses({ variant: 'primary', size: 'md' })}
             >
               {c.contactCta}: {CONTACT_EMAIL}
             </a>

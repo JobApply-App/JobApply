@@ -14,6 +14,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { resolveDisplayName } from '@/lib/nameUtils'
 import { errorMessage } from '@/lib/errors'
+import { buttonClasses } from './ui/Button'
 
 const SESSION_STORAGE_KEY = 'profile_interview_session_id'
 
@@ -739,7 +740,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
           <button
             onClick={handleReset}
             title={C.composer.new_session}
-            className="h-7 px-3 rounded-full text-[11.5px] text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition shrink-0"
+            className={`${buttonClasses({ variant: 'danger', size: 'sm' })} shrink-0`}
           >
             ↺ Reset Interview
           </button>

@@ -1,5 +1,6 @@
 'use client'
 
+import { buttonClasses } from './ui/Button'
 import { useI18n } from '@/contexts/I18nContext'
 import type { Dict } from '@/locales'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -218,7 +219,7 @@ function JobListError({ error, onRetry }: { error: string; onRetry: () => void }
       <p>{AJ.load_failed} {error}</p>
       <button
         onClick={onRetry}
-        className="h-8 px-4 rounded-lg text-[12px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition"
+        className={buttonClasses({ variant: 'quiet', size: 'sm' })}
       >
         {AJ.retry}
       </button>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import { generateDirectPitch } from '@/lib/api'
 import { useDialogA11y } from '@/hooks/useDialogA11y'
+import { buttonClasses } from './ui/Button'
 
 // ── Direct Pitch Generator (JOB-64) ───────────────────────────────────────────
 //
@@ -179,18 +180,14 @@ export function DirectPitchModal({ job, onClose }: DirectPitchModalProps) {
             <div className="flex items-center gap-2">
               <button
                 onClick={onClose}
-                className="h-8 px-4 rounded-lg text-[12.5px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
+                className={buttonClasses({ variant: 'quiet', size: 'sm' })}
               >
                 {M.close}
               </button>
               <button
                 onClick={handleCopy}
                 disabled={loading || !!error || !pitch}
-                className={`inline-flex items-center gap-1.5 h-8 px-4 rounded-lg text-[12.5px] font-semibold transition active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none ${
-                  copied
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : 'bg-ja-primary text-white hover:bg-ja-primaryHover'
-                }`}
+                className={buttonClasses({ variant: 'primary', size: 'sm' })}
               >
                 {copied ? <><CheckIcon /> {M.copied}</> : <><CopyIcon /> {M.copy}</>}
               </button>

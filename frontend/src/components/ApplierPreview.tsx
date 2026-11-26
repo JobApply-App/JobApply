@@ -1,5 +1,6 @@
 'use client'
 
+import { buttonClasses } from './ui/Button'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -278,7 +279,7 @@ function MissingDataForm({
           <button
             onClick={() => setIdx(i => i - 1)}
             disabled={submitting}
-            className="h-9 px-3 rounded-full text-[12px] text-slate-500 border border-slate-200 hover:bg-slate-50 transition disabled:opacity-50 shrink-0"
+            className={`${buttonClasses({ variant: 'quiet', size: 'sm' })} shrink-0`}
           >
             {A.step_back}
           </button>
@@ -289,7 +290,7 @@ function MissingDataForm({
           <button
             onClick={() => setIdx(i => i + 1)}
             disabled={!canNext || submitting}
-            className="flex-1 h-9 rounded-full text-[12.5px] font-semibold text-white flex items-center justify-center gap-1.5 transition disabled:opacity-50 active:scale-[0.98]"
+            className={`${buttonClasses({ variant: 'primary', size: 'sm' })} flex-1`}
             style={{ background: TOKENS.color.primary }}
           >
             {A.step_next}
@@ -310,7 +311,7 @@ function MissingDataForm({
           <button
             onClick={skipThis}
             disabled={submitting}
-            className="h-9 px-3 rounded-full text-[12px] text-slate-500 border border-slate-200 hover:bg-slate-50 transition disabled:opacity-50 shrink-0"
+            className={`${buttonClasses({ variant: 'quiet', size: 'sm' })} shrink-0`}
           >
             {A.skip_question}
           </button>
@@ -321,7 +322,7 @@ function MissingDataForm({
           <button
             onClick={onSkip}
             disabled={submitting}
-            className="h-9 px-3 rounded-full text-[12px] text-slate-500 border border-slate-200 hover:bg-slate-50 transition disabled:opacity-50 shrink-0"
+            className={`${buttonClasses({ variant: 'quiet', size: 'sm' })} shrink-0`}
             title={A.skip_all_title}
           >
             {A.skip_all}

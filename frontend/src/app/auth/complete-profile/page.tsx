@@ -1,5 +1,6 @@
 'use client'
 
+import { buttonClasses } from '@/components/ui/Button'
 import { useState, type FormEvent }  from 'react'
 import { isValidPhoneNumber }        from 'react-phone-number-input'
 import dynamic                       from 'next/dynamic'
@@ -163,8 +164,7 @@ function CompleteProfileContent() {
             )}
 
             <button type="submit" disabled={busy || !canSubmit}
-              className="w-full rounded-lg py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: TOKENS.color.primary }}>
+              className={`${buttonClasses({ variant: 'primary', size: 'lg' })} w-full`}>
               {busy && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin flex-shrink-0" />}
               {busy ? CP.setting_up : CP.submit}
             </button>
