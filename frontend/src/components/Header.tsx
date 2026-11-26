@@ -3,6 +3,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useI18n } from '@/contexts/I18nContext'
+import { useNavCounts } from '@/hooks/useNavCounts'
 import { TOKENS } from '@/lib/tokens'
 import { Logo } from './ui/Logo'
 import { StatusDot } from './ui/StatusDot'
@@ -44,7 +45,8 @@ interface HeaderProps {
   jobs?:           Job[]
 }
 
-export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) {
+export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderProps) {
+  const jobs = pageJobs ?? []
   const { t: _t, locale } = useI18n()
   const H = _t.header
   const TR = _t.tour
@@ -64,6 +66,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
   const O           = _t.overview
 
   const highMatchJobs = jobs.filter(j => j.score >= 85)
+  const counts        = useNavCounts(pageJobs, !!user)
   const hasHighMatch  = highMatchJobs.length > 0
 
   // Close bell dropdown on outside tap/click ('mousedown' also fires from a
@@ -381,6 +384,9 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
               className={navItem(activeTab === t.id)}
             >
               {H.nav[t.id === 'all-jobs' ? 'all_jobs' : t.id]}
+              {(t.id === 'feed' || t.id === 'apps') && counts[t.id] ? (
+                <span className="ms-1.5 tabular-nums text-[13px] font-normal text-slate-400">{counts[t.id]}</span>
+              ) : null}
             </button>
           ))}
           <Link
