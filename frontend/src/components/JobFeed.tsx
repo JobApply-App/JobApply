@@ -8,6 +8,7 @@ import { fetchFeedJobs, forceRefreshAllScores, updateJobStatus, backfillJdText, 
 import { supabase } from '@/lib/supabase'
 import { JobCard } from './JobCard'
 import { InfoTip } from './ui/InfoTip'
+import { buttonClasses } from './ui/Button'
 import { ApplierPreview } from './ApplierPreview'
 
 // ── Preference filter helpers (client-side, Matches page only) ─────────────────
@@ -700,8 +701,7 @@ export function JobFeed({
           <button
             type="submit"
             disabled={isAnalyzing || !jobUrl.trim()}
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[13px] font-medium text-white transition active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none"
-            style={{ background: isAnalyzing ? '#94a3b8' : TOKENS.color.primary }}
+            className={`${buttonClasses({ variant: 'primary', size: 'sm' })} shrink-0`}
           >
             {isAnalyzing ? <><Spinner size={13} /> {F.analysing}</> : F.analyse}
           </button>
@@ -823,7 +823,7 @@ export function JobFeed({
                 <button
                   onClick={handleSync}
                   disabled={syncing}
-                  className="mt-3 inline-flex items-center gap-1.5 h-8 px-4 rounded-lg text-[12px] font-medium border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 transition disabled:opacity-50"
+                  className={`mt-3 ${buttonClasses({ variant: 'secondary', size: 'sm' })}`}
                 >
                   {syncing ? <Spinner size={12} /> : null}
                   {syncing ? F.syncing : F.check_updates}
@@ -905,7 +905,7 @@ export function JobFeed({
               <div className="flex justify-center">
                 <button
                   onClick={() => setPageEnd(p => p + PAGE_SIZE)}
-                  className="inline-flex items-center gap-2 h-9 px-6 rounded-lg text-[13px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition active:scale-[0.97]"
+                  className={buttonClasses({ variant: 'quiet', size: 'md' })}
                 >
                   {F.load_more}
                   <span className="text-slate-400 tabular-nums text-[12px]">

@@ -15,6 +15,7 @@ import { DirectPitchModal } from './DirectPitchModal'
 import { InterviewSimulatorModal } from './InterviewSimulatorModal'
 import { AtsKeywordsPanel } from './AtsKeywordsPanel'
 import { InfoTip } from './ui/InfoTip'
+import { Button, buttonClasses, type ButtonVariant } from './ui/Button'
 import { SkillsGapPanel }   from './SkillsGapPanel'
 import { localizeReason, reasonSkill } from '@/lib/reasonLabel'
 
@@ -317,23 +318,18 @@ function GapTag({ kind, label }: { kind: ReasonKind; label: string }) {
 
 interface ActionBtnProps {
   onClick:    (e: React.MouseEvent) => void
-  className?: string
-  style?:     React.CSSProperties
+  variant?:   ButtonVariant
   children:   React.ReactNode
   title?:     string
   disabled?:  boolean
 }
-function ActionBtn({ onClick, className = '', style, children, title, disabled }: ActionBtnProps) {
+// The card's action row: the button system at compact size (44 on phones,
+// 34 from sm up), full width in the phone grid.
+function ActionBtn({ onClick, variant = 'secondary', children, title, disabled }: ActionBtnProps) {
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      disabled={disabled}
-      className={`inline-flex items-center justify-center gap-1.5 h-11 sm:h-8 px-3 rounded-lg text-[13px] sm:text-[12px] font-medium transition active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none ${className}`}
-      style={style}
-    >
+    <Button variant={variant} size="compact" onClick={onClick} title={title} disabled={disabled} className="w-full sm:w-auto">
       {children}
-    </button>
+    </Button>
   )
 }
 
@@ -599,7 +595,7 @@ function AnalyzeJobButton({ jobId }: { jobId: string }) {
     <button
       onClick={handleClick}
       disabled={state === 'loading'}
-      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[11.5px] font-semibold shrink-0 bg-ja-primarySubtle text-teal-700 border border-teal-200 hover:bg-teal-100 transition active:scale-[0.97] disabled:opacity-50"
+      className={`${buttonClasses({ variant: 'secondary', size: 'sm' })} shrink-0`}
     >
       {state === 'loading' ? (
         <><SpinnerTiny s={11} /> {J.analyzing}</>
@@ -692,7 +688,7 @@ function ArielInsightButton({
         <button
           onClick={handleClick}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-[11.5px] font-semibold bg-ja-primarySubtle text-teal-700 border border-teal-200 hover:bg-teal-100 transition active:scale-[0.97] disabled:opacity-50"
+          className={buttonClasses({ variant: 'secondary', size: 'sm' })}
           title={J.insight_title.replace('{skill}', skillName)}
         >
           {loading ? <SpinnerTiny s={11} /> : <span aria-hidden="true">⚡</span>}
@@ -1051,30 +1047,28 @@ export const JobCard = memo(function JobCard({
             {/* ③ Primary action row — a two-column grid of full-width,
                 thumb-sized buttons on phones; a wrapping row on wider screens. */}
             <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3 sm:flex-wrap">
-              <button
+              <Button
+                variant="primary"
+                size="compact"
                 onClick={e => { e.stopPropagation(); onTailorCV(job) }}
-                className="col-span-2 sm:col-span-1 bg-ja-primary text-white text-xs font-semibold tracking-wide uppercase px-6 py-3 rounded-lg hover:bg-ja-primaryHover transition-colors shadow-sm active:scale-[0.97]"
+                className="col-span-2 sm:col-span-1"
               >
                 {J.tailor_cv}
-              </button>
+              </Button>
 
-              <button
-                onClick={e => { e.stopPropagation(); setJdExpanded(v => !v) }}
-                className="border border-slate-200 text-slate-600 text-xs font-semibold tracking-wide uppercase px-6 py-3 rounded-lg hover:bg-slate-50 transition-colors active:scale-[0.97]"
-              >
+              <ActionBtn variant="quiet" onClick={e => { e.stopPropagation(); setJdExpanded(v => !v) }}>
                 {jdExpanded ? J.hide_jd : J.view_jd}
-              </button>
+              </ActionBtn>
 
               <ActionBtn
+                variant="ariel"
                 onClick={e => { (e as React.MouseEvent).stopPropagation(); setShowOutreach(true) }}
-                className="border border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100"
               >
                 {J.outreach}
               </ActionBtn>
 
               <ActionBtn
                 onClick={e => { (e as React.MouseEvent).stopPropagation(); setShowPitch(true) }}
-                className="border border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100"
               >
                 {J.direct_pitch}
               </ActionBtn>
@@ -1085,7 +1079,7 @@ export const JobCard = memo(function JobCard({
                 title={hasJD
                   ? J.mock_ready
                   : J.mock_needs_jd}
-                className="border border-violet-200 text-violet-700 bg-white hover:bg-violet-50"
+                variant="ariel"
               >
                 {J.mock_interview}
               </ActionBtn>
@@ -1098,10 +1092,9 @@ export const JobCard = memo(function JobCard({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
-                    className={`inline-flex items-center justify-center gap-1.5 h-11 sm:h-8 px-3 rounded-lg text-[12px] sm:text-[11.5px] font-semibold transition ${
-                      job.source_type === 'linkedin'
-                        ? 'border border-ja-linkedin/25 bg-ja-linkedin/5 text-ja-linkedin hover:border-ja-linkedin/50'
-                        : 'border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100'
+                    className={`${buttonClasses({ variant: 'quiet', size: 'compact' })} w-full sm:w-auto ${
+                      // The source keeps its own label colour (.ai_rules).
+                      job.source_type === 'linkedin' ? '!text-ja-linkedin' : ''
                     }`}
                   >
                     {job.source_type === 'linkedin' ? <LinkedInIcon s={12} /> : <ExternalLinkIcon s={11} />}
@@ -1111,17 +1104,13 @@ export const JobCard = memo(function JobCard({
 
                 <ActionBtn
                   onClick={e => { (e as React.MouseEvent).stopPropagation(); onSave(job.job_id) }}
-                  className={isSaved
-                    ? 'border border-slate-300 text-slate-900 bg-slate-50'
-                    : 'border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-                  }
                 >
                   {isSaved ? J.saved : J.save}
                 </ActionBtn>
 
                 <ActionBtn
+                  variant="quiet"
                   onClick={e => { (e as React.MouseEvent).stopPropagation(); onSkip(job.job_id) }}
-                  className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200"
                 >
                   {J.skip}
                 </ActionBtn>
@@ -1135,10 +1124,6 @@ export const JobCard = memo(function JobCard({
                 <ActionBtn
                   onClick={e => { (e as React.MouseEvent).stopPropagation(); handleMarkApplied() }}
                   disabled={isMarkingApplied || isAlreadyApplied || markedApplied}
-                  className={(markedApplied || isAlreadyApplied)
-                    ? 'border border-emerald-300 bg-emerald-50 text-emerald-700'
-                    : 'border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50'
-                  }
                 >
                   {(markedApplied || isAlreadyApplied)
                     ? J.applied
