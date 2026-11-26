@@ -845,10 +845,11 @@ const _MAX_HEIGHT = 800
 
 // ── Top-left resize handle ────────────────────────────────────────────────
 //
-// The panel is anchored to the viewport's bottom-right corner (`fixed
-// bottom-0 right-0`), so growing width/height while that anchor stays fixed
-// naturally expands the panel toward the top-left — no separate
-// repositioning of the container is needed, only the size state changes.
+// The panel is anchored to the viewport's bottom end corner (`fixed
+// bottom-0 end-0`: bottom-right in LTR, bottom-left in RTL), so growing
+// width/height while that anchor stays fixed naturally expands the panel
+// away from it — no separate repositioning of the container is needed,
+// only the size state changes.
 //
 // Visual placement: the panel corner itself is clipped by `rounded-2xl`
 // (16px radius), so a grip drawn flush at (0,0) would render inside that
@@ -870,16 +871,17 @@ function TopLeftResizeHandle({
   const S = useI18n().t.support_chat
   const [hover, setHover]     = useState(false)
   const [dragging, setDragging] = useState(false)
-  const dragRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null)
+  const dragRef = useRef<{ startX: number; startY: number; startW: number; startH: number; rtl: boolean } | null>(null)
 
   const onPointerMove = useCallback((e: PointerEvent) => {
     const drag = dragRef.current
     if (!drag) return
     const deltaX = e.clientX - drag.startX
     const deltaY = e.clientY - drag.startY
-    // Dragging toward the top-left (negative delta) grows the panel;
-    // dragging back toward the bottom-right shrinks it.
-    const nextWidth  = Math.min(_MAX_WIDTH,  Math.max(_MIN_WIDTH,  drag.startW - deltaX))
+    // Dragging away from the anchored corner grows the panel: toward the
+    // top-left in LTR, toward the top-right in RTL (panel sits on the left).
+    const growX      = drag.rtl ? deltaX : -deltaX
+    const nextWidth  = Math.min(_MAX_WIDTH,  Math.max(_MIN_WIDTH,  drag.startW + growX))
     const nextHeight = Math.min(_MAX_HEIGHT, Math.max(_MIN_HEIGHT, drag.startH - deltaY))
     setSize({ width: nextWidth, height: nextHeight })
   }, [setSize])
@@ -896,7 +898,7 @@ function TopLeftResizeHandle({
     e.preventDefault()
     setDragging(true)
     onResizeStart()
-    dragRef.current = { startX: e.clientX, startY: e.clientY, startW: size.width, startH: size.height }
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startW: size.width, startH: size.height, rtl: document.documentElement.dir === 'rtl' }
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
   }, [size, onPointerMove, onPointerUp, onResizeStart])
@@ -923,13 +925,13 @@ function TopLeftResizeHandle({
       title={S.resize}
       aria-label={S.resize_label}
       role="separator"
-      className="absolute top-1.5 left-1.5 z-20 w-[18px] h-[18px] rounded-full flex items-center justify-center touch-none transition-colors duration-150"
-      style={{ background: chipBg, cursor: 'nwse-resize' }}
+      className="absolute top-1.5 start-1.5 z-20 w-[18px] h-[18px] rounded-full flex items-center justify-center touch-none transition-colors duration-150 cursor-nwse-resize rtl:cursor-nesw-resize"
+      style={{ background: chipBg }}
     >
       {/* Diagonal grip — two parallel strokes on the NW↔SE axis, matching the
           nwse-resize cursor direction (identical convention used for both
           top-left and bottom-right resize corners). */}
-      <svg width={9} height={9} viewBox="0 0 9 9" className="pointer-events-none">
+      <svg width={9} height={9} viewBox="0 0 9 9" className="pointer-events-none rtl:-scale-x-100">
         <line x1="1.5" y1="7.5" x2="7.5" y2="1.5" stroke={iconColor} strokeWidth="1.3" strokeLinecap="round" />
         <line x1="1.5" y1="4"   x2="4"   y2="1.5" stroke={iconColor} strokeWidth="1.3" strokeLinecap="round" />
       </svg>
@@ -1000,7 +1002,7 @@ function OverlayShell({
         role="dialog"
         aria-label={ariaLabel}
         aria-modal="true"
-        className="fixed bottom-0 right-0 z-50 flex flex-col w-full h-[100vh] h-[100dvh] rounded-none sm:h-[85vh] sm:bottom-6 sm:rounded-2xl overflow-hidden transition-all duration-[250ms] ease-out bg-white/85 backdrop-blur-xl border border-white/60"
+        className="fixed bottom-0 end-0 z-50 flex flex-col w-full h-[100vh] h-[100dvh] rounded-none sm:h-[85vh] sm:bottom-6 sm:rounded-2xl overflow-hidden transition-all duration-[250ms] ease-out bg-white/85 backdrop-blur-xl border border-white/60"
         style={{
           // Mobile: `h-[100dvh]` above (with `100vh` as the pre-dvh-support
           // fallback, via cascade — not settable in a single inline value)
@@ -1024,7 +1026,10 @@ function OverlayShell({
           // applied unconditionally, which fought the mobile `w-full` width
           // (inline style always wins over the `right-0` Tailwind class) and
           // pushed the sheet's left edge off-screen on mobile.
-          right:         isDesktop ? offsetRight : '0',
+          // Logical side: the panel opens on the same side as Ariel's
+          // launcher (`end-*`), so in Hebrew it no longer opens on the right
+          // over the accessibility button.
+          insetInlineEnd: isDesktop ? offsetRight : '0',
         }}
       >
         {isDesktop && (

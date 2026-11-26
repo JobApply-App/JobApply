@@ -2116,7 +2116,7 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
         <div className="shrink-0 px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[10.5px] font-bold tracking-widest uppercase text-slate-400">
-              {(entity?.entity_type ?? 'skill').toUpperCase()}
+              {(T.entity as Record<string, string>)[entity?.entity_type ?? 'skill'] ?? (entity?.entity_type ?? 'skill').toUpperCase()}
             </p>
             <h2 className="text-[16px] font-bold text-slate-900 leading-tight mt-0.5 truncate">
               {entity?.name}
@@ -2192,7 +2192,7 @@ function CapabilityDetailDrawer({ entity, onClose }: CapabilityDetailDrawerProps
                         key={ev.evidence_id}
                         className="flex items-center justify-between gap-3 text-[12px] py-1.5 border-b border-slate-50 last:border-0"
                       >
-                        <span className="text-slate-600 truncate">{ev.source_label}</span>
+                        <span className="text-slate-600 truncate">{(T.sources as Record<string, string>)[ev.source_type] ?? ev.source_label}</span>
                         <span className="text-slate-400 tabular-nums shrink-0">
                           {new Date(ev.verified_at).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US')}
                         </span>
@@ -2739,6 +2739,9 @@ export function TrustDashboard({
   // Probe state
   const [probeTarget,  setProbeTarget]  = useState<TrustProfileEntity | null>(null)
   const [probeState,   setProbeState]   = useState<ProbeState | null>(null)
+  // Same detail drawer the Capabilities page opens, so a capability clicked
+  // in the Overview's top list opens too instead of doing nothing.
+  const [detailEntity, setDetailEntity] = useState<TrustProfileEntity | null>(null)
   const [probingId,    setProbingId]    = useState<string | null>(null)   // entity_id loading
 
   // Review modal state
@@ -3079,6 +3082,7 @@ export function TrustDashboard({
                           onVerify={handleManualVerify}
                           onProbe={handleProbe}
                           probing={probingId === ent.entity_id}
+                          onSelect={setDetailEntity}
                         />
                       ))}
                     </div>
@@ -3130,6 +3134,8 @@ export function TrustDashboard({
           onClose={() => { setManualTarget(null); setManualSession(null) }}
         />
       )}
+
+      <CapabilityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
 
     </div>
   )
