@@ -12,7 +12,8 @@ import { MobileTabBar } from './MobileTabBar'
 import { TOUR_DONE_KEY, TOUR_REPLAY_EVENT } from './ProductTour'
 import { useAuth } from '@/contexts/AuthContext'
 import { useChat } from '@/contexts/ChatContext'
-import { resolveDisplayName, getInitials } from '@/lib/nameUtils'
+import { resolveDisplayName, getInitials, getGreetingName } from '@/lib/nameUtils'
+import { timeOfDay, todayLabel } from '@/lib/greeting'
 import type { Job } from '@/lib/data'
 
 function HelpIcon({ s = 15 }: { s?: number }) {
@@ -44,7 +45,7 @@ interface HeaderProps {
 }
 
 export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) {
-  const { t: _t } = useI18n()
+  const { t: _t, locale } = useI18n()
   const H = _t.header
   const TR = _t.tour
   const [menuOpen,       setMenuOpen]       = useState(false)
@@ -59,6 +60,8 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
   const { openEliya, isEliyaOpen } = useChat()
   const displayName = resolveDisplayName(user?.email, user?.user_metadata as Record<string, unknown> | null)
   const initials    = getInitials(displayName)
+  const greetName   = getGreetingName(displayName)
+  const O           = _t.overview
 
   const highMatchJobs = jobs.filter(j => j.score >= 85)
   const hasHighMatch  = highMatchJobs.length > 0
@@ -149,7 +152,7 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
 
   const navItem = (active: boolean) =>
     `ja-press h-full inline-flex items-center transition-colors duration-ja-ui ${
-      active ? 'text-slate-900' : 'hover:text-slate-900'
+      active ? 'text-teal-700' : 'hover:text-slate-900'
     }`
 
   const goToTab = (t: Tab) => {
@@ -179,71 +182,33 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
         <Logo />
       </div>
 
-      {/* Primary nav — desktop/tablet only, centered, text-only with bottom-border active indicator */}
-      <nav ref={navRef} className="relative hidden md:flex items-center justify-center gap-10 text-sm font-medium text-slate-500 h-full">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            data-nav={t.id}
-            onClick={() => goToTab(t.id)}
-            aria-current={activeTab === t.id ? 'page' : undefined}
-            className={navItem(activeTab === t.id)}
-          >
-            {H.nav[t.id === 'all-jobs' ? 'all_jobs' : t.id]}
-          </button>
-        ))}
-        <Link
-          href="/capabilities"
-          data-nav="capabilities"
-          onClick={() => setPendingNav('capabilities')}
-          aria-current={onCapabilities ? 'page' : undefined}
-          className={navItem(onCapabilities)}
-        >
-          {H.nav.capabilities}
-        </Link>
-        <Link
-          href="/analytics"
-          data-nav="analytics"
-          onClick={() => setPendingNav('analytics')}
-          aria-current={onAnalytics ? 'page' : undefined}
-          className={navItem(onAnalytics)}
-        >
-          {H.nav.analytics}
-        </Link>
-        <span
-          aria-hidden
-          className="pointer-events-none absolute bottom-0 left-0 h-0.5 w-px origin-left rounded-full bg-slate-900 transition-[transform,opacity] duration-ja-ui"
-          style={{
-            transform: `translateX(${bar?.x ?? 0}px) scaleX(${bar?.w ?? 0})`,
-            opacity: bar ? 1 : 0,
-          }}
-        />
-      </nav>
+      {/* Who and when (notes 5, 11, 12): plain text, not a pill, so it never
+          reads as a button. Rendered once the user is known, which also keeps
+          the server render (no user, no clock) free of a time mismatch. */}
+      <div className="min-w-0">
+        {user && (
+          <p className="truncate text-[15px] text-slate-500">
+            <span className="font-semibold text-slate-900">
+              {greetName
+                ? O.greeting.replace('{greeting}', O[`greeting_${timeOfDay()}` as const]).replace('{name}', greetName)
+                : O[`greeting_${timeOfDay()}` as const]}
+            </span>
+            <span className="hidden md:inline"> · {todayLabel(locale)}</span>
+          </p>
+        )}
+      </div>
 
       {/* Right-side utility cluster */}
       <div className="flex items-center gap-1 sm:gap-3 justify-end">
-        {/* Always rendered (just hidden off-feed) rather than conditionally
-            mounted — this cluster sits in the grid's `auto`-sized right
-            track, and the center nav lives in the adjacent `1fr` track. If
-            this button's presence toggled the track's rendered width, the
-            centered nav would visibly shift left/right on every tab switch
-            that crosses the feed boundary. `invisible` keeps the layout slot
-            reserved without showing or allowing interaction with it. */}
-        {(() => {
-          const showPreferences = pathname === '/' && tab === 'feed' && Boolean(onOpenControls)
-          return (
-            <button
-              onClick={() => onOpenControls?.()}
-              aria-hidden={!showPreferences}
-              tabIndex={showPreferences ? 0 : -1}
-              className={`inline-flex items-center gap-1.5 h-11 sm:h-7 px-3 rounded-md text-[12.5px] font-medium text-slate-500 active:bg-slate-100 sm:hover:text-slate-800 sm:hover:bg-slate-50 border border-slate-200 transition-colors ${
-                showPreferences ? '' : 'invisible pointer-events-none'
-              }`}
-            >
-              <SlidersIcon s={14} /> <span className="hidden sm:inline">{H.preferences}</span>
-            </button>
-          )
-        })()}
+        {/* Only on the matches tab, where the controls sheet lives. */}
+        {pathname === '/' && tab === 'feed' && onOpenControls && (
+          <button
+            onClick={() => onOpenControls()}
+            className="inline-flex items-center gap-1.5 h-11 sm:h-7 px-3 rounded-md text-[12.5px] font-medium text-slate-500 active:bg-slate-100 sm:hover:text-slate-800 sm:hover:bg-slate-50 border border-slate-200 transition-colors"
+          >
+            <SlidersIcon s={14} /> <span className="hidden sm:inline">{H.preferences}</span>
+          </button>
+        )}
 
         {/* Interface language. In the header rather than behind a settings
             screen so it can be changed from anywhere, at any point — a user
@@ -401,6 +366,51 @@ export function Header({ tab, setTab, onOpenControls, jobs = [] }: HeaderProps) 
         </div>
       </div>
 
+      </div>
+      {/* Secondary header: the sections (notes 3, 4). Desktop/tablet only;
+          phones have the bottom tab bar. */}
+      <div className="hidden md:block border-t border-slate-100/70">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12">
+        <nav ref={navRef} aria-label={H.mobile_tabs_label} className="relative flex items-center gap-9 h-12 text-[15px] font-medium text-slate-500">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              data-nav={t.id}
+              onClick={() => goToTab(t.id)}
+              aria-current={activeTab === t.id ? 'page' : undefined}
+              className={navItem(activeTab === t.id)}
+            >
+              {H.nav[t.id === 'all-jobs' ? 'all_jobs' : t.id]}
+            </button>
+          ))}
+          <Link
+            href="/capabilities"
+            data-nav="capabilities"
+            onClick={() => setPendingNav('capabilities')}
+            aria-current={onCapabilities ? 'page' : undefined}
+            className={navItem(onCapabilities)}
+          >
+            {H.nav.capabilities}
+          </Link>
+          <Link
+            href="/analytics"
+            data-nav="analytics"
+            onClick={() => setPendingNav('analytics')}
+            aria-current={onAnalytics ? 'page' : undefined}
+            className={navItem(onAnalytics)}
+          >
+            {H.nav.analytics}
+          </Link>
+          <span
+            aria-hidden
+            className="pointer-events-none absolute bottom-0 left-0 h-0.5 w-px origin-left rounded-full bg-teal-600 transition-[transform,opacity] duration-ja-ui"
+            style={{
+              transform: `translateX(${bar?.x ?? 0}px) scaleX(${bar?.w ?? 0})`,
+              opacity: bar ? 1 : 0,
+            }}
+          />
+        </nav>
+        </div>
       </div>
 
       {/* ── Mobile nav panel — boxless stacked list, replaces the hidden desktop nav.
