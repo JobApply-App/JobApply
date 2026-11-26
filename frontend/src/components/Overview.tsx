@@ -357,6 +357,8 @@ function ScorePip({ score }: { score: number }) {
 }
 
 function TopMatchRow({ job, onClick }: { job: ApiFeedJob; onClick: () => void }) {
+  const { locale } = useI18n()
+  const location = (locale === 'he' && job.location_he) || job.location
   return (
     <button
       onClick={onClick}
@@ -370,10 +372,10 @@ function TopMatchRow({ job, onClick }: { job: ApiFeedJob; onClick: () => void })
         </p>
         <p className="text-[12px] text-slate-500 truncate mt-0.5">
           {job.company}
-          {job.location && (
+          {location && (
             <span className="text-slate-300 mx-1.5">·</span>
           )}
-          {job.location}
+          {location}
         </p>
         {/* Reasons as understated editorial text — no pills, no tinted fills */}
         {job.reasons.length > 0 && (

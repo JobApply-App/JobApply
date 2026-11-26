@@ -883,7 +883,11 @@ export const JobCard = memo(function JobCard({
   // /CRM-pipeline status, not a JobStatus — it doesn't apply to job.status.)
   const isAlreadyApplied   = job.status === 'applied'
   const isHebrewLocale     = job.locale === 'he'
-  const parsedStructuredJd = job.jd_structured ? parseStructuredJd(job.jd_structured) : null
+  // Hebrew interface: the Hebrew summary once the server has translated it,
+  // the English one until then.
+  const structuredSource   = (uiLocale === 'he' && job.jd_structured_he) || job.jd_structured
+  const parsedStructuredJd = structuredSource ? parseStructuredJd(structuredSource) : null
+  const location           = (uiLocale === 'he' && job.location_he) || job.location
   const hasJD              = Boolean(parsedStructuredJd) || Boolean(job.jd_text && job.jd_text.trim().length > 80)
 
   const handleMarkApplied = useCallback(async () => {
@@ -968,7 +972,7 @@ export const JobCard = memo(function JobCard({
           {/* [Company] · [Location] · [Workplace Type] · [Time Ago] */}
           <p className="text-[12.5px] text-slate-400 mt-1" dir="auto" style={{ textAlign: 'start', unicodeBidi: 'plaintext' }}>
             {job.company || J.unknown_company}
-            {job.location && <> · {job.location}</>}
+            {location && <> · {location}</>}
             {postedLabel && <> · <span className="tabular-nums">{postedLabel}</span></>}
           </p>
           {/* Strength badges — top strengths for this role, subtle by design */}

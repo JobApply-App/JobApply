@@ -179,6 +179,10 @@ export interface ApiFeedJob {
   fit_brief:               string | null
   jd_text:               string | null   // raw JD text; null until backfill runs
   jd_structured:         string | null   // LLM-structured JSON string; null until structure pass runs
+  /** The same structure in Hebrew. Sent only to Hebrew-UI users, null until translated. */
+  jd_structured_he?:     string | null
+  /** location in Hebrew, Hebrew-UI users only; null when it could not be translated. */
+  location_he?:          string | null
   /** BCP-47 primary tag: 'he' | 'en' | null.
    *  Set by Israeli-board scrapers to enable RTL-priority rendering
    *  without per-character Hebrew detection on every field. */

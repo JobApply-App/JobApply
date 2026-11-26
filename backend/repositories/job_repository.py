@@ -46,6 +46,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.core.database import ENGINE
+from backend.services.israel_cities import hebrew_location
 from backend.schemas.job import DetailedAnalysis, JobMatch, ReasonTag
 
 logger = logging.getLogger(__name__)
@@ -142,7 +143,18 @@ _SELECT_JOINED = """
         ujm.score_is_proxy, ujm.enrichment_failures, ujm.outreach_text,
         ujm.created_at AS match_created_at,
         jp.id AS job_posting_id, jp.title, jp.company, jp.location, jp.jd_text,
-        jp.jd_structured, jp.apply_url, jp.source, jp.source_type,
+        jp.jd_structured,
+        -- Hebrew summary only for Hebrew-UI users (egress: nobody else pays
+        -- for the second copy). NULL until the jd_translation sweep ran.
+        EXISTS (
+            SELECT 1 FROM public.user_preferences up
+            WHERE up.user_id = ujm.user_id AND up.ui_locale = 'he'
+        ) AS ui_he,
+        CASE WHEN jp.jd_structured_he IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.user_preferences up
+            WHERE up.user_id = ujm.user_id AND up.ui_locale = 'he'
+        ) THEN jp.jd_structured_he END AS jd_structured_he,
+        jp.apply_url, jp.source, jp.source_type,
         jp.company_website_url, jp.locale, jp.posted_at, jp.is_open,
         jp.canonical_job_key
     FROM public.user_job_matches ujm
@@ -157,6 +169,7 @@ def _row_to_jobmatch(r) -> JobMatch:
         title=r.title,
         company=r.company,
         location=r.location,
+        location_he=(hebrew_location(r.location) if r.ui_he else None),
         score=r.score,
         confidence_score=r.confidence_score,
         culture_fit_score=r.culture_fit_score,
@@ -187,6 +200,7 @@ def _row_to_jobmatch(r) -> JobMatch:
         # jd_structured comes back auto-deserialized from jsonb (dict/list/None) --
         # JobMatch.jd_structured is a JSON *string* contract, so re-serialize.
         jd_structured=(json.dumps(r.jd_structured) if r.jd_structured is not None else None),
+        jd_structured_he=(json.dumps(r.jd_structured_he, ensure_ascii=False) if r.jd_structured_he is not None else None),
         user_id=str(r.user_id),
         source_type=_infer_source_type(r.source_type, r.apply_url),
         company_website_url=r.company_website_url,
@@ -892,7 +906,7 @@ def update_jd_structured(job_id: str, structured_json: str) -> None:
     with Session(ENGINE) as session:
         session.execute(
             text("""
-                UPDATE public.job_postings SET jd_structured = CAST(:structured AS jsonb)
+                UPDATE public.job_postings SET jd_structured = CAST(:structured AS jsonb), jd_structured_he = NULL
                 WHERE id = (SELECT job_posting_id FROM public.user_job_matches WHERE job_id = :job_id LIMIT 1)
             """),
             {"structured": structured_json, "job_id": job_id},
@@ -915,7 +929,7 @@ def update_jd_structured_by_posting_id(posting_id: str, structured_json: str) ->
     with Session(ENGINE) as session:
         result = session.execute(
             text("""
-                UPDATE public.job_postings SET jd_structured = CAST(:structured AS jsonb)
+                UPDATE public.job_postings SET jd_structured = CAST(:structured AS jsonb), jd_structured_he = NULL
                 WHERE id = CAST(:posting_id AS uuid)
             """),
             {"structured": structured_json, "posting_id": posting_id},
@@ -1206,3 +1220,55 @@ def replace_fit_brief(job_id: str, user_id: str, old: str, new: str) -> bool:
         )
         session.commit()
         return res.rowcount > 0
+
+
+# ── Hebrew job summaries (jd_translation sweep) ───────────────────────────────
+
+def list_untranslated_jd_for_hebrew_users(limit: int) -> list[tuple[str, dict]]:
+    """
+    (posting_id, jd_structured) for postings in a Hebrew-UI user's feed that
+    have an English structure and no Hebrew one yet, best matches first.
+    Reads two columns only (egress).
+    """
+    with Session(ENGINE) as session:
+        rows = session.execute(
+            text("""
+                SELECT jp.id, jp.jd_structured
+                FROM public.job_postings jp
+                JOIN (
+                    SELECT ujm.job_posting_id, MAX(ujm.match_score) AS best
+                    FROM public.user_job_matches ujm
+                    JOIN public.user_preferences up
+                      ON up.user_id = ujm.user_id AND up.ui_locale = 'he'
+                    GROUP BY ujm.job_posting_id
+                ) m ON m.job_posting_id = jp.id
+                WHERE jp.jd_structured IS NOT NULL AND jp.jd_structured <> 'null'::jsonb
+                  AND jp.jd_structured_he IS NULL
+                ORDER BY m.best DESC NULLS LAST
+                LIMIT :limit
+            """),
+            {"limit": limit},
+        ).fetchall()
+    return [(str(r[0]), r[1]) for r in rows]
+
+
+def save_jd_structured_he(posting_id: str, source: dict, translated: dict) -> bool:
+    """
+    Store the Hebrew structure, only if the English one is still `source` —
+    a re-structure that landed meanwhile wins. Returns True when a row changed.
+    """
+    with Session(ENGINE) as session:
+        res = session.execute(
+            text("""
+                UPDATE public.job_postings
+                SET jd_structured_he = CAST(:he AS jsonb)
+                WHERE id = CAST(:posting_id AS uuid)
+                  AND jd_structured = CAST(:src AS jsonb)
+                  AND jd_structured_he IS NULL
+            """),
+            {"he": json.dumps(translated, ensure_ascii=False),
+             "src": json.dumps(source, ensure_ascii=False), "posting_id": posting_id},
+        )
+        session.commit()
+        return res.rowcount > 0
+
