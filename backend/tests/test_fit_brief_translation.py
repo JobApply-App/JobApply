@@ -120,6 +120,29 @@ async def test_translate_all_covers_users_outside_the_pipeline(monkeypatch):
     assert seen == [_USER, "u2"]
 
 
+async def test_user_who_switches_to_hebrew_later_is_picked_up(monkeypatch):
+    # The list used to be read once per process: a user who switched to
+    # Hebrew after a deploy kept English analyses until the next restart.
+    monkeypatch.setattr(svc, "_users", None)
+    hebrew = [_USER]
+    monkeypatch.setattr(profile_repository, "list_hebrew_ui_user_ids", lambda: list(hebrew))
+    seen = []
+
+    async def _batch(user_id):
+        seen.append(user_id)
+        svc._done.add(user_id)      # backlog finished for this user
+        return 0
+    monkeypatch.setattr(svc, "translate_batch", _batch)
+    svc._done.add("u2")             # e.g. marked done earlier while their UI was English
+
+    await svc.translate_all()
+    assert seen == [_USER]
+
+    hebrew.append("u2")             # u2 switches the interface to Hebrew
+    await svc.translate_all()
+    assert seen == [_USER, "u2"]    # u2 checked again; _USER stays done
+
+
 async def test_does_not_touch_the_scoring_budget(monkeypatch):
     from backend.services import llm_budget
 
