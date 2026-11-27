@@ -54,6 +54,12 @@ function GoogleLogo() {
   )
 }
 
+// ── Field error: under the field, as on the signup form ───────────────────────
+
+function FieldError({ id, msg }: { id: string; msg: string }) {
+  return <p id={id} className="mt-2 text-[13px] text-rose-600" role="alert">{msg}</p>
+}
+
 // ── Error banner ──────────────────────────────────────────────────────────────
 
 function ErrorBanner({ msg }: { msg: string }) {
@@ -136,6 +142,9 @@ export default function LoginPage() {
   const [busy,          setBusy]          = useState(false)
   const [googleBusy,    setGoogleBusy]    = useState(false)
   const [error,         setError]         = useState<string | null>(null)
+  // Field errors are shown under the field, in the product's own style (the
+  // signup form's), not the browser's validation bubble: the forms are noValidate.
+  const [fieldErr,      setFieldErr]      = useState<{ email?: string; password?: string }>({})
   const [successMsg,    setSuccessMsg]    = useState<string | null>(null)
 
   // Signed out by the 2-hour limit (contexts/AuthContext.tsx): say so kindly
@@ -152,6 +161,15 @@ export default function LoginPage() {
   // ── Handlers: normal login ─────────────────────────────────────────────────
   async function handleLogin(e: FormEvent) {
     e.preventDefault()
+    const errs: { email?: string; password?: string } = {}
+    if (!email.trim()) errs.email = L.errors.email_required
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errs.email = L.errors.email_invalid
+    if (!password) errs.password = L.errors.password_required
+    setFieldErr(errs)
+    if (errs.email || errs.password) {
+      document.getElementById(errs.email ? 'email' : 'password')?.focus()
+      return
+    }
     setError(null)
     setBusy(true)
     try {
@@ -272,7 +290,7 @@ export default function LoginPage() {
 
   function ForgotEmailView() {
     return (
-      <form onSubmit={handleSendOtp} className="space-y-5">
+      <form onSubmit={handleSendOtp} noValidate className="space-y-5">
         <div>
           <h1 className={kycTitle}>{L.reset.request_title}</h1>
           <p className={kycSub}>
@@ -363,7 +381,7 @@ export default function LoginPage() {
 
   function ForgotNewPwView() {
     return (
-      <form onSubmit={handleSetNewPassword} className="space-y-5">
+      <form onSubmit={handleSetNewPassword} noValidate className="space-y-5">
         <div>
           <h1 className={kycTitle}>{L.reset.new_pw_title}</h1>
           <p className={kycSub}>{L.reset.new_pw_sub}</p>
@@ -457,13 +475,16 @@ export default function LoginPage() {
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleLogin} className="space-y-4">
+                <form onSubmit={handleLogin} noValidate className="space-y-4">
                   <div>
                     <label htmlFor="email" className={authLabel}>{L.card.email_label}</label>
                     <input id="email" type="email" autoComplete="username" required
                       disabled={busy} value={email}
-                      onChange={e => { setError(null); setEmail(e.target.value) }}
-                      className={authInput()} />
+                      aria-invalid={!!fieldErr.email}
+                      aria-describedby={fieldErr.email ? 'email-error' : undefined}
+                      onChange={e => { setError(null); setFieldErr(f => ({ ...f, email: undefined })); setEmail(e.target.value) }}
+                      className={authInput(!!fieldErr.email)} />
+                    {fieldErr.email && <FieldError id="email-error" msg={fieldErr.email} />}
                   </div>
 
                   <div>
@@ -481,8 +502,10 @@ export default function LoginPage() {
                       <input id="password" type={showPassword ? 'text' : 'password'}
                         autoComplete="current-password" required disabled={busy}
                         value={password}
-                        onChange={e => { setError(null); setPassword(e.target.value) }}
-                        className={`${authInput()} pe-11`} />
+                        aria-invalid={!!fieldErr.password}
+                        aria-describedby={fieldErr.password ? 'password-error' : undefined}
+                        onChange={e => { setError(null); setFieldErr(f => ({ ...f, password: undefined })); setPassword(e.target.value) }}
+                        className={`${authInput(!!fieldErr.password)} pe-11`} />
                       <button type="button"
                         onClick={() => setShowPassword(v => !v)}
                         className="absolute inset-y-0 end-0 flex items-center px-3.5 rounded-xl text-slate-400 hover:text-slate-600 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-teal-600"
@@ -490,6 +513,7 @@ export default function LoginPage() {
                         {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
                       </button>
                     </div>
+                    {fieldErr.password && <FieldError id="password-error" msg={fieldErr.password} />}
                   </div>
 
                   {error && <ErrorBanner msg={error} />}

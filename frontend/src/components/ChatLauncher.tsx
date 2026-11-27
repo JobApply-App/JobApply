@@ -8,7 +8,9 @@ import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS }  from '@/lib/tokens'
 import { isTourPending } from './ProductTour'
 
-const ONBOARDING_ROUTES = ['/onboarding', '/profile-builder']
+// Sign-in, sign-up and the auth callback too: a session can still be open on
+// /login, and Ariel has nothing to do there (Ron, 27.11).
+const ONBOARDING_ROUTES = ['/onboarding', '/profile-builder', '/login', '/signup', '/auth']
 
 // Strict check against BOTH the React pathname and the live browser URL —
 // during soft-routing transitions they can disagree for a frame, which let
@@ -104,8 +106,10 @@ export function ChatLauncher() {
       aria-label={A.launcher_label}
       className="ja-launcher fixed bottom-6 end-4 sm:end-6 z-30 flex items-center justify-center gap-2.5 h-14 w-14 sm:h-12 sm:w-auto sm:px-4 rounded-full text-white transition-[transform,opacity] duration-200 active:scale-95 hover:opacity-90"
       style={{
-        background: TOKENS.color.primary,
-        boxShadow:  '0 4px 20px rgba(13,148,136,0.40)',
+        // Ariel's own colour (cyan-teal), not the product teal of the
+        // primary buttons — the launcher is her identity anchor.
+        background: TOKENS.color.gradientIntelligence,
+        boxShadow:  TOKENS.shadow.glowAi,
       }}
     >
       {/* Context dot — visible when a job topic is loaded */}
