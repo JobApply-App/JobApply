@@ -656,7 +656,6 @@ export interface Dict {
     improvement_tips:    string
     improve_with_ariel:  string
     evaluated_by_ariel:  string
-    none_in_category:    string
     refresh:             string
     retry:               string
     verify:              string
@@ -673,7 +672,6 @@ export interface Dict {
     linkedin_expired_body: string
     loading_audit:       string
     session:             string
-    awaiting_verification: string
     fix_connection:      string
     answer_placeholder:  string
     loading_label:       string
@@ -790,7 +788,6 @@ export interface Dict {
     accept_challenge: string
     load_failed: string
     load_failed_body: string
-    load_caps_failed: string
     probe_start_failed: string
     caps_title: string
     caps_subtitle: string
@@ -834,11 +831,6 @@ export interface Dict {
       needs_verification: string
       category: string
       by_area: string
-    }
-    areas: {
-      show_all: string
-      show_less: string
-      hint: string
     }
     filter: {
       all: string
