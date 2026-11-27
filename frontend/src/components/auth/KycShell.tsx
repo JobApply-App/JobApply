@@ -17,7 +17,7 @@ import { Logo } from '@/components/ui/Logo'
 
 const GLOW = [
   'radial-gradient(58% 52% at 84% 22%, rgba(94,234,212,.5), transparent 72%)',
-  'radial-gradient(44% 48% at 68% 88%, rgba(167,139,250,.3), transparent 72%)',
+  'radial-gradient(44% 48% at 68% 88%, rgba(127,181,196,.3), transparent 72%)',
   'radial-gradient(46% 40% at 8% 2%, rgba(204,251,241,.8), transparent 72%)',
 ].join(',')
 

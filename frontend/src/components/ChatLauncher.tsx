@@ -4,11 +4,14 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useChat } from '@/contexts/ChatContext'
 import { useAuth } from '@/contexts/AuthContext'
+import type { User } from '@supabase/supabase-js'
 import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS }  from '@/lib/tokens'
 import { isTourPending } from './ProductTour'
 
-const ONBOARDING_ROUTES = ['/onboarding', '/profile-builder']
+// Sign-in, sign-up and the auth callback too: a session can still be open on
+// /login, and Ariel has nothing to do there (Ron, 27.11).
+const ONBOARDING_ROUTES = ['/onboarding', '/profile-builder', '/login', '/signup', '/auth']
 
 // Strict check against BOTH the React pathname and the live browser URL —
 // during soft-routing transitions they can disagree for a frame, which let
@@ -31,9 +34,13 @@ function ChatIcon() {
 
 // One-time introduction. Testers saw a chat button and never learned what
 // Ariel is for; the bubble says it once, then gets out of the way for good.
+// Kept on the account (user_metadata), like the product tour: sign-out clears
+// localStorage, so a browser-only flag brought the intro back after every
+// sign-in (Ron, 27.11).
 const INTRO_SEEN_KEY = 'ja.ariel_intro_seen'
 
-function readIntroSeen(): boolean {
+function readIntroSeen(user: User | null): boolean {
+  if ((user?.user_metadata as Record<string, unknown> | undefined)?.ariel_intro_seen === true) return true
   try { return window.localStorage.getItem(INTRO_SEEN_KEY) === '1' } catch { return true }
 }
 function markIntroSeen(): void {
@@ -48,18 +55,22 @@ function markIntroSeen(): void {
 export function ChatLauncher() {
   const A = useI18n().t.ariel
   const { isOpen, isEliyaOpen, jobContext, openChat } = useChat()
-  const { user } = useAuth()
+  const { user, updateUserMeta } = useAuth()
   const pathname = usePathname()
   // Starts hidden and is decided after mount: localStorage is not readable
   // during server render, and showing it first would flash for returning users.
   const [showIntro, setShowIntro] = useState(false)
   useEffect(() => {
     // The first-visit tour already introduces Ariel; don't stack two popups.
-    if (readIntroSeen() || isTourPending(user)) return
+    if (readIntroSeen(user) || isTourPending(user)) return
     const id = setTimeout(() => setShowIntro(true), 1500)
     return () => clearTimeout(id)
   }, [user])
-  const dismissIntro = () => { markIntroSeen(); setShowIntro(false) }
+  const dismissIntro = () => {
+    markIntroSeen()
+    void updateUserMeta({ ariel_intro_seen: true }).catch(() => { /* the browser flag still holds */ })
+    setShowIntro(false)
+  }
 
   // Ariel is available to every signed-in user outside onboarding — the same
   // rule as ChatOverlay. Gating on the wizard's profile_completed flag hid her
@@ -104,8 +115,10 @@ export function ChatLauncher() {
       aria-label={A.launcher_label}
       className="ja-launcher fixed bottom-6 end-4 sm:end-6 z-30 flex items-center justify-center gap-2.5 h-14 w-14 sm:h-12 sm:w-auto sm:px-4 rounded-full text-white transition-[transform,opacity] duration-200 active:scale-95 hover:opacity-90"
       style={{
-        background: TOKENS.color.primary,
-        boxShadow:  '0 4px 20px rgba(13,148,136,0.40)',
+        // Ariel's own colour (cyan-teal), not the product teal of the
+        // primary buttons — the launcher is her identity anchor.
+        background: TOKENS.color.gradientIntelligence,
+        boxShadow:  TOKENS.shadow.glowAi,
       }}
     >
       {/* Context dot — visible when a job topic is loaded */}

@@ -320,7 +320,7 @@ function Hero({ reduced }: { reduced: boolean }) {
   return (
     <section className="relative isolate overflow-clip" aria-labelledby="landing-h1">
       <div aria-hidden="true" className="absolute inset-0 -z-10"
-        style={{ background: 'radial-gradient(50% 60% at 75% 40%, #F0FDFA, rgba(240,253,250,0) 70%), radial-gradient(35% 45% at 95% 90%, rgba(245,243,255,.9), rgba(245,243,255,0) 70%)' }} />
+        style={{ background: 'radial-gradient(50% 60% at 75% 40%, #F0FDFA, rgba(240,253,250,0) 70%), radial-gradient(35% 45% at 95% 90%, rgba(238,245,247,.9), rgba(238,245,247,0) 70%)' }} />
       <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-10 sm:pt-16 pb-20 sm:pb-28 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
         <div className="grid gap-5">
           <h1 id="landing-h1" className="text-[38px] sm:text-[52px] lg:text-[58px] leading-[1.05] font-extrabold tracking-[-0.04em] text-slate-900 [text-wrap:balance]">
@@ -844,7 +844,7 @@ function Close() {
           <div aria-hidden="true" className="absolute -z-10 w-[640px] h-[640px] rounded-full -top-64 start-1/2 -translate-x-1/2 rtl:translate-x-1/2"
             style={{ background: 'radial-gradient(closest-side, rgba(94,234,212,.35), rgba(94,234,212,0))' }} />
           <div aria-hidden="true" className="absolute -z-10 w-[420px] h-[420px] rounded-full -bottom-48 -end-24"
-            style={{ background: 'radial-gradient(closest-side, rgba(167,139,250,.45), rgba(167,139,250,0))' }} />
+            style={{ background: 'radial-gradient(closest-side, rgba(127,181,196,.45), rgba(127,181,196,0))' }} />
           <h2 id="close-h2" className="text-[38px] sm:text-[60px] leading-[1.04] font-extrabold tracking-[-0.04em] max-w-[16ch] [text-wrap:balance]">{C.h2}</h2>
           <p className="text-[18px] sm:text-[20px] text-teal-50/90 max-w-[32rem]">{C.body}</p>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3">

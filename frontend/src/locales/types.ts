@@ -240,6 +240,9 @@ export interface Dict {
       send_code_failed:    string
       no_account:          string
       enter_all_digits:    string
+      email_required:      string
+      email_invalid:       string
+      password_required:   string
       invalid_code:        string
       stronger_password:   string
       update_password_failed: string
