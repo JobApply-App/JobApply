@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useI18n } from '@/contexts/I18nContext'
@@ -7,8 +7,9 @@ import { useNavCounts } from '@/hooks/useNavCounts'
 import { TOKENS } from '@/lib/tokens'
 import { Logo } from './ui/Logo'
 import { StatusDot } from './ui/StatusDot'
-import { BellIcon, SlidersIcon, ChevIcon, MenuIcon, XIcon, SparkIcon } from './icons'
-import { LanguageSwitcher } from './LanguageSwitcher'
+import { BellIcon, SlidersIcon, ChevIcon, MenuIcon, XIcon, UserBadgeIcon, FileIcon, CompassIcon, LogOutIcon } from './icons'
+import { LanguageSwitcher, GlobeIcon } from './LanguageSwitcher'
+import { LOCALES } from '@/locales'
 import { MobileTabBar } from './MobileTabBar'
 import { TOUR_DONE_KEY, TOUR_REPLAY_EVENT } from './ProductTour'
 import { useAuth } from '@/contexts/AuthContext'
@@ -47,7 +48,7 @@ interface HeaderProps {
 
 export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderProps) {
   const jobs = pageJobs ?? []
-  const { t: _t, locale } = useI18n()
+  const { t: _t, locale, setLocale } = useI18n()
   const H = _t.header
   const TR = _t.tour
   const [menuOpen,       setMenuOpen]       = useState(false)
@@ -307,63 +308,55 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
           </button>
 
           {menuOpen && (
+            // Solid, not glass: a translucent menu let the page's buttons and
+            // text show through it (Ron, 27.11). Rows are one height (44px on
+            // phones), each with an icon, grouped by what they're for.
             <div
-              className="absolute end-0 top-12 sm:top-10 w-56 rounded-xl bg-white/85 backdrop-blur-xl border border-white/60 shadow-floating overflow-hidden z-50 animate-ja-menu-in origin-top-right rtl:origin-top-left"
+              className="absolute end-0 top-12 sm:top-10 w-64 rounded-2xl bg-white border border-slate-100 shadow-floating overflow-hidden z-50 animate-ja-menu-in origin-top-right rtl:origin-top-left"
             >
-              <div className="px-3 py-3 border-b border-slate-50">
-                <div className="text-[13px] font-semibold text-slate-900">{displayName}</div>
+              <div className="px-4 py-3">
+                <div className="text-[13.5px] font-semibold text-slate-900 truncate">{displayName}</div>
                 <div className="text-[12px] text-slate-500 truncate">{user?.email ?? ''}</div>
               </div>
-              <button
-                onClick={() => { setMenuOpen(false); router.push('/profile-builder') }}
-                className="w-full text-start px-3 py-2.5 text-[13px] font-semibold flex items-center gap-2 active:bg-ja-ai/[.14] sm:hover:bg-ja-ai/[.08] text-ja-aiInk border-b border-slate-50 transition-colors"
-              >
-                <SparkIcon s={15} />
-                {H.profile_builder}
-              </button>
-              {/* Had no onClick — tapping it did nothing. Preferences live in
-                  the controls sheet on the matches tab. */}
-              <button
-                onClick={() => {
-                  setMenuOpen(false)
-                  if (onOpenControls && pathname === '/') { goToTab('feed'); onOpenControls() }
-                  else router.push('/?tab=feed')
-                }}
-                className="w-full text-start px-3 py-2 text-[13px] text-slate-700 active:bg-slate-100 sm:hover:bg-slate-50 transition-colors"
-              >
-                {H.profile_prefs}
-              </button>
-              <button
-                onClick={() => {
-                  setMenuOpen(false)
-                  try { window.localStorage.removeItem(TOUR_DONE_KEY) } catch { /* private mode */ }
-                  window.dispatchEvent(new Event(TOUR_REPLAY_EVENT))
-                  goToTab('overview')
-                }}
-                className="w-full text-start px-3 py-2 text-[13px] text-slate-700 active:bg-slate-100 sm:hover:bg-slate-50 transition-colors"
-              >
-                {TR.replay}
-              </button>
-              <div className="border-t border-slate-200" />
-              {process.env.NODE_ENV === 'development' && (
-                <button
-                  onClick={async () => {
+
+              <div className="border-t border-slate-100 py-1">
+                <MenuRow icon={<UserBadgeIcon s={16} />} label={H.my_profile}
+                  onClick={() => { setMenuOpen(false); router.push('/profile') }} />
+                <MenuRow icon={<FileIcon s={16} />} label={H.profile_builder}
+                  onClick={() => { setMenuOpen(false); router.push('/profile-builder') }} />
+                <MenuRow icon={<SlidersIcon s={16} />} label={H.profile_prefs}
+                  onClick={() => {
                     setMenuOpen(false)
-                    await signOut()
-                  }}
-                  className="w-full text-start px-3 py-2 text-[11.5px] font-mono text-amber-700 active:bg-amber-100 sm:hover:bg-amber-50 transition-colors flex items-center gap-1.5"
-                  title={H.force_reset_title}
-                >
-                  <span className="text-[10px] bg-amber-100 text-amber-600 font-bold px-1 rounded">DEV</span>
-                  {H.force_reset}
-                </button>
-              )}
-              <button
-                onClick={() => { setMenuOpen(false); void signOut() }}
-                className="w-full text-start px-3 py-2 text-[13px] text-rose-600 active:bg-rose-100 sm:hover:bg-rose-50 transition-colors"
-              >
-                {H.sign_out}
-              </button>
+                    if (onOpenControls && pathname === '/') { goToTab('feed'); onOpenControls() }
+                    else router.push('/?tab=feed')
+                  }} />
+                {/* Phones only: the header's language switcher is hidden below sm. */}
+                <MenuRow className="sm:hidden" icon={<GlobeIcon s={16} />} label={H.language}
+                  detail={LOCALES.find(l => l.code !== locale)?.native}
+                  onClick={() => {
+                    const next = LOCALES.find(l => l.code !== locale)
+                    if (next) setLocale(next.code)
+                    setMenuOpen(false)
+                  }} />
+              </div>
+
+              <div className="border-t border-slate-100 py-1">
+                <MenuRow icon={<CompassIcon s={16} />} label={TR.replay}
+                  onClick={() => {
+                    setMenuOpen(false)
+                    try { window.localStorage.removeItem(TOUR_DONE_KEY) } catch { /* private mode */ }
+                    window.dispatchEvent(new Event(TOUR_REPLAY_EVENT))
+                    goToTab('overview')
+                  }} />
+                <MenuRow tone="danger" icon={<LogOutIcon s={16} />} label={H.sign_out}
+                  onClick={() => { setMenuOpen(false); void signOut() }} />
+              </div>
+
+              <div className="border-t border-slate-100 px-4 py-2.5 flex items-center gap-2 text-[11.5px] text-slate-400">
+                <Link href="/privacy" onClick={() => setMenuOpen(false)} className="sm:hover:text-slate-600 transition-colors py-1">{H.privacy}</Link>
+                <span aria-hidden="true">·</span>
+                <Link href="/terms" onClick={() => setMenuOpen(false)} className="sm:hover:text-slate-600 transition-colors py-1">{H.terms}</Link>
+              </div>
             </div>
           )}
         </div>
@@ -477,5 +470,27 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
     </header>
     <MobileTabBar tab={activeTab} onTab={t => setTab?.(t)} />
     </>
+  )
+}
+
+// One row of the avatar menu: icon, label, optional detail at the end.
+function MenuRow({ icon, label, detail, onClick, tone = 'default', className = '' }: {
+  icon: ReactNode
+  label: string
+  detail?: string
+  onClick: () => void
+  tone?: 'default' | 'danger'
+  className?: string
+}) {
+  const color = tone === 'danger'
+    ? 'text-rose-600 active:bg-rose-50 sm:hover:bg-rose-50'
+    : 'text-slate-700 active:bg-slate-100 sm:hover:bg-slate-50'
+  return (
+    <button type="button" onClick={onClick}
+      className={`w-full h-11 sm:h-9 px-4 flex items-center gap-3 text-start text-[13.5px] transition-colors focus-visible:outline-none focus-visible:bg-slate-50 ${color} ${className}`}>
+      <span aria-hidden="true" className={tone === 'danger' ? 'text-rose-500' : 'text-slate-400'}>{icon}</span>
+      <span className="flex-1 truncate">{label}</span>
+      {detail && <span className="text-[12px] text-slate-400">{detail}</span>}
+    </button>
   )
 }

@@ -268,8 +268,10 @@ export interface Dict {
     help_label:   string
     notifications:string
     profile_prefs:string
-    force_reset:  string
-    force_reset_title: string
+    my_profile:   string
+    language:     string
+    privacy:      string
+    terms:        string
     sign_out:     string
     preferences: string
     alerts_title: string
