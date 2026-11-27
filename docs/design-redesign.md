@@ -6,10 +6,10 @@ Audience: `docs/target-audience.md` (31 October 2026). Prototypes Ron approved t
 
 ## What does not change
 
-- **The palette, exactly.** Every `ja-*` token: teal `#0D9488` and its hover `#0F766E`, the teal-50 surface, harbor `#134E4A`, ink-deep `#0A1F1C`, Ariel violet `#7C3AED` and violet-50, the slate canvas and ink, and the score-band colours in `src/lib/scoreBand.ts`. New colours are not added; new transparencies of existing ones are.
+- **The palette, exactly.** Every `ja-*` token: teal `#0D9488` and its hover `#0F766E`, the teal-50 surface, harbor `#134E4A`, ink-deep `#0A1F1C`, Ariel's cyan-teal `#367A8E` with its ink `#1F5F70` and surface `#EEF5F7` (violet until 2026-11-27, when Ron changed it), the slate canvas and ink, and the score-band colours in `src/lib/scoreBand.ts`. New colours are not added; new transparencies of existing ones are.
 - **The fonts.** Inter for Latin, Assistant for Hebrew.
 - **The logo.** `src/components/ui/Logo.tsx` (teal square, two lines and a check). It may be replaced later; until then every surface uses it.
-- **Ariel's chat colours, as the product has them.** The user's message sits on teal-50, Ariel's answer on white with a slate-100 border, Ariel's avatar is the violet-to-teal gradient with an "A". Violet marks Ariel's identity (avatar, header, focus ring of her input), not her message bubbles.
+- **Ariel's chat colours, as the product has them.** The user's message sits on teal-50, Ariel's answer on white with a slate-100 border, Ariel's avatar is her cyan-teal gradient (`#4592A6` to `#2A6577`). Her cyan-teal marks Ariel's identity (avatar, header, focus ring of her input), not her message bubbles.
 - **Accessibility.** Body text at 4.5:1 contrast or better, a visible focus ring on every control, the accessibility menu's preferences, right-to-left layout.
 
 ## The rules

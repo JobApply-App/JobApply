@@ -328,7 +328,22 @@ export interface Dict {
     // Greeting and subline are separate sentences on purpose: the name is
     // interpolated into the first, and Hebrew orders them differently.
     greeting:           string   // takes {greeting} and {name}
-    subline:            string
+    // The morning brief at the top of the home page (lib/morningBrief.ts).
+    brief: {
+      status: string
+      strong_one: string; strong_many: string   // take {n}
+      fresh: string; searching: string          // fresh takes {n}
+      sub_fresh: string; sub_quiet: string      // sub_fresh takes {n}
+      cta_review: string; cta_ariel: string
+      new_label: string
+      stat_strong: string; stat_apps: string; stat_avg: string
+      steps_title: string
+      steps_done: string                        // takes {n} and {total}
+      step_review: { title: string; body: string }
+      step_tailor: { title: string; body: string }   // take {company} and {score}
+      step_ariel:  { title: string; body: string }
+      done: string
+    }
     refreshing:         string
     as_of:              string   // takes {time}
     confidence_title:   string
@@ -343,12 +358,6 @@ export interface Dict {
     // Wording for the score band on this screen is softer than the feed's:
     // it describes profile progress, not a job match.
     bands: { exceptional: string; strong: string; moderate: string; weak: string; poor: string }
-    glance_title:       string
-    kpi: {
-      scanned:  { label: string; sub: string }
-      actions:  { label: string; sub: string }
-      avg:      { label: string; sub: string }
-    }
     analytics_rate_limited: string
     analytics_failed:       string
     quick_actions:      string
@@ -373,8 +382,6 @@ export interface Dict {
     next_step_label: string
     next: {
       cv:         { title: string; body: string; cta: string }
-      review:     { title: string; body: string; cta: string }
-      strengthen: { title: string; body: string; cta: string }
     }
     more_actions: string
     score_change: {
