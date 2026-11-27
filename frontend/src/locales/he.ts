@@ -974,6 +974,7 @@ export const he = {
     attachment_preview: 'תצוגה מקדימה של הקובץ',
     accept_challenge: 'לקבל את האתגר ←',
     load_failed: 'לא הצלחנו לטעון את ציוני האמון',
+    load_failed_body: 'זו תקלה זמנית אצלנו, והנתונים שלך לא נפגעו. אפשר לנסות שוב בעוד רגע.',
     load_caps_failed: 'לא הצלחנו לטעון את היכולות',
     probe_start_failed: 'לא הצלחנו להתחיל את השאלה. נסו שוב.',
     caps_title: 'יכולות',

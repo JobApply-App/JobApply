@@ -789,6 +789,7 @@ export interface Dict {
     attachment_preview: string
     accept_challenge: string
     load_failed: string
+    load_failed_body: string
     load_caps_failed: string
     probe_start_failed: string
     caps_title: string
