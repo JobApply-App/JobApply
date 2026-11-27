@@ -6,53 +6,20 @@
 // stagger, numbers count up, score rings draw. All of it collapses to the end
 // state under reduced motion (OS setting or the accessibility menu).
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { resolveDisplayName, getGreetingName } from '@/lib/nameUtils'
 import { timeOfDay, todayLabel } from '@/lib/greeting'
-import { getScoreBand } from '@/lib/scoreBand'
 import { headline, loadDone, markDone, type StepId } from '@/lib/morningBrief'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import { buttonClasses } from '../ui/Button'
 import { Skeleton } from '../ui/Skeleton'
+import { ScoreRing } from '../ui/ScoreRing'
+import { useReducedMotion, useCountUp } from '@/hooks/useMotion'
 import { ArrowIcon, CheckIcon, FileIcon, FilterIcon, SparkIcon } from '../icons'
 
 const delay = (ms: number) => ({ animationDelay: `${ms}ms` })
-
-function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false)
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const sync = () => setReduced(mq.matches || document.documentElement.classList.contains('a11y-no-animation'))
-    sync()
-    mq.addEventListener('change', sync)
-    return () => mq.removeEventListener('change', sync)
-  }, [])
-  return reduced
-}
-
-/** Counts from the last shown value up to `target`, easing out. */
-function useCountUp(target: number | null, reduced: boolean, ms = 1100): number | null {
-  const [shown, setShown] = useState<number | null>(null)
-  const from = useRef(0)
-  useEffect(() => {
-    if (target === null) return
-    if (reduced) { setShown(target); from.current = target; return }
-    const start = performance.now(), a = from.current
-    let raf = 0
-    const step = (now: number) => {
-      const p = Math.min(1, (now - start) / ms)
-      const v = Math.round(a + (target - a) * (1 - Math.pow(1 - p, 4)))
-      setShown(v)
-      if (p < 1) raf = requestAnimationFrame(step)
-      else from.current = target
-    }
-    raf = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(raf)
-  }, [target, reduced, ms])
-  return shown
-}
 
 // ── Hero: the sentence and the number ────────────────────────────────────────
 
@@ -217,29 +184,6 @@ export function TodaySteps({ userId, topJob, hasMatches, onReview, onTailor, onA
 }
 
 // ── The jobs worth opening first ─────────────────────────────────────────────
-
-const RING_R = 26
-const RING_LEN = 2 * Math.PI * RING_R
-
-function ScoreRing({ score }: { score: number }) {
-  const band = getScoreBand(score)
-  return (
-    <span className="relative h-16 w-16 shrink-0" aria-hidden>
-      <svg width="64" height="64" viewBox="0 0 64 64" className="-rotate-90">
-        <circle cx="32" cy="32" r={RING_R} fill="none" stroke="#F1F5F9" strokeWidth="6" />
-        <circle
-          cx="32" cy="32" r={RING_R} fill="none" stroke={band.hexFg} strokeWidth="6" strokeLinecap="round"
-          strokeDasharray={RING_LEN}
-          className="animate-ja-ring"
-          style={{ strokeDashoffset: RING_LEN * (1 - score / 100), ['--ring-len' as string]: RING_LEN }}
-        />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[15px] font-extrabold tracking-[-0.03em] tabular-nums text-slate-900">
-        {score.toFixed(1)}
-      </span>
-    </span>
-  )
-}
 
 export function TopMatchCards({ jobs, loading, onOpen, onSeeAll }: {
   jobs:     ApiFeedJob[]

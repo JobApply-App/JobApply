@@ -10,6 +10,7 @@ import { JobCard } from './JobCard'
 import { InfoTip } from './ui/InfoTip'
 import { buttonClasses } from './ui/Button'
 import { ApplierPreview } from './ApplierPreview'
+import { FocusView } from './matches/FocusView'
 
 // ── Preference filter helpers (client-side, Matches page only) ─────────────────
 
@@ -107,6 +108,7 @@ function toJob(f: ApiFeedJob, rank: number): Job {
 }
 
 const PAGE_SIZE = 50
+const VIEW_KEY = 'ja.matches.view'
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
 
@@ -312,6 +314,30 @@ function _applyCompletenessFilter(data: ApiFeedJob[]): ApiFeedJob[] {
   )
 }
 
+
+// ── Focus | List ─────────────────────────────────────────────────────────────
+
+function ViewToggle({ view, onChange }: { view: 'focus' | 'list'; onChange: (v: 'focus' | 'list') => void }) {
+  const V = useI18n().t.job_feed.focus
+  return (
+    <div role="radiogroup" aria-label={V.view_label} className="inline-flex h-9 items-center rounded-full bg-slate-100 p-1">
+      {(['focus', 'list'] as const).map(v => (
+        <button
+          key={v}
+          role="radio"
+          aria-checked={view === v}
+          onClick={() => onChange(v)}
+          className={`h-7 rounded-full px-3.5 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-ja-ui ease-ja-out ${
+            view === v ? 'bg-white text-slate-900 shadow-elevation-1' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          {v === 'focus' ? V.view_focus : V.view_list}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function JobFeed({
   onFeedRefreshed, preferences, expandJobId, userId,
   initialFeedJobs, initialFeedJobsLoading, initialFeedJobsFailed,
@@ -347,6 +373,16 @@ export function JobFeed({
   // Jobs whose score dropped below TOP_FITS_THRESHOLD while the card was open.
   // They remain visible (with a badge) until the next manual loadJobs().
   const [belowThresholdIds, setBelowThresholdIds] = useState<ReadonlySet<string>>(new Set())
+  // One match at a time (the default) or the full list. Remembered in this
+  // browser only: a display preference, not profile data.
+  const [view, setView] = useState<'focus' | 'list'>('focus')
+  useEffect(() => {
+    try { if (localStorage.getItem(VIEW_KEY) === 'list') setView('list') } catch { /* private mode */ }
+  }, [])
+  const chooseView = useCallback((v: 'focus' | 'list') => {
+    setView(v)
+    try { localStorage.setItem(VIEW_KEY, v) } catch { /* private mode */ }
+  }, [])
 
   const sortLocked = activeJobIds.size > 0
 
@@ -653,7 +689,8 @@ export function JobFeed({
 
   const visible     = displayList.slice(0, pageEnd)
   const hasMore     = displayList.length > pageEnd
-  const totalShown  = visible.length
+  // The focus view walks the whole list; only the list view pages it.
+  const totalShown  = view === 'focus' ? displayList.length : visible.length
 
   return (
     <section className="w-full">
@@ -662,7 +699,7 @@ export function JobFeed({
         {/* ── Page heading + sync ───────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 inline-flex items-center gap-1.5">
+            <h1 className="text-[26px] sm:text-[32px] font-bold leading-tight tracking-[-0.03em] text-slate-900 inline-flex items-center gap-1.5">
               {F.heading}
               <InfoTip text={C.ats_info} label={C.ats_info_label} />
             </h1>
@@ -670,11 +707,13 @@ export function JobFeed({
               {F.subheading}
             </p>
           </div>
+          <div className="shrink-0 flex items-center gap-2">
+          <ViewToggle view={view} onChange={chooseView} />
           <button
             onClick={handleSync}
             disabled={syncing || loading}
             title={F.sync_title}
-            className="shrink-0 inline-flex items-center gap-2 h-9 px-4 rounded-lg text-[13px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none"
+            className={buttonClasses({ variant: 'secondary', size: 'sm' })}
           >
             {syncing ? <Spinner /> : (
               <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -684,8 +723,9 @@ export function JobFeed({
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
               </svg>
             )}
-            {syncing ? F.syncing : F.sync_cta}
+            <span className="hidden sm:inline">{syncing ? F.syncing : F.sync_cta}</span>
           </button>
+          </div>
         </div>
 
         {/* ── URL submission bar ────────────────────────────────────────────── */}
@@ -881,6 +921,19 @@ export function JobFeed({
               </div>
             )}
           </div>
+        ) : view === 'focus' ? (
+          <FocusView
+            jobs={displayList}
+            userId={userId}
+            topFitThreshold={TOP_FITS_THRESHOLD}
+            belowThresholdIds={belowThresholdIds}
+            paused={reviewJob !== null}
+            onSkip={handleSkip}
+            onSave={handleSave}
+            onTailorCV={handleTailorCV}
+            onInteractionChange={handleInteractionChange}
+            onMarkApplied={handleMarkApplied}
+          />
         ) : (
           <>
             <div className="space-y-8">

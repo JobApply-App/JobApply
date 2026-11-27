@@ -196,6 +196,10 @@ const config: Config = {
         'ja-rise':     'ja-rise 400ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-reveal':   'ja-reveal 700ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-ring':     'ja-ring 1.4s cubic-bezier(0.23, 1, 0.32, 1) 400ms both',
+        // The focus view on Matches: the next job arrives quickly (it is a
+        // frequent action), its ring draws without the brief's delay.
+        'ja-swap':       'ja-reveal 280ms cubic-bezier(0.23, 1, 0.32, 1) both',
+        'ja-ring-quick': 'ja-ring 700ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-fill':     'ja-fill 1s linear both',
         'ja-from-end':   'ja-from-end 280ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-from-start': 'ja-from-start 280ms cubic-bezier(0.23, 1, 0.32, 1) both',
