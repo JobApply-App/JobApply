@@ -1535,8 +1535,6 @@ export interface Dict {
     last_seen: string
     show_details: string
     hide_details: string
-    logo_alt: string
-    company_fallback: string
     load_failed: string
     retry: string
     empty: string

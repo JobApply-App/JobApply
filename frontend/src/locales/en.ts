@@ -1786,8 +1786,6 @@ export const en = {
     last_seen: 'Last seen {when}',
     show_details: 'Show details',
     hide_details: 'Hide details',
-    logo_alt: '{company} logo',
-    company_fallback: 'Company',
     load_failed: 'Failed to load jobs.',
     retry: 'Retry',
     empty: 'No jobs were found.',

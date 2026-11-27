@@ -11,6 +11,8 @@ import type { ApiFeedJob } from '@/lib/apiTypes'
 import { localizeReason } from '@/lib/reasonLabel'
 import { moveCursor, resolveIndex, type FocusCursor } from '@/lib/focusQueue'
 import { ScoreRing } from '../ui/ScoreRing'
+import { CompanyLogo } from '../ui/CompanyLogo'
+import { getScoreBand } from '@/lib/scoreBand'
 import { buttonClasses } from '../ui/Button'
 import { JobCard } from '../JobCard'
 
@@ -133,13 +135,16 @@ export function FocusView({
           </div>
 
           <div className="mt-6 flex flex-col-reverse items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
+            <div className="flex min-w-0 items-start gap-4">
+              <CompanyLogo company={job.company} size={52} />
+              <div className="min-w-0">
               <h2 dir="auto" className="text-[22px] sm:text-[26px] font-bold leading-tight tracking-[-0.02em] text-slate-900">
                 {job.title}
               </h2>
               <p dir="auto" className="mt-1.5 text-[15px] text-slate-600">
                 {job.company}{location && <span className="text-slate-400"> · {location}</span>}
               </p>
+              </div>
             </div>
             <ScoreRing score={job.match_score} size={112} stroke={8} label={F.match} quick />
           </div>
@@ -198,12 +203,13 @@ export function FocusView({
                     onClick={() => jump(idx + 1 + i)}
                     className="group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-start transition-colors duration-ja-ui hover:bg-white active:scale-[0.98]"
                   >
-                    <ScoreRing score={j.match_score} size={36} stroke={3.5} quick>
-                      <span className="text-[10px]">{Math.round(j.match_score)}</span>
-                    </ScoreRing>
-                    <span className="min-w-0">
+                    <CompanyLogo company={j.company} size={36} />
+                    <span className="min-w-0 flex-1">
                       <span dir="auto" className="block truncate text-[13px] font-medium text-slate-800">{j.title}</span>
                       <span dir="auto" className="block truncate text-[12px] text-slate-500">{j.company}</span>
+                    </span>
+                    <span className="shrink-0 text-[12px] font-bold tabular-nums" style={{ color: getScoreBand(j.match_score).hexFg }}>
+                      {j.match_score.toFixed(1)}
                     </span>
                   </button>
                 </li>

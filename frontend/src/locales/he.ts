@@ -1823,8 +1823,6 @@ export const he = {
     last_seen: 'נראתה לאחרונה {when}',
     show_details: 'הצגת פרטים',
     hide_details: 'הסתרת פרטים',
-    logo_alt: 'הלוגו של {company}',
-    company_fallback: 'חברה',
     load_failed: 'לא הצלחנו לטעון את המשרות.',
     retry: 'נסו שוב',
     empty: 'לא נמצאו משרות.',

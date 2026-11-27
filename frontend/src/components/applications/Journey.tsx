@@ -11,6 +11,7 @@ import { formatRelativeTime } from '@/lib/relativeTime'
 import { stageLabel } from '@/lib/stages'
 import { STEPS, journeyCounts, nextStep, parseUpdated, stepIndex, type NextStep } from '@/lib/journey'
 import { useCountUp, useReducedMotion } from '@/hooks/useMotion'
+import { CompanyLogo } from '../ui/CompanyLogo'
 
 // Ink deepens along the path; the offer is the success green.
 const STEP_INK = ['#64748B', '#0D9488', '#134E4A', '#059669'] as const
@@ -114,9 +115,7 @@ export function JourneyRows({ items, action }: { items: AppListItem[]; action: (
             key={item.application_id}
             className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl p-3 sm:p-4 transition-colors duration-ja-ui hover:bg-slate-50"
           >
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-[13px] font-extrabold text-slate-700" aria-hidden>
-              {initials(item.company)}
-            </span>
+            <CompanyLogo company={item.company} size={40} />
             <div className="min-w-0 flex-[1_1_200px]">
               {/* dir="auto" keeps an English title readable in the Hebrew UI (it
                   was cut from its start); the alignment still follows the UI,
@@ -150,11 +149,4 @@ export function JourneyRows({ items, action }: { items: AppListItem[]; action: (
       })}
     </ol>
   )
-}
-
-/** "monday.com" → "MO", "The Estée Lauder Companies" → "TE". */
-function initials(company: string): string {
-  const words = company.trim().split(/\s+/).filter(Boolean)
-  const s = words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? '?').slice(0, 2)
-  return s.toUpperCase()
 }

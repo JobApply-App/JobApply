@@ -463,3 +463,60 @@ def get_all_jobs_filter_options(*, session: Optional[Session] = None) -> AllJobs
     finally:
         if owns_session:
             session.close()
+
+
+# ── Company logos ─────────────────────────────────────────────────────────────
+# The LinkedIn scraper stores each job's company logo; every other screen
+# (matches, applications, Ariel) knows only the company's name. Looked up by
+# the same normalized key the table already carries.
+
+MAX_LOGO_NAMES = 100
+
+# LinkedIn's grey "no logo" placeholder is served from static.licdn.com;
+# real company logos come from media.licdn.com. Showing the placeholder would
+# be worse than the initials the frontend falls back to.
+_PLACEHOLDER_LOGO_HOST = "static.licdn.com"
+
+
+def usable_logo(url: Optional[str]) -> Optional[str]:
+    if not url or not url.startswith("https://") or _PLACEHOLDER_LOGO_HOST in url:
+        return None
+    return url
+
+
+def get_company_logos(names: list[str], *, session: Optional[Session] = None) -> dict[str, str]:
+    """
+    {name as given: logo url} for the names whose company has a real logo in
+    `all_jobs`; the most recently seen row wins. Names without one are absent.
+    """
+    keys: dict[str, list[str]] = {}
+    for name in names[:MAX_LOGO_NAMES]:
+        key = normalize_company_key(name)
+        if key:
+            keys.setdefault(key, []).append(name)
+    if not keys:
+        return {}
+
+    stmt = (
+        select(_TABLE.c.company_name_normalized, _TABLE.c.company_logo_url)
+        .where(
+            _TABLE.c.company_name_normalized.in_(list(keys)),
+            _TABLE.c.company_logo_url.is_not(None),
+            ~_TABLE.c.company_logo_url.contains(_PLACEHOLDER_LOGO_HOST),
+        )
+        .distinct(_TABLE.c.company_name_normalized)
+        .order_by(_TABLE.c.company_name_normalized, _TABLE.c.last_seen_at.desc())
+    )
+    owns_session = session is None
+    session = session or get_pg_session()
+    try:
+        out: dict[str, str] = {}
+        for key, url in session.execute(stmt).all():
+            logo = usable_logo(url)
+            if logo:
+                for name in keys.get(key, []):
+                    out[name] = logo
+        return out
+    finally:
+        if owns_session:
+            session.close()

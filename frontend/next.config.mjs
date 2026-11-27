@@ -22,7 +22,11 @@ const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  // Company logos come from LinkedIn's image CDN (stored by the scraper,
+  // served by /api/all-jobs and /api/all-jobs/company-logos). Without it
+  // every logo was blocked and showed as a letter. An image host cannot
+  // receive a token or a CV, so this keeps what img-src protects.
+  "img-src 'self' data: blob: https://media.licdn.com",
   "font-src 'self' data:",
   `connect-src 'self' ${supabaseOrigin}`.trim(),
   // The CV preview is an <iframe> of a data: PDF; downloads use blob: URLs.

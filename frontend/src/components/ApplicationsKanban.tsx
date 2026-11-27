@@ -8,6 +8,7 @@ import { fetchCrmBoard, moveCrmCard, deleteApplication } from '@/lib/api'
 import type { CrmBoard, CrmCard, CrmColumn } from '@/lib/apiTypes'
 import { TOKENS } from '@/lib/tokens'
 import { useDialogA11y } from '@/hooks/useDialogA11y'
+import { CompanyLogo } from './ui/CompanyLogo'
 
 // ── Stage visual config ───────────────────────────────────────────────────────
 
@@ -108,7 +109,8 @@ function CardDetailModal({ card, currentStage, onClose, onMove, moving, onDelete
           {/* Header */}
           <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-slate-100">
             <div className="min-w-0 flex-1 pr-3">
-              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+              <p className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                <CompanyLogo company={card.company} size={22} radius={6} />
                 {card.company}
               </p>
               <h3 id="card-detail-title" className="text-[15px] font-bold text-slate-900 leading-snug">
@@ -326,8 +328,9 @@ const KanbanCard = memo(function KanbanCard({
         </div>
       </div>
 
-      <p className="text-[11px] font-medium text-slate-500 mb-2 truncate">
-        {card.company}
+      <p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 mb-2 min-w-0">
+        <CompanyLogo company={card.company} size={18} radius={5} />
+        <span className="truncate">{card.company}</span>
       </p>
 
       <div className="flex items-center justify-between">

@@ -9,6 +9,7 @@ import { useAllJobs } from '@/hooks/useAllJobs'
 import { useAllJobsFilterOptions } from '@/hooks/useAllJobsFilterOptions'
 import type { AllJobItem, AllJobsFilters, AllJobsSortBy } from '@/lib/api'
 import { TOKENS } from '@/lib/tokens'
+import { CompanyLogo } from './ui/CompanyLogo'
 
 // ── URL <-> pagination state ──────────────────────────────────────────────────
 
@@ -61,30 +62,6 @@ function formatLocation(location: AllJobItem['location']): string {
   const parts = [location.city, location.district, location.country]
     .filter((p): p is string => !!p && p.trim() !== '')
   return parts.length ? parts.join(', ') : '—'
-}
-
-// ── Company logo with fallback ────────────────────────────────────────────────
-
-function CompanyLogo({ url, company }: { url: string | null; company: string | null }) {
-  const AJ = useI18n().t.all_jobs
-  const [failed, setFailed] = useState(false)
-  const label = (company ?? '?').charAt(0).toUpperCase()
-  if (!url || failed) {
-    return (
-      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-[11px] font-semibold text-slate-400 shrink-0">
-        {label}
-      </div>
-    )
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt={AJ.logo_alt.replace('{company}', company ?? AJ.company_fallback)}
-      className="w-8 h-8 rounded-lg object-contain bg-white border border-slate-100 shrink-0"
-      onError={() => setFailed(true)}
-    />
-  )
 }
 
 // ── Row ───────────────────────────────────────────────────────────────────────
@@ -154,7 +131,7 @@ function JobRow({ job }: { job: AllJobItem }) {
       }`}
     >
       <div className="flex items-start gap-3">
-        <CompanyLogo url={job.company_logo_url} company={job.company_name} />
+        <CompanyLogo url={job.company_logo_url} company={job.company_name} size={40} />
 
         <div className="flex-1 min-w-0" dir="auto" style={{ textAlign: 'start', unicodeBidi: 'plaintext' }}>
           <div className="flex items-center gap-2 flex-wrap">
