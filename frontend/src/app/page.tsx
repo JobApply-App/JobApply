@@ -13,6 +13,7 @@ import { JobFeed }              from '@/components/JobFeed'
 import { ApplicationsTab }      from '@/components/ApplicationsTab'
 import { ArielCommand }         from '@/components/ariel/ArielCommand'
 import { AllJobsTab }           from '@/components/AllJobsTab'
+import { prefetchMarket }       from '@/hooks/useAllJobs'
 import { AnalyzeTrigger }       from '@/components/AgentStatusCenter'
 import { ApplierPreview }       from '@/components/ApplierPreview'
 import AuthGuard                from '@/components/AuthGuard'
@@ -163,6 +164,14 @@ function HomePageContent() {
   const { t } = useI18n()
   const { user } = useAuth()
   const router    = useRouter()
+
+  // The Market's first page starts loading a moment after sign-in, so
+  // opening it does not wait on the request (Ron 27.11).
+  useEffect(() => {
+    if (!user?.id) return
+    const id = setTimeout(prefetchMarket, 1500)
+    return () => clearTimeout(id)
+  }, [user?.id])
 
   const searchParams = useSearchParams()
 

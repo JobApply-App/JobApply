@@ -3,18 +3,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS } from '@/lib/tokens'
 import { getScoreBand } from '@/lib/scoreBand'
-import type { ApiFeedJob, ScoreBreakdown, ConfidenceMatrixResponse, TrustScoreResponse } from '@/lib/apiTypes'
+import type { ApiFeedJob, ScoreBreakdown, TrustScoreResponse } from '@/lib/apiTypes'
 import { Skeleton } from './ui/Skeleton'
 import { buttonClasses } from './ui/Button'
 import { SparkIcon, UserBadgeIcon, FileIcon, SlidersIcon, SearchIcon, CheckIcon } from './icons'
 import { BriefHero, TodaySteps, TopMatchCards } from './home/MorningBrief'
 import { strongCount } from '@/lib/morningBrief'
 import { useNavCounts } from '@/hooks/useNavCounts'
-import { TrustDashboard } from './TrustDashboard'
 import { ProductTour } from './ProductTour'
 import { useChat } from '@/contexts/ChatContext'
 import {
-  streamDashboardOverview, fetchScraperStatus, fetchRolePreferences, RateLimitError,
+  streamDashboardOverview, fetchScraperStatus, fetchRolePreferences, fetchTrustScore, RateLimitError,
   type AnalyticsOverview, type ScraperStatus, type DashboardOverviewResponse,
 } from '@/lib/api'
 import { getLastKnownDashboardSnapshot, saveDashboardSnapshot, clearDashboardSnapshot } from '@/lib/dashboardLocalCache'
@@ -680,13 +679,24 @@ export function Overview({
   const [overviewLoading, setOverviewLoading] = useState(() => lastKnownSnapshot === null)
   const [overviewError,   setOverviewError]   = useState<'rate_limited' | 'failed' | null>(null)
 
-  const [confidenceMatrixData, setConfidenceMatrixData] = useState<ConfidenceMatrixResponse | undefined>(
-    () => lastKnownSnapshot?.data.confidence_matrix
-  )
   const [trustScoreData, setTrustScoreData] = useState<TrustScoreResponse | undefined>(
     () => lastKnownSnapshot?.data.trust_score
   )
-  const [trustScoreStreamError, setTrustScoreStreamError] = useState<string | null>(null)
+
+  // The score card reads the trust score the stream brought (the radar that
+  // used to relay it now lives on the Profile page), and asks for it again
+  // when Ariel changes the profile mid-session.
+  useEffect(() => {
+    if (trustScoreData) handleScoreChange(trustScoreData.overall_trust_score ?? 0, trustScoreData.score_breakdown)
+  }, [trustScoreData, handleScoreChange])
+
+  const firstProfileVersion = useRef(profileVersion)
+  useEffect(() => {
+    if (!userId || profileVersion === firstProfileVersion.current) return
+    let live = true
+    fetchTrustScore(userId).then(d => { if (live) setTrustScoreData(d) }).catch(() => { /* the last score stays */ })
+    return () => { live = false }
+  }, [profileVersion, userId])
 
   // True until ALL 4 sections have been confirmed fresh by this mount's
   // stream — a page-level "Refreshing…" signal that sits ALONGSIDE (not
@@ -741,21 +751,15 @@ export function Overview({
         // the banner is absent by default, so "no update yet" reads fine.
       } else if (event.section === 'confidence_matrix') {
         if ('data' in event) {
-          setConfidenceMatrixData(event.data)
           collected.confidence_matrix = event.data
           maybeFinish()
         }
-        // Non-fatal — TrustDashboard already renders an empty radar chart
-        // when no confidence-matrix data is available (its own pre-existing
-        // fallback for this exact case).
+        // Kept only for the snapshot; the radar now lives on the Profile page.
       } else if (event.section === 'trust_score') {
         if ('data' in event) {
           setTrustScoreData(event.data)
-          setTrustScoreStreamError(null)
           collected.trust_score = event.data
           maybeFinish()
-        } else {
-          setTrustScoreStreamError(event.error)
         }
       }
     }).catch(err => {
@@ -888,33 +892,6 @@ export function Overview({
           onDismissChange={() => { setScoreChange(null); setChatSpan(null) }}
         />
       </div>
-
-      {/* ── Confidence Matrix (TrustDashboard) ──────────────────────────── */}
-      {/* Wrapped in a premium surface so it blends with the KPI cards above. */}
-      {/* Mounted immediately (not gated on overview/scraper-status loading —
-          each widget is independent now): TrustDashboard manages its OWN
-          loading skeleton and error state internally. deferInitialFetch
-          tells it the parent is streaming trust_score/confidence_matrix in
-          progressively and it must NOT fire its own independent fetch (that
-          would duplicate the request the stream above already covers);
-          initialTrustScore/initialConfidenceMatrix/streamError feed each
-          section in the instant its own NDJSON line arrives, and it
-          re-renders with real data the moment either resolves, independent
-          of whether the other one (or the KPI/scraper sections) has. */}
-      <section
-        className="rounded-2xl bg-white border border-slate-100 p-6"
-        style={{ boxShadow: TOKENS.shadow.card }}
-      >
-        <TrustDashboard
-          userId={userId}
-          onScoreChange={handleScoreChange}
-          profileVersion={profileVersion}
-          deferInitialFetch
-          initialTrustScore={trustScoreData}
-          initialConfidenceMatrix={confidenceMatrixData}
-          streamError={trustScoreStreamError}
-        />
-      </section>
 
       {/* ── Secondary actions, quietly ───────────────────────────────────── */}
       <MoreActions onGo={onGo} />

@@ -40,6 +40,45 @@ function _cacheSet(key: string, data: AllJobsPage): void {
   _pageCache.set(key, data)
 }
 
+// ── Shared loads and the early start ─────────────────────────────────────────
+// Entering the Market waited on its first request (about a second, Ron
+// 27.11). The app now starts that request quietly once the user is signed in,
+// and a screen that asks for a page already on its way joins that request
+// instead of sending another.
+const _inflight = new Map<string, Promise<AllJobsPage>>()
+
+/** A page from the cache, a request already on its way, or a new request. */
+export function loadAllJobsPage(
+  page: number, pageSize: number, filters?: AllJobsFilters, sortBy?: AllJobsSortBy,
+): Promise<AllJobsPage> {
+  const key = _cacheKey(page, pageSize, JSON.stringify(filters ?? {}), sortBy)
+  const cached = _pageCache.get(key)
+  if (cached) return Promise.resolve(cached)
+  const going = _inflight.get(key)
+  if (going) return going
+  const p = fetchAllJobs(page, pageSize, filters, sortBy)
+    .then((data) => { _cacheSet(key, data); return data })
+    .finally(() => { _inflight.delete(key) })
+  _inflight.set(key, p)
+  return p
+}
+
+export function peekAllJobsPage(
+  page: number, pageSize: number, filters?: AllJobsFilters, sortBy?: AllJobsSortBy,
+): AllJobsPage | undefined {
+  return _pageCache.get(_cacheKey(page, pageSize, JSON.stringify(filters ?? {}), sortBy))
+}
+
+/** The Market's opening view and its two counts, so entering it is instant. */
+export const MARKET_FIRST_PAGE = { page: 1, pageSize: 25, sortBy: 'recent' as AllJobsSortBy }
+export const MARKET_RECENT_FILTER: AllJobsFilters = { posted_within_hours: 24 }
+export function prefetchMarket(): void {
+  const ignore = () => { /* best-effort; the screen asks again when opened */ }
+  loadAllJobsPage(MARKET_FIRST_PAGE.page, MARKET_FIRST_PAGE.pageSize, {}, MARKET_FIRST_PAGE.sortBy).catch(ignore)
+  loadAllJobsPage(1, 1).catch(ignore)
+  loadAllJobsPage(1, 1, MARKET_RECENT_FILTER).catch(ignore)
+}
+
 export function useAllJobs(
   page: number, pageSize: number, filters?: AllJobsFilters, sortBy?: AllJobsSortBy,
 ): UseAllJobsResult {
@@ -98,7 +137,8 @@ export function useAllJobs(
     }
 
     setLoading(true)
-    fetchAllJobs(page, pageSize, parsedFilters, sortBy, controller.signal)
+    const going = _inflight.get(key)
+    ;(going ?? fetchAllJobs(page, pageSize, parsedFilters, sortBy, controller.signal))
       .then((data) => {
         _cacheSet(key, data)
         applyData(data)

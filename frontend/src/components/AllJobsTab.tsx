@@ -6,9 +6,9 @@ import type { Dict } from '@/locales'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { useAllJobs } from '@/hooks/useAllJobs'
+import { useAllJobs, loadAllJobsPage, peekAllJobsPage, MARKET_RECENT_FILTER } from '@/hooks/useAllJobs'
 import { useAllJobsFilterOptions } from '@/hooks/useAllJobsFilterOptions'
-import { fetchAllJobs, startAnalysis, type AllJobItem, type AllJobsFilters, type AllJobsSortBy } from '@/lib/api'
+import { startAnalysis, type AllJobItem, type AllJobsFilters, type AllJobsSortBy } from '@/lib/api'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import { ApiError } from '@/lib/errors'
 import { useAuth } from '@/contexts/AuthContext'
@@ -711,18 +711,18 @@ function MarketHeader() {
   const { session, loading: authLoading } = useAuth()
   const userId = session?.user?.id
   const reduced = useReducedMotion()
-  const [counts, setCounts] = useState<{ total: number; recent: number } | null>(null)
+  const [counts, setCounts] = useState<{ total: number; recent: number } | null>(() => {
+    const all = peekAllJobsPage(1, 1), day = peekAllJobsPage(1, 1, MARKET_RECENT_FILTER)
+    return all && day ? { total: all.pagination.total_items, recent: day.pagination.total_items } : null
+  })
 
   useEffect(() => {
     if (authLoading || !userId) return
-    const ctrl = new AbortController()
-    Promise.all([
-      fetchAllJobs(1, 1, undefined, undefined, ctrl.signal),
-      fetchAllJobs(1, 1, { posted_within_hours: 24 }, undefined, ctrl.signal),
-    ])
-      .then(([all, day]) => setCounts({ total: all.pagination.total_items, recent: day.pagination.total_items }))
+    let live = true
+    Promise.all([loadAllJobsPage(1, 1), loadAllJobsPage(1, 1, MARKET_RECENT_FILTER)])
+      .then(([all, day]) => { if (live) setCounts({ total: all.pagination.total_items, recent: day.pagination.total_items }) })
       .catch(() => {})
-    return () => ctrl.abort()
+    return () => { live = false }
   }, [authLoading, userId])
 
   const total = useCountUp(counts?.total ?? null, reduced)
