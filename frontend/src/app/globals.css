@@ -217,6 +217,7 @@ input[type='range'] {
   .animate-ja-swap,
   .animate-ja-ring-quick,
   .animate-ja-grow,
+  .animate-ja-command-in,
   .ja-flow,
   .ja-sheen {
     animation: none !important;
