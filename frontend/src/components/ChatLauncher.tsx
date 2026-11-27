@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useChat } from '@/contexts/ChatContext'
 import { useAuth } from '@/contexts/AuthContext'
+import type { User } from '@supabase/supabase-js'
 import { useI18n } from '@/contexts/I18nContext'
 import { TOKENS }  from '@/lib/tokens'
 import { isTourPending } from './ProductTour'
@@ -33,9 +34,13 @@ function ChatIcon() {
 
 // One-time introduction. Testers saw a chat button and never learned what
 // Ariel is for; the bubble says it once, then gets out of the way for good.
+// Kept on the account (user_metadata), like the product tour: sign-out clears
+// localStorage, so a browser-only flag brought the intro back after every
+// sign-in (Ron, 27.11).
 const INTRO_SEEN_KEY = 'ja.ariel_intro_seen'
 
-function readIntroSeen(): boolean {
+function readIntroSeen(user: User | null): boolean {
+  if ((user?.user_metadata as Record<string, unknown> | undefined)?.ariel_intro_seen === true) return true
   try { return window.localStorage.getItem(INTRO_SEEN_KEY) === '1' } catch { return true }
 }
 function markIntroSeen(): void {
@@ -50,18 +55,22 @@ function markIntroSeen(): void {
 export function ChatLauncher() {
   const A = useI18n().t.ariel
   const { isOpen, isEliyaOpen, jobContext, openChat } = useChat()
-  const { user } = useAuth()
+  const { user, updateUserMeta } = useAuth()
   const pathname = usePathname()
   // Starts hidden and is decided after mount: localStorage is not readable
   // during server render, and showing it first would flash for returning users.
   const [showIntro, setShowIntro] = useState(false)
   useEffect(() => {
     // The first-visit tour already introduces Ariel; don't stack two popups.
-    if (readIntroSeen() || isTourPending(user)) return
+    if (readIntroSeen(user) || isTourPending(user)) return
     const id = setTimeout(() => setShowIntro(true), 1500)
     return () => clearTimeout(id)
   }, [user])
-  const dismissIntro = () => { markIntroSeen(); setShowIntro(false) }
+  const dismissIntro = () => {
+    markIntroSeen()
+    void updateUserMeta({ ariel_intro_seen: true }).catch(() => { /* the browser flag still holds */ })
+    setShowIntro(false)
+  }
 
   // Ariel is available to every signed-in user outside onboarding — the same
   // rule as ChatOverlay. Gating on the wizard's profile_completed flag hid her
