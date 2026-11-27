@@ -5,6 +5,7 @@ import { useI18n } from '@/contexts/I18nContext'
 import type { Dict } from '@/locales'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { useAllJobs } from '@/hooks/useAllJobs'
 import { useAllJobsFilterOptions } from '@/hooks/useAllJobsFilterOptions'
 import { fetchAllJobs, startAnalysis, type AllJobItem, type AllJobsFilters, type AllJobsSortBy } from '@/lib/api'
@@ -165,7 +166,7 @@ function CheckFit({ job }: { job: AllJobItem }) {
           >
             {M.score.replace('{score}', state.job.match_score.toFixed(1))}
           </span>
-          <a href="/?tab=feed" className="text-[13px] font-medium text-teal-700 hover:underline">{M.added}</a>
+          <Link href="/?tab=feed" className="text-[13px] font-medium text-teal-700 hover:underline">{M.added}</Link>
         </>
       ) : (
         <button
