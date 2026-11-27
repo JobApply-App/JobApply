@@ -20,7 +20,7 @@ import { CheckIcon } from '@/components/icons'
 // The country is read from the browser only (time zone, then the language's
 // region), never asked for and never sent anywhere. It is shown, not chosen.
 
-function GlobeIcon({ s = 16 }: { s?: number }) {
+export function GlobeIcon({ s = 16 }: { s?: number }) {
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18Z" />
