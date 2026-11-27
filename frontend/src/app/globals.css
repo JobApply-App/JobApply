@@ -211,9 +211,27 @@ input[type='range'] {
   .animate-ja-sheet-up,
   .animate-ja-menu-in,
   .animate-ja-tab-in,
-  .animate-ja-fade {
+  .animate-ja-fade,
+  .animate-ja-reveal,
+  .animate-ja-ring,
+  .ja-sheen {
     animation: none !important;
   }
+}
+
+/* One pass of light across a card as it arrives (the morning brief's number
+   card). Decorative, once, and gone under reduced motion. */
+.ja-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.6) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: ja-sheen 1.6s var(--ja-ease-in-out) 0.9s both;
+}
+@keyframes ja-sheen {
+  from { transform: translateX(120%); }
+  to   { transform: translateX(-120%); }
 }
 
 /* ── iOS focus zoom ──────────────────────────────────────────────────────────

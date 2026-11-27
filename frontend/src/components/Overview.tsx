@@ -6,7 +6,10 @@ import { getScoreBand } from '@/lib/scoreBand'
 import type { ApiFeedJob, ScoreBreakdown, ConfidenceMatrixResponse, TrustScoreResponse } from '@/lib/apiTypes'
 import { Skeleton } from './ui/Skeleton'
 import { buttonClasses } from './ui/Button'
-import { SparkIcon, UserBadgeIcon, FileIcon, SlidersIcon, ArrowIcon, SearchIcon, BoltIcon, CheckIcon } from './icons'
+import { SparkIcon, UserBadgeIcon, FileIcon, SlidersIcon, SearchIcon, CheckIcon } from './icons'
+import { BriefHero, TodaySteps, TopMatchCards } from './home/MorningBrief'
+import { strongCount } from '@/lib/morningBrief'
+import { useNavCounts } from '@/hooks/useNavCounts'
 import { TrustDashboard } from './TrustDashboard'
 import { ProductTour } from './ProductTour'
 import { useChat } from '@/contexts/ChatContext'
@@ -65,20 +68,14 @@ function LinkedInBlockedBanner({ blockedAt }: { blockedAt: string | null }) {
   )
 }
 
-// ── Your next step ───────────────────────────────────────────────────────────
-// One primary action for where the user is now. Without saved roles or a
-// readable CV the user gets no automatic matches at all (the old fallback to a
-// general list fed them someone else's roles), so those come first. One ask,
-// in the app, instead of sending people back through onboarding on each
-// sign-in; once resolved, the card moves on to the next step.
+// ── What blocks matching ─────────────────────────────────────────────────────
+// Without saved roles or a readable CV the user gets no automatic matches at
+// all (the old fallback to a general list fed them someone else's roles), so
+// when one of those is missing it is the only step shown. One ask, in the
+// app, instead of sending people back through onboarding on each sign-in.
+// Otherwise the morning brief's steps for today take this place.
 
-function NextStepCard({ entityCount, newCount, onGo, onAriel }: {
-  /** Capabilities parsed so far; null while unknown. 0 = no CV yet. */
-  entityCount: number | null
-  newCount:    number
-  onGo:        (tab: string) => void
-  onAriel:     () => void
-}) {
+function useBlockingStep(entityCount: number | null, onGo: (tab: string) => void) {
   const O = useI18n().t.overview
   const [rolesMissing, setRolesMissing] = useState(false)
   const [cvUnreadable, setCvUnreadable] = useState(false)
@@ -98,8 +95,8 @@ function NextStepCard({ entityCount, newCount, onGo, onAriel }: {
   // 2026-10-16 that the model failed to read were stored empty) comes first,
   // since uploading it again fixes matching for good; then roles, which
   // decide which jobs reach the user at all; then the CV they are scored
-  // against; then the matches themselves; then depth.
-  let step: { title: string; body: string; cta: string; act: () => void; warn?: boolean } | null = null
+  // against.
+  let step: BlockingStep | null = null
   if (cvUnreadable) {
     step = { title: O.cv_unreadable_title, body: O.cv_unreadable_body, cta: O.cv_unreadable_cta,
              act: () => onGo('profile-builder'), warn: true }
@@ -108,33 +105,32 @@ function NextStepCard({ entityCount, newCount, onGo, onAriel }: {
              act: () => { window.location.href = '/onboarding?step=preferences' } }
   } else if (entityCount === 0) {
     step = { ...O.next.cv, act: () => onGo('profile-builder') }
-  } else if (newCount > 0) {
-    step = { ...O.next.review, title: O.next.review.title.replace('{n}', String(newCount)), act: () => onGo('feed') }
-  } else if (entityCount !== null) {
-    step = { ...O.next.strengthen, act: onAriel }
   }
-  if (!step) return null
+  if (step && cvUnreadable && rolesMissing) step.alsoRoles = true
+  return step
+}
 
+interface BlockingStep { title: string; body: string; cta: string; act: () => void; warn?: boolean; alsoRoles?: boolean }
+
+function BlockingStepCard({ step }: { step: BlockingStep }) {
+  const O = useI18n().t.overview
   return (
     <section
       aria-label={O.next_step_label}
-      className={`rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 border ${
-        step.warn ? 'border-amber-200 bg-amber-50' : 'border-teal-100 bg-teal-50'}`}
+      className={`animate-ja-reveal rounded-[24px] p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center gap-5 border shadow-elevation-2 ${
+        step.warn ? 'border-amber-200 bg-amber-50' : 'border-teal-100 bg-white'}`}
+      style={{ animationDelay: '380ms' }}
     >
       <div className="flex-1 min-w-0">
-        <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-teal-700 mb-1">{O.next_step_label}</p>
-        <p className="text-[15px] font-bold text-slate-900 mb-0.5">{step.title}</p>
-        <p className="text-[13px] text-slate-700 leading-relaxed">{step.body}</p>
+        <h2 className="text-[22px] sm:text-[24px] font-extrabold tracking-[-0.03em] text-slate-900">{step.title}</h2>
+        <p className="mt-1.5 text-[15px] text-slate-600 leading-relaxed">{step.body}</p>
       </div>
       <div className="shrink-0 flex flex-col sm:items-end gap-1.5">
-        <button
-          onClick={step.act}
-          className={buttonClasses({ variant: 'primary', size: 'md' })}
-        >
+        <button onClick={step.act} className={buttonClasses({ variant: 'primary', size: 'lg' })}>
           {step.cta}
         </button>
-        {cvUnreadable && rolesMissing && (
-          <a href="/onboarding?step=preferences" className="text-[13px] font-semibold text-teal-800 underline text-center py-1">
+        {step.alsoRoles && (
+          <a href="/onboarding?step=preferences" className="text-[14px] font-semibold text-teal-800 underline text-center py-1">
             {O.cv_unreadable_roles}
           </a>
         )}
@@ -170,110 +166,6 @@ function LinkedInPausedBanner() {
     </div>
   )
 }
-
-// ── KPI cards ─────────────────────────────────────────────────────────────────
-// Premium metric cards: soft-shadow surface, tinted icon chip, an accent glow
-// that intensifies on hover, and a large accent-coloured number so each metric
-// carries its own visual identity and "pops" off the canvas.
-
-type KPIIcon = (props: { s?: number }) => React.JSX.Element
-
-function KPIStat({ label, value, sub, accent, Icon }: {
-  label: string; value: string | number; sub: string; accent: string; Icon: KPIIcon
-}) {
-  return (
-    <div
-      className="group relative overflow-hidden rounded-2xl bg-white border border-slate-100 px-3 py-3.5 sm:px-5 sm:pt-5 sm:pb-6 transition-all duration-300 ease-out hover:-translate-y-0.5"
-      style={{ boxShadow: TOKENS.shadow.card }}
-    >
-      {/* Soft accent glow, top-right — brightens on hover for a tactile feel */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full blur-2xl opacity-[0.08] transition-opacity duration-300 group-hover:opacity-[0.16]"
-        style={{ background: accent }}
-      />
-      {/* Icon chip */}
-      <span
-        className="relative hidden sm:inline-flex h-9 w-9 items-center justify-center rounded-xl mb-4 transition-transform duration-300 group-hover:scale-105"
-        style={{ background: `color-mix(in oklab, ${accent} 12%, white)`, color: accent }}
-      >
-        <Icon s={17} />
-      </span>
-      {/* Big accent-coloured value */}
-      <span
-        className="relative block text-[24px] sm:text-[36px] font-bold leading-none tracking-tight"
-        style={{ color: accent, fontVariantNumeric: 'tabular-nums' }}
-      >
-        {value}
-      </span>
-      {/* Label + sub */}
-      <span className="relative mt-2 sm:mt-3 block text-[11.5px] sm:text-[11px] font-semibold sm:uppercase sm:tracking-[0.11em] text-slate-600 sm:text-slate-500 leading-snug">
-        {label}
-      </span>
-      <span className="relative mt-1 hidden sm:block text-[12px] text-slate-400 leading-snug">
-        {sub}
-      </span>
-    </div>
-  )
-}
-
-// Daily activity strip: the two "today" counters reset at UTC midnight, with
-// Average Match Score on the right as the stable quality signal. Order is
-// fixed left→right: Jobs Scanned Today · Actions Taken Today · Avg Match Score.
-function KPIRow({ jobsScannedToday, actionsTakenToday, averageMatchScore, loading }: {
-  jobsScannedToday:  number
-  actionsTakenToday: number
-  averageMatchScore: number
-  loading:           boolean
-}) {
-  const O = useI18n().t.overview
-  if (loading) {
-    return (
-      <div className="grid grid-cols-3 gap-2 sm:gap-5">
-        {[0, 1, 2].map(i => (
-          <div
-            key={i}
-            className="rounded-2xl bg-white border border-slate-100 px-3 py-3.5 sm:px-5 sm:pt-5 sm:pb-6"
-            style={{ boxShadow: TOKENS.shadow.card }}
-          >
-            <Skeleton className="hidden sm:block h-9 w-9 rounded-xl mb-4" />
-            <Skeleton className="h-9 w-20" />
-            <Skeleton className="h-2.5 w-24 mt-3" />
-            <Skeleton className="h-2.5 w-32 mt-2" />
-          </div>
-        ))}
-      </div>
-    )
-  }
-  // Three across on every width: stacked on a phone, the three cards took a
-  // full screen of scrolling before anything actionable.
-  return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-5">
-      <KPIStat
-        label={O.kpi.scanned.label}
-        value={jobsScannedToday}
-        sub={O.kpi.scanned.sub}
-        accent={TOKENS.color.primary}
-        Icon={SearchIcon}
-      />
-      <KPIStat
-        label={O.kpi.actions.label}
-        value={actionsTakenToday}
-        sub={O.kpi.actions.sub}
-        accent={TOKENS.color.success}
-        Icon={BoltIcon}
-      />
-      <KPIStat
-        label={O.kpi.avg.label}
-        value={`${averageMatchScore.toFixed(1)}%`}
-        sub={O.kpi.avg.sub}
-        accent={TOKENS.color.primaryHover}
-        Icon={SparkIcon}
-      />
-    </div>
-  )
-}
-
 
 // ── Analytics error banner ────────────────────────────────────────────────────
 // Shown when GET /api/analytics/overview fails; the KPI strip falls back to
@@ -321,7 +213,7 @@ function MoreActions({ onGo }: { onGo: (tab: string) => void }) {
   ]
   return (
     <nav aria-label={O.more_actions} className="flex flex-wrap items-center gap-x-5 gap-y-2">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{O.more_actions}</span>
+      <span className="text-[14px] text-slate-500">{O.more_actions}</span>
       {items.map(({ id, tab, label, Icon }) => (
         <button
           key={id}
@@ -332,81 +224,6 @@ function MoreActions({ onGo }: { onGo: (tab: string) => void }) {
         </button>
       ))}
     </nav>
-  )
-}
-
-// ── Top match row ─────────────────────────────────────────────────────────────
-// A lightweight read-only row — NOT a full JobCard accordion.
-// Clicking navigates the user to the Matches tab rather than expanding in-place.
-
-// Score badge — a filled, tinted square so the match score reads as a
-// deliberate metric chip rather than loose text. Brand teal/emerald only.
-function ScorePip({ score }: { score: number }) {
-  const band = getScoreBand(score)
-
-  return (
-    <div className={`flex flex-col items-center justify-center shrink-0 rounded-xl h-11 w-11 border border-slate-100 ${band.bg}`}>
-      <span className={`text-[13px] font-bold tabular-nums leading-none ${band.text}`}>
-        {score.toFixed(1)}
-      </span>
-      <span className="text-[8px] font-semibold uppercase tracking-wide mt-0.5 text-slate-400">
-        ATS
-      </span>
-    </div>
-  )
-}
-
-function TopMatchRow({ job, onClick }: { job: ApiFeedJob; onClick: () => void }) {
-  const { locale } = useI18n()
-  const location = (locale === 'he' && job.location_he) || job.location
-  return (
-    <button
-      onClick={onClick}
-      className="group w-full text-left flex items-center gap-3.5 rounded-2xl bg-white border border-slate-100 px-4 py-3.5 mb-2.5 transition-all duration-200 ease-out hover:border-slate-200 hover:-translate-y-px shadow-[0_1px_3px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.07),0_2px_4px_rgba(15,23,42,0.04)]"
-    >
-      <ScorePip score={job.match_score} />
-
-      <div className="flex-1 min-w-0">
-        <p className="text-[13.5px] font-semibold text-slate-900 truncate leading-snug">
-          {job.title}
-        </p>
-        <p className="text-[12px] text-slate-500 truncate mt-0.5">
-          {job.company}
-          {location && (
-            <span className="text-slate-300 mx-1.5">·</span>
-          )}
-          {location}
-        </p>
-        {/* Reasons as understated editorial text — no pills, no tinted fills */}
-        {job.reasons.length > 0 && (
-          <p className="text-[11px] text-slate-400 mt-1.5 truncate">
-            {job.reasons.slice(0, 2).map(r => r.label).join('  ·  ')}
-          </p>
-        )}
-      </div>
-
-      <span className="shrink-0 text-slate-300 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-slate-400">
-        <ArrowIcon s={14} />
-      </span>
-    </button>
-  )
-}
-
-// ── Skeleton row ──────────────────────────────────────────────────────────────
-
-function TopMatchSkeleton({ opacity }: { opacity: number }) {
-  return (
-    <div
-      className="flex items-center gap-3.5 rounded-2xl bg-white border border-slate-100 px-4 py-3.5 mb-2.5"
-      style={{ opacity, boxShadow: TOKENS.shadow.card }}
-    >
-      <Skeleton className="h-11 w-11 rounded-xl shrink-0" />
-      <div className="flex-1 space-y-1.5">
-        <Skeleton className="h-3.5 w-48" />
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-2.5 w-40" />
-      </div>
-    </div>
   )
 }
 
@@ -422,14 +239,20 @@ function ArielStrip() {
     <section
       aria-label={A.capabilities_title}
       data-tour="ariel"
-      className="rounded-2xl border border-ja-ai/15 bg-gradient-to-l from-ja-aiSubtle/70 to-white px-4 py-3.5 sm:px-5"
+      className="animate-ja-reveal flex flex-col sm:flex-row sm:items-center gap-4 rounded-[24px] border border-ja-ai/20 bg-white/70 px-5 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_18px_40px_-28px_rgba(54,122,142,0.45)]"
+      style={{ animationDelay: '820ms' }}
     >
-      <p className="text-[13px] text-slate-700 leading-snug">
-        <span className="font-semibold text-slate-900">{A.name}</span>
+      <span
+        aria-hidden
+        className="h-10 w-10 shrink-0 rounded-full"
+        style={{ background: TOKENS.color.gradientIntelligence, boxShadow: '0 0 0 4px rgba(54,122,142,0.12)' }}
+      />
+      <p className="flex-1 min-w-0 text-[15px] text-slate-700 leading-snug">
+        <span className="font-bold text-ja-aiInk">{A.name}</span>
         <span className="text-slate-400"> · </span>
         {A.tagline}
       </p>
-      <div className="mt-2.5 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         {A.quick_actions.slice(0, 3).map(a => (
           <button
             key={a.label}
@@ -757,7 +580,10 @@ export function Overview({
 }: OverviewProps) {
   const { t } = useI18n()
   const O = t.overview
-  const previewJobs = feedJobs.slice(0, 4)
+  // The jobs worth opening first: the feed's highest scores.
+  const previewJobs = [...feedJobs].sort((a, b) => b.match_score - a.match_score).slice(0, 3)
+  const strong      = strongCount(feedJobs)
+  const navCounts   = useNavCounts()
 
   // ── System Confidence Score (Phase 14) ──────────────────────────────────────
   // Mirrored from TrustDashboard's own /trust-score fetch via onScoreChange —
@@ -965,17 +791,14 @@ export function Overview({
     previousUserIdRef.current = userId
   }, [userId])
 
-  // KPIs come EXCLUSIVELY from the analytics API (real per-user DB counts).
-  // No client-derived or mock fallbacks: when the API has no data (or fails),
-  // the honest answer is 0. The two "today" counters are UTC-midnight scoped
-  // server-side, so they reflect only today's activity.
-  const kpiJobsScannedToday  = overview?.jobs_scanned_today  ?? 0
-  const kpiActionsTakenToday = overview?.actions_taken_today ?? 0
-  const kpiAverageMatchScore = overview?.average_match_score ?? 0
-  const kpiLoading           = overviewLoading
+  // The average match comes only from the analytics API (a real per-user DB
+  // figure); while it loads or after it fails the brief shows no number
+  // rather than a made-up one.
+  const averageMatch = overviewLoading || overviewError ? null : (overview?.average_match_score ?? null)
 
   const handleMatchClick    = useCallback(()              => onGo('feed'),         [onGo])
   const handleMatchJobClick = useCallback((jobId: string) => onGo('feed', jobId),  [onGo])
+  const blockingStep = useBlockingStep(trustScoreData ? (trustScoreData.entities?.length ?? 0) : null, onGo)
 
   // ── LinkedIn scraper status — initial value from the aggregated fetch
   // above, then re-polled every 30 s ─────────────────────────────────────────
@@ -997,7 +820,7 @@ export function Overview({
   }, [])
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-14 sm:space-y-16">
 
       {/* ── LinkedIn scraper status banners ──────────────────────────────── */}
       {scraperStatus?.status === 'BLOCKED' && (
@@ -1007,37 +830,51 @@ export function Overview({
         <LinkedInPausedBanner />
       )}
 
-      {/* ── Page title ─────────────────────────────────────────────────────
-          The greeting and the date live in the app header (notes 5, 11).
-          While a last-known snapshot is showing, say so here rather than
-          presenting it as current. */}
-      <div className="flex items-baseline justify-between gap-4 flex-wrap">
-        {/* dir="auto": the trailing period is a neutral character, so without
-            it an English string in an RTL page renders it at the start. */}
-        <h1 dir="auto" className="text-[26px] font-bold text-slate-900 tracking-[-0.02em] leading-[1.15] text-start">
-          {O.subline}
-        </h1>
-        {isShowingLastKnown && (
-          <span aria-live="polite" className="inline-flex items-center gap-2 text-[12.5px] font-medium text-slate-500">
-            <span className="block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: TOKENS.color.primary }} />
-            {O.refreshing}{lastKnownAt && (
-              <span className="text-slate-400 font-normal">
-                {' '}{O.as_of.replace('{time}', new Date(lastKnownAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}
-              </span>
-            )}
-          </span>
-        )}
-      </div>
+      {/* ── The morning brief: the sentence, the number, today's steps ──── */}
+      <BriefHero
+        strong={strong}
+        fresh={jobsScannedToday}
+        apps={navCounts.apps}
+        avg={averageMatch}
+        loading={jobsLoading}
+        refreshing={isShowingLastKnown
+          ? O.refreshing + (lastKnownAt ? ' ' + O.as_of.replace('{time}', new Date(lastKnownAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) : '')
+          : null}
+        onReview={handleMatchClick}
+        onAriel={handleImproveScore}
+      />
+
+      {overviewError && !overviewLoading && (
+        <AnalyticsErrorBanner
+          rateLimited={overviewError === 'rate_limited'}
+          onRetry={loadOverview}
+        />
+      )}
 
       <ProductTour ready={!jobsLoading} />
 
-      {/* ── The one thing to do next — a single primary button ──────────── */}
-      <NextStepCard
-        entityCount={trustScoreData ? (trustScoreData.entities?.length ?? 0) : null}
-        newCount={jobsScannedToday}
-        onGo={onGo}
-        onAriel={handleImproveScore}
+      {blockingStep ? (
+        <BlockingStepCard step={blockingStep} />
+      ) : (
+        <TodaySteps
+          userId={userId}
+          topJob={previewJobs[0] ?? null}
+          hasMatches={feedJobs.length > 0}
+          onReview={handleMatchClick}
+          onTailor={onReviewCV}
+          onAriel={handleImproveScore}
+        />
+      )}
+
+      <TopMatchCards
+        jobs={previewJobs}
+        loading={jobsLoading}
+        onOpen={handleMatchJobClick}
+        onSeeAll={handleMatchClick}
       />
+
+      {/* ── Ariel, in one line — what she is for, and a way straight in ── */}
+      <ArielStrip />
 
       {/* ── System Confidence Score ─────────────────────────────────────── */}
       <div data-tour="confidence">
@@ -1051,28 +888,6 @@ export function Overview({
           onDismissChange={() => { setScoreChange(null); setChatSpan(null) }}
         />
       </div>
-
-      {/* ── Ariel, in one line — what she is for, and a way straight in ── */}
-      <ArielStrip />
-
-      {/* ── KPI strip — server analytics with local fallback ─────────────── */}
-      <section className="space-y-4">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-          {O.glance_title}
-        </h2>
-        {overviewError && !overviewLoading && (
-          <AnalyticsErrorBanner
-            rateLimited={overviewError === 'rate_limited'}
-            onRetry={loadOverview}
-          />
-        )}
-        <KPIRow
-          jobsScannedToday={kpiJobsScannedToday}
-          actionsTakenToday={kpiActionsTakenToday}
-          averageMatchScore={kpiAverageMatchScore}
-          loading={kpiLoading}
-        />
-      </section>
 
       {/* ── Confidence Matrix (TrustDashboard) ──────────────────────────── */}
       {/* Wrapped in a premium surface so it blends with the KPI cards above. */}
@@ -1100,44 +915,6 @@ export function Overview({
           streamError={trustScoreStreamError}
         />
       </section>
-
-      {/* ── Top matches ─────────────────────────────────────────────────── */}
-      <div>
-        <section data-tour="top-matches">
-          <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-              {O.top_matches}
-            </h2>
-            <button
-              onClick={handleMatchClick}
-              className="inline-flex items-center gap-1 min-h-[44px] sm:min-h-0 text-[12.5px] sm:text-[12px] text-teal-700 sm:text-slate-400 hover:text-slate-700 transition-colors"
-            >
-              {O.see_all} <ArrowIcon s={11} />
-            </button>
-          </div>
-
-          {jobsLoading ? (
-            <>
-              <TopMatchSkeleton opacity={1}   />
-              <TopMatchSkeleton opacity={0.7} />
-              <TopMatchSkeleton opacity={0.4} />
-            </>
-          ) : previewJobs.length > 0 ? (
-            previewJobs.map(j => (
-              <TopMatchRow
-                key={j.job_id}
-                job={j}
-                onClick={() => handleMatchJobClick(j.job_id)}
-              />
-            ))
-          ) : (
-            <p className="py-8 text-[13px] text-slate-400">
-              {O.no_matches}
-            </p>
-          )}
-        </section>
-
-      </div>
 
       {/* ── Secondary actions, quietly ───────────────────────────────────── */}
       <MoreActions onGo={onGo} />

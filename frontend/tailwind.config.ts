@@ -168,6 +168,16 @@ const config: Config = {
           '0%':   { opacity: '0', transform: 'translateY(12px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        // The landing's entrance, used by the home page's morning brief:
+        // content rises a little out of a soft blur.
+        'ja-reveal': {
+          from: { opacity: '0', transform: 'translateY(16px)', filter: 'blur(6px)' },
+          to:   { opacity: '1', transform: 'none', filter: 'blur(0)' },
+        },
+        // A score ring drawing to its value; --ring-len is the circumference.
+        'ja-ring': {
+          from: { strokeDashoffset: 'var(--ring-len)' },
+        },
         // A menu or popover opening from its trigger: a short drop and scale,
         // with transform-origin set on the element to the trigger's corner.
         'ja-menu-in': {
@@ -184,6 +194,8 @@ const config: Config = {
         'modal-in':    'modal-in 260ms cubic-bezier(0.23, 1, 0.32, 1)',
         'ja-fade':     'ja-fade 200ms cubic-bezier(0.23, 1, 0.32, 1)',
         'ja-rise':     'ja-rise 400ms cubic-bezier(0.23, 1, 0.32, 1) both',
+        'ja-reveal':   'ja-reveal 700ms cubic-bezier(0.23, 1, 0.32, 1) both',
+        'ja-ring':     'ja-ring 1.4s cubic-bezier(0.23, 1, 0.32, 1) 400ms both',
         'ja-fill':     'ja-fill 1s linear both',
         'ja-from-end':   'ja-from-end 280ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-from-start': 'ja-from-start 280ms cubic-bezier(0.23, 1, 0.32, 1) both',

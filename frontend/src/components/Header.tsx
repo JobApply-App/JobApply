@@ -188,9 +188,11 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
 
       {/* Who and when (notes 5, 11, 12): plain text, not a pill, so it never
           reads as a button. Rendered once the user is known, which also keeps
-          the server render (no user, no clock) free of a time mismatch. */}
+          the server render (no user, no clock) free of a time mismatch. On
+          the home tab the morning brief opens with the greeting and the date
+          itself, so the header leaves them out there. */}
       <div className="min-w-0">
-        {user && (
+        {user && activeTab !== 'overview' && (
           <p className="truncate text-[15px] text-slate-500">
             <span className="font-semibold text-slate-900">
               {greetName
