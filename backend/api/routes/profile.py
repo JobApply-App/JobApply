@@ -124,6 +124,17 @@ async def get_profile(user: CurrentUser = Depends(get_current_user)):
     return user_load(user.user_id)
 
 
+# ── GET /api/profile/view ─────────────────────────────────────────────────────
+
+@router.get("/view")
+async def get_profile_view(user: CurrentUser = Depends(get_current_user)):
+    """The profile as the Profile page shows it: contact details, summary, the
+    whole experience timeline (most recent first), education and languages,
+    merged from Ariel's sections and the uploaded CV (services/user_profile.py)."""
+    from backend.services.user_profile import get_profile as composed_profile
+    return composed_profile(user.user_id)
+
+
 # ── PUT /api/profile/personal ─────────────────────────────────────────────────
 
 class PersonalFieldRequest(BaseModel):

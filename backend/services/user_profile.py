@@ -862,7 +862,10 @@ def _overlaps(a: tuple[int, int], b: tuple[int, int]) -> bool:
 
 def _merged_experience(onboarding: dict) -> list[dict]:
     """Profile (Ariel) experience plus CV experience, deduped, most recent first."""
-    own = [e for e in (onboarding.get("experience") or []) if isinstance(e, dict)]
+    # source: "ariel" for a role Ariel wrote in conversation, "cv" for one only
+    # the uploaded CV states (the Profile page counts the roles Ariel has
+    # talked through).
+    own = [{**e, "source": "ariel"} for e in (onboarding.get("experience") or []) if isinstance(e, dict)]
     cv = onboarding.get("cv_data") if isinstance(onboarding.get("cv_data"), dict) else {}
     merged = list(own)
     for c in cv.get("experiences") or []:
@@ -882,6 +885,7 @@ def _merged_experience(onboarding: dict) -> list[dict]:
             "end":     c.get("end", ""),
             "bullets": [summary] if summary else [],
             "kind":    c.get("kind", ""),
+            "source":  "cv",
         })
     merged.sort(key=lambda e: _span(e.get("start"), e.get("end")), reverse=True)
     return merged
@@ -900,6 +904,17 @@ def _cv_education(cv: dict) -> list[dict]:
             })
         elif str(e).strip():
             out.append({"degree": str(e).strip(), "school": "", "period": "", "status": ""})
+    return out
+
+
+def _cv_languages(cv: dict) -> list[dict]:
+    """CV languages as [{language, level}]; a bare string becomes a language with no level."""
+    out = []
+    for l in cv.get("languages") or []:
+        if isinstance(l, dict) and str(l.get("language") or "").strip():
+            out.append({"language": str(l["language"]).strip(), "level": str(l.get("level") or "").strip()})
+        elif isinstance(l, str) and l.strip():
+            out.append({"language": l.strip(), "level": ""})
     return out
 
 
@@ -944,6 +959,7 @@ def get_profile(user_id: str) -> dict:
             "end":     e.get("end", ""),
             "details": " ".join(str(b) for b in e.get("bullets", [])),
             "kind":    e.get("kind", ""),
+            "source":  e.get("source", ""),
         })
     # Real per-user contact data, resolved with a fallback chain across every
     # place this app can have written it — previously hardcoded to "" for
@@ -1014,6 +1030,8 @@ def get_profile(user_id: str) -> dict:
         "education":      education,
         "experience":     experience,
         "skills":         _merged_skills(onboarding.get("skills") or [], cv.get("skills") or []),
+        # Languages the user stated (to Ariel) win over the CV's.
+        "languages":      _cv_languages(onboarding) or _cv_languages(cv),
         "career_goals":   onboarding.get("career_goals", {}),
         "key_narratives": {},
         "volunteering":   "",

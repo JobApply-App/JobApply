@@ -234,7 +234,7 @@ const mdComponents = {
       : <code className="bg-slate-100 rounded px-1 py-0.5 text-[11.5px] font-mono text-slate-700">{children}</code>
   },
   blockquote: ({ children }: { children?: ReactNode }) => (
-    <blockquote className="border-l-2 border-violet-300 pl-3 italic text-slate-500 mb-2">{children}</blockquote>
+    <blockquote className="border-l-2 border-ja-ai/35 pl-3 italic text-slate-500 mb-2">{children}</blockquote>
   ),
   table: ({ children }: { children?: ReactNode }) => (
     <div className="overflow-x-auto mb-2">
@@ -245,7 +245,7 @@ const mdComponents = {
   td: ({ children }: { children?: ReactNode }) => <td className="border border-slate-200 px-2 py-1">{children}</td>,
   a:  ({ href, children }: { href?: string; children?: ReactNode }) => (
     <a href={href} target="_blank" rel="noopener noreferrer"
-      className="text-violet-600 underline underline-offset-2 hover:text-violet-700">{children}</a>
+      className="text-ja-ai underline underline-offset-2 hover:text-ja-aiInk">{children}</a>
   ),
   hr: () => <hr className="border-slate-200 my-2" />,
 }
@@ -336,7 +336,7 @@ function MessageActionBar({ isUser, callbacks }: { isUser: boolean; callbacks: A
           className={`
             w-6 h-6 flex items-center justify-center rounded-lg transition
             ${a.danger ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-300 hover:text-slate-600 hover:bg-slate-100'}
-            ${a.label === A.msg.unpin || a.label === A.msg.copied ? '!text-violet-500' : ''}
+            ${a.label === A.msg.unpin || a.label === A.msg.copied ? '!text-ja-ai' : ''}
           `}>
           {a.icon}
         </button>
@@ -404,11 +404,11 @@ const MessageBubble = memo(function MessageBubble({
           dir="auto"
           className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed transition-all duration-200 [unicode-bidi:plaintext] text-start
             ${isUser ? 'bg-teal-50 text-slate-900 rounded-tr-sm' : 'bg-white border text-slate-800 rounded-tl-sm'}
-            ${!isUser && message.isPinned ? 'border-violet-300 bg-violet-50/40' : !isUser ? 'border-slate-100' : ''}
+            ${!isUser && message.isPinned ? 'border-ja-ai/35 bg-ja-aiSubtle/40' : !isUser ? 'border-slate-100' : ''}
           `}
         >
           {message.isPinned && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 mb-1.5">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-ja-ai mb-1.5">
               <PinIcon filled /> {A.msg.pinned}
             </span>
           )}
@@ -434,12 +434,12 @@ const MessageBubble = memo(function MessageBubble({
           }
           {!isUser && message.translatedContent && (
             <button onClick={() => onTranslate(message.id)}
-              className="mt-1.5 block text-[10.5px] text-violet-500 hover:text-violet-700 transition">
+              className="mt-1.5 block text-[10.5px] text-ja-ai hover:text-ja-aiInk transition">
               {showTranslation ? A.msg.show_original : A.msg.show_translation}
             </button>
           )}
           {isStreaming && !isUser && (
-            <span className="inline-block w-[2px] h-[14px] bg-violet-500 ml-0.5 align-middle"
+            <span className="inline-block w-[2px] h-[14px] bg-ja-ai ml-0.5 align-middle"
               style={{ animation: 'ariel-cursor 0.9s ease-in-out infinite' }} />
           )}
         </div>
@@ -528,7 +528,7 @@ function HistoryPanel({
         <div className="px-3 py-2 border-b border-slate-100 flex-shrink-0">
           <button
             onClick={() => { onNewSession(); onClose() }}
-            className="w-full text-left text-[12px] text-violet-600 font-medium px-3 py-2 rounded-lg hover:bg-violet-50 transition flex items-center gap-2"
+            className="w-full text-left text-[12px] text-ja-ai font-medium px-3 py-2 rounded-lg hover:bg-ja-aiSubtle transition flex items-center gap-2"
           >
             <span className="text-[16px] leading-none">+</span> {A.new_conversation}
           </button>
@@ -556,7 +556,7 @@ function HistoryPanel({
                       className={`
                         w-full text-left px-3 py-2.5 rounded-xl transition
                         ${isActive
-                          ? 'bg-violet-50 border border-violet-200'
+                          ? 'bg-ja-aiSubtle border border-ja-ai/25'
                           : 'hover:bg-slate-50 border border-transparent'
                         }
                       `}
@@ -567,7 +567,7 @@ function HistoryPanel({
                       </div>
                       <p dir="auto" className="text-[12px] text-slate-600 leading-snug line-clamp-2 [unicode-bidi:plaintext] text-start">{s.preview || A.empty_convo}</p>
                       {isActive && (
-                        <span className="mt-1 inline-block text-[10px] font-semibold text-violet-600">{A.active}</span>
+                        <span className="mt-1 inline-block text-[10px] font-semibold text-ja-ai">{A.active}</span>
                       )}
                     </button>
                   </li>
@@ -1162,9 +1162,9 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
 
       {/* Reply context banner */}
       {replyingTo && (
-        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-violet-50 border border-violet-200 text-[11.5px]">
+        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-ja-aiSubtle border border-ja-ai/25 text-[11.5px]">
           <ReplyIcon />
-          <span className="text-violet-700 font-medium shrink-0">{A.replying_to}</span>
+          <span className="text-ja-aiInk font-medium shrink-0">{A.replying_to}</span>
           <span className="text-slate-500 flex-1 truncate">{replyingTo.content.slice(0, REPLY_SNIPPET_LEN)}</span>
           <button onClick={() => setReplyingTo(null)} className="ml-auto text-slate-400 hover:text-slate-700 focus-visible:text-slate-700 transition text-[15px] leading-none" title={A.cancel_reply} aria-label={A.cancel_reply}>×</button>
         </div>
@@ -1209,7 +1209,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
             return (
               <div
                 key={i}
-                className="flex items-center gap-1.5 text-xs px-2 py-1 rounded text-white bg-violet-600"
+                className="flex items-center gap-1.5 text-xs px-2 py-1 rounded text-white bg-ja-ai"
               >
                 {/* Clickable body — opens file preview */}
                 <button
@@ -1293,7 +1293,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
           disabled={inputDisabled}
           // 16px on phones: iOS Safari zooms the whole page into any field
           // smaller than that, and the chat never zooms back out.
-          className="flex-1 resize-none overflow-y-auto rounded-2xl border border-slate-200 px-3.5 py-2.5 text-base sm:text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20 transition disabled:opacity-50 bg-white min-h-[44px] max-h-[112px] [unicode-bidi:plaintext] text-start"
+          className="flex-1 resize-none overflow-y-auto rounded-2xl border border-slate-200 px-3.5 py-2.5 text-base sm:text-[13px] leading-[1.4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-ja-ai/55 focus:ring-2 focus:ring-ja-ai/20 transition disabled:opacity-50 bg-white min-h-[44px] max-h-[112px] [unicode-bidi:plaintext] text-start"
         />
 
         {streaming ? (
@@ -1346,7 +1346,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
           onClick={openHistory}
           title={A.history_title}
           className={`h-11 w-11 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg transition-colors
-            ${showHistory ? 'text-violet-600 bg-violet-50' : 'text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100'}`}
+            ${showHistory ? 'text-ja-ai bg-ja-aiSubtle' : 'text-slate-400 active:bg-slate-200 sm:hover:text-slate-700 sm:hover:bg-slate-100'}`}
         >
           <HistoryIcon s={14} />
         </button>
@@ -1432,16 +1432,16 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
           {latestSession && (
             <button
               onClick={() => loadSession(latestSession.session_id)}
-              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border border-violet-200 bg-violet-50 hover:bg-violet-100 transition text-left"
+              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border border-ja-ai/25 bg-ja-aiSubtle hover:bg-ja-ai/[.14] transition text-left"
             >
               <span className="text-[18px] leading-none shrink-0">💬</span>
               <div className="min-w-0">
-                <p className="text-[12px] font-semibold text-violet-700 leading-tight">{A.continue_recent}</p>
-                <p dir="auto" className="text-[11px] text-violet-500 truncate mt-0.5">
+                <p className="text-[12px] font-semibold text-ja-aiInk leading-tight">{A.continue_recent}</p>
+                <p dir="auto" className="text-[11px] text-ja-ai truncate mt-0.5">
                   {latestSession.preview || A.continue_hint}
                 </p>
               </div>
-              <svg className="ms-auto shrink-0 text-violet-400" width={14} height={14} viewBox="0 0 24 24"
+              <svg className="ms-auto shrink-0 text-ja-ai/70" width={14} height={14} viewBox="0 0 24 24"
                 fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
@@ -1461,7 +1461,7 @@ export function ArielChat({ onClose }: { onClose?: () => void } = {}) {
                 key={a.label}
                 onClick={() => sendMessage(a.prompt)}
                 disabled={streaming}
-                className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl border border-slate-100 bg-white text-start hover:border-violet-200 hover:bg-violet-50/60 active:bg-violet-50 transition disabled:opacity-50"
+                className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl border border-slate-100 bg-white text-start hover:border-ja-ai/25 hover:bg-ja-aiSubtle/60 active:bg-ja-aiSubtle transition disabled:opacity-50"
               >
                 <span className="text-[16px] leading-none shrink-0 mt-0.5" aria-hidden="true">{a.icon}</span>
                 <span className="min-w-0">

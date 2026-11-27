@@ -66,10 +66,10 @@
   --ja-radius-xl:     16px;
 
   /* ── V2 'Meridian' — gradients & glows (§2.4 DESIGN_SYSTEM_V2.md) ──────────── */
-  --ja-gradient-intelligence: linear-gradient(135deg, #7C3AED 0%, #0D9488 100%);  /* Ariel identity */
+  --ja-gradient-intelligence: linear-gradient(135deg, #4592A6 0%, #2A6577 100%);  /* Ariel identity */
   --ja-gradient-abyss:        linear-gradient(180deg, #0A1F1C 0%, #134E4A 140%);  /* dark heroes */
   --ja-glow-primary:          0 4px 20px rgba(13,148,136,0.40);                   /* FAB / CTA glow */
-  --ja-glow-ai:               0 4px 24px rgba(124,58,237,0.35);                   /* active AI surface */
+  --ja-glow-ai:               0 4px 24px rgba(54,122,142,0.35);                    /* active AI surface */
   --ja-glow-verified:         0 0 8px  rgba(16,185,129,0.45);                     /* live signal dot */
 }
 

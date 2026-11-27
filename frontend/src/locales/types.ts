@@ -257,7 +257,7 @@ export interface Dict {
     steps: ReadonlyArray<{ title: string; body: string }>
   }
   header: {
-    nav: { overview: string; feed: string; apps: string; all_jobs: string
+    nav: { overview: string; profile: string; feed: string; apps: string; all_jobs: string
            capabilities: string; analytics: string }
     open_menu:    string
     close_menu:   string
@@ -586,6 +586,59 @@ export interface Dict {
     ph_name_manager:   string
     ph_agency:         string
     tips: Record<'consultation' | 'escalation' | 'headhunter', { title: string; items: readonly string[] }>
+  }
+  profile: {
+    title:          string
+    ariel_note:     string
+    improve_named:  string            // aria-label: "Improve {section} with Ariel"
+    photo:          string
+    change_with_ariel: string
+    target_roles:   string
+    families:       Record<'customer' | 'product' | 'data' | 'engineering' | 'design' | 'marketing' | 'sales' | 'operations' | 'finance' | 'people' | 'other', string>
+    missing:        Record<'phone' | 'email' | 'linkedin' | 'location', string>
+    know_title:     string
+    know_sub:       string
+    know_sentence:  string            // {best} {worst}
+    know_all_good:  string
+    topics:         Record<'exp' | 'cap' | 'mob' | 'edu', { name: string; sub: string; how: string; prompt: string }>
+    how_title:      string
+    how_overall:    string
+    overall:        string
+    known:          string
+    still_missing:  string
+    nothing_yet:    string
+    complete_with_ariel: string
+    checks:         Record<string, { ok: string; no: string }>
+    caps_title:     string
+    caps_sub:       string            // {n}
+    domain_meta:    string            // {n}
+    show_all:       string            // {n}
+    show_less:      string
+    why_title:      string
+    no_evidence:    string
+    verification:   Record<'VERIFIED_MANUAL' | 'ORCHESTRATION_ONLY' | 'UNVERIFIED', string>
+    strengthen:     string
+    strengthen_prompt: string         // {name} {score}
+    other_domain:   string
+    exp_title:      string
+    parallel:       string
+    read_more:      string
+    read_less:      string
+    present:        string
+    no_experience:  string
+    edu_title:      string
+    education:      string
+    military:       string
+    languages:      string
+    none_yet:       string
+    section_prompts: Record<'card' | 'summary' | 'caps' | 'exp' | 'edu', string>
+    sections:       Record<'card' | 'caps' | 'exp' | 'edu', string>
+    close:          string
+    load_failed:    string
+    retry:          string
+    empty_body:     string
+    empty_upload:   string
+    empty_talk:     string
   }
   trust: {
     confidence_matrix:   string

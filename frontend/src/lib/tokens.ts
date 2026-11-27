@@ -17,13 +17,13 @@ export const TOKENS = {
     danger:      '#DC2626',   // red-600
     violet:      '#7C3AED',   // violet-600 — tertiary accent (KPIs, quick actions)
     // Meridian V2 §2.2/§2.4 — mirrors --ja-gradient-intelligence in globals.css
-    gradientIntelligence: 'linear-gradient(135deg, #7C3AED 0%, #0D9488 100%)',
+    gradientIntelligence: 'linear-gradient(135deg, #4592A6 0%, #2A6577 100%)',
   },
   shadow: {
     card: '0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04)',
     // Meridian V2 §2.4 — mirrors --ja-glow-ai; reserved for Ariel's identity
     // anchors (panel header, welcome screen) — not per-message repetition.
-    glowAi: '0 4px 24px rgba(124,58,237,0.35)',
+    glowAi: '0 4px 24px rgba(54,122,142,0.35)',
   },
 }
 

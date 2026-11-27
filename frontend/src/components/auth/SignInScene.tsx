@@ -79,7 +79,7 @@ export function SignInScene({ email, going, failed }: {
       <div role="group" aria-label={L.hero.feed_label}
         className="relative overflow-hidden rounded-[28px] p-5 shadow-floating ring-1 ring-inset ring-white/15"
         style={{ background: 'linear-gradient(135deg, #115E59 0%, #134E4A 42%, #0A1F1C 100%)' }}>
-        <div aria-hidden="true" className="absolute -top-24 -end-16 h-72 w-72 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(124,58,237,.34)' }} />
+        <div aria-hidden="true" className="absolute -top-24 -end-16 h-72 w-72 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(54,122,142,.34)' }} />
         <div aria-hidden="true" className="absolute -bottom-28 -start-16 h-72 w-72 rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(94,234,212,.24)' }} />
 
         <div className="relative flex items-center gap-4 h-16">
@@ -91,7 +91,7 @@ export function SignInScene({ email, going, failed }: {
               transition: `transform 420ms ${EASE_OUT}, box-shadow 300ms ${EASE_OUT}`,
             }}>
             <div className="absolute -inset-3 animate-[spin_7s_linear_infinite] motion-reduce:animate-none"
-              style={{ background: 'conic-gradient(#7C3AED, #5EEAD4, #A78BFA, #0D9488, #7C3AED)', filter: 'blur(5px)' }} />
+              style={{ background: 'conic-gradient(#367A8E, #5EEAD4, #7FB5C4, #0D9488, #367A8E)', filter: 'blur(5px)' }} />
             <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 34% 28%, rgba(255,255,255,.9), rgba(255,255,255,0) 46%)' }} />
           </div>
           <div className="min-w-0">

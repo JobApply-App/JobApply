@@ -14,15 +14,15 @@ import { useI18n } from '@/contexts/I18nContext'
 // it marks <body> with `has-tabbar`, which globals.css pads on small screens.
 // The Ariel launcher reads the same class to sit above the bar.
 
-type Item = { key: 'overview' | 'feed' | 'apps' | 'capabilities'; href: string; icon: React.JSX.Element }
+type Item = { key: 'overview' | 'profile' | 'feed' | 'apps'; href: string; icon: React.JSX.Element }
 
 const s = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
 
 const ITEMS: Item[] = [
   { key: 'overview', href: '/?tab=overview', icon: <svg {...s}><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /></svg> },
+  { key: 'profile', href: '/profile', icon: <svg {...s}><circle cx="12" cy="8.5" r="3.6" /><path d="M4.5 20c1.2-3.6 4-5.4 7.5-5.4s6.3 1.8 7.5 5.4" /></svg> },
   { key: 'feed', href: '/?tab=feed', icon: <svg {...s}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg> },
   { key: 'apps', href: '/?tab=apps', icon: <svg {...s}><path d="M9 11l3 3 8-8" /><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" /></svg> },
-  { key: 'capabilities', href: '/capabilities', icon: <svg {...s}><path d="M12 2l3 6.5 7 .9-5.2 4.8 1.4 6.9L12 17.8 5.8 21.1l1.4-6.9L2 9.4l7-.9z" /></svg> },
 ]
 
 export function MobileTabBar({ tab, onTab }: { tab?: string | null; onTab?: (t: 'overview' | 'feed' | 'apps') => void }) {
@@ -35,7 +35,7 @@ export function MobileTabBar({ tab, onTab }: { tab?: string | null; onTab?: (t: 
   }, [])
 
   const current =
-    pathname === '/capabilities' ? 'capabilities'
+    pathname === '/profile' ? 'profile'
     : pathname === '/' ? (tab ?? 'overview')
     : null
 
@@ -54,7 +54,7 @@ export function MobileTabBar({ tab, onTab }: { tab?: string | null; onTab?: (t: 
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 onClick={() => {
-                  if (item.key !== 'capabilities' && pathname === '/') onTab?.(item.key)
+                  if (item.key !== 'profile' && pathname === '/') onTab?.(item.key)
                 }}
                 className={`ja-press flex flex-col items-center justify-center gap-0.5 h-16 text-[11.5px] font-medium transition-colors duration-ja-ui ${
                   active ? 'text-teal-700' : 'text-slate-500 active:text-slate-800'

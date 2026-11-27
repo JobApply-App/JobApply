@@ -13,7 +13,7 @@ export type ButtonVariant =
   | 'primary'      // the one main action on a surface: deep harbor fill
   | 'secondary'    // teal at 10%
   | 'quiet'        // hairline ring, no fill: dismiss, cancel, "not relevant"
-  | 'ariel'        // violet at 9%: anything that opens or asks Ariel
+  | 'ariel'        // Ariel's cyan-teal at 11%: anything that opens or asks Ariel
   | 'danger'       // red at 8%: remove, delete
   | 'onDark'       // white fill on a dark band
   | 'onDarkGlass'  // translucent beside onDark
@@ -40,7 +40,7 @@ const variants: Record<ButtonVariant, string> = {
   quiet:
     'text-slate-700 ring-1 ring-inset ring-slate-900/[.12] [@media(hover:hover)]:hover:bg-slate-900/[.04]',
   ariel:
-    'bg-violet-600/[.09] text-violet-800 [@media(hover:hover)]:hover:bg-violet-600/[.14]',
+    'bg-ja-ai/[.11] text-ja-aiInk [@media(hover:hover)]:hover:bg-ja-ai/[.18]',
   danger:
     'bg-red-600/[.08] text-red-700 [@media(hover:hover)]:hover:bg-red-600/[.12]',
   onDark:

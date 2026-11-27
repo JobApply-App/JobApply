@@ -43,7 +43,7 @@ function ArielBlock({ children }: { children: React.ReactNode }) {
 function LoadingBlock({ label }: { label: string }) {
   return (
     <div className="rounded-lg px-4 py-4 space-y-2.5 bg-slate-50 border border-slate-200" aria-busy="true">
-      <div className="flex items-center gap-2 mb-1 text-violet-600">
+      <div className="flex items-center gap-2 mb-1 text-ja-ai">
         <SpinnerIcon s={14} />
         <span className="text-[12px] font-medium">{label}</span>
       </div>
@@ -152,7 +152,7 @@ export function InterviewSimulatorModal({ job, onClose }: InterviewSimulatorModa
           <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-slate-100">
             <div className="min-w-0 flex-1 pr-3">
               <div className="flex items-center gap-1.5 mb-1">
-                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-ja-ai shrink-0" />
                 <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                   {M.mock_title}
                 </p>

@@ -94,7 +94,7 @@ function SaveIcon() {
 // output → amethyst; false = user_edit → the amber "you changed this"
 // treatment). This component never re-derives that signal from `origin`
 // itself — reading two places for one fact is how they drift.
-const AI_MARKER_BORDER = '#7C3AED'   // ja.ai
+const AI_MARKER_BORDER = '#367A8E'   // ja.ai
 const AI_MARKER_BG     = '#F5F3FF'   // ja.aiSubtle
 const EDITED_BORDER     = 'oklch(0.75 0.14 80)'
 const EDITED_BG         = 'oklch(0.98 0.02 80)'

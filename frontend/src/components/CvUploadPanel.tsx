@@ -249,7 +249,7 @@ export function CvUploadPanel({ onUploaded }: CvUploadPanelProps) {
           onClick={() => inputRef.current?.click()}
           className={`relative border-2 border-dashed rounded-xl px-4 py-5 flex flex-col items-center gap-2 cursor-pointer transition
             ${dragOver
-              ? 'border-violet-400 bg-violet-50'
+              ? 'border-ja-ai/55 bg-ja-aiSubtle'
               : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
             }`}
         >

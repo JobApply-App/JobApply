@@ -1095,7 +1095,7 @@ export function ChatOverlay() {
           isOpen={isOpen}
           onBackdropClick={closeChat}
           ariaLabel={t.ariel.dialog_label}
-          shadowColor="rgba(124,58,237,0.18)"
+          shadowColor="rgba(54,122,142,0.18)"
           handleVariant="onLight"
         >
           <ArielChat onClose={closeChat} />
