@@ -11,6 +11,7 @@ import { ControlsSheet }        from '@/components/ControlsSheet'
 import { Overview }             from '@/components/Overview'
 import { JobFeed }              from '@/components/JobFeed'
 import { ApplicationsTab }      from '@/components/ApplicationsTab'
+import { ArielCommand }         from '@/components/ariel/ArielCommand'
 import { AllJobsTab }           from '@/components/AllJobsTab'
 import { AnalyzeTrigger }       from '@/components/AgentStatusCenter'
 import { ApplierPreview }       from '@/components/ApplierPreview'
@@ -292,6 +293,7 @@ function HomePageContent() {
   return (
     <div className="min-h-screen flex flex-col bg-ja-bg">
       <Header tab={tab} setTab={setTab} onOpenControls={() => setControlsOpen(true)} jobs={jobs} />
+      <ArielCommand jobs={allFeedJobs} />
 
       <main className="flex-grow max-w-content mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
         {/* Overview, JobFeed and ApplicationsTab render their own visible <h1>;

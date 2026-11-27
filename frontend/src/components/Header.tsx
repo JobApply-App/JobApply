@@ -11,6 +11,7 @@ import { BellIcon, SlidersIcon, ChevIcon, MenuIcon, XIcon, UserBadgeIcon, FileIc
 import { LanguageSwitcher, GlobeIcon } from './LanguageSwitcher'
 import { LOCALES } from '@/locales'
 import { MobileTabBar } from './MobileTabBar'
+import { ArielCommandChip } from './ariel/ArielCommand'
 import { TOUR_DONE_KEY, TOUR_REPLAY_EVENT } from './ProductTour'
 import { useAuth } from '@/contexts/AuthContext'
 import { useChat } from '@/contexts/ChatContext'
@@ -206,6 +207,9 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
 
       {/* Right-side utility cluster */}
       <div className="flex items-center gap-1 sm:gap-3 justify-end">
+        {/* Ariel's command bar (⌘K) lives on the app page. */}
+        {pathname === '/' && <ArielCommandChip />}
+
         {/* Only on the matches tab, where the controls sheet lives. */}
         {pathname === '/' && tab === 'feed' && onOpenControls && (
           <button

@@ -964,6 +964,24 @@ export interface Dict {
     what_work_on:    string
     input_start:     string
     input_reply:     string
+    command: {
+      label: string
+      placeholder: string
+      suggested: string
+      ask: string
+      cv_title: string
+      cv_sub: string
+      cv_topic: string
+      prep_title: string
+      prep_sub: string
+      prep_topic: string
+      follow_title: string
+      follow_sub: string
+      follow_topic: string
+      hint: string
+      footer: string
+      open_label: string
+    }
     quick_actions: ReadonlyArray<{ label: string; desc: string; prompt: string }>
     tagline: string
     capabilities_title: string

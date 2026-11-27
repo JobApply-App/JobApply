@@ -179,6 +179,10 @@ const config: Config = {
           from: { strokeDashoffset: 'var(--ring-len)' },
         },
         // A progress segment filling from the reading start (origin set on the element).
+        // Ariel's command bar arriving: a short drop out of a soft blur.
+        'ja-command-in': {
+          from: { opacity: '0', transform: 'translateY(-8px) scale(0.98)', filter: 'blur(4px)' },
+        },
         'ja-grow': {
           from: { transform: 'scaleX(0)' },
         },
@@ -204,6 +208,7 @@ const config: Config = {
         // frequent action), its ring draws without the brief's delay.
         'ja-swap':       'ja-reveal 280ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-ring-quick': 'ja-ring 700ms cubic-bezier(0.23, 1, 0.32, 1) both',
+        'ja-command-in': 'ja-command-in 180ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-grow':       'ja-grow 700ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-fill':     'ja-fill 1s linear both',
         'ja-from-end':   'ja-from-end 280ms cubic-bezier(0.23, 1, 0.32, 1) both',
