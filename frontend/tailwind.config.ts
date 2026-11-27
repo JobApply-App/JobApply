@@ -56,8 +56,12 @@ const config: Config = {
           harbor:        '#134E4A',   // teal-900 — authoritative fills, dark-surface buttons
 
           // ── V2 'Meridian' — Amethyst (AI voice) ────────────────────────────
-          ai:            '#7C3AED',   // violet-600 — Ariel identity, AI-generated content
-          aiSubtle:      '#F5F3FF',   // violet-50  — AI-surface fills
+          // Ariel's colour, cyan-teal (Ron, 2026-11-27: violet reads as "the AI
+          // colour"). Bluer than the product teal so Ariel stays her own voice.
+          ai:            '#367A8E',   // Ariel identity, AI-generated content
+          aiInk:         '#1F5F70',   // Ariel text and icons on light surfaces
+          aiDeep:        '#164E5C',   // Ariel's words in a bubble
+          aiSubtle:      '#EEF5F7',   // AI-surface fills
           support:       '#4F46E5',   // indigo-600 — Eliya support chat only
 
           // ── V2 'Meridian' — Electric Emerald (verification) ────────────────

@@ -422,7 +422,7 @@ function ArielStrip() {
     <section
       aria-label={A.capabilities_title}
       data-tour="ariel"
-      className="rounded-2xl border border-violet-100 bg-gradient-to-l from-violet-50/70 to-white px-4 py-3.5 sm:px-5"
+      className="rounded-2xl border border-ja-ai/15 bg-gradient-to-l from-ja-aiSubtle/70 to-white px-4 py-3.5 sm:px-5"
     >
       <p className="text-[13px] text-slate-700 leading-snug">
         <span className="font-semibold text-slate-900">{A.name}</span>

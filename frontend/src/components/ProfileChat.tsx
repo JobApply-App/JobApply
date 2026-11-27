@@ -173,7 +173,7 @@ function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
                         `${label} from ${inst}`,
                         'transcript'
                       )}
-                      className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-violet-700 hover:text-violet-900"
+                      className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-ja-aiInk hover:text-ja-aiInk"
                     >
                       <UploadIcon s={11} /> {C.upload_transcript}
                     </button>
@@ -220,7 +220,7 @@ function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
                         `${role} at ${co}`,
                         'employment_letter'
                       )}
-                      className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-violet-700 hover:text-violet-900"
+                      className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-ja-aiInk hover:text-ja-aiInk"
                     >
                       <UploadIcon s={11} /> {C.upload_letter}
                     </button>
@@ -254,7 +254,7 @@ function DraftPanel({ session, onUploadRequest }: DraftPanelProps) {
             {confidence_map['military'] && confidence_map['military'].score < 60 && (
               <button
                 onClick={() => onUploadRequest(`${mil.role} at ${mil.unit}`, 'military_record')}
-                className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-violet-700 hover:text-violet-900"
+                className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-ja-aiInk hover:text-ja-aiInk"
               >
                 <UploadIcon s={11} /> {C.upload_discharge}
               </button>
@@ -344,7 +344,7 @@ function UploadZone({ sessionId, claim, docType, onVerified, onClose }: UploadZo
             onDrop={onDrop}
             onDragOver={e => e.preventDefault()}
             onClick={() => inputRef.current?.click()}
-            className="border-2 border-dashed border-slate-200 rounded-xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:border-violet-300 hover:bg-violet-50 transition"
+            className="border-2 border-dashed border-slate-200 rounded-xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:border-ja-ai/35 hover:bg-ja-aiSubtle transition"
           >
             {uploading ? (
               <><SpinnerIcon s={24} /><p className="text-[13px] text-slate-500">{U.analysing}</p></>
@@ -752,8 +752,8 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
             style={{ background: 'rgba(109,40,217,0.08)', border: '2px dashed #7c3aed' }}
           >
             <PaperclipIcon s={32} />
-            <p className="text-[15px] font-semibold text-violet-700">Drop file here to upload</p>
-            <p className="text-[12px] text-violet-500">PDF · PNG · JPG · JPEG</p>
+            <p className="text-[15px] font-semibold text-ja-aiInk">Drop file here to upload</p>
+            <p className="text-[12px] text-ja-ai">PDF · PNG · JPG · JPEG</p>
           </div>
         )}
 
@@ -831,7 +831,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             title={C.composer.attach}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition flex-shrink-0 disabled:opacity-40"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-ja-ai hover:bg-ja-aiSubtle transition flex-shrink-0 disabled:opacity-40"
           >
             <PaperclipIcon s={16} />
           </button>

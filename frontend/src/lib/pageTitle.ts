@@ -9,13 +9,13 @@ import { cookies } from 'next/headers'
 const TITLES = {
   en: {
     accessibility: 'Accessibility Statement', analytics: 'Analytics', signing_in: 'Signing In',
-    complete_profile: 'Complete Your Profile', capabilities: 'Capabilities', discover: 'Discover Jobs',
+    complete_profile: 'Complete Your Profile', capabilities: 'Capabilities', profile: 'Profile', discover: 'Discover Jobs',
     login: 'Sign In', onboarding: 'Get Started', profile_builder: 'Build Your Profile', signup: 'Sign Up',
     terms: 'Terms of Service', privacy: 'Privacy Policy',
   },
   he: {
     accessibility: 'הצהרת נגישות', analytics: 'אנליטיקס', signing_in: 'מתחברים…',
-    complete_profile: 'השלמת הפרופיל', capabilities: 'יכולות', discover: 'משרות חדשות',
+    complete_profile: 'השלמת הפרופיל', capabilities: 'יכולות', profile: 'פרופיל', discover: 'משרות חדשות',
     login: 'התחברות', onboarding: 'בואו נתחיל', profile_builder: 'בניית הפרופיל', signup: 'הרשמה',
     terms: 'תנאי שימוש', privacy: 'מדיניות פרטיות',
   },

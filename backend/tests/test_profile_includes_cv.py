@@ -111,3 +111,19 @@ def test_user_entered_contact_details_win_over_the_cv(monkeypatch):
     monkeypatch.setattr(up, "_master_profile_verified_email", lambda user_id: "")
     personal = up.get_profile("00000000-0000-0000-0000-000000000001")["personal"]
     assert personal["phone"] == "052-1111111" and personal["name"] == "Typed Name"
+
+
+def test_cv_languages_reach_the_profile(monkeypatch):
+    cv = {**CV, "languages": [{"language": "Hebrew", "level": "Native"}, "English", {"language": " "}]}
+    p = _profile_with({"cv_data": cv}, monkeypatch)
+    assert p["languages"] == [{"language": "Hebrew", "level": "Native"}, {"language": "English", "level": ""}]
+
+
+def test_no_languages_is_an_empty_list(monkeypatch):
+    assert _profile_with({"cv_data": CV}, monkeypatch)["languages"] == []
+
+
+def test_each_role_says_whether_ariel_or_the_cv_wrote_it(monkeypatch):
+    own = {"company": "Intel", "role": "Senior FP&A Analyst", "start": "2017-01", "end": "present", "bullets": []}
+    p = _profile_with({"experience": [own], "cv_data": CV}, monkeypatch)
+    assert {e["company"]: e["source"] for e in p["experience"]} == {"Intel": "ariel", "Solution": "cv", "Expert": "cv"}

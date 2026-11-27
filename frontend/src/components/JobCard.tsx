@@ -742,7 +742,7 @@ function AgentAnalysisBox({ job, userId, active }: { job: ApiFeedJob; userId?: s
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-2">
-        <span aria-hidden="true" className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
+        <span aria-hidden="true" className="h-2 w-2 rounded-full bg-ja-ai shrink-0" />
         <span className="text-[10.5px] font-bold uppercase tracking-widest text-slate-400">
           {J.ariel_analysis}
         </span>

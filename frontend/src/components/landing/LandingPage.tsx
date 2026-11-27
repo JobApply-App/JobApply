@@ -709,7 +709,7 @@ function ArielPanel({ msgs, typing, scrollKey }: { msgs: Msg[]; typing: boolean;
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => { box.current?.scrollTo({ top: box.current.scrollHeight, behavior: 'smooth' }) }, [msgs.length, typing, scrollKey])
   return (
-    <div className="rounded-[28px] bg-white shadow-[0_40px_80px_-40px_rgba(124,58,237,.45),0_1px_2px_rgba(15,23,42,.08)] overflow-hidden">
+    <div className="rounded-[28px] bg-white shadow-[0_40px_80px_-40px_rgba(54,122,142,.45),0_1px_2px_rgba(15,23,42,.08)] overflow-hidden">
       <div className="flex items-center gap-3 px-5 h-16 border-b border-slate-100">
         <ArielAvatar size={36} />
         <span className="font-semibold text-[17px] text-slate-800">{A.name}</span>
@@ -720,7 +720,7 @@ function ArielPanel({ msgs, typing, scrollKey }: { msgs: Msg[]; typing: boolean;
         {typing && <div className="flex items-start gap-2.5"><ArielAvatar size={28} /><TypingDots label={A.typing} /></div>}
       </div>
       <div className="flex items-center gap-3 px-5 py-4 border-t border-slate-100" aria-hidden="true">
-        <div className="flex-1 h-11 rounded-2xl border border-violet-200 px-4 flex items-center text-[14px] text-slate-400">{A.placeholder}</div>
+        <div className="flex-1 h-11 rounded-2xl border border-ja-ai/25 px-4 flex items-center text-[14px] text-slate-400">{A.placeholder}</div>
         <span className="w-11 h-11 rounded-full bg-slate-100 grid place-items-center text-slate-400">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
         </span>
@@ -749,7 +749,7 @@ function ArielSection({ reduced }: { reduced: boolean }) {
 
   return (
     <section id="ariel" className="scroll-mt-16 relative isolate overflow-clip text-slate-50" style={{ background: 'var(--ja-gradient-abyss)' }} aria-labelledby="ariel-h2">
-      <div aria-hidden="true" className="absolute -z-10 w-[720px] h-[720px] rounded-full -top-60 end-[-200px]" style={{ background: 'radial-gradient(closest-side, rgba(124,58,237,.38), transparent)' }} />
+      <div aria-hidden="true" className="absolute -z-10 w-[720px] h-[720px] rounded-full -top-60 end-[-200px]" style={{ background: 'radial-gradient(closest-side, rgba(54,122,142,.38), transparent)' }} />
       <div aria-hidden="true" className="absolute -z-10 w-[520px] h-[520px] rounded-full -bottom-60 start-[-160px]" style={{ background: 'radial-gradient(closest-side, rgba(13,148,136,.30), transparent)' }} />
       <div ref={ref} className="max-w-6xl mx-auto px-4 sm:px-8 py-20 sm:py-32 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
         <div className="grid gap-5">
@@ -835,7 +835,7 @@ function Close() {
   const C = t.landing.close
   const [ref, style] = useReveal<HTMLDivElement>()
   // The last thing on the page, so it carries the page's colour: the teal of
-  // the first tile and the score, with Ariel's violet glowing in one corner.
+  // the first tile and the score, with Ariel's cyan-teal glowing in one corner.
   return (
     <section className="py-20 sm:py-28" aria-labelledby="close-h2">
       <div className="max-w-6xl mx-auto px-4 sm:px-8">

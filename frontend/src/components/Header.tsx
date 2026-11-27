@@ -111,8 +111,8 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
   useEffect(() => { setMobileNavOpen(false) }, [pathname, tab])
 
   // ── Optimistic active-tab indicator (JOB-112) ─────────────────────────────
-  // Capabilities/Analytics are real route navigations (<Link>, not client tab
-  // state), so `onAnalytics`/`onCapabilities` below were derived purely from
+  // Profile/Analytics are real route navigations (<Link>, not client tab
+  // state), so `onAnalytics`/`onProfile` below were derived purely from
   // `pathname` — which only updates once the destination page's own Header
   // instance has actually mounted. Between the click and that mount (an RSC
   // fetch + render, not instant even on a fast connection), the clicked link
@@ -123,20 +123,20 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
   // making a second (redundant but harmless) click feel necessary.
   // `pendingNav` flips the indicator the instant the link is clicked; once
   // the real navigation lands, `pathname` itself matches and this resets.
-  const [pendingNav, setPendingNav] = useState<'analytics' | 'capabilities' | null>(null)
+  const [pendingNav, setPendingNav] = useState<'analytics' | 'profile' | null>(null)
   useEffect(() => { setPendingNav(null) }, [pathname])
 
   // Suppress tab underlines on any route that isn't the main dashboard.
   const onMainDashboard   = pathname === '/'
   const onAnalytics       = pathname === '/analytics'    || pendingNav === 'analytics'
-  const onCapabilities    = pathname === '/capabilities' || pendingNav === 'capabilities'
+  const onProfile         = pathname === '/profile'      || pendingNav === 'profile'
   const activeTab         = onMainDashboard ? (tab ?? null) : null
 
   // One underline that slides to the active item, instead of a border that
   // blinks off one item and on another. Measured from the items themselves,
   // so it fits each label in either language; moved with transform only.
   const navRef = useRef<HTMLElement>(null)
-  const activeNav = onCapabilities ? 'capabilities' : onAnalytics ? 'analytics' : activeTab
+  const activeNav = onProfile ? 'profile' : onAnalytics ? 'analytics' : activeTab
   const [bar, setBar] = useState<{ x: number; w: number } | null>(null)
   useLayoutEffect(() => {
     const nav = navRef.current
@@ -316,7 +316,7 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
               </div>
               <button
                 onClick={() => { setMenuOpen(false); router.push('/profile-builder') }}
-                className="w-full text-start px-3 py-2.5 text-[13px] font-semibold flex items-center gap-2 active:bg-violet-100 sm:hover:bg-violet-50 text-violet-700 border-b border-slate-50 transition-colors"
+                className="w-full text-start px-3 py-2.5 text-[13px] font-semibold flex items-center gap-2 active:bg-ja-ai/[.14] sm:hover:bg-ja-ai/[.08] text-ja-aiInk border-b border-slate-50 transition-colors"
               >
                 <SparkIcon s={15} />
                 {H.profile_builder}
@@ -375,29 +375,37 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
       <div className="hidden md:block border-t border-slate-100/70">
         <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12">
         <nav ref={navRef} aria-label={H.mobile_tabs_label} className="relative flex items-center gap-9 h-12 text-[15px] font-medium text-slate-500">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              data-nav={t.id}
-              onClick={() => goToTab(t.id)}
-              aria-current={activeTab === t.id ? 'page' : undefined}
-              className={navItem(activeTab === t.id)}
-            >
-              {H.nav[t.id === 'all-jobs' ? 'all_jobs' : t.id]}
-              {(t.id === 'feed' || t.id === 'apps') && counts[t.id] ? (
-                <span className="ms-1.5 tabular-nums text-[13px] font-normal text-slate-400">{counts[t.id]}</span>
-              ) : null}
-            </button>
-          ))}
-          <Link
-            href="/capabilities"
-            data-nav="capabilities"
-            onClick={() => setPendingNav('capabilities')}
-            aria-current={onCapabilities ? 'page' : undefined}
-            className={navItem(onCapabilities)}
-          >
-            {H.nav.capabilities}
-          </Link>
+          {/* Home, then Profile (Ron, 2026-11-27), then the other tabs.
+              Capabilities is now a section of the Profile page. */}
+          {TABS.flatMap((t, i) => {
+            const tabButton = (
+              <button
+                key={t.id}
+                data-nav={t.id}
+                onClick={() => goToTab(t.id)}
+                aria-current={activeTab === t.id ? 'page' : undefined}
+                className={navItem(activeTab === t.id)}
+              >
+                {H.nav[t.id === 'all-jobs' ? 'all_jobs' : t.id]}
+                {(t.id === 'feed' || t.id === 'apps') && counts[t.id] ? (
+                  <span className="ms-1.5 tabular-nums text-[13px] font-normal text-slate-400">{counts[t.id]}</span>
+                ) : null}
+              </button>
+            )
+            if (i !== 0) return [tabButton]
+            return [tabButton, (
+              <Link
+                key="profile"
+                href="/profile"
+                data-nav="profile"
+                onClick={() => setPendingNav('profile')}
+                aria-current={onProfile ? 'page' : undefined}
+                className={navItem(onProfile)}
+              >
+                {H.nav.profile}
+              </Link>
+            )]
+          })}
           <Link
             href="/analytics"
             data-nav="analytics"
@@ -423,28 +431,34 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
           Tap-only: no hover states needed since every row is a full-width button. */}
       {mobileNavOpen && (
         <nav className="md:hidden border-t border-slate-100 px-4 py-2 animate-ja-menu-in origin-top">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              onClick={() => goToTab(t.id)}
-              className={`w-full text-start h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
-                activeTab === t.id
-                  ? 'text-teal-700 bg-teal-50'
-                  : 'text-slate-600 active:bg-slate-50'
-              }`}
-            >
-              {H.nav[t.id === 'all-jobs' ? 'all_jobs' : t.id]}
-            </button>
-          ))}
-          <Link
-            href="/capabilities"
-            onClick={() => setPendingNav('capabilities')}
-            className={`w-full text-start h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
-              onCapabilities ? 'text-teal-700 bg-teal-50' : 'text-slate-600 active:bg-slate-50'
-            }`}
-          >
-            {H.nav.capabilities}
-          </Link>
+          {TABS.flatMap((t, i) => {
+            const row = (
+              <button
+                key={t.id}
+                onClick={() => goToTab(t.id)}
+                className={`w-full text-start h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
+                  activeTab === t.id
+                    ? 'text-teal-700 bg-teal-50'
+                    : 'text-slate-600 active:bg-slate-50'
+                }`}
+              >
+                {H.nav[t.id === 'all-jobs' ? 'all_jobs' : t.id]}
+              </button>
+            )
+            if (i !== 0) return [row]
+            return [row, (
+              <Link
+                key="profile"
+                href="/profile"
+                onClick={() => setPendingNav('profile')}
+                className={`w-full text-start h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
+                  onProfile ? 'text-teal-700 bg-teal-50' : 'text-slate-600 active:bg-slate-50'
+                }`}
+              >
+                {H.nav.profile}
+              </Link>
+            )]
+          })}
           <Link
             href="/analytics"
             onClick={() => setPendingNav('analytics')}

@@ -1471,3 +1471,15 @@ export async function updateLocalePreferences(
     '/api/settings/locales', patchBody, { treat401AsAuthFailure: false },
   )
 }
+
+// ── Profile page ──────────────────────────────────────────────────────────────
+
+/** GET /api/profile/view: contact details, summary, experience, education, languages. */
+export async function fetchProfileView(): Promise<import('./profileView').ProfileView> {
+  return get<import('./profileView').ProfileView>('/api/profile/view')
+}
+
+/** GET /api/profile/{userId}/trust-score: every capability with its score and evidence. */
+export async function fetchTrustScore(userId: string): Promise<TrustScoreResponse> {
+  return get<TrustScoreResponse>(`/api/profile/${userId}/trust-score`)
+}

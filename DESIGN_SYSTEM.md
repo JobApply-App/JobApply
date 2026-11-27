@@ -39,7 +39,7 @@ Ron's choice "1+6": Apple's capsule and sizes, with Mercury's tint ladder in pla
 | `primary` | harbor fill (`#134E4A`), soft teal shadow | The one main action on a surface |
 | `secondary` | teal at 10%, ink text | Other actions |
 | `quiet` | hairline ring, no fill | Dismiss, cancel, "not relevant", "view more" |
-| `ariel` | violet at 9%, violet-800 text | Anything that opens or asks Ariel |
+| `ariel` | Ariel cyan-teal (`ja-ai` #367A8E) at 11%, `ja-aiInk` text | Anything that opens or asks Ariel. Violet was dropped on 2026-11-27: it reads as "the AI colour". |
 | `danger` | red at 8%, red-700 text | Remove, delete |
 | `onDark` / `onDarkGlass` | white fill / translucent teal glass | On dark bands (the landing page's closing band) |
 
