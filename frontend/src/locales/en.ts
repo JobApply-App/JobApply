@@ -977,6 +977,7 @@ export const en = {
     attachment_preview: 'attachment preview',
     accept_challenge: 'Accept the Challenge →',
     load_failed: 'Failed to load trust scores',
+    load_failed_body: "This is a temporary problem on our side and your data hasn't been affected. Try again in a moment.",
     load_caps_failed: 'Failed to load capabilities',
     probe_start_failed: 'Could not start probe. Please try again.',
     caps_title: 'Capabilities',

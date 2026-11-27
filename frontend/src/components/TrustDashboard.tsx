@@ -2844,12 +2844,15 @@ export function TrustDashboard({
         // Radar fetch failure is non-fatal; chart falls back to empty state
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : T.load_failed)
+      // The technical detail (e.g. "HTTP 500") is for debugging, not for the
+      // user: it goes to the console, and the box says what to do instead.
+      console.warn('[TrustDashboard] trust-score load failed:', err)
+      setError(T.load_failed_body)
     } finally {
       setLoading(false)
       hasLoadedOnceRef.current = true
     }
-  }, [userId, T.load_failed])
+  }, [userId, T.load_failed_body])
 
   // Re-fires whenever profileVersion is bumped (Ariel chat updated the
   // profile) in addition to the initial mount-time fetch — see fetchData's
