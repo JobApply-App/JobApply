@@ -1030,7 +1030,8 @@ def get_profile(user_id: str) -> dict:
         "education":      education,
         "experience":     experience,
         "skills":         _merged_skills(onboarding.get("skills") or [], cv.get("skills") or []),
-        "languages":      _cv_languages(cv),
+        # Languages the user stated (to Ariel) win over the CV's.
+        "languages":      _cv_languages(onboarding) or _cv_languages(cv),
         "career_goals":   onboarding.get("career_goals", {}),
         "key_narratives": {},
         "volunteering":   "",

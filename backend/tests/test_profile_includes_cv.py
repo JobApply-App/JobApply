@@ -123,6 +123,12 @@ def test_no_languages_is_an_empty_list(monkeypatch):
     assert _profile_with({"cv_data": CV}, monkeypatch)["languages"] == []
 
 
+def test_languages_the_user_stated_win_over_the_cv(monkeypatch):
+    own = [{"language": "Hebrew", "level": "Native"}, {"language": "English", "level": "Fluent"}]
+    cv = {**CV, "languages": ["English"]}
+    assert _profile_with({"languages": own, "cv_data": cv}, monkeypatch)["languages"] == own
+
+
 def test_each_role_says_whether_ariel_or_the_cv_wrote_it(monkeypatch):
     own = {"company": "Intel", "role": "Senior FP&A Analyst", "start": "2017-01", "end": "present", "bullets": []}
     p = _profile_with({"experience": [own], "cv_data": CV}, monkeypatch)
