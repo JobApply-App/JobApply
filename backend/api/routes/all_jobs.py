@@ -31,6 +31,8 @@ from backend.repositories.all_jobs_repository import (
     MAX_PAGE_SIZE,
     AllJobsFilters,
     get_all_jobs_filter_options,
+    get_company_logos,
+    MAX_LOGO_NAMES,
     get_paginated_all_jobs,
 )
 
@@ -108,6 +110,24 @@ class AllJobsFilterOptionsResponse(BaseModel):
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
+
+class CompanyLogosResponse(BaseModel):
+    # {company name as sent: logo url}; names without a known logo are absent.
+    logos: dict[str, str]
+
+
+@router.get("/company-logos", response_model=CompanyLogosResponse)
+async def list_company_logos(
+    name: List[str] = Query(default=[], max_length=MAX_LOGO_NAMES, description="Company names, repeated."),
+    user: CurrentUser = Depends(get_current_user),
+) -> CompanyLogosResponse:
+    """
+    Logos for companies the user sees on other screens (matches, applications),
+    taken from the LinkedIn jobs already stored. Read-only, not user-scoped:
+    `all_jobs` is a shared table and a logo is public.
+    """
+    return CompanyLogosResponse(logos=get_company_logos(name))
+
 
 @router.get("/filter-options", response_model=AllJobsFilterOptionsResponse)
 async def list_all_jobs_filter_options(

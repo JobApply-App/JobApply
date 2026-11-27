@@ -16,6 +16,7 @@ import type { ApiFeedJob } from '@/lib/apiTypes'
 import { buttonClasses } from '../ui/Button'
 import { Skeleton } from '../ui/Skeleton'
 import { ScoreRing } from '../ui/ScoreRing'
+import { CompanyLogo } from '../ui/CompanyLogo'
 import { useReducedMotion, useCountUp } from '@/hooks/useMotion'
 import { ArrowIcon, CheckIcon, FileIcon, FilterIcon, SparkIcon } from '../icons'
 
@@ -227,8 +228,9 @@ export function TopMatchCards({ jobs, loading, onOpen, onSeeAll }: {
                   <ScoreRing score={j.match_score} />
                   <span className="min-w-0 pt-1">
                     <span dir="auto" className="block text-[17px] leading-snug font-bold tracking-[-0.02em] text-slate-900 line-clamp-2 [unicode-bidi:plaintext] text-start">{j.title}</span>
-                    <span className="mt-1 block text-[14px] text-slate-500 truncate">
-                      {j.company}{location && <> · {location}</>}
+                    <span className="mt-1.5 flex items-center gap-2 text-[14px] text-slate-500 min-w-0">
+                      <CompanyLogo company={j.company} size={22} radius={6} />
+                      <span className="truncate">{j.company}{location && <> · {location}</>}</span>
                     </span>
                   </span>
                 </span>

@@ -15,6 +15,7 @@ import { DirectPitchModal } from './DirectPitchModal'
 import { InterviewSimulatorModal } from './InterviewSimulatorModal'
 import { AtsKeywordsPanel } from './AtsKeywordsPanel'
 import { InfoTip } from './ui/InfoTip'
+import { CompanyLogo } from './ui/CompanyLogo'
 import { Button, buttonClasses, type ButtonVariant } from './ui/Button'
 import { SkillsGapPanel }   from './SkillsGapPanel'
 import { localizeReason, reasonSkill } from '@/lib/reasonLabel'
@@ -933,6 +934,8 @@ export const JobCard = memo(function JobCard({
           showDetails ? 'bg-slate-50/50' : 'hover:bg-slate-50/60'
         }`}
       >
+        <CompanyLogo company={job.company} size={44} />
+
         {/* Title + meta */}
         <div className="flex-1 min-w-0" dir="auto" style={{ textAlign: 'start', unicodeBidi: 'plaintext' }}>
           <div className="flex items-center gap-2.5 flex-wrap">

@@ -1018,6 +1018,13 @@ export async function fetchApplicationsList(): Promise<AppListItem[]> {
   return get<AppListItem[]>('/api/applications')
 }
 
+/** Logos for companies by name, from the LinkedIn jobs already stored. */
+export async function fetchCompanyLogos(names: string[]): Promise<Record<string, string>> {
+  const q = names.map(n => `name=${encodeURIComponent(n)}`).join('&')
+  const res = await get<{ logos: Record<string, string> }>(`/api/all-jobs/company-logos?${q}`)
+  return res.logos
+}
+
 export async function moveCrmCard(applicationId: string, toStage: string): Promise<void> {
   await post<object, unknown>('/api/crm/move', {
     application_id: applicationId,

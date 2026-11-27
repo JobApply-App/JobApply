@@ -5,12 +5,22 @@ import { useI18n } from '@/contexts/I18nContext'
 import type { Dict } from '@/locales'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { useAllJobs } from '@/hooks/useAllJobs'
 import { useAllJobsFilterOptions } from '@/hooks/useAllJobsFilterOptions'
-import type { AllJobItem, AllJobsFilters, AllJobsSortBy } from '@/lib/api'
+import { fetchAllJobs, startAnalysis, type AllJobItem, type AllJobsFilters, type AllJobsSortBy } from '@/lib/api'
+import type { ApiFeedJob } from '@/lib/apiTypes'
+import { ApiError } from '@/lib/errors'
+import { useAuth } from '@/contexts/AuthContext'
+import { useCountUp, useReducedMotion } from '@/hooks/useMotion'
+import { getScoreBand } from '@/lib/scoreBand'
 import { TOKENS } from '@/lib/tokens'
+import { CompanyLogo } from './ui/CompanyLogo'
 
 // ── URL <-> pagination state ──────────────────────────────────────────────────
+
+/** The all_jobs strings (the Market's own sit in a group of their own). */
+type AJKey = Exclude<keyof Dict['all_jobs'], 'market'>
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 const DEFAULT_PAGE_SIZE = 25
@@ -61,30 +71,6 @@ function formatLocation(location: AllJobItem['location']): string {
   const parts = [location.city, location.district, location.country]
     .filter((p): p is string => !!p && p.trim() !== '')
   return parts.length ? parts.join(', ') : '—'
-}
-
-// ── Company logo with fallback ────────────────────────────────────────────────
-
-function CompanyLogo({ url, company }: { url: string | null; company: string | null }) {
-  const AJ = useI18n().t.all_jobs
-  const [failed, setFailed] = useState(false)
-  const label = (company ?? '?').charAt(0).toUpperCase()
-  if (!url || failed) {
-    return (
-      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-[11px] font-semibold text-slate-400 shrink-0">
-        {label}
-      </div>
-    )
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt={AJ.logo_alt.replace('{company}', company ?? AJ.company_fallback)}
-      className="w-8 h-8 rounded-lg object-contain bg-white border border-slate-100 shrink-0"
-      onError={() => setFailed(true)}
-    />
-  )
 }
 
 // ── Row ───────────────────────────────────────────────────────────────────────
@@ -142,19 +128,80 @@ const SHADOW_REST = 'shadow-[0_1px_3px_rgba(15,23,42,0.04)]'
 const SHADOW_HOVER = 'hover:shadow-[0_4px_16px_rgba(15,23,42,0.08),0_1px_3px_rgba(15,23,42,0.05)]'
 const SHADOW_EXPANDED = 'shadow-[0_4px_16px_rgba(15,23,42,0.08),0_1px_3px_rgba(15,23,42,0.05)]'
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** First seen by our scrapers in the last day. */
+function isNewJob(firstSeenAt: string, now = Date.now()): boolean {
+  const t = new Date(firstSeenAt).getTime()
+  return Number.isFinite(t) && now - t >= 0 && now - t < DAY_MS
+}
+
+// "Check the fit" (the Market, Ron 27.11): runs the same analysis as pasting
+// the link into Matches, so the job lands there with its score. It costs one
+// AI analysis, which is why it is a button and not done for every row.
+function CheckFit({ job }: { job: AllJobItem }) {
+  const { t, dir } = useI18n()
+  const M = t.all_jobs.market
+  const [state, setState] = useState<
+    { s: 'idle' } | { s: 'busy' } | { s: 'done'; job: ApiFeedJob } | { s: 'error'; title: string; action: string }
+  >({ s: 'idle' })
+
+  const run = async () => {
+    setState({ s: 'busy' })
+    try {
+      setState({ s: 'done', job: await startAnalysis(job.job_url) })
+    } catch (e) {
+      const x = e instanceof ApiError ? e.explained : null
+      setState({ s: 'error', title: x?.title ?? M.check_failed, action: x?.action ?? '' })
+    }
+  }
+
+  return (
+    <div dir={dir} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5" aria-live="polite">
+      {state.s === 'done' ? (
+        <>
+          <span
+            className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-bold tabular-nums"
+            style={{ color: getScoreBand(state.job.match_score).hexFg, background: getScoreBand(state.job.match_score).hexBg }}
+          >
+            {M.score.replace('{score}', state.job.match_score.toFixed(1))}
+          </span>
+          <Link href="/?tab=feed" className="text-[13px] font-medium text-teal-700 hover:underline">{M.added}</Link>
+        </>
+      ) : (
+        <button
+          onClick={run}
+          disabled={state.s === 'busy'}
+          aria-busy={state.s === 'busy'}
+          className={buttonClasses({ variant: state.s === 'error' ? 'quiet' : 'secondary', size: 'sm' })}
+        >
+          {state.s === 'busy' && <span aria-hidden className="h-3 w-3 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />}
+          {state.s === 'busy' ? M.checking : state.s === 'error' ? M.retry : M.check}
+        </button>
+      )}
+      {state.s === 'error' && (
+        <p className="min-w-0 basis-full text-[12.5px] text-rose-700">
+          <span className="font-semibold">{state.title}.</span> {state.action}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function JobRow({ job }: { job: AllJobItem }) {
   const AJ = useI18n().t.all_jobs
   const [expanded, setExpanded] = useState(false)
+  const fresh = isNewJob(job.first_seen_at)
   const hasDetails = !!job.description || !!job.applicants?.value || (job.industries?.length ?? 0) > 0
 
   return (
     <div
-      className={`bg-white rounded-2xl border px-4 py-3.5 transition-all duration-150 ${SHADOW_REST} ${
+      className={`bg-white rounded-2xl border px-4 py-4 sm:px-5 transition-all duration-150 ${SHADOW_REST} ${
         expanded ? `border-slate-200 ${SHADOW_EXPANDED}` : `border-slate-100 hover:border-slate-200 ${SHADOW_HOVER}`
       }`}
     >
       <div className="flex items-start gap-3">
-        <CompanyLogo url={job.company_logo_url} company={job.company_name} />
+        <CompanyLogo url={job.company_logo_url} company={job.company_name} size={44} />
 
         <div className="flex-1 min-w-0" dir="auto" style={{ textAlign: 'start', unicodeBidi: 'plaintext' }}>
           <div className="flex items-center gap-2 flex-wrap">
@@ -162,20 +209,26 @@ function JobRow({ job }: { job: AllJobItem }) {
               href={job.job_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[13.5px] font-semibold text-slate-900 hover:text-teal-700 hover:underline truncate"
+              className="text-[15px] sm:text-[16px] font-bold tracking-[-0.01em] text-slate-900 hover:text-teal-700 hover:underline truncate"
             >
               {dash(job.job_title)}
             </a>
+            {fresh && (
+              <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-teal-700 whitespace-nowrap">
+                {AJ.market.new_tag}
+              </span>
+            )}
             <SourceBadge source={job.source} />
           </div>
-          <p className="text-[12px] text-slate-500 truncate mt-0.5">
+          <p className="text-[13.5px] text-slate-600 truncate mt-0.5">
             {dash(job.company_name)} · {formatLocation(job.location)}
           </p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px] text-slate-400">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[12px] text-slate-400">
             <span>{dash(job.employment_type)}</span>
             <span>{dash(job.seniority_level)}</span>
             <span>{AJ.posted.replace('{when}', dash(job.posted_text))}</span>
           </div>
+          <div className="mt-3"><CheckFit job={job} /></div>
         </div>
 
         <div className="flex items-start gap-2 shrink-0">
@@ -273,7 +326,7 @@ const POSTED_WITHIN_OPTIONS = [
   { labelKey: 'posted_720', value: '720' },
 ] as const
 
-const SORT_OPTIONS: { labelKey: keyof Dict['all_jobs']; value: AllJobsSortBy }[] = [
+const SORT_OPTIONS: { labelKey: AJKey; value: AllJobsSortBy }[] = [
   { labelKey: 'sort_recent', value: 'recent' },
   { labelKey: 'sort_posted', value: 'posted' },
   { labelKey: 'sort_app_desc', value: 'applicants_desc' },
@@ -382,9 +435,9 @@ function FilterBar({
     <div className="flex flex-wrap items-center gap-2 pb-1">
       {/* One box for role or company. There used to be two, Company first:
           people typed a role into it and found nothing. */}
-      <label className="relative flex-1 min-w-[220px] max-w-[340px]">
+      <label className="relative basis-full max-w-[560px]">
         <span className="sr-only">{AJ.ph_search}</span>
-        <svg className="pointer-events-none absolute top-1/2 -translate-y-1/2 start-2.5 text-slate-400" width={14} height={14}
+        <svg className="pointer-events-none absolute top-1/2 -translate-y-1/2 start-3.5 text-slate-400" width={17} height={17}
           viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
           <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" strokeLinecap="round" />
         </svg>
@@ -393,7 +446,7 @@ function FilterBar({
           value={inputs.q}
           onChange={(e) => onChange('q', e.target.value)}
           placeholder={AJ.ph_search}
-          className="h-9 w-full rounded-lg border border-slate-200 bg-white text-[13px] ps-8 pe-2.5 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+          className="h-11 w-full rounded-xl border border-slate-200 bg-white text-[15px] ps-10 pe-3 shadow-elevation-1 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
         />
       </label>
 
@@ -480,7 +533,7 @@ function FilterBar({
 // border). One glance here + a click to drop a single field beats re-opening
 // each control to check its state.
 
-const MULTI_FILTER_LABELS: Record<'seniority_level' | 'employment_type' | 'job_function' | 'industry', keyof Dict['all_jobs']> = {
+const MULTI_FILTER_LABELS: Record<'seniority_level' | 'employment_type' | 'job_function' | 'industry', AJKey> = {
   seniority_level: 'f_seniority',
   employment_type: 'f_employment',
   job_function:    'f_function',
@@ -650,6 +703,49 @@ function PaginationControls({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+// The Market's opening (Ron 27.11): every open job we hold, and how many were
+// posted in the last day. Two one-row requests, so it is the whole market and
+// not the filtered page; a failure only leaves the sentence out.
+function MarketHeader() {
+  const M = useI18n().t.all_jobs.market
+  const { session, loading: authLoading } = useAuth()
+  const userId = session?.user?.id
+  const reduced = useReducedMotion()
+  const [counts, setCounts] = useState<{ total: number; recent: number } | null>(null)
+
+  useEffect(() => {
+    if (authLoading || !userId) return
+    const ctrl = new AbortController()
+    Promise.all([
+      fetchAllJobs(1, 1, undefined, undefined, ctrl.signal),
+      fetchAllJobs(1, 1, { posted_within_hours: 24 }, undefined, ctrl.signal),
+    ])
+      .then(([all, day]) => setCounts({ total: all.pagination.total_items, recent: day.pagination.total_items }))
+      .catch(() => {})
+    return () => ctrl.abort()
+  }, [authLoading, userId])
+
+  const total = useCountUp(counts?.total ?? null, reduced)
+  const recent = useCountUp(counts?.recent ?? null, reduced)
+
+  return (
+    <div className="animate-ja-reveal pb-2">
+      <h1 className="text-[34px] sm:text-[48px] font-extrabold leading-[1.02] tracking-[-0.045em] text-slate-900">{M.title}</h1>
+      <p className="mt-3 max-w-2xl text-[16px] sm:text-[18px] leading-relaxed text-slate-600">
+        {counts === null ? (
+          <span className="inline-block h-4 w-72 max-w-full rounded bg-slate-100 animate-pulse align-middle" />
+        ) : (
+          <>
+            <span className="font-bold tabular-nums text-slate-900">{(total ?? 0).toLocaleString()}</span> {M.lead_total}
+            {counts.recent > 0 && <>{' '}<span className="font-bold tabular-nums text-teal-700">{(recent ?? 0).toLocaleString()}</span> {M.lead_recent}</>}
+            {' '}{M.lead_check}
+          </>
+        )}
+      </p>
+    </div>
+  )
+}
+
 export function AllJobsTab() {
   const AJ = useI18n().t.all_jobs
   const router = useRouter()
@@ -773,12 +869,7 @@ export function AllJobsTab() {
 
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="text-[15px] font-semibold text-slate-900">{AJ.title}</h2>
-        <p className="text-[12px] text-slate-500 mt-0.5">
-          {loading && jobs.length === 0 ? '—' : totalItems === 1 ? AJ.count_one : AJ.count_many.replace('{n}', String(totalItems))}
-        </p>
-      </div>
+      <MarketHeader />
 
       <FilterBar
         inputs={filterInputs}
@@ -811,6 +902,12 @@ export function AllJobsTab() {
       {!loading && error && jobs.length === 0 && <JobListError error={error} onRetry={refetch} />}
 
       {!error && !loading && jobs.length === 0 && <JobListEmpty />}
+
+      {jobs.length > 0 && hasActiveFilters && (
+        <p className="text-[13px] text-slate-500">
+          {totalItems === 1 ? AJ.count_one : AJ.count_many.replace('{n}', String(totalItems))}
+        </p>
+      )}
 
       {jobs.length > 0 && (
         <div className={`space-y-2 mt-4 transition-opacity duration-150 ${loading ? 'opacity-50' : 'opacity-100'}`}>

@@ -1,36 +1,7 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-import { useRouter } from 'next/navigation'
-import { Header }    from '@/components/Header'
-import { AnalyticsDashboard } from '@/components/AnalyticsDashboard'
-import AuthGuard from '@/components/AuthGuard'
-import type { Tab } from '@/components/Header'
-
-function AnalyticsContent() {
-  const router = useRouter()
-
-  // When the user clicks a main-nav tab, send them back to the home shell
-  // with the correct tab pre-selected via a query param.
-  const handleSetTab = (t: Tab) => {
-    router.push(`/?tab=${t}`)
-  }
-
-  return (
-    <div className="min-h-screen bg-[#FBFBFA]">
-      <Header
-        tab="overview"
-        setTab={handleSetTab}
-        onOpenControls={() => {}}
-      />
-
-      <main className="max-w-content mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <AnalyticsDashboard onGoToMatches={() => router.push('/?tab=feed')} />
-      </main>
-
-    </div>
-  )
-}
-
+// Analytics folded into Applications as "What works" (Ron 27.11). The old
+// address still lands somewhere useful for anyone who kept it.
 export default function AnalyticsPage() {
-  return <AuthGuard><AnalyticsContent /></AuthGuard>
+  redirect('/?tab=apps')
 }
