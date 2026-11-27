@@ -1082,6 +1082,24 @@ export interface Dict {
     analyse:        string
     search_placeholder: string
     clear_search_label: string
+    focus: {
+      view_label: string
+      view_focus: string
+      view_list: string
+      progress: string
+      prev: string
+      next: string
+      match: string
+      why: string
+      skip: string
+      details_show: string
+      details_hide: string
+      up_next: string
+      keys_hint: string
+      done_title: string
+      done_body: string
+      start_over: string
+    }
     sources: { all: string; company_site: string; linkedin: string; other: string }
     // Keyed by StatusFilter ('all' + every JobStatus). The tab row shows a
     // subset, but the empty-state message can name any of them, so all are

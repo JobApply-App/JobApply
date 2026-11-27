@@ -214,6 +214,8 @@ input[type='range'] {
   .animate-ja-fade,
   .animate-ja-reveal,
   .animate-ja-ring,
+  .animate-ja-swap,
+  .animate-ja-ring-quick,
   .ja-sheen {
     animation: none !important;
   }
