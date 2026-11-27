@@ -178,6 +178,10 @@ const config: Config = {
         'ja-ring': {
           from: { strokeDashoffset: 'var(--ring-len)' },
         },
+        // A progress segment filling from the reading start (origin set on the element).
+        'ja-grow': {
+          from: { transform: 'scaleX(0)' },
+        },
         // A menu or popover opening from its trigger: a short drop and scale,
         // with transform-origin set on the element to the trigger's corner.
         'ja-menu-in': {
@@ -200,6 +204,7 @@ const config: Config = {
         // frequent action), its ring draws without the brief's delay.
         'ja-swap':       'ja-reveal 280ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-ring-quick': 'ja-ring 700ms cubic-bezier(0.23, 1, 0.32, 1) both',
+        'ja-grow':       'ja-grow 700ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-fill':     'ja-fill 1s linear both',
         'ja-from-end':   'ja-from-end 280ms cubic-bezier(0.23, 1, 0.32, 1) both',
         'ja-from-start': 'ja-from-start 280ms cubic-bezier(0.23, 1, 0.32, 1) both',

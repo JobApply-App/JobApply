@@ -294,13 +294,11 @@ function HomePageContent() {
       <Header tab={tab} setTab={setTab} onOpenControls={() => setControlsOpen(true)} jobs={jobs} />
 
       <main className="flex-grow max-w-content mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
-        {/* Overview/JobFeed render their own visible <h1> internally; ApplicationsTab
-            and AllJobsTab don't, so this covers those two tabs without duplicating
-            a heading on the tabs that already have one. */}
+        {/* Overview, JobFeed and ApplicationsTab render their own visible <h1>;
+            AllJobsTab doesn't, so this covers it without duplicating a heading. */}
         {/* Keyed by tab so each switch replays a short rise: the new tab
             arrives instead of the old one being swapped out under the user. */}
         <div key={tab} className="animate-ja-tab-in">
-        {tab === 'apps' && <h1 className="sr-only">{t.header.nav.apps}</h1>}
         {tab === 'all-jobs' && <h1 className="sr-only">{t.header.nav.all_jobs}</h1>}
 
         {tab === 'overview' && (

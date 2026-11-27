@@ -1454,6 +1454,28 @@ export interface Dict {
     board_count_many: string
     board_hint: string
     refresh: string
+    journey: {
+      title: string
+      lead_one: string
+      lead_many: string
+      lead_none: string
+      steps_label: string
+      sent: string
+      screen: string
+      interviews: string
+      offer: string
+      sent_sub: string
+      screen_sub: string
+      interviews_sub: string
+      offer_sub: string
+      closed: string
+      next_offer: string
+      next_prepare: string
+      next_follow_up: string
+      next_waiting: string
+      next_closed: string
+      progress_label: string
+    }
   }
   agents: {
     running: string
