@@ -8,6 +8,7 @@ import { ApplicationsKanban } from './ApplicationsKanban'
 import { TOKENS } from '@/lib/tokens'
 import { useI18n } from '@/contexts/I18nContext'
 import { JourneyBand, JourneyHeader, JourneyRows } from './applications/Journey'
+import { WhatWorks } from './applications/WhatWorks'
 
 // ── View toggle ───────────────────────────────────────────────────────────────
 
@@ -250,6 +251,7 @@ export function ApplicationsTab() {
           onDelete={handleDeleteItem}
           deletingId={deletingId}
         />
+        {!loading && items.length > 0 && <WhatWorks refreshKey={items.length} />}
       </>)}
     </section>
   )

@@ -113,8 +113,8 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
   useEffect(() => { setMobileNavOpen(false) }, [pathname, tab])
 
   // ── Optimistic active-tab indicator (JOB-112) ─────────────────────────────
-  // Profile/Analytics are real route navigations (<Link>, not client tab
-  // state), so `onAnalytics`/`onProfile` below were derived purely from
+  // Profile is a real route navigation (<Link>, not client tab
+  // state), so `onProfile` below were derived purely from
   // `pathname` — which only updates once the destination page's own Header
   // instance has actually mounted. Between the click and that mount (an RSC
   // fetch + render, not instant even on a fast connection), the clicked link
@@ -125,12 +125,11 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
   // making a second (redundant but harmless) click feel necessary.
   // `pendingNav` flips the indicator the instant the link is clicked; once
   // the real navigation lands, `pathname` itself matches and this resets.
-  const [pendingNav, setPendingNav] = useState<'analytics' | 'profile' | null>(null)
+  const [pendingNav, setPendingNav] = useState<'profile' | null>(null)
   useEffect(() => { setPendingNav(null) }, [pathname])
 
   // Suppress tab underlines on any route that isn't the main dashboard.
   const onMainDashboard   = pathname === '/'
-  const onAnalytics       = pathname === '/analytics'    || pendingNav === 'analytics'
   const onProfile         = pathname === '/profile'      || pendingNav === 'profile'
   const activeTab         = onMainDashboard ? (tab ?? null) : null
 
@@ -138,7 +137,7 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
   // blinks off one item and on another. Measured from the items themselves,
   // so it fits each label in either language; moved with transform only.
   const navRef = useRef<HTMLElement>(null)
-  const activeNav = onProfile ? 'profile' : onAnalytics ? 'analytics' : activeTab
+  const activeNav = onProfile ? 'profile' : activeTab
   const [bar, setBar] = useState<{ x: number; w: number } | null>(null)
   useLayoutEffect(() => {
     const nav = navRef.current
@@ -405,15 +404,6 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
               </Link>
             )]
           })}
-          <Link
-            href="/analytics"
-            data-nav="analytics"
-            onClick={() => setPendingNav('analytics')}
-            aria-current={onAnalytics ? 'page' : undefined}
-            className={navItem(onAnalytics)}
-          >
-            {H.nav.analytics}
-          </Link>
           <span
             aria-hidden
             className="pointer-events-none absolute bottom-0 left-0 h-0.5 w-px origin-left rounded-full bg-teal-600 transition-[transform,opacity] duration-ja-ui"
@@ -458,15 +448,6 @@ export function Header({ tab, setTab, onOpenControls, jobs: pageJobs }: HeaderPr
               </Link>
             )]
           })}
-          <Link
-            href="/analytics"
-            onClick={() => setPendingNav('analytics')}
-            className={`w-full text-start h-11 px-2 rounded-lg text-[14px] font-medium flex items-center transition-colors ${
-              onAnalytics ? 'text-teal-700 bg-teal-50' : 'text-slate-600 active:bg-slate-50'
-            }`}
-          >
-            {H.nav.analytics}
-          </Link>
           {/* Same control as the desktop header, which is hidden below `sm`. */}
           <div className="pt-2 mt-1 border-t border-slate-100">
             <LanguageSwitcher className="w-full justify-center" />

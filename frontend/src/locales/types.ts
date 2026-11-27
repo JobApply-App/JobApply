@@ -261,7 +261,7 @@ export interface Dict {
   }
   header: {
     nav: { overview: string; profile: string; feed: string; apps: string; all_jobs: string
-           capabilities: string; analytics: string }
+           capabilities: string }
     open_menu:    string
     close_menu:   string
     help_title:   string
@@ -1472,6 +1472,11 @@ export interface Dict {
     board_count_many: string
     board_hint: string
     refresh: string
+    works: {
+      title: string; lead: string; rate_label: string; rate_body: string
+      companies_label: string; apps_one: string; apps_many: string; none: string
+      skills_label: string; skills_none: string
+    }
     journey: {
       title: string
       lead_one: string
@@ -1565,6 +1570,11 @@ export interface Dict {
     showing: string
     per_page: string
     prev_page: string
+    market: {
+      title: string; lead_total: string; lead_recent: string; lead_check: string
+      new_tag: string; check: string; checking: string; retry: string
+      check_failed: string; score: string; added: string
+    }
     next_page: string
   }
   modals: {
@@ -1593,25 +1603,6 @@ export interface Dict {
     next_q: string
     q_failed: string
     eval_failed: string
-  }
-  analytics: {
-    empty_title: string
-    empty_body: string
-    browse: string
-    load_failed: string
-    title: string
-    subtitle: string
-    kpi_total: string
-    kpi_total_sub: string
-    kpi_active: string
-    kpi_active_sub: string
-    kpi_rate: string
-    kpi_rate_sub: string
-    funnel: string
-    companies: string
-    companies_empty: string
-    skills: string
-    skills_empty: string
   }
   cv_progress: {
     title: string
