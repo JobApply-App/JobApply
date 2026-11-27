@@ -1,5 +1,6 @@
 'use client'
 
+import { useSyncExternalStore } from 'react'
 import { Logo } from './ui/Logo'
 import { Skeleton } from './ui/Skeleton'
 
@@ -16,6 +17,19 @@ export function hasStoredSession(): boolean {
   } catch {
     return false
   }
+}
+
+const noSubscribe = () => () => {}
+
+/**
+ * hasStoredSession() for render. The server has no localStorage, so reading it
+ * during the first render made the server's HTML (no session) differ from the
+ * browser's (session), and React threw a hydration error and re-rendered the
+ * whole page. This hydrates with the server's answer, then switches to the
+ * browser's in the same tick.
+ */
+export function useHasStoredSession(): boolean {
+  return useSyncExternalStore(noSubscribe, hasStoredSession, () => false)
 }
 
 export function AppSkeleton() {

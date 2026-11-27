@@ -15,7 +15,7 @@ import { AllJobsTab }           from '@/components/AllJobsTab'
 import { AnalyzeTrigger }       from '@/components/AgentStatusCenter'
 import { ApplierPreview }       from '@/components/ApplierPreview'
 import AuthGuard                from '@/components/AuthGuard'
-import { AppSkeleton, hasStoredSession } from '@/components/AppSkeleton'
+import { AppSkeleton, useHasStoredSession } from '@/components/AppSkeleton'
 import { LandingPage }          from '@/components/landing/LandingPage'
 import { useAuth }              from '@/contexts/AuthContext'
 import type { Job }             from '@/lib/data'
@@ -367,11 +367,12 @@ function HomePageContent() {
 
 export default function HomePage() {
   const { user, loading } = useAuth()
+  const storedSession = useHasStoredSession()
 
   // Auth resolving (a local read, ~100ms): the app's frame if this browser
   // holds a session, otherwise the plain page colour — never a spinner.
   if (loading) {
-    return hasStoredSession() ? <AppSkeleton /> : <div className="min-h-screen bg-ja-bg" />
+    return storedSession ? <AppSkeleton /> : <div className="min-h-screen bg-ja-bg" />
   }
 
   // Unauthenticated → show the public landing page
