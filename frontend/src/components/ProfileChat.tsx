@@ -749,7 +749,7 @@ export function ProfileChat({ intent, forceIntro = false }: { intent?: string; f
         {/* Drag-over overlay */}
         {dragOver && (
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 rounded-none pointer-events-none"
-            style={{ background: 'rgba(109,40,217,0.08)', border: '2px dashed #7c3aed' }}
+            style={{ background: 'rgba(54,122,142,0.08)', border: '2px dashed #367A8E' }}
           >
             <PaperclipIcon s={32} />
             <p className="text-[15px] font-semibold text-ja-aiInk">Drop file here to upload</p>

@@ -86,7 +86,7 @@ export function SignInScene({ email, going, failed }: {
           <div ref={orb} aria-hidden="true"
             className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full"
             style={{
-              boxShadow: failed ? '0 0 30px rgba(244,63,94,.6)' : '0 0 34px rgba(167,139,250,.65)',
+              boxShadow: failed ? '0 0 30px rgba(244,63,94,.6)' : '0 0 34px rgba(127,181,196,.65)',
               transform: going ? 'scale(1.22)' : 'none',
               transition: `transform 420ms ${EASE_OUT}, box-shadow 300ms ${EASE_OUT}`,
             }}>

@@ -89,7 +89,7 @@ export function CareerCard({ name, role, home, work, scanning = false }: {
         className="relative overflow-hidden rounded-[24px] lg:rounded-[28px] lg:aspect-[1.586] flex flex-col justify-between gap-5 p-5 lg:p-7 shadow-floating ring-1 ring-inset ring-white/15 [transform-style:preserve-3d] will-change-transform"
         style={{ background: 'linear-gradient(135deg, #115E59 0%, #134E4A 42%, #0A1F1C 100%)' }}>
         <div ref={sheen} className="absolute -inset-1/2 pointer-events-none"
-          style={{ background: 'radial-gradient(38% 38% at 34% 30%, rgba(94,234,212,.42), transparent 70%), radial-gradient(30% 30% at 74% 72%, rgba(167,139,250,.26), transparent 70%)' }} />
+          style={{ background: 'radial-gradient(38% 38% at 34% 30%, rgba(94,234,212,.42), transparent 70%), radial-gradient(30% 30% at 74% 72%, rgba(127,181,196,.26), transparent 70%)' }} />
 
         <div className="relative max-lg:hidden flex justify-between">
           <span className="rounded-lg bg-white px-2 py-1.5 shadow-elevation-1"><Logo size={20} /></span>
