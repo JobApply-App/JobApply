@@ -7,7 +7,7 @@ import type { AppListItem } from '@/lib/api'
 import { ApplicationsKanban } from './ApplicationsKanban'
 import { TOKENS } from '@/lib/tokens'
 import { useI18n } from '@/contexts/I18nContext'
-import { stageLabel } from '@/lib/stages'
+import { JourneyBand, JourneyHeader, JourneyRows } from './applications/Journey'
 
 // ── View toggle ───────────────────────────────────────────────────────────────
 
@@ -57,27 +57,6 @@ function BoardIcon() {
       <rect x="14" y="3" width="7" height="11" rx="1" />
       <rect x="14" y="18" width="7" height="3" rx="1" />
     </svg>
-  )
-}
-
-// ── Stage badge ───────────────────────────────────────────────────────────────
-
-const STAGE_COLORS: Record<string, string> = {
-  submitted:    'bg-teal-100 text-teal-700',
-  'phone screen': 'bg-sky-100 text-sky-700',
-  technical:    'bg-violet-100 text-violet-700',
-  interview:    'bg-amber-100 text-amber-700',
-  offer:        'bg-emerald-100 text-emerald-700',
-  rejected:     'bg-rose-100 text-rose-600',
-}
-
-function StageBadge({ stage }: { stage: string }) {
-  const A = useI18n().t.applications
-  const cls = STAGE_COLORS[stage.toLowerCase()] ?? 'bg-slate-100 text-slate-600'
-  return (
-    <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>
-      {stageLabel(stage, A.stages)}
-    </span>
   )
 }
 
@@ -147,56 +126,40 @@ function ApplicationListView({ items, loading, error, onDelete, deletingId }: {
   }
 
   return (
-    <div className="mt-4 space-y-2">
-      {items.map(item => (
-        <div
-          key={item.application_id}
-          className="flex items-center gap-2 sm:gap-4 bg-white rounded-2xl border border-slate-100 px-4 py-3 hover:border-slate-200 hover:shadow-sm transition-all duration-150"
-        >
-          {/* Company + title */}
-          <div className="flex-1 min-w-0">
-            {/* dir="auto": an English title in the Hebrew UI was truncated
-                from its start ("…anager- For Mint"), hiding the role. */}
-            <p dir="auto" className="text-[13px] font-semibold text-slate-900 truncate text-start">{item.title}</p>
-            <p dir="auto" className="text-[12px] text-slate-500 truncate mt-0.5 text-start">{item.company}</p>
-          </div>
-
-          {/* Stage badge */}
-          <StageBadge stage={item.status} />
-
-          {/* Score */}
-          {item.score > 0 && (
-            <span className="text-[11px] font-semibold text-slate-400 shrink-0">
-              {item.score.toFixed(1)}%
-            </span>
-          )}
-
-          {/* Last update */}
-          <span className="text-[11px] text-slate-400 shrink-0 hidden sm:block">
-            {item.last_update}
-          </span>
-
-          <RowDeleteButton
-            title={item.title}
-            onConfirm={() => onDelete(item.application_id)}
-            deleting={deletingId === item.application_id}
-          />
-        </div>
-      ))}
-    </div>
+    <JourneyRows
+      items={items}
+      action={item => (
+        <RowDeleteButton
+          title={item.title}
+          onConfirm={() => onDelete(item.application_id)}
+          deleting={deletingId === item.application_id}
+        />
+      )}
+    />
   )
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
+
+const VIEW_KEY = 'ja.apps.view'
+
 
 export function ApplicationsTab() {
   const A = useI18n().t.applications
   // The board needs sideways scrolling through columns that a phone shows one
   // at a time (and drag-and-drop does not work by touch), so phones open on
   // the list. Decided once on mount; the toggle still switches freely.
-  const [view,       setView]       = useState<View>(() =>
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'list' : 'board',
-  )
+  // Opens on the journey (the list). The board needs sideways scrolling and
+  // drag-and-drop, which a phone does not do well, so it is a choice, and the
+  // choice is remembered in this browser.
+  const [view,       setViewState]  = useState<View>('list')
+  useEffect(() => {
+    try { if (localStorage.getItem(VIEW_KEY) === 'board' && !window.matchMedia('(max-width: 767px)').matches) setViewState('board') } catch { /* private mode */ }
+  }, [])
+  const setView = useCallback((v: View) => {
+    setViewState(v)
+    try { localStorage.setItem(VIEW_KEY, v) } catch { /* private mode */ }
+  }, [])
   const [items,      setItems]      = useState<AppListItem[]>([])
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState<string | null>(null)
@@ -259,17 +222,15 @@ export function ApplicationsTab() {
   ).length
 
   return (
-    <section className="space-y-4">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-[15px] font-semibold text-slate-900">{A.title}</h2>
-          <p className="text-[12px] text-slate-500 mt-0.5">
-            {loading ? '—' : A.summary.replace('{total}', String(totalApps)).replace('{active}', String(activeApps))}
-          </p>
+    <section className="space-y-6 sm:space-y-8">
+      <JourneyHeader items={items} loading={loading}>
+        <div className="flex items-center gap-3">
+          <span className="hidden sm:inline text-[12px] text-slate-400">
+            {loading ? '' : A.summary.replace('{total}', String(totalApps)).replace('{active}', String(activeApps))}
+          </span>
+          <ViewToggle view={view} onChange={setView} />
         </div>
-        <ViewToggle view={view} onChange={setView} />
-      </div>
+      </JourneyHeader>
 
       {deleteError && (
         <div className="text-[12px] px-3 py-2 rounded-lg" style={{ color: TOKENS.color.danger, background: '#FEF2F2' }}>
@@ -280,7 +241,8 @@ export function ApplicationsTab() {
       {/* Content */}
       {view === 'board' ? (
         <ApplicationsKanban onRefresh={loadList} />
-      ) : (
+      ) : (<>
+        {(loading || items.length > 0) && <JourneyBand items={items} loading={loading} />}
         <ApplicationListView
           items={items}
           loading={loading}
@@ -288,7 +250,7 @@ export function ApplicationsTab() {
           onDelete={handleDeleteItem}
           deletingId={deletingId}
         />
-      )}
+      </>)}
     </section>
   )
 }

@@ -216,6 +216,8 @@ input[type='range'] {
   .animate-ja-ring,
   .animate-ja-swap,
   .animate-ja-ring-quick,
+  .animate-ja-grow,
+  .ja-flow,
   .ja-sheen {
     animation: none !important;
   }
@@ -231,6 +233,37 @@ input[type='range'] {
   transform: translateX(-120%);
   animation: ja-sheen 1.6s var(--ja-ease-in-out) 0.9s both;
 }
+/* The applications journey: light travelling along the line, from the
+   first step towards the offer, in the reading direction. Decoration on a
+   page opened a few times a day; still under reduced motion (list above). */
+.ja-flow {
+  position: absolute;
+  inset: 0;
+  animation: ja-flow 3.6s var(--ja-ease-in-out) infinite;
+}
+.ja-flow::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  inset-inline-start: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #14B8A6;
+  box-shadow: 0 0 12px rgba(20, 184, 166, 0.8);
+}
+[dir='rtl'] .ja-flow { animation-name: ja-flow-rtl; }
+@keyframes ja-flow {
+  from { transform: translateX(0); opacity: 0; }
+  10%, 90% { opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+@keyframes ja-flow-rtl {
+  from { transform: translateX(0); opacity: 0; }
+  10%, 90% { opacity: 1; }
+  to { transform: translateX(-100%); opacity: 0; }
+}
+
 @keyframes ja-sheen {
   from { transform: translateX(120%); }
   to   { transform: translateX(-120%); }
