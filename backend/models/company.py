@@ -16,7 +16,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from backend.core.database import Base
 
-_JSON = JSON().with_variant(JSONB(), "postgresql")
+# none_as_null: a missing value is SQL NULL, not the JSON value null, so
+# "culture IS NOT NULL" means "has a culture profile".
+_JSON = JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql")
 
 
 class CompanyRow(Base):

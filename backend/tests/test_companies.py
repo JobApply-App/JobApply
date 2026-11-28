@@ -175,3 +175,13 @@ def test_upsert_listings_counts_named_rows(engine):
     assert repo.upsert_listings(rows, engine=engine) == 1        # idempotent
     with Session(engine) as s:
         assert s.query(CompanyRow).count() == 1
+
+
+def test_missing_culture_is_sql_null_not_json_null(engine):
+    # The first backfill stored JSON null, so "culture IS NOT NULL" counted
+    # every company (2,788) instead of the 715 that have a profile.
+    from sqlalchemy import text
+    with Session(engine) as s:
+        _listing(s, "Acme")
+        s.commit()
+        assert s.execute(text("select count(*) from companies where culture is null and industries is null")).scalar() == 1
