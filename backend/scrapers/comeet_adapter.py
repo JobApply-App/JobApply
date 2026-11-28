@@ -44,6 +44,7 @@ import httpx
 
 from backend.schemas.job import JobMatch
 from backend.scrapers.base_scraper import BaseScraper, make_job_id, minimal_job_match, now_iso
+from backend.services.israel_cities import resolve_city
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,46 @@ def _careers_page_url(url: str) -> str:
     return f"{_CAREERS_BASE}/jobs/{url}"
 
 
+_ISRAEL_RE = re.compile(r"\bisrael\b|ישראל", re.IGNORECASE)
+
+
+def _in_israel(pos: dict) -> bool:
+    """
+    True when the position is located in Israel.
+
+    Comeet's location_object.country is an ISO code ("IL"), so it is trusted
+    when present. That is safe here, unlike a free-text ", IL" (Illinois) on
+    Greenhouse. Without a country, the city or location name is matched
+    against the Israeli locality list. Remote/Hybrid does not matter: a
+    "Remote" job with country PL is dropped.
+    """
+    loc = pos.get("location_object") or {}
+    country = (loc.get("country") or "").strip()
+    if country:
+        return country.upper() in ("IL", "ISR") or bool(_ISRAEL_RE.search(country))
+    for text in (loc.get("city"), loc.get("name"), pos.get("location")):
+        if text and (_ISRAEL_RE.search(text) or resolve_city(text)):
+            return True
+    return False
+
+
+def _apply_url(pos: dict) -> Optional[str]:
+    """
+    The position's own page, which also keys its job_id (make_job_id).
+
+    careers_page_url (Comeet-hosted) comes first because it is unique per
+    position. careers_page_active_url follows the company's settings and can
+    be the company's generic careers page: on 2026-11-28, 113 of Comm-IT's
+    124 positions shared `comm-it.com/commit-jobs#career-sec`, so they
+    collapsed into one job. position_url is an API endpoint, last resort.
+    """
+    for field in ("careers_page_url", "careers_page_active_url", "position_url"):
+        url = (pos.get(field) or "").strip()
+        if url:
+            return url
+    return None
+
+
 # ── Comeet adapter ────────────────────────────────────────────────────────────
 
 class ComeetAdapter(BaseScraper):
@@ -133,6 +174,10 @@ class ComeetAdapter(BaseScraper):
     fetch_details : bool
         Fetch per-position detail endpoint for richer JD text (default True).
         Disable for faster scrapes when description quality matters less.
+    israel_only : bool
+        Keep only positions located in Israel (default True; founder's call,
+        2026-11-28). Unlike Greenhouse/Lever, remote jobs abroad are NOT kept.
+        Filtering runs before detail fetches, so dropped jobs cost nothing.
     """
 
     def __init__(
@@ -142,12 +187,14 @@ class ComeetAdapter(BaseScraper):
         token:          Optional[str] = None,
         user_id:        str = "default",
         fetch_details:  bool = True,
+        israel_only:    bool = True,
     ) -> None:
         super().__init__(company_name, company_url)
         self._uid           = _extract_uid_from_url(company_url)
         self._token: Optional[str] = token
         self._user_id       = user_id
         self._fetch_details = fetch_details
+        self._israel_only   = israel_only
         self._page_url      = _careers_page_url(company_url)
 
     # ── Public ────────────────────────────────────────────────────────────────
@@ -184,9 +231,13 @@ class ComeetAdapter(BaseScraper):
             )
             return []
 
+        total = len(positions)
+        if self._israel_only:
+            positions = [p for p in positions if _in_israel(p)]
         logger.info(
-            "[ComeetAdapter] %s — API returned %d position(s)",
-            self.company_name, len(positions),
+            "[ComeetAdapter] %s — API returned %d position(s), %d in Israel%s",
+            self.company_name, total, len(positions),
+            "" if self._israel_only else " (filter off)",
         )
 
         if self._fetch_details:
@@ -327,9 +378,7 @@ class ComeetAdapter(BaseScraper):
                 self.company_name,
                 list(first.keys()),
                 first.get("name"),
-                first.get("careers_page_active_url")
-                    or first.get("careers_page_url")
-                    or first.get("position_url"),
+                _apply_url(first),
             )
         return data
 
@@ -381,7 +430,12 @@ class ComeetAdapter(BaseScraper):
             if pos.get("position_uid"):
                 detail = next(detail_iter, None)
                 if detail:
-                    pos = {**pos, **detail}   # detail fields win for completeness
+                    # The list item wins; detail only adds what it lacks
+                    # (description, requirements). A city variant such as
+                    # 17.574-43.606 (Hod Hasharon) gets its parent's detail
+                    # (17.574, Tel Aviv): letting detail win turned it into
+                    # a duplicate of the parent, with the parent's URL and city.
+                    pos = {**detail, **pos}
             enriched.append(pos)
         return enriched
 
@@ -392,12 +446,7 @@ class ComeetAdapter(BaseScraper):
             return None
 
         title     = (pos.get("name") or "").strip()
-        apply_url = (
-            pos.get("careers_page_active_url")
-            or pos.get("careers_page_url")
-            or pos.get("position_url")
-            or ""
-        ).strip() or None
+        apply_url = _apply_url(pos)
 
         if not title or not apply_url:
             return None
