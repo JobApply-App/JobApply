@@ -334,6 +334,27 @@ def _seed_scraper_registry() -> None:
         "user_id":      "default",
     })
 
+    # ── Workday: employers with Israeli offices (probed 2026-11-28) ─────────
+    # Israel only (WorkdayBoardAdapter, Ron's call). Counts are the Israel
+    # location facet that day. Last in the list: each costs up to 50 detail
+    # calls per sync, and Workday's Cloudflare refuses Python clients after a
+    # burst (curl from the same machine still got 200), so they may come back
+    # empty with a "refused" warning rather than push the boards above out.
+    workday_sites = [
+        ("NVIDIA",              "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite"),  # 389
+        ("KLA",                 "https://kla.wd1.myworkdayjobs.com/Search"),                        # 87
+        ("Applied Materials",   "https://amat.wd1.myworkdayjobs.com/External"),                     # 80
+        ("Intel",               "https://intel.wd1.myworkdayjobs.com/External"),                    # 36
+        ("HP",                  "https://hp.wd5.myworkdayjobs.com/ExternalCareerSite"),             # 15
+        ("Salesforce",          "https://salesforce.wd12.myworkdayjobs.com/External_Career_Site"),  # 15
+        ("Motorola Solutions",  "https://motorolasolutions.wd5.myworkdayjobs.com/Careers"),         # 15
+        ("Marvell",             "https://marvell.wd1.myworkdayjobs.com/MarvellCareers"),            # 12
+    ]
+    default_companies += [
+        {"company_name": name, "company_url": url, "adapter": "workday", "user_id": "default"}
+        for name, url in workday_sites
+    ]
+
     for cfg in default_companies:
         scraper = scraper_from_config(cfg)
         if scraper:

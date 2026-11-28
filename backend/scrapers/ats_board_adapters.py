@@ -47,18 +47,20 @@ _ISRAEL_RE = re.compile(r"\bisrael\b|ישראל", re.IGNORECASE)   # not "IL": t
 _REMOTE_RE = re.compile(r"\bremote\b|work from home|\bwfh\b|anywhere|מהבית", re.IGNORECASE)
 
 
+def in_israel(location: str) -> bool:
+    """True when this one location string names Israel or an Israeli locality."""
+    if not location:
+        return False
+    if _ISRAEL_RE.search(location.strip()):
+        return True
+    return any(resolve_city(part) for part in re.split(r"[;/|]", location))
+
+
 def israel_or_remote(locations: list[str], remote: bool = False) -> bool:
     """True when any listed location is in Israel or the job can be done remotely."""
     if remote:
         return True
-    for loc in locations:
-        if not loc:
-            continue
-        if _REMOTE_RE.search(loc) or _ISRAEL_RE.search(loc.strip()):
-            return True
-        if any(resolve_city(part) for part in re.split(r"[;/|]", loc)):
-            return True
-    return False
+    return any(loc and (_REMOTE_RE.search(loc) or in_israel(loc)) for loc in locations)
 
 
 def _board_slug(company_url: str, hosts: tuple[str, ...]) -> Optional[str]:

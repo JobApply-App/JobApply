@@ -41,6 +41,7 @@ from backend.scrapers.nisha_scraper      import NishaScraper         # noqa: E40
 from backend.scrapers.drushim_scraper    import DrushimScraper       # noqa: E402
 from backend.scrapers.alljobs_scraper    import AllJobsScraper       # noqa: E402
 from backend.scrapers.ats_board_adapters import GreenhouseBoardAdapter, LeverBoardAdapter  # noqa: E402
+from backend.scrapers.workday_adapter    import WorkdayBoardAdapter  # noqa: E402
 
 SCRAPER_CLASSES: Dict[str, Type[BaseScraper]] = {
     "comeet":      ComeetAdapter,
@@ -51,6 +52,7 @@ SCRAPER_CLASSES: Dict[str, Type[BaseScraper]] = {
     "alljobs":     AllJobsScraper,
     "greenhouse":  GreenhouseBoardAdapter,
     "lever":       LeverBoardAdapter,
+    "workday":     WorkdayBoardAdapter,
 }
 
 
