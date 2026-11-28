@@ -572,15 +572,21 @@ def _find_prior_employer(experience: list[dict], target_company: str) -> Optiona
 
     Mirrors match_score_service._find_prior_employer exactly — same 4-char
     minimum, same parenthetical/dash stripping, same re.escape word-boundary
-    test. Duplicated rather than imported to keep this module free of a
+    test, same company_key() equality. Duplicated rather than imported to keep this module free of a
     circular import back into match_score_service, which imports *this* one.
     """
     if not target_company or not target_company.strip():
+        return None
+    from backend.services.company_identity import company_key, is_placeholder
+    target_key = company_key(target_company)
+    if is_placeholder(target_key):
         return None
     for exp in experience or []:
         if not isinstance(exp, dict):
             continue
         company = (exp.get("company") or "").strip()
+        if target_key and company_key(company) == target_key:
+            return company
         if len(company) < 4:
             continue
         core = re.split(r"\s*[\(\[–—]", company)[0].strip()

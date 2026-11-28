@@ -29,6 +29,13 @@ _LEGAL_ANYWHERE = {"ltd", "inc", "llc", "corp", "limited", "plc", "gmbh", "בע�
 # Too short to drop from the middle of a name, safe at the end.
 _LEGAL_AT_END = {"co", "sa", "bv", "ag"}
 
+# Names that say who is NOT telling: "Confidential", "Stealth AI Startup",
+# "Undisclosed". In production 11 such spellings each pointed at one random
+# "Confidential" LinkedIn page, so every hidden employer looked like one company.
+_PLACEHOLDER = re.compile(
+    r"^(?:confidential|stealth|undisclosed|anonymous|unnamed|private company|חסוי|חברה חסויה)\b"
+)
+
 _LINKEDIN_COMPANY = re.compile(r"linkedin\.com/company/([^/?#]+)", re.IGNORECASE)
 
 
@@ -46,6 +53,11 @@ def company_key(name: Optional[str]) -> Optional[str]:
     while len(tokens) > 1 and tokens[-1] in _LEGAL_AT_END:
         tokens.pop()
     return " ".join(tokens) or None
+
+
+def is_placeholder(key: Optional[str]) -> bool:
+    """True for a company_key() that names no company in particular."""
+    return bool(key) and bool(_PLACEHOLDER.match(key))
 
 
 def linkedin_slug(url: Optional[str]) -> Optional[str]:

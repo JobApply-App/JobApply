@@ -248,6 +248,19 @@ def _get_joined(session, *, job_id: Optional[str] = None, user_id: Optional[str]
 
 # ── Posting upsert (global, shared across tenants) ───────────────────────────
 
+def _company_id(session, name: Optional[str]) -> Optional[str]:
+    """The posting's company (created if new), or None. A failure here must
+    not lose the job: it is saved without a company_id, logged loudly, and
+    the next save of the same posting fills it."""
+    from backend.repositories import company_repository
+    try:
+        with session.begin_nested():
+            return company_repository.company_id_for(session, name)
+    except Exception as exc:
+        logger.error("[job_repository] COMPANY LINK FAILED for %r: %s", name, type(exc).__name__)
+        return None
+
+
 def _upsert_posting(session, job: JobMatch) -> _uuid.UUID:
     """
     Upsert job_postings by canonical_job_key. On conflict, only upgrades
@@ -256,9 +269,10 @@ def _upsert_posting(session, job: JobMatch) -> _uuid.UUID:
     tenant matched against this posting, since job_postings is shared.
     """
     canonical_key = canonical_dedup_key(job.title, job.company, job.location)
+    company_id = _company_id(session, job.company)
 
     existing = session.execute(
-        text("SELECT id, source_type, apply_url, company_website_url, jd_text, locale "
+        text("SELECT id, source_type, apply_url, company_website_url, jd_text, locale, company_id "
              "FROM public.job_postings WHERE canonical_job_key = :key"),
         {"key": canonical_key},
     ).fetchone()
@@ -268,11 +282,12 @@ def _upsert_posting(session, job: JobMatch) -> _uuid.UUID:
             text("""
                 INSERT INTO public.job_postings
                     (canonical_job_key, title, company, company_website_url, location, jd_text,
-                     jd_structured, apply_url, source, source_type, locale, posted_at, is_open)
+                     jd_structured, apply_url, source, source_type, locale, posted_at, is_open,
+                     company_id)
                 VALUES
                     (:key, :title, :company, :company_url, :location, :jd_text,
                      CAST(:jd_structured AS jsonb), :apply_url, :source, :source_type, :locale,
-                     :posted_at, :is_open)
+                     :posted_at, :is_open, :company_id)
                 RETURNING id
             """),
             {
@@ -283,6 +298,7 @@ def _upsert_posting(session, job: JobMatch) -> _uuid.UUID:
                 "jd_structured": job.jd_structured,
                 "apply_url": job.apply_url, "source": job.source, "source_type": job.source_type,
                 "locale": job.locale, "posted_at": _parse_posted_at(job.posted_at), "is_open": job.is_open,
+                "company_id": company_id,
             },
         ).scalar_one()
         return posting_id
@@ -297,6 +313,8 @@ def _upsert_posting(session, job: JobMatch) -> _uuid.UUID:
         updates["jd_text"] = job.jd_text
     if job.locale and not existing.locale:
         updates["locale"] = job.locale
+    if company_id and not existing.company_id:
+        updates["company_id"] = company_id
     if updates:
         set_clause = ", ".join(f"{k} = :{k}" for k in updates)
         session.execute(
