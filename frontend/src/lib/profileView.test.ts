@@ -125,7 +125,8 @@ describe('knowledgeTopics', () => {
   const about: AboutAnswers = {
     gender: 'male', locations: [], work_environment: null, career_change: null,
     home_city: 'פתח תקווה', home_abroad: null, search_mode: 'radius', radius_km: null,
-  } as AboutAnswers
+    company_type: null, industries_prefer: [], industries_avoid: [],
+  }
 
   it('scores each topic from what is actually known, with one decimal', () => {
     const { topics, overall } = knowledgeTopics({
@@ -138,17 +139,17 @@ describe('knowledgeTopics', () => {
     expect(v.exp).toBe(76)
     // the ten strongest of 10..120
     expect(v.cap).toBe(75)
-    // home + roles of 5
-    expect(v.mob).toBe(40)
+    // home + roles of 6
+    expect(v.mob).toBe(33.3)
     // degree + army of 4
     expect(v.edu).toBe(50)
-    expect(overall).toBe(60.3)
+    expect(overall).toBe(58.6)
   })
 
   it('lists what is missing', () => {
     const { topics } = knowledgeTopics({ view, about, entities: [], roles: [] })
     const mob = topics.find(t => t.id === 'mob')!
-    expect(mob.checks.filter(c => !c.ok).map(c => c.key)).toEqual(['mob_roles', 'mob_range', 'mob_work_model', 'mob_career_change'])
+    expect(mob.checks.filter(c => !c.ok).map(c => c.key)).toEqual(['mob_roles', 'mob_range', 'mob_work_model', 'mob_career_change', 'mob_company'])
     expect(topics.find(t => t.id === 'cap')!.value).toBe(0)
   })
 })

@@ -9,13 +9,13 @@ import { useOnboarding }    from '@/contexts/OnboardingContext'
 import { resolveDisplayName } from '@/lib/nameUtils'
 import {
   saveRolePreferences, fetchRolePreferences, markOnboardingComplete,
-  fetchAbout, saveAbout, REGIONS,
+  fetchAbout, saveAbout, saveCompanyPreferences, REGIONS, INDUSTRY_GROUPS,
   uploadCvFiles,
   cvUploadErrorMessage,
   type CvUploadStage,
   type RoleSeniorityItem,
   type SeniorityLevel,
-  type Gender, type WorkEnvironment, type CareerChange, type Region,
+  type Gender, type WorkEnvironment, type CareerChange, type Region, type CompanyType, type IndustryGroup,
   type SearchMode,
 } from '@/lib/api'
 import { AccountStep } from '@/components/auth/AccountStep'
@@ -72,6 +72,7 @@ function Choices<T extends string>({ label, hint, options, labels, value, onChan
 const GENDERS: readonly Gender[] = ['male', 'female', 'unspecified']
 const WORK_MODELS: readonly WorkEnvironment[] = ['onsite', 'hybrid', 'remote', 'any']
 const CAREER_CHANGE: readonly CareerChange[] = ['yes', 'maybe', 'no']
+const COMPANY_TYPES: readonly CompanyType[] = ['startup', 'scaleup', 'corporate', 'any']
 const SEARCH_MODES: readonly SearchMode[] = ['radius', 'regions']
 const RADII = ['10', '25', '50', 'all'] as const
 type Radius = typeof RADII[number]
@@ -101,7 +102,7 @@ function OnboardingContent() {
 
   // The question within that step, in the URL for the same reason.
   const qParam = Number(searchParams.get('q'))
-  const question = qParam >= 1 && qParam <= 4 ? qParam : 1
+  const question = qParam >= 1 && qParam <= 5 ? qParam : 1
   const seenQuestion = useRef(question)
   const forward = useRef(true)
   if (seenQuestion.current !== question) {
@@ -134,6 +135,9 @@ function OnboardingContent() {
   const [showErrors, setShowErrors] = useState(false)
   // Not required, so they start on the answer most people would give (Ron).
   const [work,      setWork]      = useState<WorkEnvironment>('any')
+  const [company,   setCompany]   = useState<CompanyType>('any')
+  const [prefer,    setPrefer]    = useState<IndustryGroup[]>([])
+  const [avoid,     setAvoid]     = useState<IndustryGroup[]>([])
   const [change,    setChange]    = useState<CareerChange>('maybe')
 
   // CV upload state (in-place — no intermediate screen)
@@ -168,6 +172,9 @@ function OnboardingContent() {
         setLocations(prev => prev.length ? prev : a.locations)
         if (a.work_environment) setWork(a.work_environment)
         if (a.career_change) setChange(a.career_change)
+        if (a.company_type) setCompany(a.company_type)
+        setPrefer(prev => prev.length ? prev : a.industries_prefer ?? [])
+        setAvoid(prev => prev.length ? prev : a.industries_avoid ?? [])
         setHomeCity(prev => prev ?? a.home_city ?? null)
         if (a.home_abroad) { setHomeWhere('abroad'); setHomeAbroad(a.home_abroad) }
         // The older backend sends neither field: its saved areas must not read as "no mode".
@@ -226,6 +233,7 @@ function OnboardingContent() {
           radius_km:        !abroad && mode === 'radius' && radius !== 'all' ? Number(radius) : null,
         })
       }
+      await saveCompanyPreferences({ company_type: company, industries_prefer: prefer, industries_avoid: avoid })
       if (alreadyOnboarded) router.push('/?tab=overview')
       else setPhase('intake')
     } catch {
@@ -331,7 +339,7 @@ function OnboardingContent() {
       name={accountName?.trim() || metaName}
       role={roleValue}
       home={homeValue}
-      work={phase === 'intake' || (phase === 'preferences' && question === 4) ? A.work[work] : null}
+      work={phase === 'intake' || (phase === 'preferences' && question >= 4) ? A.work[work] : null}
       scanning={cvBusy}
     />
   )
@@ -355,6 +363,7 @@ function OnboardingContent() {
       { title: A.gender_label,      hint: A.gender_hint },
       { title: A.home_label,        hint: A.home_hint },
       { title: A.work_label,        hint: null },
+      { title: A.company_title,     hint: A.company_hint },
     ]
     const { title, hint } = titles[question - 1]
     const back = question > 1
@@ -365,7 +374,7 @@ function OnboardingContent() {
     return (
       <KycShell
         step={alreadyOnboarded ? undefined : 2}
-        progress={alreadyOnboarded ? question / 4 : 0.2 + question * 0.12}
+        progress={alreadyOnboarded ? question / 5 : 0.2 + question * 0.12}
         aside={card}
         caption={{ headline: O.panels.preferences.headline, subline: O.panels.preferences.subline }}
         headerEnd={signOutButton}
@@ -459,6 +468,32 @@ function OnboardingContent() {
                 value={[change]} onChange={v => setChange(v[0])}
                 disabled={saving}
               />
+            </>
+          )}
+
+          {question === 5 && (
+            <>
+              <Choices
+                label={A.company_label}
+                options={COMPANY_TYPES} labels={A.company}
+                value={[company]} onChange={v => setCompany(v[0])}
+                disabled={saving}
+              />
+              {/* An industry is preferred or avoided, never both. */}
+              <Choices
+                label={A.prefer_label}
+                options={INDUSTRY_GROUPS} labels={A.industries}
+                value={prefer} multi
+                onChange={v => { setPrefer(v); setAvoid(a => a.filter(g => !v.includes(g))) }}
+                disabled={saving}
+              />
+              <Choices
+                label={A.avoid_label}
+                options={INDUSTRY_GROUPS} labels={A.industries}
+                value={avoid} multi
+                onChange={v => { setAvoid(v); setPrefer(p => p.filter(g => !v.includes(g))) }}
+                disabled={saving}
+              />
               {saveError && (
                 <p className="text-[14px] text-rose-600 mt-6" role="alert">{saveError}</p>
               )}
@@ -466,7 +501,7 @@ function OnboardingContent() {
           )}
 
           <div className="max-lg:sticky max-lg:bottom-0 z-10 max-lg:-mx-5 max-sm:px-5 sm:max-lg:-mx-10 sm:max-lg:px-10 mt-7 max-lg:pb-4 max-lg:pt-3 max-lg:bg-white/60 max-lg:backdrop-blur-xl [@media(prefers-reduced-transparency:reduce)]:max-lg:bg-white">
-            <button type="button" onClick={question < 4 ? nextQuestion : handleSavePreferences} disabled={saving} className={`${kycPrimary} max-lg:ms-14 max-lg:w-[calc(100%-3.5rem)]`}>
+            <button type="button" onClick={question < 5 ? nextQuestion : handleSavePreferences} disabled={saving} className={`${kycPrimary} max-lg:ms-14 max-lg:w-[calc(100%-3.5rem)]`}>
               {saving ? O.preferences.saving : O.preferences.continue_cta}
             </button>
           </div>
@@ -484,7 +519,7 @@ function OnboardingContent() {
       aside={card}
       caption={{ headline: O.panels.intake.headline, subline: O.panels.intake.subline }}
       headerEnd={signOutButton}
-      back={{ href: '/onboarding?step=preferences&q=4', label: t.signup.page.back, aria: t.signup.page.back }}
+      back={{ href: '/onboarding?step=preferences&q=5', label: t.signup.page.back, aria: t.signup.page.back }}
     >
       <div key={phase} className="w-full animate-ja-tab-in motion-reduce:animate-none">
         <h1 className={kycTitle}>{O.intake.title}</h1>
