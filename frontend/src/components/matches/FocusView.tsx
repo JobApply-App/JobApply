@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useI18n } from '@/contexts/I18nContext'
 import type { ApiFeedJob } from '@/lib/apiTypes'
 import { localizeReason } from '@/lib/reasonLabel'
+import { briefIn } from '@/lib/fitBrief'
 import { moveCursor, resolveIndex, type FocusCursor } from '@/lib/focusQueue'
 import { ScoreRing } from '../ui/ScoreRing'
 import { CompanyLogo } from '../ui/CompanyLogo'
@@ -103,6 +104,7 @@ export function FocusView({
   const gaps = job.reasons.filter(r => r.kind === 'neg')
   const next = jobs.slice(idx + 1, idx + 1 + UP_NEXT)
   const saved = job.status === 'saved'
+  const brief = briefIn(locale, job.fit_brief, job.fit_brief_translations)
 
   return (
     <div className="space-y-6">
@@ -164,10 +166,10 @@ export function FocusView({
             </ul>
           )}
 
-          {job.fit_brief && (
+          {brief && (
             <div className="mt-5 rounded-xl px-4 py-3.5" style={{ background: 'rgba(54,122,142,0.07)' }}>
               <p className="text-[12px] font-semibold" style={{ color: '#367A8E' }}>{F.why}</p>
-              <p dir="auto" className="mt-1 text-[14px] leading-relaxed text-slate-700">{job.fit_brief}</p>
+              <p dir="auto" className="mt-1 text-[14px] leading-relaxed text-slate-700">{brief}</p>
             </div>
           )}
 

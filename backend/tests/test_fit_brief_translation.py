@@ -1,10 +1,11 @@
 """
-One-time Hebrew backfill of fit_brief for jobs scored before #81.
+"Ariel's analysis" (fit_brief) translated into the interface language and
+stored beside the original, never over it.
 
-Unit tests mock the repository and the LLM; the SQL tests run the two
-repository queries against the local Postgres (user_job_matches has a hard
-FK to auth.users, so they seed the shared QA account, as
-test_analytics_service.py does).
+Unit tests mock the repository and the LLM; the SQL tests run the repository
+queries against the local Postgres (user_job_matches has a hard FK to
+auth.users, so they seed the shared QA account, as test_analytics_service.py
+does).
 """
 from __future__ import annotations
 
@@ -27,7 +28,7 @@ _REAL_CONSUME_DAILY = svc._consume_daily   # the autouse fixture stubs it
 def _fresh_state(monkeypatch):
     svc._done.clear()
     svc._skipped.clear()
-    monkeypatch.setattr(profile_repository, "get_locales", lambda user_id: {"ui_locale": "he", "cv_locale": None})
+    svc._locales.clear()
     monkeypatch.setattr(svc, "_consume_daily", lambda user_id: True)
     monkeypatch.setattr("backend.services.llm_client.providers_unavailable", lambda: False)
 
@@ -44,49 +45,68 @@ def _fake_llm(monkeypatch, reply):
 
 def _fake_repo(monkeypatch, rows):
     saved = {}
-    monkeypatch.setattr(job_repository, "list_untranslated_fit_briefs", lambda user_id, limit: rows[:limit])
-    monkeypatch.setattr(job_repository, "replace_fit_brief",
-                        lambda job_id, user_id, old, new: saved.setdefault(job_id, new) is not None)
-    return saved
+    asked = []
+
+    def _list(user_id, lang, limit):
+        asked.append(lang)
+        return rows[:limit]
+
+    def _save(job_id, user_id, src, lang, new):
+        saved[job_id] = (src, lang, new)
+        return True
+    monkeypatch.setattr(job_repository, "list_briefs_to_translate", _list)
+    monkeypatch.setattr(job_repository, "save_fit_brief_translation", _save)
+    return saved, asked
 
 
-async def test_translates_and_saves_hebrew(monkeypatch):
-    saved = _fake_repo(monkeypatch, [("j1", "Strong B2B fit."), ("j2", "Lacks SQL.")])
+async def test_translates_english_briefs_into_hebrew_beside_the_original(monkeypatch):
+    saved, asked = _fake_repo(monkeypatch, [("j1", "Strong B2B fit."), ("j2", "Lacks SQL.")])
     calls = _fake_llm(monkeypatch, lambda src: json.dumps(["התאמה חזקה ל-B2B.", "חסר SQL."], ensure_ascii=False))
-    assert await svc.translate_batch(_USER) == 2
-    assert saved == {"j1": "התאמה חזקה ל-B2B.", "j2": "חסר SQL."}
-    assert len(calls) == 1
+    assert await svc.translate_batch(_USER, "he") == 2
+    assert saved == {"j1": ("Strong B2B fit.", "he", "התאמה חזקה ל-B2B."),
+                     "j2": ("Lacks SQL.", "he", "חסר SQL.")}
+    assert asked == ["he"] and len(calls) == 1
+    assert "English to Hebrew" in calls[0]["system"]
 
 
-async def test_english_user_is_never_touched(monkeypatch):
-    monkeypatch.setattr(profile_repository, "get_locales", lambda user_id: {"ui_locale": "en", "cv_locale": None})
-    _fake_repo(monkeypatch, [("j1", "Strong fit.")])
-    calls = _fake_llm(monkeypatch, lambda src: "[]")
-    assert await svc.translate_batch(_USER) == 0
-    assert calls == []
+async def test_translates_hebrew_briefs_into_english(monkeypatch):
+    # Ron, 2026-11-28: an English interface showed Hebrew analyses.
+    saved, asked = _fake_repo(monkeypatch, [("j1", "חוזק: ניסיון B2B עמוק.")])
+    calls = _fake_llm(monkeypatch, lambda src: json.dumps(["Strength: deep B2B experience."]))
+    assert await svc.translate_batch(_USER, "en") == 1
+    assert saved == {"j1": ("חוזק: ניסיון B2B עמוק.", "en", "Strength: deep B2B experience.")}
+    assert asked == ["en"]
+    assert "Hebrew to English" in calls[0]["system"]
 
 
 async def test_empty_backlog_stops_querying(monkeypatch):
     queries = []
-    monkeypatch.setattr(job_repository, "list_untranslated_fit_briefs",
-                        lambda user_id, limit: queries.append(1) or [])
-    await svc.translate_batch(_USER)
-    await svc.translate_batch(_USER)
+    monkeypatch.setattr(job_repository, "list_briefs_to_translate",
+                        lambda user_id, lang, limit: queries.append(1) or [])
+    await svc.translate_batch(_USER, "en")
+    await svc.translate_batch(_USER, "en")
     assert len(queries) == 1
 
 
-async def test_non_hebrew_reply_is_skipped_not_retried(monkeypatch):
-    saved = _fake_repo(monkeypatch, [("j1", "Strong fit."), ("j2", "Weak fit.")])
+async def test_reply_in_the_wrong_language_is_skipped_not_retried(monkeypatch):
+    saved, _ = _fake_repo(monkeypatch, [("j1", "Strong fit."), ("j2", "Weak fit.")])
     _fake_llm(monkeypatch, lambda src: json.dumps(["Strong fit.", "התאמה חלשה."], ensure_ascii=False))
-    assert await svc.translate_batch(_USER) == 1
-    assert saved == {"j2": "התאמה חלשה."}
-    assert svc._skipped[_USER] == {"j1"}
+    assert await svc.translate_batch(_USER, "he") == 1
+    assert list(saved) == ["j2"]
+    assert svc._skipped[(_USER, "he")] == {"j1"}
+
+
+async def test_hebrew_left_in_an_english_reply_is_skipped(monkeypatch):
+    saved, _ = _fake_repo(monkeypatch, [("j1", "התאמה חזקה.")])
+    _fake_llm(monkeypatch, lambda src: json.dumps(["התאמה חזקה."], ensure_ascii=False))
+    assert await svc.translate_batch(_USER, "en") == 0
+    assert saved == {}
 
 
 async def test_wrong_length_reply_saves_nothing(monkeypatch):
-    saved = _fake_repo(monkeypatch, [("j1", "a"), ("j2", "b")])
+    saved, _ = _fake_repo(monkeypatch, [("j1", "a"), ("j2", "b")])
     _fake_llm(monkeypatch, lambda src: json.dumps(["רק אחד"], ensure_ascii=False))
-    assert await svc.translate_batch(_USER) == 0
+    assert await svc.translate_batch(_USER, "he") == 0
     assert saved == {}
 
 
@@ -94,7 +114,7 @@ async def test_spent_daily_cap_skips_the_llm(monkeypatch):
     monkeypatch.setattr(svc, "_consume_daily", lambda user_id: False)
     _fake_repo(monkeypatch, [("j1", "Strong fit.")])
     calls = _fake_llm(monkeypatch, lambda src: "[]")
-    assert await svc.translate_batch(_USER) == 0
+    assert await svc.translate_batch(_USER, "he") == 0
     assert calls == []
 
 
@@ -104,43 +124,40 @@ async def test_llm_failure_does_not_raise(monkeypatch):
     async def _boom(**kw):
         raise RuntimeError("provider down")
     monkeypatch.setattr("backend.services.llm_client.call_llm", _boom)
-    assert await svc.translate_batch(_USER) == 0
+    assert await svc.translate_batch(_USER, "he") == 0
 
 
-async def test_translate_all_covers_users_outside_the_pipeline(monkeypatch):
-    monkeypatch.setattr(svc, "_users", None)
-    monkeypatch.setattr(profile_repository, "list_hebrew_ui_user_ids", lambda: [_USER, "u2"])
+async def test_translate_all_uses_each_users_language(monkeypatch):
+    monkeypatch.setattr(profile_repository, "list_ui_locales", lambda: {_USER: "he", "u2": "en"})
     seen = []
 
-    async def _batch(user_id):
-        seen.append(user_id)
+    async def _batch(user_id, lang):
+        seen.append((user_id, lang))
         return 1
     monkeypatch.setattr(svc, "translate_batch", _batch)
     assert await svc.translate_all() == 2
-    assert seen == [_USER, "u2"]
+    assert seen == [(_USER, "he"), ("u2", "en")]
 
 
-async def test_user_who_switches_to_hebrew_later_is_picked_up(monkeypatch):
-    # The list used to be read once per process: a user who switched to
-    # Hebrew after a deploy kept English analyses until the next restart.
-    monkeypatch.setattr(svc, "_users", None)
-    hebrew = [_USER]
-    monkeypatch.setattr(profile_repository, "list_hebrew_ui_user_ids", lambda: list(hebrew))
+async def test_user_who_switches_language_is_checked_again(monkeypatch):
+    locales = {_USER: "he"}
+    monkeypatch.setattr(profile_repository, "list_ui_locales", lambda: dict(locales))
     seen = []
 
-    async def _batch(user_id):
-        seen.append(user_id)
-        svc._done.add(user_id)      # backlog finished for this user
+    async def _batch(user_id, lang):
+        seen.append((user_id, lang))
+        svc._done.add((user_id, lang))      # backlog finished
         return 0
     monkeypatch.setattr(svc, "translate_batch", _batch)
-    svc._done.add("u2")             # e.g. marked done earlier while their UI was English
+    svc._done.add((_USER, "en"))            # e.g. finished in English earlier in the process
 
     await svc.translate_all()
-    assert seen == [_USER]
+    await svc.translate_all()               # done: not asked again
+    assert seen == [(_USER, "he")]
 
-    hebrew.append("u2")             # u2 switches the interface to Hebrew
+    locales[_USER] = "en"                   # switches the interface to English
     await svc.translate_all()
-    assert seen == [_USER, "u2"]    # u2 checked again; _USER stays done
+    assert seen == [(_USER, "he"), (_USER, "en")]
 
 
 async def test_does_not_touch_the_scoring_budget(monkeypatch):
@@ -152,7 +169,7 @@ async def test_does_not_touch_the_scoring_budget(monkeypatch):
     monkeypatch.setattr(llm_budget, "background_llm_allowed", _forbidden)
     _fake_repo(monkeypatch, [("j1", "Strong fit.")])
     _fake_llm(monkeypatch, lambda src: json.dumps(["התאמה חזקה."], ensure_ascii=False))
-    assert await svc.translate_batch(_USER) == 1
+    assert await svc.translate_batch(_USER, "he") == 1
 
 
 def test_daily_cap_counts_in_kv(monkeypatch):
@@ -163,6 +180,15 @@ def test_daily_cap_counts_in_kv(monkeypatch):
     monkeypatch.setattr(kv_repository, "upsert", lambda k, v: store.__setitem__(k, v))
     monkeypatch.setattr(svc, "_DAILY_BATCHES", 2)
     assert [_REAL_CONSUME_DAILY(_USER) for _ in range(3)] == [True, True, False]
+
+
+def test_served_translations_only_while_the_original_is_current():
+    i18n = {"src": "Strong fit.", "he": "התאמה חזקה.", "en": ""}
+    assert job_repository.brief_translations("Strong fit.", i18n) == {"he": "התאמה חזקה."}
+    # Re-scored since: the old translation no longer describes this brief.
+    assert job_repository.brief_translations("Weak fit.", i18n) is None
+    assert job_repository.brief_translations("Strong fit.", None) is None
+    assert job_repository.brief_translations(None, i18n) is None
 
 
 # ── SQL against the local Postgres ───────────────────────────────────────────
@@ -191,26 +217,40 @@ def _cleanup(job_ids):
             conn.execute(text("DELETE FROM public.job_postings WHERE id = :pid"), {"pid": pid})
 
 
-def test_sql_lists_hebrew_ui_users(db_available):
+def _stored(job_id: str):
+    from backend.core.postgres import PG_ENGINE
+    with PG_ENGINE.connect() as conn:
+        return conn.execute(text(
+            "SELECT fit_brief, fit_brief_i18n FROM public.user_job_matches WHERE job_id = :j"), {"j": job_id}).one()
+
+
+def test_sql_lists_ui_locales(db_available):
     from backend.core.postgres import PG_ENGINE
     with PG_ENGINE.begin() as conn:
         conn.execute(text(
             "INSERT INTO public.user_preferences (user_id, ui_locale) VALUES (CAST(:u AS uuid), 'he') "
             "ON CONFLICT (user_id) DO UPDATE SET ui_locale = 'he'"), {"u": _QA_USER_A})
-    assert _QA_USER_A in profile_repository.list_hebrew_ui_user_ids()
+    assert profile_repository.list_ui_locales().get(_QA_USER_A) == "he"
 
 
-def test_sql_lists_only_english_and_replace_is_conditional(db_available):
+def test_sql_translation_is_stored_beside_the_original(db_available):
     en, he = f"tr-en-{uuid.uuid4()}", f"tr-he-{uuid.uuid4()}"
     _seed(en, "Strong B2B fit.")
     _seed(he, "התאמה חזקה ל-B2B.")
     try:
-        ids = {j for j, _ in job_repository.list_untranslated_fit_briefs(_QA_USER_A, 500)}
-        assert en in ids and he not in ids
+        assert {j for j, _ in job_repository.list_briefs_to_translate(_QA_USER_A, "he", 500)} >= {en}
+        assert he not in {j for j, _ in job_repository.list_briefs_to_translate(_QA_USER_A, "he", 500)}
+        assert he in {j for j, _ in job_repository.list_briefs_to_translate(_QA_USER_A, "en", 500)}
+
         # A re-score that changed the brief meanwhile wins.
-        assert not job_repository.replace_fit_brief(en, _QA_USER_A, "something else", "תרגום")
-        assert job_repository.replace_fit_brief(en, _QA_USER_A, "Strong B2B fit.", "התאמה חזקה.")
-        ids = {j for j, _ in job_repository.list_untranslated_fit_briefs(_QA_USER_A, 500)}
-        assert en not in ids
+        assert not job_repository.save_fit_brief_translation(en, _QA_USER_A, "something else", "he", "תרגום")
+        assert job_repository.save_fit_brief_translation(en, _QA_USER_A, "Strong B2B fit.", "he", "התאמה חזקה.")
+        brief, i18n = _stored(en)
+        assert brief == "Strong B2B fit."                       # the original is untouched
+        assert i18n == {"src": "Strong B2B fit.", "he": "התאמה חזקה."}
+        assert en not in {j for j, _ in job_repository.list_briefs_to_translate(_QA_USER_A, "he", 500)}
+
+        assert job_repository.save_fit_brief_translation(he, _QA_USER_A, "התאמה חזקה ל-B2B.", "en", "Strong B2B fit.")
+        assert he not in {j for j, _ in job_repository.list_briefs_to_translate(_QA_USER_A, "en", 500)}
     finally:
         _cleanup([en, he])

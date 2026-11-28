@@ -751,11 +751,13 @@ def list_onboarding_complete_user_ids() -> list[str]:
     return [str(r[0]) for r in rows]
 
 
-def list_hebrew_ui_user_ids() -> list[str]:
-    """user_ids whose interface language is Hebrew — fit_brief_translation's backfill."""
+def list_ui_locales() -> dict[str, str]:
+    """{user_id: "he" | "en"} for every user with a stored interface language — fit_brief_translation."""
     with ENGINE.connect() as conn:
-        rows = conn.execute(text("SELECT user_id FROM public.user_preferences WHERE ui_locale = 'he'")).fetchall()
-    return [str(r[0]) for r in rows]
+        rows = conn.execute(text(
+            "SELECT user_id, ui_locale FROM public.user_preferences WHERE ui_locale IN ('he', 'en')"
+        )).fetchall()
+    return {str(r[0]): r[1] for r in rows}
 
 
 # ── Language preferences ───────────────────────────────────────────────────────

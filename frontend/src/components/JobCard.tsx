@@ -19,6 +19,7 @@ import { CompanyLogo } from './ui/CompanyLogo'
 import { Button, buttonClasses, type ButtonVariant } from './ui/Button'
 import { SkillsGapPanel }   from './SkillsGapPanel'
 import { localizeReason, reasonSkill } from '@/lib/reasonLabel'
+import { briefIn } from '@/lib/fitBrief'
 
 // ── Chevron ───────────────────────────────────────────────────────────────────
 
@@ -711,13 +712,17 @@ function ArielInsightButton({
 }
 
 function AgentAnalysisBox({ job, userId, active }: { job: ApiFeedJob; userId?: string; active: boolean }) {
-  const J = useI18n().t.job_card
+  const { t, locale } = useI18n()
+  const J = t.job_card
   // Analysis fetched on demand when the card is opened (see analyzeJobNow).
   const [fetched, setFetched] = useState<{ fit_brief: string | null; score_is_proxy: boolean; enrichment_failures: number } | null>(null)
   const [requested, setRequested] = useState(false)
   const [limitText, setLimitText] = useState<string | null>(null)
   const source        = fetched ?? job
-  const raw           = (source.fit_brief ?? '').trim()
+  // The translations describe the brief the feed sent; a freshly fetched
+  // brief that differs shows as written until the next feed read.
+  const raw           = briefIn(locale, source.fit_brief,
+                                source.fit_brief === job.fit_brief ? job.fit_brief_translations : null) ?? ''
   const analysisReady = _isSubstantiveText(raw) && !source.score_is_proxy
   const hardFailed    = (source.enrichment_failures ?? 0) >= ENRICHMENT_MAX_FAILURES
 

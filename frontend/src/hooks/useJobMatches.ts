@@ -48,6 +48,7 @@ export function useJobMatches(): UseJobMatchesResult {
           isNew:      f.is_new,
           reasons:    f.reasons,
           fitBrief:     f.fit_brief ?? null,
+          fitBriefTranslations: f.fit_brief_translations ?? null,
         }))
       )
       setError(null)
