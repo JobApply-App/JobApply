@@ -387,6 +387,7 @@ export const en = {
     contact:       'Contact',
     accessibility: 'Accessibility statement',
     rights:        'All rights reserved',
+    logos_by:      'Logos provided by Logo.dev',
     nav_label:     'Site information',
     group_support: 'Support',
     group_legal:   'Legal',

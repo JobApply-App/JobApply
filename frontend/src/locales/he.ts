@@ -387,6 +387,7 @@ export const he = {
     contact:       'יצירת קשר',
     accessibility: 'הצהרת נגישות',
     rights:        'כל הזכויות שמורות',
+    logos_by:      'הלוגואים באדיבות Logo.dev',
     nav_label:     'מידע על האתר',
     group_support: 'תמיכה',
     group_legal:   'מידע משפטי',

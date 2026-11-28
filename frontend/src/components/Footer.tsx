@@ -125,6 +125,11 @@ export function Footer() {
               <br />
               {F.rights}
             </p>
+            {/* Company logos come from Logo.dev, whose plan asks for this link
+                on a public page; the footer is on every page, the landing too. */}
+            <a href="https://logo.dev" target="_blank" rel="noopener" className="text-[12px] text-slate-500 hover:text-slate-900 transition-colors">
+              {F.logos_by}
+            </a>
           </div>
           <nav aria-label={F.nav_label} className="grid grid-cols-2 gap-x-10 gap-y-6 sm:gap-x-16">
             <div>
