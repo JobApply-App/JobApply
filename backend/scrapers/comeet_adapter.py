@@ -263,6 +263,15 @@ class ComeetAdapter(BaseScraper):
         async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
             html = await self._fetch_html_with_fallback(client, page_url)
 
+        # A company that left Comeet gets 302'd to Comeet's marketing homepage
+        # (200, no COMPANY_DATA). Say so, rather than "token not found", which
+        # reads like a scraping bug.
+        if "COMPANY_DATA" not in html:
+            raise ValueError(
+                f"'{page_url}' has no COMPANY_DATA — no Comeet board there "
+                "(the company likely moved off Comeet or changed its UID)."
+            )
+
         uid   = self._uid or _extract_uid_from_url(html)
         token: Optional[str] = None
 
