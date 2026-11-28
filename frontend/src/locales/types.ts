@@ -12,7 +12,7 @@ import type { ReasonCode } from '../lib/reasonLabel'
  */
 export const ERROR_CODES = [
   'auth_required', 'session_expired', 'session_time_limit', 'forbidden', 'admin_only', 'dev_only', 'auth_not_configured',
-  'rate_limited', 'daily_cv_limit', 'daily_chat_limit', 'daily_analysis_limit', 'linkedin_quota',
+  'rate_limited', 'daily_cv_limit', 'daily_chat_limit', 'daily_analysis_limit', 'daily_ai_limit', 'daily_public_chat_limit', 'linkedin_quota',
   'job_not_found', 'application_not_found', 'session_not_found', 'item_not_found', 'task_expired',
   'invalid_input', 'empty_message', 'invalid_linkedin_url', 'file_too_large', 'unsupported_file',
   'legacy_doc', 'file_mismatch', 'conflict',

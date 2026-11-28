@@ -30,7 +30,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.core.errors import AppError
-from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit, standard_rate_limit
+from backend.api.deps import CurrentUser, get_current_user, daily_ai_spend_limit, llm_rate_limit, standard_rate_limit
 from backend.core.database import ENGINE
 from backend.models.profile import ProfileEntityRow
 from backend.repositories import evidence_repository
@@ -207,7 +207,7 @@ class ResearchRequest(BaseModel):
     force: bool = False
 
 
-@router.post("/research", dependencies=[Depends(llm_rate_limit)])
+@router.post("/research", dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def trigger_research(req: ResearchRequest, user: CurrentUser = Depends(get_current_user)):
     """
     Run the ResearcherAgent for all profile entities (or a subset).
@@ -914,7 +914,7 @@ async def _ingest_cv_full(
     return response
 
 
-@router.post("/cv-upload", dependencies=[Depends(llm_rate_limit)])
+@router.post("/cv-upload", dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def upload_cv_files(
     files:     List[UploadFile]  = File(..., description="One or more CV files (PDF or DOCX)"),
     entity_id: Optional[str]     = Form(None, description=(
@@ -1048,7 +1048,7 @@ def _reap_cv_tasks() -> None:
         _CV_TASKS.pop(tid, None)
 
 
-@router.post("/cv-upload/start", dependencies=[Depends(llm_rate_limit)])
+@router.post("/cv-upload/start", dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def start_cv_upload(
     files: List[UploadFile] = File(..., description="One or more CV files (PDF or DOCX)"),
     user:  CurrentUser      = Depends(get_current_user),
@@ -1518,7 +1518,7 @@ async def start_interview(
         raise AppError("ai_failed", status_code=500, detail="Failed to start interview session. Please try again shortly.", feature="interview") from exc
 
 
-@router.post("/interview/message", dependencies=[Depends(llm_rate_limit)])
+@router.post("/interview/message", dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def send_interview_message(
     req:  InterviewMessageRequest,
     user: CurrentUser = Depends(get_current_user),
@@ -1556,7 +1556,7 @@ async def get_interview_session(
         raise HTTPException(status_code=403, detail=str(exc))
 
 
-@router.post("/interview/{session_id}/resume", dependencies=[Depends(llm_rate_limit)])
+@router.post("/interview/{session_id}/resume", dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def resume_interview_session(
     session_id: str,
     user:       CurrentUser = Depends(get_current_user),
@@ -1580,7 +1580,7 @@ async def resume_interview_session(
         raise AppError("ai_failed", status_code=500, detail="Failed to resume interview session. Please try again shortly.", feature="interview") from exc
 
 
-@router.post("/interview/{session_id}/upload", dependencies=[Depends(llm_rate_limit)])
+@router.post("/interview/{session_id}/upload", dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def upload_verification_document(
     session_id: str,
     claim:      str        = Form(..., max_length=500, description="The exact claim being verified"),

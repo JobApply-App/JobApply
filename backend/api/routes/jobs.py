@@ -13,7 +13,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from backend.core.errors import AppError, error_body
-from backend.api.deps import CurrentUser, consume_daily_analysis, get_current_user, llm_rate_limit, require_admin, sync_rate_limit
+from backend.api.deps import CurrentUser, consume_daily_analysis, get_current_user, daily_ai_spend_limit, llm_rate_limit, require_admin, sync_rate_limit
 from backend.schemas.job import DetailedAnalysis, JobMatch, RawJobPosting, ReasonTag
 import backend.repositories.job_repository as job_store
 from backend.services import feed_service
@@ -257,7 +257,7 @@ class RefreshResponse(BaseModel):
     message: str
 
 
-@router.post("/feed/refresh", response_model=RefreshResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/feed/refresh", response_model=RefreshResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def refresh_feed_scores(
     background_tasks: BackgroundTasks,
     user: CurrentUser = Depends(get_current_user),
@@ -415,7 +415,7 @@ class FetchJdResponse(BaseModel):
     jd_structured:   Optional[str] = None
 
 
-@router.post("/{job_id}/fetch-jd", response_model=FetchJdResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/{job_id}/fetch-jd", response_model=FetchJdResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def fetch_single_jd(
     job_id: str,
     user:   CurrentUser = Depends(get_current_user),
@@ -522,7 +522,7 @@ class TailorBriefResponse(BaseModel):
     cached:              bool = False
 
 
-@router.post("/{job_id}/tailor-cv", response_model=TailorBriefResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/{job_id}/tailor-cv", response_model=TailorBriefResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def tailor_cv_brief(
     job_id:        str,
     force_refresh: bool = Query(False, description="Bypass cache and re-generate"),
@@ -609,7 +609,7 @@ contents entirely from the JSON structure, and confirm the removal in "reply".
 """
 
 
-@router.post("/{job_id}/tailor-cv/edit", response_model=TailorEditResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/{job_id}/tailor-cv/edit", response_model=TailorEditResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def tailor_cv_edit(job_id: str, body: TailorEditRequest, user: CurrentUser = Depends(get_current_user)):
     """
     CV Copilot: apply a natural-language editing instruction to the tailored sections.
@@ -707,7 +707,7 @@ async def _check_liveness(url: str) -> bool:
         return True
 
 
-@router.post("/analyze-job", response_model=JobMatch, dependencies=[Depends(llm_rate_limit)])
+@router.post("/analyze-job", response_model=JobMatch, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def analyze_job_url(request: JobUrlRequest, user: CurrentUser = Depends(get_current_user)):
     """
     Analyze a job URL against the caller's profile.
@@ -793,7 +793,7 @@ class AnalyzeResponse(BaseModel):
     job_id:  Optional[str] = None
 
 
-@router.post("/analyze", response_model=JobMatch, dependencies=[Depends(llm_rate_limit)])
+@router.post("/analyze", response_model=JobMatch, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def analyze_job(
     request: AnalyzeRequest,
     user:    CurrentUser = Depends(get_current_user),
@@ -1024,7 +1024,7 @@ def _reap_analyze_tasks() -> None:
         _ANALYZE_TASKS.pop(tid, None)
 
 
-@router.post("/analyze/start", dependencies=[Depends(llm_rate_limit)])
+@router.post("/analyze/start", dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def start_analyze_job(
     request: AnalyzeRequest,
     user:    CurrentUser = Depends(get_current_user),
@@ -1107,7 +1107,7 @@ class ScrapeResponse(BaseModel):
     message:   str
 
 
-@router.post("/scrape", response_model=ScrapeResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/scrape", response_model=ScrapeResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def scrape_company_jobs(
     request:          ScrapeRequest,
     background_tasks: BackgroundTasks,
@@ -1201,7 +1201,7 @@ class VerifyChatResponse(BaseModel):
     summary:              Optional[str]  = None
 
 
-@router.post("/{job_id}/verify/chat", response_model=VerifyChatResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/{job_id}/verify/chat", response_model=VerifyChatResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def verify_chat(job_id: str, body: VerifyChatRequest, background_tasks: BackgroundTasks, user: CurrentUser = Depends(get_current_user)):
     """
     Process one turn of the truth-verification conversation.
@@ -1316,7 +1316,7 @@ class JobAnalysisState(BaseModel):
 @router.post(
     "/{job_id}/analyze-now",
     response_model=JobAnalysisState,
-    dependencies=[Depends(llm_rate_limit)],
+    dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)],
 )
 async def analyze_job_now(job_id: str, user: CurrentUser = Depends(get_current_user)):
     """
@@ -1462,7 +1462,7 @@ class AtsKeywordsResponse(BaseModel):
     missing:     list[str]
 
 
-@router.post("/{job_id}/ats-keywords", response_model=AtsKeywordsResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/{job_id}/ats-keywords", response_model=AtsKeywordsResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def get_ats_keywords(job_id: str, user: CurrentUser = Depends(get_current_user)):
     """
     Extract ATS keywords from a job's JD text, classify them as present in the
@@ -1491,7 +1491,7 @@ class SkillsGapResponse(BaseModel):
     analysis: str   # free-text bullet-style gap analysis from the LLM
 
 
-@router.post("/{job_id}/skills-gap", response_model=SkillsGapResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/{job_id}/skills-gap", response_model=SkillsGapResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def get_skills_gap(job_id: str, user: CurrentUser = Depends(get_current_user)):
     """
     Compare a job's JD text against the candidate's profile and return a
@@ -1567,7 +1567,7 @@ def _raise_for_service_sentinel(text: str) -> None:
 @router.post(
     "/{job_id}/interview/question",
     response_model=InterviewQuestionResponse,
-    dependencies=[Depends(llm_rate_limit)],
+    dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)],
 )
 async def generate_mock_interview_question(
     job_id: str,
@@ -1603,7 +1603,7 @@ async def generate_mock_interview_question(
 @router.post(
     "/{job_id}/interview/answer",
     response_model=InterviewFeedbackResponse,
-    dependencies=[Depends(llm_rate_limit)],
+    dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)],
 )
 async def evaluate_mock_interview_answer(
     job_id: str,

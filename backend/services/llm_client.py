@@ -146,6 +146,106 @@ def providers_unavailable() -> bool:
     return time.monotonic() < _PROVIDERS_DOWN_UNTIL
 
 
+# ── Gemini pause ──────────────────────────────────────────────────────────────
+# Production logs (2026-11-28) show GEMINI CALL FAILED (status=402) on every
+# call: a billing problem on the Google account. Each call waited for that
+# failure before falling back to Anthropic. A billing, auth or quota refusal
+# will not clear on the next call, so Gemini is skipped for a while instead of
+# being re-attempted every time. Fixing billing needs no code change: the next
+# attempt after the pause succeeds and Gemini is primary again.
+_GEMINI_DOWN_UNTIL: float = 0.0
+_GEMINI_PAUSE_S = 1800.0
+_GEMINI_PAUSE_STATUSES = (401, 402, 403, 429)
+
+
+def _pause_gemini_if_refused(exc: Exception) -> None:
+    global _GEMINI_DOWN_UNTIL
+    status = getattr(exc, "code", None)
+    if status in _GEMINI_PAUSE_STATUSES:
+        _GEMINI_DOWN_UNTIL = time.monotonic() + _GEMINI_PAUSE_S
+        logger.error(
+            "[llm_client] GEMINI PAUSED for %ds (status=%s) — calls go straight to Anthropic",
+            int(_GEMINI_PAUSE_S), status,
+        )
+
+
+# ── Usage log ─────────────────────────────────────────────────────────────────
+# USD per 1M tokens: (input, output). Anthropic's published rates. Cache reads
+# bill at 0.1x input and 5-minute cache writes at 1.25x. Matched by prefix so
+# dated ids ("claude-haiku-4-5-20251001") price like their alias. A model not
+# listed is logged with cost None, never guessed.
+_PRICE_PER_MTOK: dict[str, tuple[float, float]] = {
+    "claude-haiku-4-5":  (1.00, 5.00),
+    "claude-haiku-5-5":  (0.10, 0.50),
+    "claude-sonnet-4-6": (3.00, 15.00),
+    "claude-sonnet-5-5": (2.00, 10.00),
+    "claude-opus-4-8":   (5.00, 25.00),
+}
+
+
+def estimate_cost_usd(
+    model: str,
+    input_tokens: Optional[int],
+    output_tokens: Optional[int],
+    cache_read_tokens: Optional[int] = None,
+    cache_write_tokens: Optional[int] = None,
+) -> Optional[float]:
+    price = next((p for prefix, p in _PRICE_PER_MTOK.items() if model.startswith(prefix)), None)
+    if price is None:
+        return None
+    p_in, p_out = price
+    return (
+        (input_tokens or 0) * p_in
+        + (output_tokens or 0) * p_out
+        + (cache_read_tokens or 0) * p_in * 0.1
+        + (cache_write_tokens or 0) * p_in * 1.25
+    ) / 1_000_000
+
+
+def _write_usage(**row: Any) -> None:
+    from backend.repositories import llm_usage_repository
+    try:
+        llm_usage_repository.record(**row)
+    except Exception as exc:
+        # Loud, never raised: a missing log row must not fail the user's call,
+        # but a log that silently stops writing is a measurement that stopped
+        # running (CLAUDE.md, "Empty results are not evidence").
+        logger.error(
+            "[llm_client] USAGE LOG WRITE FAILED purpose=%s: %s", row.get("purpose"), type(exc).__name__,
+        )
+
+
+def _record_usage(
+    *,
+    purpose: str,
+    provider: str,
+    model: str,
+    user_id: Optional[str],
+    job_id: Optional[str],
+    usage: Any,
+    latency_ms: Optional[float],
+) -> None:
+    """Queue one llm_usage row off the event loop. `usage` is the provider's
+    usage object (Anthropic `Usage` or Gemini `usage_metadata`)."""
+    if provider == "gemini":
+        input_tokens = getattr(usage, "prompt_token_count", None)
+        output_tokens = getattr(usage, "candidates_token_count", None)
+        cache_read = getattr(usage, "cached_content_token_count", None)
+        cache_write = None
+    else:
+        input_tokens = getattr(usage, "input_tokens", None)
+        output_tokens = getattr(usage, "output_tokens", None)
+        cache_read = getattr(usage, "cache_read_input_tokens", None)
+        cache_write = getattr(usage, "cache_creation_input_tokens", None)
+    row = dict(
+        purpose=purpose, provider=provider, model=model, user_id=user_id, job_id=job_id,
+        input_tokens=input_tokens, output_tokens=output_tokens,
+        cache_read_tokens=cache_read, cache_write_tokens=cache_write, latency_ms=latency_ms,
+        cost_usd=estimate_cost_usd(model, input_tokens, output_tokens, cache_read, cache_write),
+    )
+    asyncio.get_running_loop().run_in_executor(None, lambda: _write_usage(**row))
+
+
 def _classify_anthropic_failure(exc: Exception) -> None:
     status = getattr(exc, "status_code", None)
     text = str(exc).lower()
@@ -263,6 +363,8 @@ def _gemini_eligible(messages: list[dict], tools: Optional[list]) -> bool:
     primary-provider gate. False means go straight to the Anthropic
     fallback (no Gemini attempt is made)."""
     if _gemini_client is None or not _tools_eligible(tools):
+        return False
+    if time.monotonic() < _GEMINI_DOWN_UNTIL:
         return False
     return all(
         _content_eligible(m.get("content")) and _tool_use_blocks_gemini_safe(m.get("content"))
@@ -466,6 +568,7 @@ async def _call_gemini(
             "[llm_client] purpose=%s GEMINI CALL FAILED %s (status=%s)%s",
             purpose, type(exc).__name__, getattr(exc, "code", None), _gemini_quota_hint(exc),
         )
+        _pause_gemini_if_refused(exc)
         raise LLMCallError(
             "The AI service is temporarily unavailable. Please try again shortly."
         ) from exc
@@ -486,6 +589,10 @@ async def _call_gemini(
         "[llm_client] purpose=%s model=%s (GEMINI) user_id=%s job_id=%s "
         "input_tokens=%s output_tokens=%s latency_ms=%.0f",
         purpose, _GEMINI_MODEL, user_id, job_id, input_tokens, output_tokens, latency_ms,
+    )
+    _record_usage(
+        purpose=purpose, provider="gemini", model=_GEMINI_MODEL, user_id=user_id, job_id=job_id,
+        usage=usage, latency_ms=latency_ms,
     )
 
     blocks = _gemini_response_to_content_blocks(response)
@@ -641,6 +748,10 @@ async def _call_anthropic(
         "[llm_client] purpose=%s model=%s user_id=%s job_id=%s "
         "input_tokens=%s output_tokens=%s latency_ms=%.0f attempts=%d",
         purpose, model, user_id, job_id, input_tokens, output_tokens, latency_ms, attempt,
+    )
+    _record_usage(
+        purpose=purpose, provider="anthropic", model=model, user_id=user_id, job_id=job_id,
+        usage=usage, latency_ms=latency_ms,
     )
 
     text = ""
@@ -809,6 +920,7 @@ async def stream_llm(
                 purpose, model, user_id, job_id,
                 type(exc).__name__, getattr(exc, "code", None), _gemini_quota_hint(exc),
             )
+            _pause_gemini_if_refused(exc)
         else:
             yield _gemini_stream_events(_prepend(first_chunk, gemini_agen))
             return
@@ -823,9 +935,21 @@ async def stream_llm(
     if tool_choice is not None:
         kwargs["tool_choice"] = tool_choice
 
+    start = time.monotonic()
     anthropic_cm = _client.messages.stream(timeout=timeout, **kwargs)
     anthropic_stream = await anthropic_cm.__aenter__()
     try:
         yield anthropic_stream
     finally:
         await anthropic_cm.__aexit__(None, None, None)
+        # Usage so far, also when the caller stopped early: the tokens were
+        # billed either way. A Gemini stream is not logged (no known price).
+        try:
+            snapshot = anthropic_stream.current_message_snapshot
+        except Exception:
+            snapshot = None
+        if snapshot is not None:
+            _record_usage(
+                purpose=purpose, provider="anthropic", model=model, user_id=user_id, job_id=job_id,
+                usage=snapshot.usage, latency_ms=(time.monotonic() - start) * 1000,
+            )
