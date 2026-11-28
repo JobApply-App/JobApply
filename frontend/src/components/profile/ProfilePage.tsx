@@ -574,6 +574,12 @@ function SidePanel({ panel, topics, onClose }: { panel: Panel; topics: Topic[]; 
             <Button variant="ariel" size="md" className="w-full" onClick={() => { openChat({ topic: P.topics[tp.id].prompt }); onClose() }}>
               <SparkIcon s={14} />{P.complete_with_ariel}
             </Button>
+            {/* The company questions are chips, quicker to tap than to tell Ariel. */}
+            {tp.id === 'mob' && (
+              <Link href="/onboarding?step=preferences&q=5" className={`${buttonClasses({ variant: 'secondary', size: 'md' })} w-full`}>
+                {P.edit_company}
+              </Link>
+            )}
             <p className="text-[13px] leading-normal text-slate-400">{P.topics[tp.id].how}</p>
           </div>
         </>

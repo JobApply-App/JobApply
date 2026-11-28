@@ -146,6 +146,21 @@ def attach_culture(
     return True
 
 
+def industries_for(name: Optional[str], *, engine: Optional[Engine] = None) -> list[str]:
+    """The LinkedIn industries of the company with this name; [] when unknown."""
+    k = company_key(name)
+    if not k or is_placeholder(k):
+        return []
+    stmt = (
+        select(CompanyRow.industries)
+        .join(CompanyAliasRow, CompanyRow.id == CompanyAliasRow.company_id)
+        .where(CompanyAliasRow.alias_key == k)
+    )
+    with Session(engine or ENGINE) as session:
+        found = session.execute(stmt).scalar()
+    return [str(i) for i in found] if isinstance(found, list) else []
+
+
 def get_logos(names: list[str], *, engine: Optional[Engine] = None) -> dict[str, str]:
     """{name as given: logo url} for names whose company has a logo."""
     by_key: dict[str, list[str]] = {}

@@ -755,6 +755,15 @@ export type Region = typeof REGIONS[number]
 
 export type SearchMode = 'radius' | 'regions'
 
+/** What kind of company the user wants; scaleup = a growth company. */
+export type CompanyType = 'startup' | 'scaleup' | 'corporate' | 'any'
+/** The ids of backend/services/industry_groups.py GROUPS; labels live in the dictionaries. */
+export const INDUSTRY_GROUPS = [
+  'software', 'cyber', 'finance', 'hardware', 'defense', 'health', 'marketing', 'hr', 'telecom',
+  'industry', 'logistics', 'retail', 'realestate', 'games', 'gambling', 'education', 'public',
+] as const
+export type IndustryGroup = typeof INDUSTRY_GROUPS[number]
+
 export interface AboutAnswers {
   gender:           Gender | null
   locations:        Region[]
@@ -764,6 +773,9 @@ export interface AboutAnswers {
   home_abroad:      string | null
   search_mode:      SearchMode
   radius_km:        number | null
+  company_type:      CompanyType | null
+  industries_prefer: IndustryGroup[]
+  industries_avoid:  IndustryGroup[]
 }
 
 export async function fetchAbout(): Promise<AboutAnswers> {
@@ -775,6 +787,16 @@ export async function saveAbout(body: {
   home_city: string | null; home_abroad: string | null; search_mode: SearchMode; radius_km: number | null
 }): Promise<void> {
   await post<typeof body, { status: string }>('/api/profile/about', body)
+}
+
+export interface CompanyPreferences {
+  company_type:      CompanyType
+  industries_prefer: IndustryGroup[]
+  industries_avoid:  IndustryGroup[]
+}
+
+export async function saveCompanyPreferences(body: CompanyPreferences): Promise<CompanyPreferences> {
+  return post<CompanyPreferences, CompanyPreferences & { status: string }>('/api/profile/company-preferences', body)
 }
 
 export interface LinkedInImportResponse {

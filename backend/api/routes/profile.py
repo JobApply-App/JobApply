@@ -47,6 +47,7 @@ from backend.services.master_profile_service import (
 )
 from backend.services.profile_update_service import ProfileUpdateService
 from backend.services.israel_cities import CITY_BY_NAME, RADIUS_OPTIONS_KM
+from backend.services.industry_groups import GROUPS, clean as clean_industries
 from backend.services.confidence_math import compute_decoupled_score, EvidenceRow, verification_status
 from backend.services.confidence_matrix_service import (
     compute_breakdown,
@@ -397,6 +398,9 @@ _GENDER_TO_FORM  = {"male": "m", "female": "f"}
 
 
 SEARCH_MODES     = {"radius", "regions"}
+# What kind of company the user wants (compared with the companies table's
+# culture category; see compute_culture_alignment). Optional: None = never asked.
+COMPANY_TYPES    = {"startup", "scaleup", "corporate", "any"}
 
 
 class AboutPayload(BaseModel):
@@ -435,6 +439,9 @@ async def get_about(user: CurrentUser = Depends(get_current_user)) -> dict:
         "radius_km":        goals.get("radius_km"),
         "work_environment": goals.get("work_environment"),
         "career_change":    goals.get("open_to_career_change"),
+        "company_type":     goals.get("company_type"),
+        "industries_prefer": goals.get("industries_prefer") or [],
+        "industries_avoid":  goals.get("industries_avoid") or [],
     }
 
 
@@ -484,6 +491,50 @@ async def save_about(body: AboutPayload, user: CurrentUser = Depends(get_current
 
     logger.info("[profile/about] user=%s gender=%s form=%s", user.user_id, body.gender, form)
     return {"status": "ok", "hebrew_form": form}
+
+
+class CompanyPrefsPayload(BaseModel):
+    company_type:      str
+    industries_prefer: List[str] = Field(default_factory=list, max_length=len(GROUPS))
+    industries_avoid:  List[str] = Field(default_factory=list, max_length=len(GROUPS))
+
+
+@router.post("/company-preferences")
+async def save_company_preferences(
+    body: CompanyPrefsPayload,
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    """What kind of company, and which industries to prefer or avoid.
+
+    Read by the match score's culture fit (±5 points at most, never below a
+    prior employer's score). Industries in both lists count as avoided only.
+    """
+    if body.company_type not in COMPANY_TYPES:
+        raise HTTPException(status_code=422, detail=f"company_type must be one of {sorted(COMPANY_TYPES)}")
+    unknown = [g for g in [*body.industries_prefer, *body.industries_avoid] if g not in GROUPS]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"unknown industries: {unknown}")
+    avoid  = clean_industries(body.industries_avoid)
+    prefer = [g for g in clean_industries(body.industries_prefer) if g not in avoid]
+
+    _now = datetime.now(timezone.utc).isoformat()
+    with Session(ENGINE) as _sess:
+        row, _created = profile_repository.get_or_create(_sess, user.user_id, now=_now)
+        mp = dict(row.master_profile or {})
+        goals = dict(mp.get("career_goals") or {})
+        goals["company_type"]      = body.company_type
+        goals["industries_prefer"] = prefer
+        goals["industries_avoid"]  = avoid
+        mp["career_goals"] = goals
+        row.master_profile = mp
+        row.updated_at     = _now
+        profile_repository.save(_sess, row)
+        _sess.commit()
+
+    logger.info("[profile/company-preferences] user=%s type=%s prefer=%d avoid=%d",
+                user.user_id, body.company_type, len(prefer), len(avoid))
+    return {"status": "ok", "company_type": body.company_type,
+            "industries_prefer": prefer, "industries_avoid": avoid}
 
 
 class HomePayload(BaseModel):

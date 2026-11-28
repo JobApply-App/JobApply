@@ -225,7 +225,7 @@ export function knowledgeTopics({ view, entities, roles, about }: KnowledgeInput
     ],
   }
 
-  // Mobility and preferences: five things, equal weight. (Salary isn't
+  // Mobility and preferences: six things, equal weight. (Salary isn't
   // collected anywhere yet, so it isn't counted against anyone.)
   const range = about
     ? (about.search_mode === 'regions' ? about.locations.length > 0 : about.radius_km != null)
@@ -236,6 +236,7 @@ export function knowledgeTopics({ view, entities, roles, about }: KnowledgeInput
     { key: 'mob_range', ok: range },
     { key: 'mob_work_model', ok: !!about?.work_environment },
     { key: 'mob_career_change', ok: !!about?.career_change },
+    { key: 'mob_company', ok: !!about?.company_type },
   ]
   const mob: Topic = { id: 'mob', value: 100 * mobChecks.filter(c => c.ok).length / mobChecks.length, checks: mobChecks }
 
