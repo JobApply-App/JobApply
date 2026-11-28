@@ -102,6 +102,76 @@ def _hebrew_gershayim(text: str) -> str:
     return _HEBREW_GERSHAYIM.sub("\u05F4", text)
 
 
+def _open_containers(text: str) -> list[tuple[str, int]]:
+    """The brackets still open at the end of `text`, each with its line's indent."""
+    stack: list[tuple[str, int]] = []
+    in_string = escaped = False
+    line_indent, at_line_start = 0, True
+    for ch in text:
+        if ch == "\n":
+            line_indent, at_line_start = 0, True
+            if not in_string:
+                continue
+        elif at_line_start and ch == " ":
+            line_indent += 1
+            continue
+        at_line_start = False
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+        elif ch == '"':
+            in_string = True
+        elif ch in "[{":
+            stack.append((ch, line_indent))
+        elif ch in "]}" and stack:
+            stack.pop()
+    return stack
+
+
+def _close_by_indent(text: str, max_fixes: int = 5) -> Optional[Any]:
+    """
+    A pretty-printed object where the model left out a closing bracket.
+
+    The writer's CVs failed this way 14 times across four benchmark runs
+    (2026-11-17 to 2026-11-20), always "Expecting ',' delimiter" at column 5,
+    always where `military_service` ends: the last line of
+    `key_responsibilities` was followed by `},` with no `]`. When the parser
+    stops at the start of a line that is indented no deeper than the line that
+    opened the innermost bracket, that bracket should already have closed:
+    close it there, add the comma if a new key follows, and parse again.
+    Only inserts characters, and only at a line start the indentation
+    explains, so an ordinary missing comma mid-line is left to fail.
+    """
+    for _ in range(max_fixes):
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            if not exc.msg.startswith("Expecting ',' delimiter"):
+                return None
+            pos = exc.pos
+        line_start = text.rfind("\n", 0, pos) + 1
+        if text[line_start:pos].strip():
+            return None
+        indent = pos - line_start
+        stack = _open_containers(text[:pos])
+        # Deeper brackets are unclosed. One at the same depth is too, unless
+        # the bracket at the failure is its own closer.
+        own_closer = text[pos] in "]}"
+        closers = ""
+        while stack and (stack[-1][1] > indent or (stack[-1][1] == indent and not own_closer)):
+            closers += "]" if stack.pop()[0] == "[" else "}"
+        if not closers:
+            return None
+        if not own_closer:
+            closers += ","
+        text = text[:pos] + closers + text[pos:]
+    return None
+
+
 def parse_json_robust(raw: str, *, context: str = "llm") -> Optional[Any]:
     """
     Parse LLM JSON, repairing progressively. None when nothing works.
@@ -114,6 +184,7 @@ def parse_json_robust(raw: str, *, context: str = "llm") -> Optional[Any]:
          bare quotes inside Hebrew acronyms (צה"ל) with ״
       5. close an unterminated string and object (truncated output)
       6. close an unterminated object
+      7. close a bracket the model left open mid-object, found by indentation
     """
     if not raw or not raw.strip():
         return None
@@ -150,8 +221,19 @@ def parse_json_robust(raw: str, *, context: str = "llm") -> Optional[Any]:
             logger.warning("[json-repair:%s] recovered malformed LLM JSON via '%s'", context, name)
         return parsed
 
+    for candidate in (cleaned, _escape_raw_newlines_in_strings(_hebrew_gershayim(cleaned))):
+        parsed = _close_by_indent(candidate)
+        if parsed is not None:
+            logger.warning("[json-repair:%s] recovered malformed LLM JSON via 'closed-by-indent'", context)
+            return parsed
+
+    # The text around the failure, not only the start: the start of a CV is
+    # always the same header, and a cause can only be found where it broke.
+    where = re.search(r"\(char (\d+)\)", first_error)
+    at = int(where.group(1)) if where else 0
     logger.error(
-        "[json-repair:%s] every repair strategy failed (%s) — raw length %d, first 200 chars: %r",
-        context, first_error, len(raw), raw[:200],
+        "[json-repair:%s] every repair strategy failed (%s) — raw length %d, first 200 chars: %r, "
+        "around the failure: %r",
+        context, first_error, len(raw), raw[:200], cleaned[max(0, at - 300): at + 100],
     )
     return None
