@@ -13,6 +13,10 @@ No AI calls.
      whose key ends in an 8-hex suffix ("megacorp_1efe3bc4") are test data
      written by an earlier test run and are skipped.
 
+  4. job_postings.company_id for jobs that have none yet (phase 2), and
+     removal of placeholder aliases ("confidential") written before such
+     names were recognised.
+
 Idempotent: a second run adds nothing new. Writes only with --apply; without
 it the run reads, resolves locally and prints what it would write.
 
@@ -34,7 +38,7 @@ from sqlalchemy.pool import StaticPool
 from backend.core.database import ENGINE
 from backend.models.company import CompanyAliasRow, CompanyRow
 from backend.repositories.company_repository import _set_group, upsert_listing
-from backend.services.company_identity import linkedin_slug
+from backend.services.company_identity import company_key, is_placeholder, linkedin_slug
 
 _TEST_KEY = re.compile(r"_[0-9a-f]{8}$")
 _BATCH = 500
@@ -47,6 +51,16 @@ def _columns(table) -> list[str]:
 def _rows(session: Session, model) -> list[dict]:
     cols = _columns(model.__table__)
     return [{c: getattr(r, c) for c in cols} for r in session.execute(select(model)).scalars()]
+
+
+def _has_company_id(session: Session) -> bool:
+    """job_postings.company_id arrives with migration c4f8a2d6e9b1."""
+    if session.get_bind().dialect.name != "postgresql":
+        return False
+    return bool(session.execute(text(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = 'job_postings' AND column_name = 'company_id'"
+    )).first())
 
 
 def main(apply: bool) -> None:
@@ -72,8 +86,15 @@ def main(apply: bool) -> None:
         culture = remote.execute(text(
             "SELECT company_key, display_name, profile_json FROM company_intel WHERE profile_type = 'culture'"
         )).all()
+        unlinked = remote.execute(text(
+            "SELECT id::text AS id, company FROM job_postings WHERE company_id IS NULL AND company IS NOT NULL"
+        )).all() if _has_company_id(remote) else []
         existing_companies = _rows(remote, CompanyRow)
         existing_aliases = _rows(remote, CompanyAliasRow)
+    # Placeholder spellings ("Confidential") written before they were
+    # recognised: drop them here, delete them remotely on --apply.
+    stale_aliases = [a["alias_key"] for a in existing_aliases if is_placeholder(a["alias_key"])]
+    existing_aliases = [a for a in existing_aliases if not is_placeholder(a["alias_key"])]
     print(f"read: {len(listings)} listings, {len(postings)} posting names, {len(culture)} culture rows, "
           f"{len(existing_companies)} companies and {len(existing_aliases)} aliases already present")
 
@@ -113,12 +134,21 @@ def main(apply: bool) -> None:
 
         companies = _rows(session, CompanyRow)
         aliases = _rows(session, CompanyAliasRow)
+        alias_to_company = {a["alias_key"]: a["company_id"] for a in aliases}
+
+    links = []
+    for r in unlinked:
+        key = company_key(r.company)
+        if key and not is_placeholder(key) and key in alias_to_company:
+            links.append({"id": r.id, "company_id": alias_to_company[key]})
 
     print(f"culture: {attached} attached, {skipped} test rows skipped")
     print(f"result: companies={len(companies)} aliases={len(aliases)} "
           f"with_logo={sum(1 for c in companies if c['logo_url'])} "
           f"with_culture={sum(1 for c in companies if c['culture'])} "
           f"with_linkedin={sum(1 for c in companies if c['linkedin_slug'])}")
+    print(f"placeholder aliases to delete: {len(stale_aliases)}; "
+          f"jobs to link: {len(links)} of {len(unlinked)} without a company")
 
     if not apply:
         print("dry run: nothing written (pass --apply to write)")
@@ -134,6 +164,14 @@ def main(apply: bool) -> None:
         for i in range(0, len(aliases), _BATCH):
             remote.execute(pg_insert(CompanyAliasRow.__table__).values(aliases[i:i + _BATCH])
                            .on_conflict_do_nothing(index_elements=["alias_key"]))
+        if stale_aliases:
+            remote.execute(text("DELETE FROM company_aliases WHERE alias_key = ANY(:keys)"), {"keys": stale_aliases})
+        for i in range(0, len(links), _BATCH):
+            remote.execute(text(
+                "UPDATE job_postings p SET company_id = v.company_id "
+                "FROM jsonb_to_recordset(CAST(:rows AS jsonb)) AS v(id uuid, company_id text) "
+                "WHERE p.id = v.id AND p.company_id IS NULL"
+            ), {"rows": json.dumps(links[i:i + _BATCH])})
         remote.commit()
         print("written:", remote.scalar(select(func.count()).select_from(CompanyRow)), "companies,",
               remote.scalar(select(func.count()).select_from(CompanyAliasRow)), "aliases")

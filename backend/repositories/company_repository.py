@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from backend.core.database import ENGINE
 from backend.models.company import CompanyAliasRow, CompanyRow
-from backend.services.company_identity import company_key, linkedin_slug
+from backend.services.company_identity import company_key, is_placeholder, linkedin_slug
 
 # A field group is written only by a source at least as strong as the one
 # that wrote it last (docs/research/09-companies-and-costs.md §4.3), so a
@@ -73,6 +73,8 @@ def upsert_listing(
     from backend.repositories.all_jobs_repository import usable_logo
 
     key, slug = company_key(name), linkedin_slug(company_url)
+    if is_placeholder(key):
+        key = None          # never an alias; only a LinkedIn page can identify it
     if not key and not slug:
         return None
     now = _now()
@@ -101,6 +103,13 @@ def upsert_listing(
         session.add(CompanyAliasRow(alias_key=key, company_id=row.id, alias=(name or "").strip(), created_at=now))
         session.flush()
     return row
+
+
+def company_id_for(session: Session, name: Optional[str]) -> Optional[str]:
+    """The company a job's company name belongs to, created if new; None for
+    an empty or placeholder name. No commit."""
+    row = upsert_listing(session, name=name)
+    return row.id if row is not None else None
 
 
 def upsert_listings(rows: list[dict], *, engine: Optional[Engine] = None) -> int:
@@ -142,7 +151,7 @@ def get_logos(names: list[str], *, engine: Optional[Engine] = None) -> dict[str,
     by_key: dict[str, list[str]] = {}
     for n in names:
         k = company_key(n)
-        if k:
+        if k and not is_placeholder(k):
             by_key.setdefault(k, []).append(n)
     if not by_key:
         return {}
