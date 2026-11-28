@@ -288,23 +288,18 @@ def _seed_scraper_registry() -> None:
     """
     from backend.scrapers.scraper_manager import SCRAPER_MANAGER, scraper_from_config
 
-    # ── Company-site adapters (Comeet) ────────────────────────────────────────
+    # ── Company-site adapters ─────────────────────────────────────────────────
     # These scrape specific employer career pages — relevancy gate is applied
-    # inside ScraperManager._save_new() since Comeet doesn't do keyword search.
-    default_companies = [
-        {
-            "company_name": "Spark Hire",
-            "company_url":  "https://www.comeet.co/jobs/spark-hire/30.005/all",
-            "adapter":      "comeet",
-            "user_id":      "default",
-        },
-        {
-            "company_name": "Wix",
-            "company_url":  "https://www.comeet.co/jobs/wix/ED.30A/all",
-            "adapter":      "comeet",
-            "user_id":      "default",
-        },
-    ]
+    # inside ScraperManager._save_new() since they don't do keyword search.
+    #
+    # No Comeet defaults. The two that were here returned 0 jobs on
+    # 2026-11-28 for different reasons, neither a bug in ComeetAdapter:
+    #   Wix        — comeet.com/jobs/wix/ED.30A 302s to Comeet's homepage;
+    #                Wix now hosts its own careers.wix.com.
+    #   Spark Hire — the token resolves (a fake one gets 400) and the API
+    #                answers 200 with []; the page's own POSITIONS_DATA is []
+    #                too. Spark Hire owns Comeet; its US board is just empty.
+    default_companies: list[dict] = []
 
     # ── Israeli companies on Greenhouse (verified live 2026-11-28) ──────────
     # One list call per company per sync; the adapter keeps only jobs in
