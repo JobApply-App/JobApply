@@ -12,7 +12,9 @@ public, unauthenticated list API:
 
 Accepted company_url formats:
     Greenhouse  https://boards.greenhouse.io/wizinc  ·  https://job-boards.greenhouse.io/wizinc  ·  wizinc
+                https://boards.eu.greenhouse.io/nice (EU boards; the US list API serves them too)
     Lever       https://jobs.lever.co/palantir  ·  palantir
+                https://jobs.eu.lever.co/mobileye (EU boards need the EU API, api.eu.lever.co)
 
 Only jobs in Israel or open to remote work are kept (founder's call,
 2026-11-28). A remote posting stays even when its office is abroad: it can be
@@ -47,18 +49,20 @@ _ISRAEL_RE = re.compile(r"\bisrael\b|ישראל", re.IGNORECASE)   # not "IL": t
 _REMOTE_RE = re.compile(r"\bremote\b|work from home|\bwfh\b|anywhere|מהבית", re.IGNORECASE)
 
 
+def in_israel(location: str) -> bool:
+    """True when this one location string names Israel or an Israeli locality."""
+    if not location:
+        return False
+    if _ISRAEL_RE.search(location.strip()):
+        return True
+    return any(resolve_city(part) for part in re.split(r"[;/|]", location))
+
+
 def israel_or_remote(locations: list[str], remote: bool = False) -> bool:
     """True when any listed location is in Israel or the job can be done remotely."""
     if remote:
         return True
-    for loc in locations:
-        if not loc:
-            continue
-        if _REMOTE_RE.search(loc) or _ISRAEL_RE.search(loc.strip()):
-            return True
-        if any(resolve_city(part) for part in re.split(r"[;/|]", loc)):
-            return True
-    return False
+    return any(loc and (_REMOTE_RE.search(loc) or in_israel(loc)) for loc in locations)
 
 
 def _board_slug(company_url: str, hosts: tuple[str, ...]) -> Optional[str]:
@@ -156,7 +160,8 @@ class _BoardAdapter(BaseScraper):
 
 class GreenhouseBoardAdapter(_BoardAdapter):
     _name  = "GreenhouseBoardAdapter"
-    _hosts = ("boards.greenhouse.io", "job-boards.greenhouse.io")
+    _hosts = ("boards.greenhouse.io", "job-boards.greenhouse.io",
+              "boards.eu.greenhouse.io", "job-boards.eu.greenhouse.io")
 
     def _api_url(self, slug: str) -> str:
         return f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
@@ -207,10 +212,11 @@ class GreenhouseBoardAdapter(_BoardAdapter):
 
 class LeverBoardAdapter(_BoardAdapter):
     _name  = "LeverBoardAdapter"
-    _hosts = ("jobs.lever.co",)
+    _hosts = ("jobs.lever.co", "jobs.eu.lever.co")
 
     def _api_url(self, slug: str) -> str:
-        return f"https://api.lever.co/v0/postings/{slug}?mode=json"
+        eu = (urlparse(self.company_url.strip()).hostname or "").lower() == "jobs.eu.lever.co"
+        return f"https://api{'.eu' if eu else ''}.lever.co/v0/postings/{slug}?mode=json"
 
     def _postings(self, data: object) -> list:
         if not isinstance(data, list):

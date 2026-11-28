@@ -1091,8 +1091,29 @@ async def get_analyze_status(task_id: str, user: CurrentUser = Depends(get_curre
 class ScrapeConfig(BaseModel):
     company_name: str = Field(..., max_length=200)
     company_url:  str = Field(..., max_length=500)
-    adapter:      str = Field(default="comeet", max_length=40)   # "comeet" | "greenhouse" | "lever" | future adapters
+    # "comeet" | "greenhouse" | "lever" | "workday", or "auto": read the careers
+    # page and use whichever of those it points at (scrapers/ats_detect.py).
+    adapter:      str = Field(default="comeet", max_length=40)
     user_id:      str = "default"
+
+
+async def _resolve_adapter(cfg: dict) -> Optional[dict]:
+    """
+    adapter "auto" → the ATS the careers page points at, with that board's URL
+    as company_url. None (skip this company) when the page names none we read.
+    Any other adapter passes through unchanged.
+    """
+    if (cfg.get("adapter") or "").lower() != "auto":
+        return cfg
+    from backend.scrapers.ats_detect import detect_ats
+    found = await detect_ats(cfg["company_url"])
+    if found is None:
+        logger.warning("[jobs/scrape] %s — no supported ATS behind %s, skipped",
+                       cfg.get("company_name"), cfg["company_url"][:200])
+        return None
+    adapter, board_url = found
+    logger.info("[jobs/scrape] %s — %s detected at %s", cfg.get("company_name"), adapter, board_url)
+    return {**cfg, "adapter": adapter, "company_url": board_url}
 
 
 class ScrapeRequest(BaseModel):
@@ -1142,7 +1163,9 @@ async def scrape_company_jobs(
             from backend.scrapers.scraper_manager import ScraperManager
             manager = ScraperManager()
             for cfg in configs:
-                cfg_dict = cfg.model_dump()
+                cfg_dict = await _resolve_adapter(cfg.model_dump())
+                if cfg_dict is None:
+                    continue
                 cfg_dict["user_id"] = _uid
                 scraper = scraper_from_config(cfg_dict)
                 if scraper:
