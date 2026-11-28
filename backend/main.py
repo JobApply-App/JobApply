@@ -292,8 +292,11 @@ def _seed_scraper_registry() -> None:
     # These scrape specific employer career pages — relevancy gate is applied
     # inside ScraperManager._save_new() since they don't do keyword search.
     #
-    # No Comeet defaults. The two that were here returned 0 jobs on
-    # 2026-11-28 for different reasons, neither a bug in ComeetAdapter:
+    # Comeet: Comm-IT only (124 positions on 2026-11-28, 47 in Israel;
+    # ComeetAdapter keeps Israel only). It is added after the Greenhouse
+    # boards below so it doesn't push them past MAX_RELEVANT_JOBS.
+    # The two former defaults returned 0 jobs on 2026-11-28 for different
+    # reasons, neither a bug in ComeetAdapter, and are gone:
     #   Wix        — comeet.com/jobs/wix/ED.30A 302s to Comeet's homepage;
     #                Wix now hosts its own careers.wix.com.
     #   Spark Hire — the token resolves (a fake one gets 400) and the API
@@ -324,6 +327,12 @@ def _seed_scraper_registry() -> None:
         }
         for name, slug in greenhouse_boards
     ]
+    default_companies.append({
+        "company_name": "Comm-IT",
+        "company_url":  "https://www.comeet.com/jobs/comm-it/76.008",
+        "adapter":      "comeet",
+        "user_id":      "default",
+    })
 
     for cfg in default_companies:
         scraper = scraper_from_config(cfg)

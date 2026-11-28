@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.scrapers.comeet_adapter import ComeetAdapter
+from backend.scrapers.comeet_adapter import ComeetAdapter, _in_israel
 
 _HOMEPAGE = "<html><title>Spark Hire Recruit - The Applicant Tracking System</title></html>"
 _BOARD = (
@@ -49,14 +49,54 @@ async def test_real_board_page_yields_uid_and_token():
     assert token == "359F1DD13E1DD1DD1A813E6A6A"
 
 
-def test_no_comeet_defaults_are_seeded():
-    """The two dead Comeet defaults must not come back unnoticed."""
+def test_dead_comeet_defaults_stay_gone_and_comm_it_is_seeded():
+    """Wix and Spark Hire returned 0 jobs on 2026-11-28; Comm-IT is live."""
     import inspect
 
     from backend import main
 
     src = inspect.getsource(main._seed_scraper_registry)
-    assert '"adapter":      "comeet"' not in src
+    assert "comeet.co/jobs/wix" not in src
+    assert "spark-hire/30.005" not in src
+    assert "comeet.com/jobs/comm-it/76.008" in src
+
+
+def _pos(uid, country, city="", remote=""):
+    return {
+        "name": f"Engineer {uid}", "position_uid": uid, "Remote": remote,
+        "careers_page_url": f"https://www.comeet.com/jobs/acme/30.005/x/{uid}",
+        "location_object": {"country": country, "city": city, "name": city},
+    }
+
+
+def test_in_israel_trusts_comeet_country_code():
+    assert _in_israel(_pos("a", "IL", "Petah Tikva"))
+    assert _in_israel(_pos("b", "IL", "Tel Aviv-Yafo", remote="Hybrid"))
+    assert not _in_israel(_pos("c", "PL", "Warsaw", remote="Remote"))
+    assert not _in_israel(_pos("d", "US", "Springfield"))
+
+
+def test_in_israel_falls_back_to_city_without_country():
+    assert _in_israel(_pos("e", "", "Haifa"))
+    assert _in_israel({"name": "x", "location": "Tel Aviv, Israel"})
+    assert not _in_israel(_pos("f", "", "Buenos Aires", remote="Remote"))
+    assert not _in_israel({"name": "x"})
+
+
+async def test_fetch_jobs_keeps_only_israel_by_default():
+    positions = [_pos("1", "IL", "Haifa"), _pos("2", "UA", "Kyiv", "Remote")]
+    adapter = ComeetAdapter("Acme", "https://www.comeet.com/jobs/acme/30.005",
+                            token="T" * 26, fetch_details=False)
+    with patch.object(ComeetAdapter, "_fetch_positions_list",
+                      new=AsyncMock(return_value=positions)):
+        jobs = await adapter.fetch_jobs()
+    assert [j.location for j in jobs] == ["Haifa, IL"]
+
+    everywhere = ComeetAdapter("Acme", "https://www.comeet.com/jobs/acme/30.005",
+                               token="T" * 26, fetch_details=False, israel_only=False)
+    with patch.object(ComeetAdapter, "_fetch_positions_list",
+                      new=AsyncMock(return_value=positions)):
+        assert len(await everywhere.fetch_jobs()) == 2
 
 
 def test_positions_sharing_a_company_careers_page_stay_distinct():
@@ -87,3 +127,20 @@ def test_active_url_is_used_when_no_hosted_page():
         "name": "PM", "careers_page_active_url": "https://acme.com/jobs/pm",
     })
     assert job is not None and job.apply_url == "https://acme.com/jobs/pm"
+
+
+async def test_city_variant_keeps_its_own_url_and_city_after_detail_merge():
+    """Comeet's detail call for 17.574-43.606 returns the parent 17.574."""
+    adapter = ComeetAdapter("Comm-IT", "https://www.comeet.com/jobs/comm-it/76.008",
+                            token="T" * 26)
+    parent = _pos("17.574", "IL", "Tel Aviv-Yafo")
+    variant = _pos("17.574-43.606", "IL", "Hod Hasharon")
+    parent_detail = {**parent, "description": "<p>Build things</p>"}
+    with patch.object(ComeetAdapter, "_fetch_positions_list",
+                      new=AsyncMock(return_value=[parent, variant])), \
+         patch.object(ComeetAdapter, "_fetch_one_detail",
+                      new=AsyncMock(return_value=parent_detail)):
+        jobs = await adapter.fetch_jobs()
+    assert len({j.job_id for j in jobs}) == 2
+    assert sorted(j.location for j in jobs) == ["Hod Hasharon, IL", "Tel Aviv-Yafo, IL"]
+    assert all("Build things" in (j.jd_text or "") for j in jobs)
