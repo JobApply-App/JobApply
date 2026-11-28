@@ -334,6 +334,17 @@ def _seed_scraper_registry() -> None:
         "user_id":      "default",
     })
 
+    # ── Lever EU: Mobileye (150 jobs, all in Israel, on 2026-11-28) ─────────
+    # Its board is on jobs.eu.lever.co, which is why no Israeli company turned
+    # up when only the US Lever API was probed. After the boards above, since
+    # 150 postings alone could fill MAX_RELEVANT_JOBS.
+    default_companies.append({
+        "company_name": "Mobileye",
+        "company_url":  "https://jobs.eu.lever.co/mobileye",
+        "adapter":      "lever",
+        "user_id":      "default",
+    })
+
     # ── Workday: employers with Israeli offices (probed 2026-11-28) ─────────
     # Israel only (WorkdayBoardAdapter, Ron's call). Counts are the Israel
     # location facet that day. Last in the list: each costs up to 50 detail

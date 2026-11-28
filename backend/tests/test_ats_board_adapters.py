@@ -177,3 +177,17 @@ def test_default_registry_has_israeli_greenhouse_boards(monkeypatch):
     assert len(boards) >= 20
     assert all(b._slug for b in boards)                       # every URL parses to a slug
     assert len({b._slug for b in boards}) == len(boards)      # no duplicates
+
+
+# ── EU instances (Mobileye on jobs.eu.lever.co, NICE on boards.eu.greenhouse.io) ──
+
+async def test_lever_eu_board_uses_the_eu_api(monkeypatch):
+    seen = _mock(monkeypatch, lambda r: httpx.Response(200, json=_LEVER))
+    await LeverBoardAdapter("Mobileye", "https://jobs.eu.lever.co/mobileye").fetch_jobs()
+    assert seen == ["https://api.eu.lever.co/v0/postings/mobileye?mode=json"]
+
+
+async def test_greenhouse_eu_board_uses_the_shared_api(monkeypatch):
+    seen = _mock(monkeypatch, lambda r: httpx.Response(200, json=_GH))
+    await GreenhouseBoardAdapter("NICE", "https://boards.eu.greenhouse.io/nice").fetch_jobs()
+    assert seen == ["https://boards-api.greenhouse.io/v1/boards/nice/jobs?content=true"]

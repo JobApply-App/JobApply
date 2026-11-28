@@ -12,7 +12,9 @@ public, unauthenticated list API:
 
 Accepted company_url formats:
     Greenhouse  https://boards.greenhouse.io/wizinc  ·  https://job-boards.greenhouse.io/wizinc  ·  wizinc
+                https://boards.eu.greenhouse.io/nice (EU boards; the US list API serves them too)
     Lever       https://jobs.lever.co/palantir  ·  palantir
+                https://jobs.eu.lever.co/mobileye (EU boards need the EU API, api.eu.lever.co)
 
 Only jobs in Israel or open to remote work are kept (founder's call,
 2026-11-28). A remote posting stays even when its office is abroad: it can be
@@ -158,7 +160,8 @@ class _BoardAdapter(BaseScraper):
 
 class GreenhouseBoardAdapter(_BoardAdapter):
     _name  = "GreenhouseBoardAdapter"
-    _hosts = ("boards.greenhouse.io", "job-boards.greenhouse.io")
+    _hosts = ("boards.greenhouse.io", "job-boards.greenhouse.io",
+              "boards.eu.greenhouse.io", "job-boards.eu.greenhouse.io")
 
     def _api_url(self, slug: str) -> str:
         return f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
@@ -209,10 +212,11 @@ class GreenhouseBoardAdapter(_BoardAdapter):
 
 class LeverBoardAdapter(_BoardAdapter):
     _name  = "LeverBoardAdapter"
-    _hosts = ("jobs.lever.co",)
+    _hosts = ("jobs.lever.co", "jobs.eu.lever.co")
 
     def _api_url(self, slug: str) -> str:
-        return f"https://api.lever.co/v0/postings/{slug}?mode=json"
+        eu = (urlparse(self.company_url.strip()).hostname or "").lower() == "jobs.eu.lever.co"
+        return f"https://api{'.eu' if eu else ''}.lever.co/v0/postings/{slug}?mode=json"
 
     def _postings(self, data: object) -> list:
         if not isinstance(data, list):
