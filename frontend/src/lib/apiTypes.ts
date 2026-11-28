@@ -177,6 +177,8 @@ export interface ApiFeedJob {
   created_at:            string | null
   reasons:               ApiReasonTag[]
   fit_brief:               string | null
+  /** fit_brief's current translations; show briefIn(locale, …) (lib/fitBrief). */
+  fit_brief_translations?: Partial<Record<'he' | 'en', string>> | null
   jd_text:               string | null   // raw JD text; null until backfill runs
   jd_structured:         string | null   // LLM-structured JSON string; null until structure pass runs
   /** The same structure in Hebrew. Sent only to Hebrew-UI users, null until translated. */

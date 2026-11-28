@@ -73,6 +73,9 @@ class JobMatch(BaseModel):
     is_new: bool = True
     posted_at: str = ""
     fit_brief: Optional[str] = None
+    # fit_brief's current translations, {"he": ..., "en": ...}; the card shows
+    # the one in the interface language, else fit_brief as written.
+    fit_brief_translations: Optional[dict[str, str]] = None
     scoring_rationale: Optional[str] = None
     category: Optional[str] = None
     applied: bool = False

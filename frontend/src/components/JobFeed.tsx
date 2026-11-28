@@ -104,6 +104,7 @@ function toJob(f: ApiFeedJob, rank: number): Job {
     isNew:      f.is_new,
     reasons:    f.reasons.map(r => ({ kind: r.kind as ReasonKind, label: r.label })),
     fitBrief:     f.fit_brief,
+    fitBriefTranslations: f.fit_brief_translations ?? null,
   }
 }
 

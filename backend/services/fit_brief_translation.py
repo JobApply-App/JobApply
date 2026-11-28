@@ -1,17 +1,23 @@
 """
-One-time Hebrew backfill of "Ariel's analysis" (user_job_matches.fit_brief).
+"Ariel's analysis" (user_job_matches.fit_brief) in the interface language.
 
-#81 made the scorer write fit_brief in the user's UI language, but only for
-jobs scored after it. A Hebrew user's existing jobs kept their English
-analysis (96 of 100 for the first tester), and a job is re-scored only when
-its JD or the profile changes — so they would stay English for weeks.
+The scorer writes fit_brief once, in the interface language of that moment
+(#81). This sweep used to translate English briefs into Hebrew *in place*,
+so a user who later switched to English saw Hebrew on every card, with no
+English left to go back to (Ron, 2026-11-28: 213 of 214 briefs).
 
-The enrichment loop calls translate_all() once per sweep. It covers every
-user whose UI is Hebrew, not only the pipeline's onboarding-complete users —
-accounts that predate that flag hold the most English briefs. Per user it reads at most _BATCH briefs with no Hebrew letter, translates them
-in a single LLM call, and writes back only those that came back in Hebrew.
-Scores are untouched. Once a user has nothing left, they are skipped for
-the rest of the process, so a finished backfill costs no further queries.
+Now fit_brief stays as the scorer wrote it, and its translation into the
+user's interface language is stored beside it, in fit_brief_i18n
+(job_repository.save_fit_brief_translation). Both directions: Hebrew to
+English and English to Hebrew. The card shows the translation for its
+language and falls back to fit_brief until one exists.
+
+The enrichment loop calls translate_all() once per sweep. For each user with
+a stored interface language it reads at most _BATCH briefs not written in
+that language and not yet translated into it, translates them in one LLM
+call, and stores those that came back in the right language. Scores are
+untouched. A user with nothing left is skipped for the rest of the process,
+until their interface language changes.
 """
 from __future__ import annotations
 
@@ -25,27 +31,38 @@ logger = logging.getLogger(__name__)
 
 _MODEL      = "claude-haiku-4-5"
 _BATCH      = 20
-_DAILY_BATCHES = 10   # per user: 200 briefs a day, ~a few cents of Haiku at most
+# Per user a day: 300 briefs, enough to turn a whole feed around in the day
+# the interface language changes; a few cents of Haiku at most.
+_DAILY_BATCHES = 15
 _MAX_TOKENS = 4000
 _HEBREW     = re.compile(r"[א-ת]")
+_LANGS      = ("he", "en")
 
-_SYSTEM = (
-    "You translate short job-fit analyses from English to Hebrew for an Israeli "
-    "job-search app. Keep product names, technologies and acronyms (SQL, SaaS, "
-    "B2B, PRD) in English, and keep numbers exactly. Do not add or remove "
-    "content. Output ONLY a JSON array of strings, one translation per input, "
-    "in the same order."
-)
+_SYSTEM = {
+    "he": (
+        "You translate short job-fit analyses from English to Hebrew for an Israeli "
+        "job-search app. Keep product names, technologies and acronyms (SQL, SaaS, "
+        "B2B, PRD) in English, and keep numbers exactly. Do not add or remove "
+        "content. Output ONLY a JSON array of strings, one translation per input, "
+        "in the same order."
+    ),
+    "en": (
+        "You translate short job-fit analyses from Hebrew to English for a "
+        "job-search app. Keep company and product names, technologies and acronyms "
+        "as they are, and keep numbers exactly. Write natural, concise English. Do "
+        "not add or remove content. Output ONLY a JSON array of strings, one "
+        "translation per input, in the same order."
+    ),
+}
 
-# Hebrew-UI users, re-read every sweep (one small SELECT every 2 minutes).
-# It used to be read once per process, so a user who switched the interface
-# to Hebrew after a deploy kept English analyses until the next restart.
-_users: Optional[list[str]] = None
+# Each user's interface language, re-read every sweep (one small SELECT every
+# 2 minutes), so a language switch is picked up without a restart.
+_locales: dict[str, str] = {}
 
-# Users whose backlog is empty in this process, and briefs that came back
-# unusable (kept English, not retried); both reset on restart.
-_done: set[str] = set()
-_skipped: dict[str, set[str]] = {}
+# (user, language) pairs whose backlog is empty in this process, and briefs
+# that came back unusable (kept as written, not retried); reset on restart.
+_done: set[tuple[str, str]] = set()
+_skipped: dict[tuple[str, str], set[str]] = {}
 
 
 def _consume_daily(user_id: str) -> bool:
@@ -63,12 +80,9 @@ def _consume_daily(user_id: str) -> bool:
     return True
 
 
-def _wants_hebrew(user_id: str) -> bool:
-    from backend.repositories import profile_repository
-    try:
-        return profile_repository.get_locales(user_id).get("ui_locale") == "he"
-    except profile_repository.LocalesUnavailable:
-        return False
+def _in_language(text: str, lang: str) -> bool:
+    """Hebrew has Hebrew letters; English has none (product names stay Latin in both)."""
+    return bool(_HEBREW.search(text)) == (lang == "he")
 
 
 def _parse(raw: str, expected: int) -> Optional[list[str]]:
@@ -82,42 +96,37 @@ def _parse(raw: str, expected: int) -> Optional[list[str]]:
     return out
 
 
-async def translate_batch(user_id: str) -> int:
-    """Translate up to _BATCH English briefs for user_id; return how many were saved."""
-    if user_id in _done:
-        return 0
-    if not _wants_hebrew(user_id):
-        logger.info("[fit_brief_translation] user=%s UI is not Hebrew (or unreadable) — skipped", user_id)
-        _done.add(user_id)
+async def translate_batch(user_id: str, lang: str) -> int:
+    """Translate up to _BATCH of user_id's briefs into lang; return how many were saved."""
+    if lang not in _LANGS or (user_id, lang) in _done:
         return 0
 
     import asyncio
     from backend.repositories import job_repository
     from backend.services.llm_client import call_llm, providers_unavailable
 
-    skipped = _skipped.setdefault(user_id, set())
+    skipped = _skipped.setdefault((user_id, lang), set())
     rows = await asyncio.to_thread(
-        job_repository.list_untranslated_fit_briefs, user_id, _BATCH + len(skipped),
+        job_repository.list_briefs_to_translate, user_id, lang, _BATCH + len(skipped),
     )
     pending = [r for r in rows if r[0] not in skipped][:_BATCH]
     if not pending:
-        _done.add(user_id)
-        logger.info("[fit_brief_translation] backlog empty for user=%s", user_id)
+        _done.add((user_id, lang))
+        logger.info("[fit_brief_translation] nothing left to translate into %s for user=%s", lang, user_id)
         return 0
-    # Its own daily cap, not the scoring budget (llm_budget): sharing that
-    # one left the backfill blocked all day for every user whose scoring had
-    # used it up, and a translation must never cost a user a scored job.
+    # Its own daily cap, not the scoring budget (llm_budget): a translation
+    # must never cost a user a scored job.
     if providers_unavailable() or not _consume_daily(user_id):
         logger.info(
-            "[fit_brief_translation] user=%s has %d English brief(s) waiting — "
-            "today's %d batches used or AI providers down", user_id, len(pending), _DAILY_BATCHES,
+            "[fit_brief_translation] user=%s has %d brief(s) waiting for %s — "
+            "today's %d batches used or AI providers down", user_id, len(pending), lang, _DAILY_BATCHES,
         )
         return 0
 
     sources = [brief for _, brief in pending]
     try:
         result = await call_llm(
-            system     = _SYSTEM,
+            system     = _SYSTEM[lang],
             messages   = [{"role": "user", "content": json.dumps(sources, ensure_ascii=False)}],
             model      = _MODEL,
             max_tokens = _MAX_TOKENS,
@@ -134,36 +143,35 @@ async def translate_batch(user_id: str) -> int:
         return 0
 
     saved = 0
-    for (job_id, old), new in zip(pending, translated):
+    for (job_id, src), new in zip(pending, translated):
         new = new.strip()
-        if not _HEBREW.search(new) or len(new) > 2 * len(old) + 100:
+        if not new or not _in_language(new, lang) or len(new) > 2 * len(src) + 100:
             skipped.add(job_id)
             continue
-        if await asyncio.to_thread(job_repository.replace_fit_brief, job_id, user_id, old, new):
+        if await asyncio.to_thread(job_repository.save_fit_brief_translation, job_id, user_id, src, lang, new):
             saved += 1
-    logger.info("[fit_brief_translation] user=%s translated %d/%d", user_id, saved, len(sources))
+    logger.info("[fit_brief_translation] user=%s translated %d/%d into %s", user_id, saved, len(sources), lang)
     return saved
 
 
 async def translate_all() -> int:
-    """One batch for each Hebrew-UI user with English briefs left; return how many were saved."""
-    global _users
+    """One batch for each user whose briefs are not all in their interface language."""
     import asyncio
     from backend.repositories import profile_repository
     try:
-        users = await asyncio.to_thread(profile_repository.list_hebrew_ui_user_ids)
+        locales = await asyncio.to_thread(profile_repository.list_ui_locales)
     except Exception as exc:
-        logger.warning("[fit_brief_translation] could not list Hebrew users: %s", exc)
+        logger.warning("[fit_brief_translation] could not list interface languages: %s", exc)
         return 0
-    # A user who just switched to Hebrew may have been marked done while their
-    # UI was English, or have English briefs scored since: check them again.
-    newly_hebrew = set(users) - set(_users or [])
-    _done.difference_update(newly_hebrew)
-    if newly_hebrew:
-        logger.info("[fit_brief_translation] %d user(s) switched to Hebrew, to check", len(newly_hebrew))
-    _users = users
+    # A user who switched language is checked again for the new one.
+    for user_id, lang in locales.items():
+        if _locales.get(user_id) not in (None, lang):
+            _done.discard((user_id, lang))
+            logger.info("[fit_brief_translation] user=%s switched to %s, to check", user_id, lang)
+    _locales.clear()
+    _locales.update(locales)
     saved = 0
-    for user_id in _users:
-        if user_id not in _done:
-            saved += await translate_batch(user_id)
+    for user_id, lang in locales.items():
+        if (user_id, lang) not in _done:
+            saved += await translate_batch(user_id, lang)
     return saved

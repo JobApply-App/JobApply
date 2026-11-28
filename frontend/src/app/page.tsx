@@ -233,6 +233,7 @@ function HomePageContent() {
         isNew:      f.is_new,
         reasons:    f.reasons,
         fitBrief:     f.fit_brief ?? null,
+        fitBriefTranslations: f.fit_brief_translations ?? null,
       })),
       ...rawJobs,
     ]
@@ -280,6 +281,7 @@ function HomePageContent() {
       isNew:      feedJob.is_new,
       reasons:    feedJob.reasons,
       fitBrief:     feedJob.fit_brief ?? null,
+      fitBriefTranslations: feedJob.fit_brief_translations ?? null,
     }
     setReviewJob({ job, feedJob })
   }

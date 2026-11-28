@@ -18,6 +18,7 @@ export interface Job {
   isNew?: boolean
   reasons: Reason[]
   fitBrief?: string | null
+  fitBriefTranslations?: Partial<Record<'he' | 'en', string>> | null
 }
 
 export interface Application {

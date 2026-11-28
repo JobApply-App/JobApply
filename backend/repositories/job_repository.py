@@ -134,7 +134,7 @@ _SELECT_JOINED = """
         ujm.culture_fit_score, ujm.culture_delta, ujm.culture_alignment,
         ujm.culture_category, ujm.culture_note, ujm.trajectory_alignment,
         ujm.company_dna_inference, ujm.investigation_points, ujm.detailed_analysis,
-        ujm.reasons, ujm.fit_brief, ujm.scoring_rationale, ujm.category,
+        ujm.reasons, ujm.fit_brief, ujm.fit_brief_i18n, ujm.scoring_rationale, ujm.category,
         -- Only whether a tailored CV exists (has_tailored_cv). Selecting the
         -- document itself shipped a whole CV per row on every feed read;
         -- get_tailored_cv() reads it when it is actually needed.
@@ -160,6 +160,17 @@ _SELECT_JOINED = """
     FROM public.user_job_matches ujm
     JOIN public.job_postings jp ON jp.id = ujm.job_posting_id
 """
+
+
+def brief_translations(fit_brief: Optional[str], i18n: Optional[dict]) -> Optional[dict[str, str]]:
+    """
+    {"he": ..., "en": ...} translations of fit_brief that are still current:
+    only while i18n["src"] equals fit_brief (a re-score retires them).
+    """
+    if not fit_brief or not isinstance(i18n, dict) or i18n.get("src") != fit_brief:
+        return None
+    out = {lang: i18n[lang] for lang in ("he", "en") if isinstance(i18n.get(lang), str) and i18n[lang].strip()}
+    return out or None
 
 
 def _row_to_jobmatch(r) -> JobMatch:
@@ -190,6 +201,7 @@ def _row_to_jobmatch(r) -> JobMatch:
         is_new=bool(r.is_new),
         posted_at=(r.posted_at.isoformat() if r.posted_at else ""),
         fit_brief=r.fit_brief,
+        fit_brief_translations=brief_translations(r.fit_brief, getattr(r, "fit_brief_i18n", None)),
         scoring_rationale=r.scoring_rationale,
         category=r.category,
         applied=bool(r.applied),
@@ -1187,36 +1199,47 @@ def reassign_user(old_user_id: str, new_user_id: str, session: Session) -> int:
     return result.rowcount
 
 
-# ── One-time Hebrew backfill of fit_brief (services/fit_brief_translation.py) ──
+# ── Ariel's analysis in both languages (services/fit_brief_translation.py) ───
+#
+# fit_brief stays as the scorer wrote it. Its translation into the other
+# language lives in fit_brief_i18n = {"src": fit_brief, "he": ..., "en": ...},
+# valid only while src still equals fit_brief.
 
-def list_untranslated_fit_briefs(user_id: str, limit: int) -> list[tuple[str, str]]:
+def list_briefs_to_translate(user_id: str, target: str, limit: int) -> list[tuple[str, str]]:
     """
-    (job_id, fit_brief) pairs for this user whose fit_brief has no Hebrew
-    letter — written before #81 asked the scorer for the UI language. Reads
-    two narrow columns only (egress).
+    (job_id, fit_brief) for this user's briefs that are not written in
+    `target` ("he" or "en") and have no current translation into it, best
+    matches first. Reads two narrow columns (egress).
     """
+    is_hebrew = "fit_brief ~ '[א-ת]'"
+    wrong_language = f"NOT ({is_hebrew})" if target == "he" else is_hebrew
     with Session(ENGINE) as session:
         rows = session.execute(
             text("SELECT job_id, fit_brief FROM public.user_job_matches "
                  "WHERE user_id = CAST(:user_id AS uuid) AND fit_brief IS NOT NULL "
-                 "AND fit_brief <> '' AND fit_brief !~ '[א-ת]' "
+                 f"AND btrim(fit_brief) <> '' AND {wrong_language} "
+                 "AND NOT (fit_brief_i18n IS NOT NULL AND fit_brief_i18n->>'src' = fit_brief "
+                 "         AND COALESCE(fit_brief_i18n->>:target, '') <> '') "
                  "ORDER BY match_score DESC NULLS LAST LIMIT :limit"),
-            {"user_id": user_id, "limit": limit},
+            {"user_id": user_id, "target": target, "limit": limit},
         ).fetchall()
     return [(str(r[0]), r[1]) for r in rows]
 
 
-def replace_fit_brief(job_id: str, user_id: str, old: str, new: str) -> bool:
+def save_fit_brief_translation(job_id: str, user_id: str, src: str, lang: str, translated: str) -> bool:
     """
-    Swap fit_brief for its translation, only if it still holds `old` — a
-    re-score that landed meanwhile wins. Returns True when a row changed.
+    Store `translated` as the `lang` version of fit_brief, only if fit_brief
+    still holds `src` — a re-score that landed meanwhile wins. Other
+    translations of the same src are kept. Returns True when a row changed.
     """
     with Session(ENGINE) as session:
         res = session.execute(
-            text("UPDATE public.user_job_matches SET fit_brief = :new "
-                 "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid) "
-                 "AND fit_brief = :old"),
-            {"new": new, "old": old, "job_id": job_id, "user_id": user_id},
+            text("UPDATE public.user_job_matches SET fit_brief_i18n = "
+                 "  CASE WHEN fit_brief_i18n->>'src' = :src "
+                 "       THEN fit_brief_i18n || jsonb_build_object(CAST(:lang AS text), CAST(:t AS text)) "
+                 "       ELSE jsonb_build_object('src', CAST(:src AS text), CAST(:lang AS text), CAST(:t AS text)) END "
+                 "WHERE job_id = :job_id AND user_id = CAST(:user_id AS uuid) AND fit_brief = :src"),
+            {"src": src, "lang": lang, "t": translated, "job_id": job_id, "user_id": user_id},
         )
         session.commit()
         return res.rowcount > 0
