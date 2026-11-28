@@ -15,6 +15,7 @@ bulk_upsert_jobs() — one INSERT ... ON CONFLICT DO UPDATE per batch.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -39,6 +40,8 @@ from backend.services.linkedin_job_normalize import (
     parse_location,
     parse_posted_at,
 )
+
+logger = logging.getLogger(__name__)
 
 _TABLE = AllJobRow.__table__
 
@@ -192,6 +195,14 @@ def bulk_upsert_all_jobs(
     finally:
         if owns_session:
             session.close()
+
+    try:
+        from backend.repositories import company_repository
+        company_repository.upsert_listings(deduped)
+    except Exception as exc:
+        # The jobs are saved; only the company table missed this batch, and
+        # the next scrape of the same companies fills it. Loud, not raised.
+        logger.error("[all_jobs] COMPANY SYNC FAILED for %d rows: %s", len(deduped), type(exc).__name__)
 
     return stats
 
@@ -486,16 +497,30 @@ def usable_logo(url: Optional[str]) -> Optional[str]:
 
 def get_company_logos(names: list[str], *, session: Optional[Session] = None) -> dict[str, str]:
     """
-    {name as given: logo url} for the names whose company has a real logo in
-    `all_jobs`; the most recently seen row wins. Names without one are absent.
+    {name as given: logo url} for the names whose company has a real logo.
+    Names without one are absent.
+
+    The companies table first: it joins spellings ("Wiz" and "Wiz (a Google
+    Company)", Hebrew names) that an exact match on all_jobs misses. Then
+    all_jobs, by exact normalized name, for whatever is left (the most
+    recently seen row wins).
     """
+    names = names[:MAX_LOGO_NAMES]
+    out: dict[str, str] = {}
+    try:
+        from backend.repositories import company_repository
+        out = company_repository.get_logos(names)
+    except Exception as exc:
+        logger.error("[all_jobs] COMPANY LOGO LOOKUP FAILED, using all_jobs only: %s", type(exc).__name__)
+    names = [n for n in names if n not in out]
+
     keys: dict[str, list[str]] = {}
-    for name in names[:MAX_LOGO_NAMES]:
+    for name in names:
         key = normalize_company_key(name)
         if key:
             keys.setdefault(key, []).append(name)
     if not keys:
-        return {}
+        return out
 
     stmt = (
         select(_TABLE.c.company_name_normalized, _TABLE.c.company_logo_url)
@@ -510,7 +535,6 @@ def get_company_logos(names: list[str], *, session: Optional[Session] = None) ->
     owns_session = session is None
     session = session or get_pg_session()
     try:
-        out: dict[str, str] = {}
         for key, url in session.execute(stmt).all():
             logo = usable_logo(url)
             if logo:

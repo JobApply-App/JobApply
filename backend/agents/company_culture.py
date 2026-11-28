@@ -363,10 +363,19 @@ def save_cached_profile(profile: CompanyCultureProfile, engine=None) -> bool:
             profile.model_dump_json(), profile.researched_at,
             profile_type="culture", engine=engine,
         )
-        return True
     except Exception as exc:
         logger.warning("[company-culture] cache save failed for %r: %s", profile.company_key, exc)
         return False
+    try:
+        from backend.repositories import company_repository
+
+        company_repository.attach_culture(
+            profile.display_name, profile.model_dump(mode="json"),
+            confidence=profile.confidence, engine=engine,
+        )
+    except Exception as exc:
+        logger.error("[company-culture] COMPANY SYNC FAILED for %r: %s", profile.company_key, type(exc).__name__)
+    return True
 
 
 def is_stale(profile: CompanyCultureProfile, now: Optional[datetime] = None) -> bool:
