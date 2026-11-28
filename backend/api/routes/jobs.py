@@ -1091,7 +1091,7 @@ async def get_analyze_status(task_id: str, user: CurrentUser = Depends(get_curre
 class ScrapeConfig(BaseModel):
     company_name: str = Field(..., max_length=200)
     company_url:  str = Field(..., max_length=500)
-    adapter:      str = Field(default="comeet", max_length=40)   # "comeet" | future adapters
+    adapter:      str = Field(default="comeet", max_length=40)   # "comeet" | "greenhouse" | "lever" | future adapters
     user_id:      str = "default"
 
 

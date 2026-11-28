@@ -306,6 +306,30 @@ def _seed_scraper_registry() -> None:
         },
     ]
 
+    # ── Israeli companies on Greenhouse (verified live 2026-11-28) ──────────
+    # One list call per company per sync; the adapter keeps only jobs in
+    # Israel or open to remote (ats_board_adapters.israel_or_remote). Ordered
+    # by how many such jobs each had, since run_all stops at MAX_RELEVANT_JOBS.
+    greenhouse_boards = [
+        ("Cato Networks", "catonetworks"), ("Wiz", "wizinc"), ("JFrog", "jfrog"),
+        ("Gong", "gongio"), ("AppsFlyer", "appsflyer"), ("Riskified", "riskified"),
+        ("Payoneer", "payoneer"), ("Similarweb", "similarweb"), ("Via", "via"),
+        ("NICE", "nice"), ("Axonius", "axonius"), ("Transmit Security", "transmitsecurity"),
+        ("BigID", "bigid"), ("Taboola", "taboola"), ("Yotpo", "yotpo"),
+        ("Forter", "forter"), ("Orca Security", "orcasecurity"), ("Datarails", "datarails"),
+        ("Nanit", "nanit"), ("Bringg", "bringg"), ("Island", "island"),
+        ("Optimove", "optimove"),
+    ]
+    default_companies += [
+        {
+            "company_name": name,
+            "company_url":  f"https://job-boards.greenhouse.io/{slug}",
+            "adapter":      "greenhouse",
+            "user_id":      "default",
+        }
+        for name, slug in greenhouse_boards
+    ]
+
     for cfg in default_companies:
         scraper = scraper_from_config(cfg)
         if scraper:
