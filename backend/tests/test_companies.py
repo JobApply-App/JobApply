@@ -175,3 +175,76 @@ def test_upsert_listings_counts_named_rows(engine):
     assert repo.upsert_listings(rows, engine=engine) == 1        # idempotent
     with Session(engine) as s:
         assert s.query(CompanyRow).count() == 1
+
+
+def test_missing_culture_is_sql_null_not_json_null(engine):
+    # The first backfill stored JSON null, so "culture IS NOT NULL" counted
+    # every company (2,788) instead of the 715 that have a profile.
+    from sqlalchemy import text
+    with Session(engine) as s:
+        _listing(s, "Acme")
+        s.commit()
+        assert s.execute(text("select count(*) from companies where culture is null and industries is null")).scalar() == 1
+
+
+# ── Phase 2 ───────────────────────────────────────────────────────────────────
+
+from backend.services.company_identity import is_placeholder
+
+
+@pytest.mark.parametrize("name", [
+    "Confidential", "Confidential Careers", "Stealth AI Startup", "Undisclosed", "Private Company", "חברה חסויה",
+])
+def test_placeholder_names(name):
+    assert is_placeholder(company_key(name))
+
+
+@pytest.mark.parametrize("name", ["Stealthy Labs", "Privacy Co", "Confluent"])
+def test_real_names_are_not_placeholders(name):
+    assert not is_placeholder(company_key(name))
+
+
+def test_placeholder_name_gets_no_company_and_no_alias(engine):
+    with Session(engine) as s:
+        assert repo.company_id_for(s, "Confidential") is None
+        # A LinkedIn page called "Confidential" is still a page, but its name
+        # must not pull every hidden employer onto it.
+        row = _listing(s, "Confidential", "https://www.linkedin.com/company/confidential-career")
+        s.commit()
+        assert row is not None
+        assert s.get(CompanyAliasRow, "confidential") is None
+
+
+def test_company_id_for_reuses_the_company(engine):
+    with Session(engine) as s:
+        a = repo.company_id_for(s, "Wix")
+        b = repo.company_id_for(s, "Wix.com")
+        s.commit()
+        assert a and a == b
+
+
+def test_culture_key_keeps_hebrew_names():
+    from backend.agents.company_culture import _company_key
+    assert _company_key("Wix") == "wix"                       # unchanged: cached keys stay valid
+    assert _company_key("Discount Bank בנק דיסקונט") == "discount_bank"
+    assert _company_key("איחוד הצלה") == "איחוד_הצלה"         # was "", so never profiled
+    assert _company_key("חברה חסויה") == ""
+
+
+@pytest.mark.parametrize("finder", ["service", "dimensions"])
+def test_prior_employer_by_normalized_name(finder):
+    from backend.services import match_dimensions, match_score_service
+
+    def find(exp, target):
+        if finder == "service":
+            return match_score_service._find_prior_employer({"experience": exp}, target)
+        return match_dimensions._find_prior_employer(exp, target)
+
+    # The CV's longer spelling: the word-boundary regex alone misses these.
+    assert find([{"company": "Wix.com"}], "Wix") == "Wix.com"
+    assert find([{"company": "Nova Ltd."}], "Nova") == "Nova Ltd."
+    # Unchanged guarantees (CLAUDE.md principle 2).
+    assert find([{"company": "River"}], "Riverside") is None
+    assert find([{"company": "Elbit Systems"}], "Elbit Systems Israel") == "Elbit Systems"
+    # A hidden employer is nobody's former employer.
+    assert find([{"company": "Confidential"}], "Confidential") is None

@@ -155,7 +155,16 @@ class _LLMCulturePayload(BaseModel):
 
 
 def _company_key(name: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_")
+    """a-z0-9 key, unchanged for every name that has Latin letters or digits,
+    so the 720 cached profiles keep their keys. A name with neither (a Hebrew
+    name) used to come out empty and never got a profile; it now keys on
+    company_identity.company_key(), which keeps Hebrew."""
+    key = re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_")
+    if key:
+        return key
+    from backend.services.company_identity import company_key, is_placeholder
+    he = company_key(name)
+    return "" if not he or is_placeholder(he) else he.replace(" ", "_")
 
 
 def _now() -> datetime:

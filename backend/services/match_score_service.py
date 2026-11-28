@@ -1294,12 +1294,23 @@ def _find_prior_employer(cv_data: dict, target_company: str) -> Optional[str]:
       • Uses regex word boundaries (\\b) so "River" does NOT match "Riverside".
       • re.escape() treats hyphens, dots, etc. as literals, not regex operators.
       • Minimum core length of 4 characters to skip short abbreviations.
+      • Also a match: both names normalize to the same company_key()
+        ("Wix.com" and "Wix Ltd", "Ness | נס טכנולוגיות" and "Ness"), which
+        the regex misses when the CV's spelling is the longer one. Equality
+        of whole normalized names, never containment, so "River" still does
+        not match "Riverside".
     """
     if not target_company or not target_company.strip():
+        return None
+    from backend.services.company_identity import company_key, is_placeholder
+    target_key = company_key(target_company)
+    if is_placeholder(target_key):
         return None
 
     for exp in cv_data.get("experience", []):
         company = (exp.get("company") or "").strip()
+        if target_key and company_key(company) == target_key:
+            return company
         if len(company) < 4:
             continue
         # Strip parenthetical/dash suffixes: "GO-OUT (Startup)" → "GO-OUT"
