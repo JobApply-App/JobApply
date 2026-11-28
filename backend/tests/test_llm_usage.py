@@ -195,3 +195,113 @@ def test_spend_ceiling_lets_the_call_through_when_the_check_fails(monkeypatch, c
     monkeypatch.setattr("backend.repositories.llm_usage_repository.spend_today", boom)
     asyncio.run(deps.daily_ai_spend_limit(_user()))
     assert "DAILY AI SPEND CHECK DID NOT RUN" in caplog.text
+
+
+# ── Gemini cost (2026-11-28: Gemini rows used to be logged with cost None) ───
+
+def test_gemini_cost_by_served_model():
+    # 1M fresh input + 1M output on gemini-3.8-flash before 2027.
+    assert llm.gemini_cost_usd("gemini-3.8-flash", 1_000_000, 1_000_000, today="2026-11-28") == pytest.approx(0.75 + 3.75)
+
+
+def test_gemini_cost_changes_on_the_published_date():
+    assert llm.gemini_cost_usd("gemini-3.8-flash", 1_000_000, 0, today="2027-01-01") == pytest.approx(1.50)
+
+
+def test_gemini_cached_tokens_are_part_of_the_prompt_not_extra():
+    # 1M prompt of which 400k cached: 600k at 0.75 + 400k at 0.075.
+    assert llm.gemini_cost_usd("gemini-3.8-flash", 1_000_000, 0, 400_000, today="2026-11-28") == pytest.approx(0.45 + 0.03)
+
+
+def test_gemini_flash_lite_never_prices_as_flash():
+    assert llm.gemini_cost_usd("gemini-3.5-flash-lite-001", 1_000_000, 0, today="2026-11-28") == pytest.approx(0.30)
+
+
+def test_unknown_gemini_model_counts_at_the_dearest_rate_and_warns(caplog):
+    llm._UNPRICED_GEMINI_WARNED.discard("gemini-9-flash")
+    cost = llm.gemini_cost_usd("gemini-9-flash", 1_000_000, 0, today="2026-11-28")
+    assert cost == pytest.approx(0.75)       # never 0, never None: it feeds the spend ceiling
+    assert "NO PRICE for Gemini model" in caplog.text
+
+
+def _gemini_ok(model_version="gemini-3.8-flash", candidates=1000, thoughts=3000):
+    response = SimpleNamespace(
+        model_version=model_version,
+        usage_metadata=SimpleNamespace(
+            prompt_token_count=2000, candidates_token_count=candidates,
+            thoughts_token_count=thoughts, cached_content_token_count=None,
+        ),
+        candidates=[SimpleNamespace(content=SimpleNamespace(parts=[SimpleNamespace(text="ok", function_call=None)]))],
+    )
+    gen = AsyncMock(return_value=response)
+    return SimpleNamespace(aio=SimpleNamespace(models=SimpleNamespace(generate_content=gen)))
+
+
+def test_gemini_call_logs_served_model_thinking_tokens_and_a_cost(written):
+    async def run():
+        with patch.object(llm, "_gemini_client", _gemini_ok()):
+            await llm.call_llm(**_KW)
+            await asyncio.sleep(0.05)       # the row is written off the event loop
+    asyncio.run(run())
+
+    row = written[0]
+    assert row["provider"] == "gemini"
+    assert row["model"] == "gemini-3.8-flash"          # what served it, not the alias
+    assert row["output_tokens"] == 4000                # 1000 answer + 3000 thinking
+    assert row["cost_usd"] is not None and row["cost_usd"] > 0
+
+
+def test_gemini_row_counts_toward_spend_today(monkeypatch):
+    """The ceiling sums cost_usd: a Gemini row with a cost now adds to it."""
+    from backend.repositories import llm_usage_repository as repo
+    from backend.api import deps
+
+    rows: list[dict] = []
+    monkeypatch.setattr(repo, "record", lambda **row: rows.append(row))
+    monkeypatch.setattr(repo, "spend_today", lambda uid: sum(r["cost_usd"] or 0 for r in rows if r["user_id"] == uid))
+    monkeypatch.setattr(llm, "_write_usage", _REAL_WRITE_USAGE)
+
+    big = _gemini_ok(candidates=0, thoughts=0)
+    big.aio.models.generate_content.return_value.usage_metadata.prompt_token_count = 3_000_000   # ~$2.25
+
+    async def run():
+        with patch.object(llm, "_gemini_client", big):
+            await llm.call_llm(**_KW)
+            await asyncio.sleep(0.05)
+    asyncio.run(run())
+
+    assert repo.spend_today("u-1") >= deps.DAILY_AI_SPEND_CAP_USD
+    with pytest.raises(AppError) as exc:
+        asyncio.run(deps.daily_ai_spend_limit(_user()))
+    assert exc.value.status_code == 429
+
+
+def test_gemini_stream_is_logged(written):
+    chunks = [
+        SimpleNamespace(candidates=[SimpleNamespace(content=SimpleNamespace(parts=[SimpleNamespace(text="he", function_call=None)]))],
+                        usage_metadata=None, model_version="gemini-3.8-flash"),
+        SimpleNamespace(candidates=[SimpleNamespace(content=SimpleNamespace(parts=[SimpleNamespace(text="llo", function_call=None)]))],
+                        usage_metadata=SimpleNamespace(prompt_token_count=500, candidates_token_count=20,
+                                                       thoughts_token_count=80, cached_content_token_count=None),
+                        model_version="gemini-3.8-flash"),
+    ]
+
+    async def agen():
+        for c in chunks:
+            yield c
+
+    stream = AsyncMock(return_value=agen())
+    fake = SimpleNamespace(aio=SimpleNamespace(models=SimpleNamespace(generate_content_stream=stream)))
+
+    async def run():
+        with patch.object(llm, "_gemini_client", fake):
+            async with llm.stream_llm(**_KW) as events:
+                text = "".join([e.delta.text async for e in events if e.type == "content_block_delta"])
+            await asyncio.sleep(0.05)
+        return text
+    assert asyncio.run(run()) == "hello"
+
+    assert len(written) == 1
+    assert written[0]["model"] == "gemini-3.8-flash"
+    assert written[0]["output_tokens"] == 100
+    assert written[0]["cost_usd"] > 0

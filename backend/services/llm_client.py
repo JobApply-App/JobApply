@@ -56,6 +56,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any, AsyncIterator, Optional
 
@@ -202,6 +203,64 @@ def estimate_cost_usd(
     ) / 1_000_000
 
 
+# USD per 1M tokens for Gemini: (effective_from, input, output, cache_read),
+# newest first. Google's published paid-tier standard rates, read 2026-11-28
+# from https://ai.google.dev/gemini-api/docs/pricing. Output includes thinking
+# tokens ("Output price (including thinking tokens)"). Keyed by the model the
+# response says served it (`model_version`), not by our "-latest" alias, which
+# Google retargets. Longest prefix wins, so "-flash-lite" never prices as
+# "-flash".
+_GEMINI_PRICE_PER_MTOK: dict[str, list[tuple[str, float, float, float]]] = {
+    "gemini-3.8-flash":      [("2027-01-01", 1.50, 7.50, 0.15), ("2000-01-01", 0.75, 3.75, 0.075)],
+    "gemini-3.6-flash":      [("2027-01-01", 1.50, 7.50, 0.15), ("2000-01-01", 0.75, 3.75, 0.075)],
+    "gemini-3.5-flash-lite": [("2000-01-01", 0.30, 2.50, 0.03)],
+}
+_UNPRICED_GEMINI_WARNED: set[str] = set()
+
+
+def _gemini_rate(model: str, today: str) -> tuple[float, float, float]:
+    """The (input, output, cache_read) rate for `model` on `today` (YYYY-MM-DD).
+
+    A Gemini model not in the table is priced at the dearest rate in it, not
+    at None: cost_usd feeds the daily spend ceiling (deps.daily_ai_spend_limit),
+    and a ceiling that counts an unknown model as free stops bounding spend the
+    day Google retargets the alias. Logged once per model so the table gets
+    the real rate.
+    """
+    def current(tiers: list[tuple[str, float, float, float]]) -> tuple[float, float, float]:
+        return next(t[1:] for t in tiers if t[0] <= today)
+
+    prefix = max((p for p in _GEMINI_PRICE_PER_MTOK if model.startswith(p)), key=len, default=None)
+    if prefix is not None:
+        return current(_GEMINI_PRICE_PER_MTOK[prefix])
+    if model not in _UNPRICED_GEMINI_WARNED:
+        _UNPRICED_GEMINI_WARNED.add(model)
+        logger.warning(
+            "[llm_client] NO PRICE for Gemini model %r — counting it at the dearest listed rate. "
+            "Add it to _GEMINI_PRICE_PER_MTOK.", model,
+        )
+    return max((current(t) for t in _GEMINI_PRICE_PER_MTOK.values()), key=lambda r: r[1])
+
+
+def gemini_cost_usd(
+    model: str,
+    prompt_tokens: Optional[int],
+    output_tokens: Optional[int],
+    cached_tokens: Optional[int] = None,
+    today: Optional[str] = None,
+) -> float:
+    """Gemini's prompt_token_count already includes the cached part, so the
+    cached tokens are billed at the cache rate instead of on top."""
+    p_in, p_out, p_cache = _gemini_rate(model, today or datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    cached = cached_tokens or 0
+    fresh = max((prompt_tokens or 0) - cached, 0)
+    return (fresh * p_in + cached * p_cache + (output_tokens or 0) * p_out) / 1_000_000
+
+
+def _gemini_served_model(response: Any) -> str:
+    return getattr(response, "model_version", None) or _GEMINI_MODEL
+
+
 def _write_usage(**row: Any) -> None:
     from backend.repositories import llm_usage_repository
     try:
@@ -229,19 +288,24 @@ def _record_usage(
     usage object (Anthropic `Usage` or Gemini `usage_metadata`)."""
     if provider == "gemini":
         input_tokens = getattr(usage, "prompt_token_count", None)
-        output_tokens = getattr(usage, "candidates_token_count", None)
+        # Thinking tokens are billed as output and are not in candidates_token_count.
+        candidates = getattr(usage, "candidates_token_count", None)
+        thoughts = getattr(usage, "thoughts_token_count", None)
+        output_tokens = None if candidates is None and thoughts is None else (candidates or 0) + (thoughts or 0)
         cache_read = getattr(usage, "cached_content_token_count", None)
         cache_write = None
+        cost = gemini_cost_usd(model, input_tokens, output_tokens, cache_read)
     else:
         input_tokens = getattr(usage, "input_tokens", None)
         output_tokens = getattr(usage, "output_tokens", None)
         cache_read = getattr(usage, "cache_read_input_tokens", None)
         cache_write = getattr(usage, "cache_creation_input_tokens", None)
+        cost = estimate_cost_usd(model, input_tokens, output_tokens, cache_read, cache_write)
     row = dict(
         purpose=purpose, provider=provider, model=model, user_id=user_id, job_id=job_id,
         input_tokens=input_tokens, output_tokens=output_tokens,
         cache_read_tokens=cache_read, cache_write_tokens=cache_write, latency_ms=latency_ms,
-        cost_usd=estimate_cost_usd(model, input_tokens, output_tokens, cache_read, cache_write),
+        cost_usd=cost,
     )
     asyncio.get_running_loop().run_in_executor(None, lambda: _write_usage(**row))
 
@@ -591,8 +655,8 @@ async def _call_gemini(
         purpose, _GEMINI_MODEL, user_id, job_id, input_tokens, output_tokens, latency_ms,
     )
     _record_usage(
-        purpose=purpose, provider="gemini", model=_GEMINI_MODEL, user_id=user_id, job_id=job_id,
-        usage=usage, latency_ms=latency_ms,
+        purpose=purpose, provider="gemini", model=_gemini_served_model(response),
+        user_id=user_id, job_id=job_id, usage=usage, latency_ms=latency_ms,
     )
 
     blocks = _gemini_response_to_content_blocks(response)
@@ -814,14 +878,23 @@ def _gemini_chunk_to_events(
 
 async def _gemini_stream_events(
     gemini_stream: AsyncIterator[genai_types.GenerateContentResponse],
+    seen: Optional[dict] = None,
 ) -> AsyncIterator[SimpleNamespace]:
     """
     Adapts a Gemini streaming iterator into the same event shape chat.py's
     stream consumers already read off a raw Anthropic stream:
     content_block_start -> content_block_delta* -> content_block_stop,
     for both text and tool_use blocks (see _gemini_chunk_to_events).
+
+    `seen` keeps the latest usage_metadata and model_version from the chunks,
+    so stream_llm can log the turn once the caller is done with it.
     """
     async for chunk in gemini_stream:
+        if seen is not None:
+            if getattr(chunk, "usage_metadata", None) is not None:
+                seen["usage"] = chunk.usage_metadata
+            if getattr(chunk, "model_version", None):
+                seen["model"] = chunk.model_version
         for event in _gemini_chunk_to_events(chunk):
             yield event
 
@@ -896,6 +969,7 @@ async def stream_llm(
     )
 
     if _gemini_eligible(messages, tools):
+        gemini_start = time.monotonic()
         try:
             gemini_stream = await _open_gemini_stream(
                 system=system, messages=messages, max_tokens=max_tokens,
@@ -922,7 +996,17 @@ async def stream_llm(
             )
             _pause_gemini_if_refused(exc)
         else:
-            yield _gemini_stream_events(_prepend(first_chunk, gemini_agen))
+            seen: dict = {}
+            try:
+                yield _gemini_stream_events(_prepend(first_chunk, gemini_agen), seen)
+            finally:
+                # Usage so far, also when the caller stopped early (as for Anthropic below).
+                if seen.get("usage") is not None:
+                    _record_usage(
+                        purpose=purpose, provider="gemini", model=seen.get("model") or _GEMINI_MODEL,
+                        user_id=user_id, job_id=job_id, usage=seen["usage"],
+                        latency_ms=(time.monotonic() - gemini_start) * 1000,
+                    )
             return
 
     kwargs: dict = dict(model=model, max_tokens=max_tokens, messages=_strip_gemini_fields(messages))
@@ -943,7 +1027,7 @@ async def stream_llm(
     finally:
         await anthropic_cm.__aexit__(None, None, None)
         # Usage so far, also when the caller stopped early: the tokens were
-        # billed either way. A Gemini stream is not logged (no known price).
+        # billed either way.
         try:
             snapshot = anthropic_stream.current_message_snapshot
         except Exception:
