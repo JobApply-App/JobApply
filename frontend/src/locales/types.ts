@@ -623,6 +623,7 @@ export interface Dict {
     nothing_yet:    string
     complete_with_ariel: string
     checks:         Record<string, { ok: string; no: string }>
+    edit_company:   string            // link to onboarding question 5
     caps_title:     string
     caps_sub:       string            // {n}
     domain_meta:    string            // {n}
@@ -1325,6 +1326,14 @@ export interface Dict {
       work:             { onsite: string; hybrid: string; remote: string; any: string }
       change_label:     string
       change:           { yes: string; maybe: string; no: string }
+      // Question 5, optional: what kind of company, which industries.
+      company_title:    string
+      company_hint:     string
+      company_label:    string
+      company:          Record<'startup' | 'scaleup' | 'corporate' | 'any', string>
+      prefer_label:     string
+      avoid_label:      string
+      industries:       Record<'software' | 'cyber' | 'finance' | 'hardware' | 'defense' | 'health' | 'marketing' | 'hr' | 'telecom' | 'industry' | 'logistics' | 'retail' | 'realestate' | 'games' | 'gambling' | 'education' | 'public', string>
     }
     // Step 1 again, reached by Back: the account already exists.
     account: {

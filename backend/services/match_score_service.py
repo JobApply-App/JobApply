@@ -1726,48 +1726,73 @@ KNOCKOUT_SCORE_CAP = 40.0    # hard ceiling when Layer-0 knockout fails
 #     and seniority never enter the calculation.
 CULTURE_MAX_ADJUST = 5.0     # |delta| ceiling, in composite points
 
-# Work-model alignment for a remote-only user, per company work_model value.
-_REMOTE_ONLY_WM_ALIGNMENT: dict[str, float] = {
-    "remote":   100.0,
-    "flexible":  85.0,
-    "hybrid":    40.0,
-    "onsite":     0.0,
+# Work-model alignment per stated user work model, per company work_model.
+# "onsite" and "any" users get no work-model signal: an office-goer is not
+# put off by a remote option, and "any" says nothing.
+_WORK_MODEL_ALIGNMENT: dict[str, dict[str, float]] = {
+    "remote_only": {"remote": 100.0, "flexible": 85.0, "hybrid": 40.0, "onsite": 0.0},
+    "hybrid":      {"hybrid": 100.0, "flexible": 85.0, "remote": 70.0, "onsite": 30.0},
 }
 
+# A "scaleup" (growth company) preference has no end of the startup axis to
+# follow, so it reads the company's category instead.
+_SCALEUP_ALIGNMENT: dict[str, float] = {"scaleup": 100.0, "startup": 25.0, "corporate": 25.0}
 
-def compute_culture_alignment(culture_profile, user_prefs: dict) -> tuple[Optional[float], str]:
+
+def compute_culture_alignment(
+    culture_profile,
+    user_prefs: dict,
+    company_industries: Optional[list[str]] = None,
+) -> tuple[Optional[float], str]:
     """
     Alignment (0-100, 1 decimal) between the user's explicit preferences and
-    a CompanyCultureProfile, plus a specific human-readable note for the UI.
+    what is known about the company, plus a specific note for the UI.
 
     Signals (each only when both sides carry real data — no signal, no score):
-      • work model  — user's remote_only hard constraint vs the company's
-                      stated work_model ("unknown" contributes nothing).
-      • culture axis — user's culture_preference ("startup"/"corporate") vs
-                      the company's 0-100 startup axis.
+      • work model   — user's remote-only or hybrid preference vs the
+                       company's stated work_model ("unknown" contributes nothing).
+      • company type — user's "startup"/"corporate" preference vs the
+                       company's 0-100 startup axis; "scaleup" vs its category.
+      • industries   — company in an industry group the user avoids (0) or
+                       prefers (100). Avoid wins when both apply. Neither:
+                       no signal, so an untagged company is never penalised.
 
-    Returns (None, "") when the profile is missing/low-confidence or neither
-    signal exists — the fallback contract: no signal must mean no effect.
+    The culture profile is skipped when missing or low-confidence; the
+    industries come from the companies table and stand on their own.
+    Returns (None, "") when no signal exists — no signal must mean no effect.
     """
-    if culture_profile is None or getattr(culture_profile, "confidence", "low") == "low":
-        return None, ""
-
     signals: list[float] = []
     notes:   list[str]   = []
 
-    wm = getattr(culture_profile, "work_model", "unknown")
-    if user_prefs.get("work_model") == "remote_only" and wm in _REMOTE_ONLY_WM_ALIGNMENT:
-        score = _REMOTE_ONLY_WM_ALIGNMENT[wm]
-        signals.append(score)
-        notes.append(f"remote-only requirement vs company work model '{wm}'")
+    if culture_profile is not None and getattr(culture_profile, "confidence", "low") != "low":
+        wm    = getattr(culture_profile, "work_model", "unknown")
+        table = _WORK_MODEL_ALIGNMENT.get(user_prefs.get("work_model") or "")
+        if table and wm in table:
+            signals.append(table[wm])
+            notes.append(f"{user_prefs['work_model']} preference vs company work model '{wm}'")
 
-    pref = str(user_prefs.get("culture_preference", "any")).lower()
-    category = getattr(culture_profile, "culture_category", "unknown")
-    if pref in ("startup", "corporate") and category != "unknown":
-        axis  = float(getattr(culture_profile, "culture_axis", 50.0))
-        score = axis if pref == "startup" else 100.0 - axis
-        signals.append(score)
-        notes.append(f"'{pref}' preference vs culture axis {axis:.1f}/100 ({category})")
+        pref = str(user_prefs.get("culture_preference", "any")).lower()
+        category = getattr(culture_profile, "culture_category", "unknown")
+        if pref in ("startup", "corporate") and category != "unknown":
+            axis  = float(getattr(culture_profile, "culture_axis", 50.0))
+            score = axis if pref == "startup" else 100.0 - axis
+            signals.append(score)
+            notes.append(f"'{pref}' preference vs culture axis {axis:.1f}/100 ({category})")
+        elif pref == "scaleup" and category in _SCALEUP_ALIGNMENT:
+            signals.append(_SCALEUP_ALIGNMENT[category])
+            notes.append(f"'scaleup' preference vs company category '{category}'")
+
+    avoid  = set(user_prefs.get("industries_avoid") or ())
+    prefer = set(user_prefs.get("industries_prefer") or ())
+    if company_industries and (avoid or prefer):
+        from backend.services.industry_groups import groups_for
+        groups = groups_for(company_industries)
+        if groups & avoid:
+            signals.append(0.0)
+            notes.append(f"industry the user avoids ({', '.join(sorted(groups & avoid))})")
+        elif groups & prefer:
+            signals.append(100.0)
+            notes.append(f"industry the user prefers ({', '.join(sorted(groups & prefer))})")
 
     if not signals:
         return None, ""
@@ -2115,25 +2140,43 @@ def _run_ats_engine(
 
 def _load_culture_prefs(user_id: str) -> dict:
     """
-    The user-side inputs for culture alignment, from role_preferences:
-      work_model         — "remote_only" only for an explicit remote-only user
-                           (same mapping as get_knockout_prefs)
-      culture_preference — "startup" | "corporate" | "any" (default "any" ⇒
-                           the axis signal contributes nothing)
+    The user-side inputs for culture alignment.
+
+    What the user stated (career_goals, written by onboarding's "About you"
+    step and the profile's company questions) wins:
+      work_environment — "remote" ⇒ work_model "remote_only", "hybrid" ⇒ "hybrid"
+      company_type     — "startup" | "scaleup" | "corporate" | "any"
+      industries_prefer / industries_avoid — industry_groups ids
+    Until 2026-11-28 this read only the metrics document's role_preferences,
+    which no screen writes, so the onboarding work model never reached the
+    score. That document still supplies a remote-only work_type, and the
+    culture_preference feedback_service learns from ratings, used while
+    company_type is unanswered or "any" (a stated type always wins).
+
     Non-fatal: any load failure returns preference-free defaults, which
     produce alignment=None ⇒ no composite effect.
     """
+    defaults = {"work_model": None, "culture_preference": "any",
+                "industries_prefer": [], "industries_avoid": []}
     try:
+        from backend.repositories import profile_repository
+        from backend.services.industry_groups import clean
         from backend.services.master_profile_service import load
+        goals = profile_repository.get_profile_json(user_id).get("career_goals") or {}
         prefs = (load(user_id) or {}).get("role_preferences", {}) or {}
-        work  = str(prefs.get("work_type", "any")).lower()
+
+        work = str(goals.get("work_environment") or prefs.get("work_type") or "any").lower()
+        company_type = str(goals.get("company_type") or "any").lower()
+        culture = company_type if company_type != "any" else prefs.get("culture_preference", "any")
         return {
-            "work_model":         "remote_only" if work == "remote" else None,
-            "culture_preference": str(prefs.get("culture_preference", "any")).lower(),
+            "work_model":         {"remote": "remote_only", "hybrid": "hybrid"}.get(work),
+            "culture_preference": str(culture or "any").lower(),
+            "industries_prefer":  clean(goals.get("industries_prefer")),
+            "industries_avoid":   clean(goals.get("industries_avoid")),
         }
     except Exception as exc:
         logger.warning("[culture-fit] prefs load failed for user=%s: %s", user_id, exc)
-        return {"work_model": None, "culture_preference": "any"}
+        return defaults
 
 
 async def _compute_culture_fit(
@@ -2157,17 +2200,20 @@ async def _compute_culture_fit(
     try:
         from backend.agents.company_culture import get_culture_profile
         profile = await get_culture_profile(company_name, jd_text=jd_text)
-        if profile is None:
-            return None, None, None, None
+        prefs = _load_culture_prefs(user_id)
+        industries: list[str] = []
+        if prefs["industries_prefer"] or prefs["industries_avoid"]:
+            from backend.repositories import company_repository
+            industries = company_repository.industries_for(company_name)
 
-        alignment, note = compute_culture_alignment(profile, _load_culture_prefs(user_id))
+        alignment, note = compute_culture_alignment(profile, prefs, industries)
         prior = _find_prior_employer(cv_data, company_name) is not None
         delta = culture_delta_from_alignment(alignment, prior_employer=prior)
         if delta is None:
             return None, None, None, None
         if prior and delta == 0.0 and alignment is not None and alignment < 50.0:
             note = (note + " — negative adjustment waived (prior employer)") if note else note
-        category = profile.culture_category if profile.culture_category != "unknown" else None
+        category = profile.culture_category if profile and profile.culture_category != "unknown" else None
         return alignment, delta, category, (note or None)
     except Exception as exc:
         logger.warning("[culture-fit] unavailable for %r (non-fatal): %s", company_name, exc)
