@@ -196,7 +196,7 @@ def test_served_translations_only_while_the_original_is_current():
 def _seed(job_id: str, fit_brief: str):
     from backend.schemas.job import DetailedAnalysis, JobMatch
     job_repository.save_with_source_priority(JobMatch(
-        job_id=job_id, title="Translation test", company="Acme", location="Remote",
+        job_id=job_id, title="Translation test", company=f"Acme {job_id}", location="Remote",  # distinct posting per seed
         score=80.0, confidence_score=50, culture_fit_score=50,
         trajectory_alignment="", company_dna_inference="",
         detailed_analysis=DetailedAnalysis(strengths=[], critical_gaps=[], strategic_advice=[]),
