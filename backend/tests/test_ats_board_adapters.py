@@ -163,3 +163,17 @@ async def test_lever_drops_jobs_abroad(monkeypatch):
     _mock(monkeypatch, lambda r: httpx.Response(200, json=data))
     jobs = await LeverBoardAdapter("Acme", "acme").fetch_jobs()
     assert sorted(j.apply_url for j in jobs) == ["https://l/b", "https://l/c", "https://l/d"]
+
+
+def test_default_registry_has_israeli_greenhouse_boards(monkeypatch):
+    import backend.main as main_mod
+    from backend.scrapers import scraper_manager as sm
+
+    fresh = sm.ScraperManager()
+    monkeypatch.setattr(sm, "SCRAPER_MANAGER", fresh)
+    main_mod._seed_scraper_registry()
+
+    boards = [s for s in fresh._scrapers if isinstance(s, GreenhouseBoardAdapter)]
+    assert len(boards) >= 20
+    assert all(b._slug for b in boards)                       # every URL parses to a slug
+    assert len({b._slug for b in boards}) == len(boards)      # no duplicates
