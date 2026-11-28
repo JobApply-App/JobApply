@@ -37,7 +37,9 @@ export function WhatWorks({ refreshKey }: { refreshKey: number }) {
       <h2 id="what-works" className="text-[24px] sm:text-[30px] font-extrabold tracking-[-0.035em] text-slate-900">{W.title}</h2>
       <p className="mt-1.5 text-[15px] text-slate-500">{W.lead}</p>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-3">
+      {/* The skills card waits for a tailored CV: an empty card the height of
+          the others read as broken (Ron 27.11), so until then there are two. */}
+      <div className={`mt-5 grid gap-4 ${skills.length > 0 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
         <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-elevation-2">
           <p className="text-[13px] font-semibold text-slate-500">{W.rate_label}</p>
           <p className="mt-2 text-[44px] font-extrabold leading-none tracking-[-0.05em] tabular-nums text-teal-700">
@@ -73,11 +75,9 @@ export function WhatWorks({ refreshKey }: { refreshKey: number }) {
           )}
         </div>
 
-        <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-elevation-2">
-          <p className="text-[13px] font-semibold text-slate-500">{W.skills_label}</p>
-          {skills.length === 0 ? (
-            <p className="mt-3 text-[14px] text-slate-400">{W.skills_none}</p>
-          ) : (
+        {skills.length > 0 && (
+          <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-elevation-2">
+            <p className="text-[13px] font-semibold text-slate-500">{W.skills_label}</p>
             <ul className="mt-3 flex flex-wrap gap-2">
               {skills.map(k => (
                 <li key={k.keyword} dir="auto" className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-[13px] text-teal-800">
@@ -85,8 +85,8 @@ export function WhatWorks({ refreshKey }: { refreshKey: number }) {
                 </li>
               ))}
             </ul>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </section>
   )

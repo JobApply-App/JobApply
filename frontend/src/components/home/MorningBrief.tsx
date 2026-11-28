@@ -17,6 +17,7 @@ import { buttonClasses } from '../ui/Button'
 import { Skeleton } from '../ui/Skeleton'
 import { ScoreRing } from '../ui/ScoreRing'
 import { CompanyLogo } from '../ui/CompanyLogo'
+import { localizeReason } from '@/lib/reasonLabel'
 import { useReducedMotion, useCountUp } from '@/hooks/useMotion'
 import { ArrowIcon, CheckIcon, FileIcon, FilterIcon, SparkIcon } from '../icons'
 
@@ -227,7 +228,9 @@ export function TopMatchCards({ jobs, loading, onOpen, onSeeAll }: {
                 <span className="flex items-start gap-4">
                   <ScoreRing score={j.match_score} />
                   <span className="min-w-0 pt-1">
-                    <span dir="auto" className="block text-[17px] leading-snug font-bold tracking-[-0.02em] text-slate-900 line-clamp-2 [unicode-bidi:plaintext] text-start">{j.title}</span>
+                    {/* dir="auto" keeps a Hebrew title readable in the English UI; the
+                        alignment follows the UI, so the three titles line up. */}
+                    <span dir="auto" className="block text-[17px] leading-snug font-bold tracking-[-0.02em] text-slate-900 line-clamp-2" style={{ textAlign: locale === 'he' ? 'right' : 'left' }}>{j.title}</span>
                     <span className="mt-1.5 flex items-center gap-2 text-[14px] text-slate-500 min-w-0">
                       <CompanyLogo company={j.company} size={22} radius={6} />
                       <span className="truncate">{j.company}{location && <> · {location}</>}</span>
@@ -237,7 +240,7 @@ export function TopMatchCards({ jobs, loading, onOpen, onSeeAll }: {
                 {j.reasons.length > 0 && (
                   <span className="flex flex-wrap gap-1.5">
                     {j.reasons.slice(0, 3).map(r => (
-                      <span key={r.label} className="inline-flex items-center h-7 px-2.5 rounded-full bg-slate-100 text-[12.5px] text-slate-700">{r.label}</span>
+                      <span key={r.label} dir="auto" className="inline-flex items-center h-7 px-2.5 rounded-full bg-slate-100 text-[12.5px] text-slate-700">{localizeReason(r.label, t.job_card.reason_labels)}</span>
                     ))}
                   </span>
                 )}

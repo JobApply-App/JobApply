@@ -287,6 +287,8 @@ export interface Dict {
     contact:       string
     accessibility: string
     rights:        string
+    /** Logo.dev's plan asks for a visible link on a public page. */
+    logos_by:      string
     nav_label:     string
     group_support: string
     group_legal:   string

@@ -26,7 +26,7 @@ const contentSecurityPolicy = [
   // served by /api/all-jobs and /api/all-jobs/company-logos). Without it
   // every logo was blocked and showed as a letter. An image host cannot
   // receive a token or a CV, so this keeps what img-src protects.
-  "img-src 'self' data: blob: https://media.licdn.com",
+  "img-src 'self' data: blob: https://media.licdn.com https://img.logo.dev",
   "font-src 'self' data:",
   `connect-src 'self' ${supabaseOrigin}`.trim(),
   // The CV preview is an <iframe> of a data: PDF; downloads use blob: URLs.

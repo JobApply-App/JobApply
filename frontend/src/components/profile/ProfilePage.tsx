@@ -20,6 +20,7 @@ import { SparkIcon, XIcon, CheckIcon, ChevIcon, PinIcon, MailIcon } from '@/comp
 import { fetchProfileView, fetchRolePreferences, fetchAbout, fetchTrustScore, type AboutAnswers, type RoleSeniorityItem } from '@/lib/api'
 import type { TrustProfileEntity } from '@/lib/apiTypes'
 import { resolveDisplayName } from '@/lib/nameUtils'
+import { CompanyLogo } from '@/components/ui/CompanyLogo'
 import {
   capabilityDomains, companyEntries, latestRole, knowledgeTopics, militaryService, periodYears, roleFamilies, round1,
   type CapabilityDomain, type Check, type ProfileView, type Topic, type TopicId,
@@ -365,7 +366,6 @@ function Capabilities({ domains, byName, selected, onPick }: {
 
 // ── §4 Experience ─────────────────────────────────────────────────────────────
 
-const LOGO_TONES = ['#0F766E', '#9A3412', '#334155', '#134E4A', '#854D0E', '#1E3A5F']
 
 function Experience({ view }: { view: ProfileView }) {
   const P = useI18n().t.profile
@@ -379,13 +379,7 @@ function Experience({ view }: { view: ProfileView }) {
         {companies.length === 0 && <p className="py-5 text-[15px] text-slate-500">{P.no_experience}</p>}
         {companies.map((c, i) => (
           <div key={`${c.company}-${i}`} className="grid grid-cols-[40px_1fr] sm:grid-cols-[44px_1fr] gap-x-3 sm:gap-x-4 py-5 border-t border-slate-900/[.08] first:border-t-0">
-            <span
-              aria-hidden
-              className="grid place-items-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl text-white text-[17px] font-bold"
-              style={{ background: LOGO_TONES[i % LOGO_TONES.length] }}
-            >
-              {(c.company.trim()[0] ?? '·').toUpperCase()}
-            </span>
+            <CompanyLogo company={c.company} size={40} radius={12} />
             <div className="flex flex-col justify-center min-h-10 sm:min-h-11">
               <b className="text-[17px] font-bold text-slate-900"><bdi>{c.company || '—'}</bdi></b>
               {c.steps.length > 1 && <span className="text-[14px] text-slate-400 tabular-nums">{period(c.start, c.end)}</span>}
