@@ -31,7 +31,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.core.errors import AppError
-from backend.api.deps import CurrentUser, get_current_user, llm_rate_limit
+from backend.api.deps import CurrentUser, daily_ai_spend_limit, get_current_user, llm_rate_limit
 from backend.repositories import job_repository as job_store
 from backend.services.outreach_service import (
     generate_outreach,
@@ -71,7 +71,7 @@ class HeadhunterRequest(BaseModel):
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-@router.post("/message", response_model=OutreachResponse)
+@router.post("/message", response_model=OutreachResponse, dependencies=[Depends(daily_ai_spend_limit)])
 async def generate_message(body: OutreachRequest, user: CurrentUser = Depends(get_current_user)) -> OutreachResponse:
     """
     Generate a LinkedIn outreach message.
@@ -101,7 +101,7 @@ async def generate_message(body: OutreachRequest, user: CurrentUser = Depends(ge
     )
 
 
-@router.post("/headhunter", response_model=OutreachResponse)
+@router.post("/headhunter", response_model=OutreachResponse, dependencies=[Depends(daily_ai_spend_limit)])
 async def generate_headhunter_message(body: HeadhunterRequest, user: CurrentUser = Depends(get_current_user)) -> OutreachResponse:
     """
     Shortcut: generate a headhunter-optimised outreach message for a named agency recruiter.
@@ -134,7 +134,7 @@ class JobOutreachResponse(BaseModel):
     word_count:   int
 
 
-@router.post("/generate/{job_id}", response_model=JobOutreachResponse)
+@router.post("/generate/{job_id}", response_model=JobOutreachResponse, dependencies=[Depends(daily_ai_spend_limit)])
 async def generate_job_outreach(
     job_id: str,
     user:   CurrentUser = Depends(get_current_user),
@@ -180,7 +180,7 @@ class PitchResponse(BaseModel):
     word_count: int
 
 
-@router.post("/pitch/{job_id}", response_model=PitchResponse)
+@router.post("/pitch/{job_id}", response_model=PitchResponse, dependencies=[Depends(daily_ai_spend_limit)])
 async def generate_direct_pitch(
     job_id: str,
     user:   CurrentUser = Depends(get_current_user),

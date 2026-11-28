@@ -128,6 +128,18 @@ def mock_env_vars():
     os.environ["ANTHROPIC_API_KEY"] = "test-key-for-ci"
 
 
+@pytest.fixture(autouse=True)
+def no_llm_usage_writes(monkeypatch):
+    """
+    Keep llm_client from writing llm_usage rows during tests. Every mocked
+    LLM call would otherwise queue a real insert on a background thread,
+    against whatever database the run resolves. Tests of the usage log patch
+    _write_usage themselves (test_llm_usage.py).
+    """
+    import backend.services.llm_client as llm_client
+    monkeypatch.setattr(llm_client, "_write_usage", lambda **row: None)
+
+
 # ── Shared linkedin.jobs Postgres fixtures ───────────────────────────────────
 # Used by test_linkedin_job_pipeline.py and test_linkedin_jobs_route.py — this
 # table lives on the dedicated Postgres engine in backend/core/postgres.py,

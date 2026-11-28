@@ -42,6 +42,8 @@ CODES: dict[str, int] = {
     "daily_cv_limit":          429,
     "daily_chat_limit":        429,
     "daily_analysis_limit":    429,
+    "daily_ai_limit":          429,
+    "daily_public_chat_limit": 429,
     "linkedin_quota":          429,
     # Not found
     "job_not_found":           404,

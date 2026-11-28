@@ -30,7 +30,7 @@ from backend.services.match_score_service import (
     _is_experience_backed,
 )
 from backend.api.deps import (
-    CurrentUser, daily_generation_limit, get_current_user, llm_rate_limit, pdf_rate_limit, standard_rate_limit,
+    CurrentUser, daily_ai_spend_limit, daily_generation_limit, get_current_user, llm_rate_limit, pdf_rate_limit, standard_rate_limit,
 )
 from backend.services.master_profile_service import get_cached_answer, merge_answers
 from backend.repositories.job_repository import (
@@ -137,7 +137,7 @@ def _stored_cv_locale(user_id: str) -> str:
     return stored or "en"
 
 
-@router.post("/generate", response_model=ResumeGenerateResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/generate", response_model=ResumeGenerateResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def generate_resume(
     job_id: str = Form(...),
     supplemental_answers_json: str = Form(default="{}"),
@@ -583,7 +583,7 @@ def _build_match_proxy(job) -> str:
 
 @router.post(
     "/tailor", response_model=TailorResponse,
-    dependencies=[Depends(llm_rate_limit), Depends(daily_generation_limit)],
+    dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit), Depends(daily_generation_limit)],
 )
 async def tailor_resume(req: TailorRequest, user: CurrentUser = Depends(get_current_user)):
     """
@@ -946,7 +946,7 @@ def _reap_tasks() -> None:
 
 @router.post(
     "/tailor/start",
-    dependencies=[Depends(llm_rate_limit), Depends(daily_generation_limit)],
+    dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit), Depends(daily_generation_limit)],
 )
 async def start_tailor_resume(
     req: TailorRequest, user: CurrentUser = Depends(get_current_user)
@@ -1087,7 +1087,7 @@ class CopilotResponse(BaseModel):
     patch:           list[dict]     = []
 
 
-@router.post("/copilot", response_model=CopilotResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/copilot", response_model=CopilotResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def copilot_edit(req: CopilotRequest, user: CurrentUser = Depends(get_current_user)):
     """
     Apply a targeted, plain-English editing instruction to an existing cv_data.
@@ -1391,7 +1391,7 @@ class ReviseResponse(BaseModel):
     pdf_b64: Optional[str]      # base64 PDF (if approved)
 
 
-@router.post("/revise", response_model=ReviseResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/revise", response_model=ReviseResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def revise_resume(req: ReviseRequest, user: CurrentUser = Depends(get_current_user)):
     """
     Submit a revision request for a tailored CV.
@@ -1581,7 +1581,7 @@ class MatchScoreResponse(BaseModel):
     bullet_matches:      list[dict] = []
 
 
-@router.post("/match-score", response_model=MatchScoreResponse, dependencies=[Depends(llm_rate_limit)])
+@router.post("/match-score", response_model=MatchScoreResponse, dependencies=[Depends(llm_rate_limit), Depends(daily_ai_spend_limit)])
 async def match_score(req: MatchScoreRequest, user: CurrentUser = Depends(get_current_user)):
     """
     Compute a 0-100 ATS match score between cv_data and the stored job.

@@ -491,3 +491,71 @@ async def daily_chat_limit(user: CurrentUser = Depends(get_current_user)) -> Non
                 "with Ariel. This resets at midnight UTC."
             ), limit=DAILY_CHAT_MESSAGE_CAP,
         )
+
+
+DAILY_AI_SPEND_CAP_USD = 2.0
+
+
+async def daily_ai_spend_limit(user: CurrentUser = Depends(get_current_user)) -> None:
+    """
+    FastAPI dependency: reject with 429 once the estimated AI spend on the
+    caller's behalf today (UTC) reaches DAILY_AI_SPEND_CAP_USD.
+
+    A ceiling behind the per-feature caps above, not instead of them. Several
+    AI routes (CV copilot and revise, profile research, CV upload, the
+    profile interview, Ariel's probe) have only the per-minute burst limit, so
+    one account looping one of them had no daily bound at all. The sum comes
+    from llm_usage (written by llm_client for every call, background matching
+    included), so it bounds what an account costs in a day however the spend
+    is spread across features.
+
+    $2 sits well above a heavy real day: 15 Ariel messages at ~$0.065 plus a
+    few CVs and the feed's matching come to roughly $1.3.
+    """
+    from backend.repositories import llm_usage_repository
+
+    try:
+        spent = await asyncio.to_thread(llm_usage_repository.spend_today, user.user_id)
+    except Exception as exc:
+        # Open, and loud: this is a backstop behind the per-feature caps, and
+        # a fault in the usage log must not take every AI feature down with it.
+        logger.error("[deps] DAILY AI SPEND CHECK DID NOT RUN user_id=%s: %s", user.user_id, type(exc).__name__)
+        return
+    if spent >= DAILY_AI_SPEND_CAP_USD:
+        logger.warning("[deps] daily AI spend ceiling reached user_id=%s spent=%.2f", user.user_id, spent)
+        raise AppError("daily_ai_limit",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="You've reached today's AI usage limit. This resets at midnight UTC.",
+        )
+
+
+DAILY_PUBLIC_CHAT_CAP_PER_IP = 30
+
+
+def consume_daily_public_chat(client_ip: str) -> None:
+    """
+    Count one message to Eliya's public chat from client_ip, and reject with
+    429 once DAILY_PUBLIC_CHAT_CAP_PER_IP is reached today (UTC).
+
+    The public chat needs no account, so the only daily bound is per address.
+    Before this, the per-minute limits allowed one address ~14,000 messages a
+    day. Kept in kv_store like consume_daily_analysis, so a restart does not
+    reset it.
+    """
+    from datetime import datetime, timezone
+
+    from backend.repositories import kv_repository
+
+    key = f"daily_public_chat:{client_ip}:{datetime.now(timezone.utc).date().isoformat()}"
+    entry = kv_repository.get(key)
+    try:
+        used = int(entry.value) if entry else 0
+    except (TypeError, ValueError):
+        used = 0
+    if used >= DAILY_PUBLIC_CHAT_CAP_PER_IP:
+        raise AppError("daily_public_chat_limit",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="You've reached today's message limit. This resets at midnight UTC.",
+            limit=DAILY_PUBLIC_CHAT_CAP_PER_IP,
+        )
+    kv_repository.upsert(key, str(used + 1))

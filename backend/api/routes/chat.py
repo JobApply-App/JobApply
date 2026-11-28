@@ -40,7 +40,7 @@ from sqlalchemy.orm import Session
 
 from backend.core.errors import AppError
 from backend.api.deps import (
-    _client_ip,
+    _client_ip, consume_daily_public_chat, daily_ai_spend_limit,
     DAILY_ANALYSIS_CAP, DAILY_CHAT_MESSAGE_CAP, DAILY_CV_GENERATION_CAP, CurrentUser, daily_chat_limit,
     get_current_user, llm_rate_limit, optional_user_id, standard_rate_limit,
 )
@@ -369,7 +369,7 @@ async def _stream_response(
 
 # ── Route ──────────────────────────────────────────────────────────────────────
 
-@router.post("/stream", dependencies=[Depends(daily_chat_limit)])
+@router.post("/stream", dependencies=[Depends(daily_chat_limit), Depends(daily_ai_spend_limit)])
 async def chat_stream(
     body: ChatStreamRequest,
     user: CurrentUser = Depends(get_current_user),
@@ -1319,7 +1319,7 @@ def _ingest_cv_from_chat(user_id: str, item: AttachmentItem) -> None:
 
 # ── Route ─────────────────────────────────────────────────────────────────────
 
-@router.post("/ariel/private", dependencies=[Depends(daily_chat_limit)])
+@router.post("/ariel/private", dependencies=[Depends(daily_chat_limit), Depends(daily_ai_spend_limit)])
 async def ariel_private(
     body:       ArielPrivateRequest,
     background: BackgroundTasks,
@@ -1642,6 +1642,7 @@ async def eliya_public_chat(body: PublicChatRequest, request: Request) -> Stream
 
     user_id = await optional_user_id(request)
     client_ip = _client_ip(request)
+    await asyncio.to_thread(consume_daily_public_chat, client_ip)
     logger.info(
         "[chat/public] ip=%s session=%s signed_in=%s msg_len=%d history=%d attachments=%d",
         client_ip, body.session_id[:12], bool(user_id), len(body.message),
