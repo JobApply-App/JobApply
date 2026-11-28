@@ -112,6 +112,23 @@ def _careers_page_url(url: str) -> str:
     return f"{_CAREERS_BASE}/jobs/{url}"
 
 
+def _apply_url(pos: dict) -> Optional[str]:
+    """
+    The position's own page, which also keys its job_id (make_job_id).
+
+    careers_page_url (Comeet-hosted) comes first because it is unique per
+    position. careers_page_active_url follows the company's settings and can
+    be the company's generic careers page: on 2026-11-28, 113 of Comm-IT's
+    124 positions shared `comm-it.com/commit-jobs#career-sec`, so they
+    collapsed into one job. position_url is an API endpoint, last resort.
+    """
+    for field in ("careers_page_url", "careers_page_active_url", "position_url"):
+        url = (pos.get(field) or "").strip()
+        if url:
+            return url
+    return None
+
+
 # ── Comeet adapter ────────────────────────────────────────────────────────────
 
 class ComeetAdapter(BaseScraper):
@@ -327,9 +344,7 @@ class ComeetAdapter(BaseScraper):
                 self.company_name,
                 list(first.keys()),
                 first.get("name"),
-                first.get("careers_page_active_url")
-                    or first.get("careers_page_url")
-                    or first.get("position_url"),
+                _apply_url(first),
             )
         return data
 
@@ -392,12 +407,7 @@ class ComeetAdapter(BaseScraper):
             return None
 
         title     = (pos.get("name") or "").strip()
-        apply_url = (
-            pos.get("careers_page_active_url")
-            or pos.get("careers_page_url")
-            or pos.get("position_url")
-            or ""
-        ).strip() or None
+        apply_url = _apply_url(pos)
 
         if not title or not apply_url:
             return None

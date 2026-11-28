@@ -57,3 +57,33 @@ def test_no_comeet_defaults_are_seeded():
 
     src = inspect.getsource(main._seed_scraper_registry)
     assert '"adapter":      "comeet"' not in src
+
+
+def test_positions_sharing_a_company_careers_page_stay_distinct():
+    """Comm-IT, 2026-11-28: 113 of 124 positions had the same
+    careers_page_active_url (the company's generic careers page), so a job_id
+    built from it collapsed them into one job."""
+    adapter = ComeetAdapter("Comm-IT", "https://www.comeet.com/jobs/comm-it/76.008")
+    shared = "https://www.comm-it.com/commit-jobs#career-sec"
+    positions = [
+        {
+            "name": "AI R&D Forward Deployment Engineer",
+            "position_uid": uid,
+            "careers_page_active_url": shared,
+            "careers_page_url": f"https://www.comeet.com/jobs/comm-it/76.008/ai-rd/{uid}",
+            "location_object": {"city": city, "country": "IL"},
+        }
+        for uid, city in (("17.574", "Tel Aviv-Yafo"), ("17.574-43.606", "Hod Hasharon"))
+    ]
+    jobs = [adapter._parse_position(p) for p in positions]
+    assert all(j is not None for j in jobs)
+    assert len({j.job_id for j in jobs}) == 2
+    assert all(j.apply_url != shared for j in jobs)
+
+
+def test_active_url_is_used_when_no_hosted_page():
+    adapter = ComeetAdapter("Acme", "https://www.comeet.com/jobs/acme/30.005")
+    job = adapter._parse_position({
+        "name": "PM", "careers_page_active_url": "https://acme.com/jobs/pm",
+    })
+    assert job is not None and job.apply_url == "https://acme.com/jobs/pm"
